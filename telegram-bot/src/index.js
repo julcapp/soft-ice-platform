@@ -41,21 +41,27 @@ function welcomeText() {
   ].join('\n');
 }
 
+async function removeLegacyReplyKeyboard(ctx) {
+  await ctx.reply('Обновляем меню «У Тимоши» 🍦', Markup.removeKeyboard());
+}
+
 async function sendMainMenu(ctx) {
   await ctx.reply(welcomeText(), mainMenu);
 }
 
 bot.start(async (ctx) => {
+  await removeLegacyReplyKeyboard(ctx);
   await sendMainMenu(ctx);
 });
 
 bot.command('menu', async (ctx) => {
+  await removeLegacyReplyKeyboard(ctx);
   await sendMainMenu(ctx);
 });
 
 bot.action('main_menu', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply(welcomeText(), mainMenu);
+  await sendMainMenu(ctx);
 });
 
 bot.action('product_icecream', async (ctx) => {
