@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { flavorOfDay, product, syrups, toppings } from '../../domain/catalog.js';
 import { trackEvent } from '../../analytics/trackEvent.js';
 
