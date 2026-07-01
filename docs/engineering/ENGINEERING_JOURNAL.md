@@ -56,3 +56,18 @@ Commit: Pending
 Notes: Создана первая реализация Catalog Domain: catalogData, CatalogRepository, CatalogService, index exports. Используется путь CatalogService → CatalogRepository → catalogData.js.
 Risks: Перед коммитом требуется проверить GitHub Desktop и убедиться, что изменены только ожидаемые файлы.
 Next step: PRODUCT-003 — Domain Entity Normalization.
+
+## PRODUCT-003
+
+Date: 2026-07-01
+Task: PRODUCT-003 - Domain Entity Normalization
+Epic: Product Engine
+Sprint: Sprint 1.1
+Executor: Codex Desktop
+Reviewer: ChatGPT / Architecture Review
+Build: PASS
+Architecture Review: PASS
+Commit: Pending
+Notes: Added pure Product, Flavor, Syrup and Topping entity factories with validation helpers. Added RecipeReference and MediaReference factories. Catalog data now constructs normalized entities and CatalogRepository returns fresh normalized records through the existing PRODUCT-002 public methods.
+Risks: Future API/PostgreSQL integration should preserve the CatalogService -> CatalogRepository boundary and map external data through the same entity factories.
+Next step: PRODUCT-004 - Product Configurator.

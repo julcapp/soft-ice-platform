@@ -8,6 +8,7 @@
 
 ### Added
 
+- PRODUCT-003 domain entity normalization for Product, Flavor, Syrup, Topping, RecipeReference and MediaReference.
 - PRODUCT-001 DDD Lite domain foundation for Mini App domains and shared infrastructure folders.
 
 - AGENTS.md как главный документ инструкций для AI-агентов и Codex Desktop.
