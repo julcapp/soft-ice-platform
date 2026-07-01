@@ -8,6 +8,8 @@
 
 ### Added
 
+- PRODUCT-001 DDD Lite domain foundation for Mini App domains and shared infrastructure folders.
+
 - AGENTS.md как главный документ инструкций для AI-агентов и Codex Desktop.
 - PROJECT_MEMORY.md как долговременная память проекта для разработчиков и AI-агентов.
 
