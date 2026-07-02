@@ -71,3 +71,18 @@ Commit: Pending
 Notes: Added pure Product, Flavor, Syrup and Topping entity factories with validation helpers. Added RecipeReference and MediaReference factories. Catalog data now constructs normalized entities and CatalogRepository returns fresh normalized records through the existing PRODUCT-002 public methods.
 Risks: Future API/PostgreSQL integration should preserve the CatalogService -> CatalogRepository boundary and map external data through the same entity factories.
 Next step: PRODUCT-004 - Product Configurator.
+
+## EPIC-210
+
+Date: 2026-07-02
+Task: EPIC-210 - Event Platform Architecture
+Epic: Event Platform
+Sprint: Platform Core
+Executor: Codex Desktop
+Reviewer: Product Owner / Architecture Review pending
+Build: Not run - documentation-only change, no source files modified
+Architecture Review: Draft documented
+Commit: Pending
+Notes: Filled Event Platform architecture and epic documentation. Defined Event Bus role, domain events, integration events, event contracts, naming, versioning, delivery, storage, security and cross-domain relationships.
+Risks: Future implementation must preserve event contracts and avoid coupling domains through synchronous event handling.
+Next step: Review Event Platform documentation, then create EVENT-001 event contract registry task.

@@ -64,5 +64,11 @@ Decision: PRODUCT-006 adds the Pricing Engine core in `frontend/miniapp/src/doma
 Reason: Product pricing must be calculated from Product, Configuration and Recipe domain entities without embedding financial rules in UI, Wallet, Payment or Machine code.
 Expected effect: Future checkout, wallet and payment flows can consume a normalized PricingEntity while pricing rules remain repository-backed and replaceable by API or PostgreSQL.
 
+## ADR-012
+Date: 2026-07-02
+Decision: Event Platform is defined as a Platform Core architecture layer for formal domain and integration events across Product, Finance, Machine, CRM, AI, Analytics and Notification modules.
+Reason: The platform needs stable event contracts so every meaningful state change can be published without creating direct dependencies between domains.
+Expected effect: Future modules can react to order, payment, machine, customer and notification lifecycle changes through versioned event contracts while preserving domain ownership and allowing a future cloud event bus.
+
 ## Правило
 Каждое значимое техническое или продуктовое решение должно добавляться в этот журнал с датой, причиной и ожидаемым эффектом.

@@ -20,6 +20,7 @@
 
 | Epic | Статус |
 |---|---|
+| Event Platform | Architecture documented |
 | Customer Engine | Planned |
 | Loyalty Engine | Planned |
 | Payment Engine | Planned |
