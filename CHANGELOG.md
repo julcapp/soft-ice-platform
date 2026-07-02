@@ -8,6 +8,7 @@
 
 ### Added
 
+- PRODUCT-004 Configuration Engine foundation with ConfigurationEntity, ConfigurationRepository, ConfigurationService and module exports.
 - PRODUCT-003 domain entity normalization for Product, Flavor, Syrup, Topping, RecipeReference and MediaReference.
 - PRODUCT-001 DDD Lite domain foundation for Mini App domains and shared infrastructure folders.
 

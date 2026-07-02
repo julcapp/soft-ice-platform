@@ -46,5 +46,11 @@
 Причина: Каталог должен поддерживать будущие категории продуктов и backend-источники данных без переноса валидации, recipe references или media references в UI.
 Ожидаемый эффект: CatalogService остается публичной точкой доступа, а Product, Flavor, Syrup, Topping, RecipeReference и MediaReference задают первую явную границу доменных сущностей для расширения каталога.
 
+## ADR-009
+Date: 2026-07-01
+Decision: PRODUCT-004 adds the Configuration Engine foundation in `frontend/miniapp/src/domain/configuration/*` with ConfigurationEntity, ConfigurationRepository, ConfigurationService and module exports.
+Reason: Product configuration needs an isolated, UI-independent source of truth that validates product, flavor, size, syrup, topping and extras before Pricing, Recipe, Media and Machine engines consume the result.
+Expected effect: Future screens and channels can request a normalized ConfigurationEntity without embedding configuration validation in React, and removing `domain/configuration` fully rolls back the feature.
+
 ## Правило
 Каждое значимое техническое или продуктовое решение должно добавляться в этот журнал с датой, причиной и ожидаемым эффектом.
