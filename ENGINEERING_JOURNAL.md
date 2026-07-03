@@ -3,6 +3,30 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-03 - Runtime Completeness Audit
+
+- Created `docs/releases/RUNTIME_COMPLETENESS_AUDIT.md` as a documentation-only audit of runtime completeness after Architecture Baseline 1.0.
+- Evaluated Platform, Catalog, Configuration, Media, Recipe, Pricing, Finance, Ledger, Wallet, Bonus, Discount, Payment, Accounting Adapter, Order, Event, Machine, Notification, Customer/CRM, Analytics and AI runtimes.
+- Recorded overall runtime readiness 34/100 and architecture readiness 76/100.
+- Updated `CHANGELOG.md` to register the audit report.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, UI code, infrastructure runtime config or generated build output modified.
+
+## 2026-07-03 - Architecture Audit
+
+- Created `docs/releases/ARCHITECTURE_AUDIT.md` as a documentation-only repository and architecture audit after Architecture Baseline 1.0.
+- Audited repository structure, folders, runtime packages, architecture layers, business/domain layers, ADR, tasks, releases, naming, cross references, consistency, quality gates and exit criteria.
+- Recorded architecture score 82/100 and repository readiness score 64/100.
+- Updated `CHANGELOG.md` to register the audit report.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, infrastructure runtime config or generated build output modified.
+
+## 2026-07-03 - Release Governance Documentation
+
+- Created release governance documentation in `docs/releases/RELEASE_TEMPLATE.md`, `docs/releases/RELEASE_POLICY.md`, `docs/releases/VERSIONING.md` and `docs/releases/RELEASE_1_0.md`.
+- Defined release structure, freeze process, approval process, GitHub Release policy, documentation requirements, quality gates, architecture versioning, runtime SemVer rules and ADR release rules.
+- Recorded Architecture Release 1.0 as an architecture-only release with no runtime artifact, no frontend changes and no UI changes.
+- Updated `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register the release governance increment and ADR-025.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
 ## 2026-07-03 - ORDER-008 Machine Dispatch Architecture
 
 - Updated `docs/architecture/ORDER_PLATFORM.md` with Machine Dispatch architecture, lifecycle, machine selection, queue handling, delivery protocol, command acknowledgement, timeout handling, retry policy, failure recovery, event publication, monitoring, audit and architecture principles.

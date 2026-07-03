@@ -1,146 +1,128 @@
-# PROJECT_DECISIONS
+# PROJECT_DECISIONS.md
 
-Статус: Active
+> Файл должен лежать в репозитории по пути:
+>
+> `docs/architecture/PROJECT_DECISIONS.md`
 
-Журнал ключевых архитектурных и продуктовых решений проекта Soft ICE Platform.
+---
 
-## ADR-001
-Дата: 2026-06-29
-Решение: Основной репозиторий переименован в `soft-ice-platform`.
-Причина: единое название для всей экосистемы.
+# Decision: Promotion Platform Vision
 
-## ADR-002
-Дата: 2026-06-29
-Решение: Конфигурации Nginx хранятся в репозитории.
-Причина: воспроизводимость инфраструктуры.
+**Date:** 2026-07-03
 
-## ADR-003
-Дата: 2026-06-29
-Решение: Все интерфейсы строятся на единой Design System.
-Причина: единый UX на всех платформах.
+**Status:** Accepted
 
-## ADR-004
-Дата: 2026-06-29
-Решение: Все экраны проектируются адаптивными.
-Причина: поддержка Mini App, Web, CRM, терминалов и будущих устройств без создания отдельных интерфейсов.
+## Context
 
-## ADR-005
-Дата: 2026-06-29
-Решение: Используется единая медиатека и модель изображений.
-Причина: один источник изображений для всех каналов.
+В процессе проектирования Soft ICE Platform было принято решение отказаться от реализации разрозненных маркетинговых акций, конкурсов и розыгрышей.
 
-## ADR-006
-Дата: 2026-06-29
-Решение: Каталог продукции является единым источником данных.
-Причина: цены, доступность и изображения не должны храниться в коде интерфейса.
+Практика большинства компаний основана на ручном управлении подобными мероприятиями, что приводит к дополнительным трудозатратам, человеческим ошибкам, отсутствию прозрачности и невозможности масштабирования.
 
-## ADR-007
-Дата: 2026-07-01
-Решение: Mini App получает DDD Lite структуру доменов в `frontend/miniapp/src/domain/*`, где каждый домен содержит Repository, Service или Engine и `index.js`.
-Причина: Product Engine требует стабильных границ для каталога, цен, медиа, рецептов, заказов, лояльности, клиентов, платежей и интеграции с автоматом до подключения JSON, API и PostgreSQL.
-Ожидаемый эффект: следующие задачи Sprint 1.1 смогут добавлять источники данных и бизнес-логику без переписывания UI-компонентов и без смешивания доменов.
+Soft ICE Platform проектируется как автоматизированная система управления продуктом, клиентами, финансовыми операциями, заказами и маркетинговыми процессами.
 
-## ADR-008
-Дата: 2026-07-01
-Решение: Записи Product Engine Catalog нормализуются через чистые фабрики доменных сущностей перед возвратом из CatalogRepository.
-Причина: Каталог должен поддерживать будущие категории продуктов и backend-источники данных без переноса валидации, recipe references или media references в UI.
-Ожидаемый эффект: CatalogService остается публичной точкой доступа, а Product, Flavor, Syrup, Topping, RecipeReference и MediaReference задают первую явную границу доменных сущностей для расширения каталога.
+Поэтому маркетинговые активности должны стать частью архитектуры платформы, а не набором отдельных ручных сценариев.
 
-## ADR-009
-Date: 2026-07-01
-Decision: PRODUCT-004 adds the Configuration Engine foundation in `frontend/miniapp/src/domain/configuration/*` with ConfigurationEntity, ConfigurationRepository, ConfigurationService and module exports.
-Reason: Product configuration needs an isolated, UI-independent source of truth that validates product, flavor, size, syrup, topping and extras before Pricing, Recipe, Media and Machine engines consume the result.
-Expected effect: Future screens and channels can request a normalized ConfigurationEntity without embedding configuration validation in React, and removing `domain/configuration` fully rolls back the feature.
+---
 
-## ADR-010
-Date: 2026-07-02
-Decision: PRODUCT-005 adds the Recipe Engine core in `frontend/miniapp/src/domain/recipe/*` with RecipeEntity, RecipeRepository, RecipeService and module exports.
-Reason: A validated ConfigurationEntity must map to a machine-independent preparation recipe before later Machine Engine integration, without mixing recipe logic into UI, pricing, media or vending commands.
-Expected effect: Future order, CRM, analytics and vending flows can consume a normalized RecipeEntity from RecipeService while repository-backed recipe definitions remain replaceable by API or PostgreSQL.
+## Decision
 
-## ADR-011
-Date: 2026-07-02
-Decision: PRODUCT-006 adds the Pricing Engine core in `frontend/miniapp/src/domain/pricing/*` with PricingEntity, PricingRepository, PricingService and PricingEngine facade.
-Reason: Product pricing must be calculated from Product, Configuration and Recipe domain entities without embedding financial rules in UI, Wallet, Payment or Machine code.
-Expected effect: Future checkout, wallet and payment flows can consume a normalized PricingEntity while pricing rules remain repository-backed and replaceable by API or PostgreSQL.
+В платформу вводится отдельная подсистема:
 
-## ADR-012
-Date: 2026-07-02
-Decision: Event Platform is defined as a Platform Core architecture layer for formal domain and integration events across Product, Finance, Machine, CRM, AI, Analytics and Notification modules.
-Reason: The platform needs stable event contracts so every meaningful state change can be published without creating direct dependencies between domains.
-Expected effect: Future modules can react to order, payment, machine, customer and notification lifecycle changes through versioned event contracts while preserving domain ownership and allowing a future cloud event bus.
+**Promotion Platform / Promotion Runtime**
 
-## ADR-013
-Date: 2026-07-02
-Decision: Bonus Engine is defined as a separate non-monetary Finance Platform domain that manages discount rights, where one bonus gives the right to a 1 RUB nominal discount according to platform rules.
-Reason: Club Timofey, campaigns, referrals, birthday rewards and future partner programs need bonus lifecycle, expiration, reservation and redemption without treating bonuses as Wallet cash, Ledger money or accounting.
-Expected effect: Future checkout and loyalty work can coordinate Bonus, Pricing, Discount, Wallet, Ledger, CRM and Notification through events and contracts while preserving the rule that Ledger never stores bonus balance as money.
+Promotion Platform является самостоятельным Runtime платформы Soft ICE и отвечает за проведение маркетинговых кампаний, конкурсов, розыгрышей, сезонных активностей и программ стимулирования клиентов.
 
-## ADR-014
-Date: 2026-07-02
-Decision: Discount Engine is defined as a non-monetary price-reduction domain that calculates discount effects after gross Pricing Result and before Wallet or Payment flows.
-Reason: Coupons, campaigns, membership benefits, trusted customer discounts and bonus redemption need one deterministic stacking and priority policy without treating discounts as money or modifying Ledger.
-Expected effect: Future checkout, CRM, Reporting, Promotion Engine, Bonus, Wallet and Payment work can rely on a Discount Result that separates gross amount, discount lines and payable amount while preserving the rule that discounts do not create Wallet balance or Ledger entries.
+После публикации кампании её выполнение должно происходить автоматически.
 
-## ADR-015
-Date: 2026-07-02
-Decision: Payment Engine is defined as the Finance Platform settlement execution domain for card, SBP, Wallet and mixed payments, with provider integrations isolated behind adapters.
-Reason: Checkout needs a provider-neutral payment boundary that executes settlement from an approved payable amount without changing product, pricing, discount, bonus or wallet business logic.
-Expected effect: Future YooKassa, SBP, Wallet, refund, cancellation and provider expansion work can use stable Payment events and Ledger-backed financial facts while preserving Ledger as the source of truth.
+Изменение программного кода для запуска новой акции не допускается.
 
-## ADR-016
-Date: 2026-07-02
-Decision: Accounting Adapter is defined as the Finance Platform integration boundary that exports and imports Ledger-backed accounting synchronization data through replaceable adapters.
-Reason: External accounting systems require vendor-specific formats, acknowledgements, retries and reconciliation without becoming the source of platform financial truth or leaking into Payment, Wallet, Ledger, Pricing, Discount, Bonus, Order or UI code.
-Expected effect: Future manual file export, accounting API and ERP integrations can share one platform-owned export/import model while preserving Ledger as the source of truth and keeping synchronization idempotent, auditable and retry-safe.
+Все новые кампании создаются путём конфигурирования системы, а не через разработку отдельного сценария под каждую акцию.
 
-## ADR-017
-Date: 2026-07-02
-Decision: Order Platform is defined as the business aggregate layer that owns immutable configuration, pricing and discount snapshots, binds payment references, coordinates fulfillment state and publishes Order business events.
-Reason: Checkout needs a stable historical purchase record that does not recalculate prices from mutable catalog data and does not let Payment, Machine, UI or Finance domains become the owner of the whole purchase flow.
-Expected effect: Future checkout, customer history, CRM, support, analytics, payment recovery and machine fulfillment work can rely on Order snapshots and events while preserving domain ownership for Configuration, Pricing, Discount, Bonus, Payment, Ledger and Machine Platform.
+---
 
-## ADR-018
-Date: 2026-07-02
-Decision: Checkout Pipeline is defined as a deterministic orchestration sequence from product selection to confirmed order, payment success and machine queue handoff.
-Reason: The first purchase flow must calculate configuration, availability, pricing, discounts and bonus effects before payment, then collect only the accepted payable amount and preserve immutable Order snapshots after confirmation.
-Expected effect: Future checkout implementation can coordinate Product, Configuration, Pricing, Discount, Bonus, Order, Payment, Ledger, Event and Machine domains without duplicate orders, duplicate payments, duplicate bonus redemption or duplicate machine preparation.
+## Architecture Principles
 
-## ADR-019
-Date: 2026-07-03
-Decision: The Order State Machine uses the canonical states `Draft`, `Configured`, `Priced`, `Discounted`, `BonusReserved`, `PaymentPending`, `Paid`, `Queued`, `Preparing`, `Dispensing`, `Completed`, `Cancelled`, `RefundPending`, `Refunded` and `Expired`; terminal states are immutable.
-Reason: Order lifecycle implementation needs one explicit transition contract so Checkout, Payment, Wallet, Ledger, Bonus, Machine, CRM, Notification and Analytics can react to accepted facts without inventing screen-specific or provider-specific states.
-Expected effect: Future Order implementation can reject invalid transitions, publish one domain event per accepted transition, keep unpaid cancellation/expiry separate from paid refund compensation and preserve historical auditability.
+Promotion Platform должна обеспечивать:
 
-## ADR-020
-Date: 2026-07-03
-Decision: Order Platform uses the ORDER-004 canonical business event catalog: `OrderCreated`, `OrderConfigured`, `OrderValidated`, `PriceCalculated`, `DiscountApplied`, `BonusReserved`, `PaymentStarted`, `PaymentConfirmed`, `OrderQueued`, `PreparationStarted`, `DispensingStarted`, `OrderCompleted`, `OrderCancelled`, `RefundStarted`, `RefundCompleted` and `OrderExpired`.
-Reason: Checkout, Payment, Bonus, Machine, CRM, Notification, Analytics and support flows need stable Order-scoped event contracts where every accepted Order transition emits exactly one business event and retries or rejected commands do not duplicate lifecycle facts.
-Expected effect: Future Order implementation can publish idempotent, versioned events through Event Platform, rebuild projections by replay, preserve auditability and prevent duplicate payment, refund, bonus or machine side effects.
+- автоматическое выполнение кампаний;
+- автоматическое начисление билетов или шансов участия;
+- автоматическую проверку условий участия, если проверка может быть выполнена системой;
+- автоматическое определение победителей;
+- автоматическое уведомление участников;
+- автоматическое формирование истории кампаний;
+- журнализацию всех действий;
+- возможность независимого аудита результатов;
+- прозрачность правил для участников;
+- поддержку разных каналов: Telegram, VK, Mini App, сайт, CRM, автомат.
 
-## ADR-021
-Date: 2026-07-03
-Decision: Fulfillment starts only from paid Orders, keeps financial data immutable and delegates queue execution, machine assignment, preparation, dispensing and telemetry to Machine Platform while Order owns business fulfillment state.
-Reason: The first purchase flow needs a safe boundary between paid business orders, physical vending execution and financial compensation so machine failures cannot rewrite Payment, Wallet, Bonus or Ledger history.
-Expected effect: Future fulfillment implementation can queue and prepare products idempotently, publish domain events at every stage, retry or reconcile machine failures safely and move paid orders to refund compensation without duplicating products or mutating financial facts.
+---
 
-## ADR-022
-Date: 2026-07-03
-Decision: Order cancellation is defined as an explicit business process that closes unpaid orders as `Cancelled` and routes paid stop or cancellation cases through `RefundPending` and refund compensation.
-Reason: The platform must stop orders without editing historical transactions, immutable Order snapshots, Ledger entries, payment facts, wallet facts, bonus facts or machine facts.
-Expected effect: Future cancellation implementation can coordinate Payment, Refund Engine, Wallet, Bonus, Ledger and Machine domains through idempotent commands and business events while preserving auditability and financial truth.
+## Manual Operations
 
-## ADR-023
-Date: 2026-07-03
-Decision: Refund is defined as a compensating financial process that never edits historical Ledger records and is represented by new financial transactions, Ledger entries and refund events.
-Reason: Paid order recovery, support corrections and provider refunds must return value without rewriting the original sale, payment, wallet, bonus, machine or Order snapshot facts.
-Expected effect: Future refund implementation can coordinate Order, Payment Provider adapters, Ledger, Wallet, Bonus, CRM and Notification through idempotent, auditable contracts while preserving method-line attribution and financial truth.
+Ручное вмешательство допускается только в случаях, когда требуется модерация пользовательского контента или разбор спорной ситуации.
 
-## ADR-024
-Date: 2026-07-03
-Decision: Machine Dispatch is defined as the Machine Platform execution boundary for paid-order machine selection, dispatch queue handling, command delivery, acknowledgement, timeout, retry and recovery; Dispatch never changes financial data and never changes Order state directly.
-Reason: The first purchase flow needs a safe machine communication layer so only confirmed paid orders reach a vending machine, duplicate physical preparation is prevented and machine failures can be reconciled without mutating Payment, Wallet, Ledger or Order lifecycle facts directly.
-Expected effect: Future Machine Platform implementation can use idempotent dispatch commands, explicit acknowledgements, technical and business events, monitoring and audit trails while Order Platform remains the owner of business state transitions and Finance domains remain the owners of financial truth.
+Примеры допустимого ручного вмешательства:
 
-## Правило
-Каждое значимое техническое или продуктовое решение должно добавляться в этот журнал с датой, причиной и ожидаемым эффектом.
+- проверка фотографий;
+- проверка жалоб;
+- подтверждение нестандартной ситуации;
+- ручное решение спорного кейса администратором.
+
+Все остальные процессы должны быть автоматизированы.
+
+---
+
+## Campaign Examples
+
+Платформа должна поддерживать проведение разных кампаний без изменения архитектуры.
+
+Примеры кампаний:
+
+- 🎁 Клубные подарки Тимоши
+- 🍀 Сезон удачи от Тимоши
+- 🎡 Колесо удачи Тимоши
+- 🎉 Фестиваль подарков
+- ⭐ Неделя сюрпризов
+- 🎈 Праздник клуба Тимоши
+
+Перечень кампаний не ограничивается указанными примерами и может расширяться через конфигурацию.
+
+---
+
+## Future Runtime
+
+После завершения базовой архитектуры создаётся отдельный EPIC:
+
+**EPIC-500 Promotion Platform**
+
+В него войдут:
+
+- Campaign Engine;
+- Contest Engine;
+- Prize Engine;
+- Winner Engine;
+- Referral Campaign Engine;
+- Seasonal Campaign Engine;
+- Promotion Analytics;
+- Promotion Dashboard;
+- Campaign Automation.
+
+---
+
+## Expected Result
+
+Маркетинговые кампании становятся частью архитектуры платформы.
+
+Любая новая акция создаётся без изменения исходного кода.
+
+Promotion Platform становится единым центром управления маркетинговыми активностями Soft ICE Platform.
+
+Маркетинговые механики проектируются как повторно используемые компоненты, а не как одноразовые акции.
+
+---
+
+## Status
+
+**Accepted**
+
+Architecture Decision approved.
