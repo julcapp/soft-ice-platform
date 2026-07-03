@@ -3,6 +3,22 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-03 - Platform Kernel Registries and Lifecycle
+
+- Created `docs/kernel/RUNTIME_REGISTRY.md`, `docs/kernel/SERVICE_REGISTRY.md`, `docs/kernel/PLATFORM_BOOTSTRAP.md`, `docs/kernel/PLATFORM_CONFIGURATION.md` and `docs/kernel/PLATFORM_LIFECYCLE.md` as documentation-only Platform Kernel contract references.
+- Documented all known runtimes, runtime manifest fields, runtime registration, service registration, engine registration, dependency rules, bootstrap sequence, configuration loading, health monitoring, lifecycle states and graceful shutdown.
+- Kept Kernel responsibilities limited to coordination, registration, configuration shape validation, health observation and lifecycle control while preserving business logic ownership in runtimes and engines.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, UI code, runtime configuration or generated build output modified.
+
+## 2026-07-03 - Platform Kernel Architecture
+
+- Created `docs/kernel/PLATFORM_KERNEL.md` as a documentation-only architecture reference for the Platform Kernel.
+- Defined the Kernel as infrastructure coordination only: runtime startup, configuration, registries, event bus, platform services, health monitoring, security primitives, lifecycle coordination and fault tolerance.
+- Documented that the Kernel never contains business logic, Runtime owns business logic, Engine owns implementation and configuration is preferred over code changes.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, UI code, runtime config or generated build output modified.
+
 ## 2026-07-03 - Runtime Completeness Audit
 
 - Created `docs/releases/RUNTIME_COMPLETENESS_AUDIT.md` as a documentation-only audit of runtime completeness after Architecture Baseline 1.0.

@@ -8,6 +8,8 @@
 
 ### Added
 
+- Platform Kernel architecture documentation in `docs/kernel/PLATFORM_KERNEL.md` defining kernel scope, runtime coordination, engine boundaries, platform services, event bus, configuration layer, runtime registration, dependency rules, health monitoring, security, lifecycle, fault tolerance, extensibility and acceptance criteria.
+- Platform Kernel registry and lifecycle documentation in `docs/kernel/RUNTIME_REGISTRY.md`, `docs/kernel/SERVICE_REGISTRY.md`, `docs/kernel/PLATFORM_BOOTSTRAP.md`, `docs/kernel/PLATFORM_CONFIGURATION.md` and `docs/kernel/PLATFORM_LIFECYCLE.md`, defining all known runtimes, engine registration, bootstrap sequence, configuration loading, dependency rules, health monitoring and graceful shutdown.
 - Runtime completeness audit report in `docs/releases/RUNTIME_COMPLETENESS_AUDIT.md` covering Platform, Product, Finance, Order, Event, Machine, Notification, CRM, Analytics and AI runtimes with scores, risks, readiness, exit criteria and recommendations.
 - Architecture audit report in `docs/releases/ARCHITECTURE_AUDIT.md` covering repository structure, folders, runtime, architecture layers, business and domain layers, ADR, tasks, release readiness, consistency, scores, recommendations and quality gates.
 - Release governance documentation with release template, release policy, versioning rules and Architecture Release 1.0 record.

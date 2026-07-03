@@ -4,6 +4,17 @@
 Версия: 0.1
 Проект: Soft ICE Platform / «У Тимоши»
 
+## Platform Core
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-050 | Platform Kernel | Platform Core Sprint 1 | Architecture documented | Kernel coordinates Runtime, provides infrastructure services and stays free of business logic |
+| KERNEL-001 | Runtime Registry | Platform Core Sprint 1 | Documentation completed | Runtime manifest model, runtime catalog, dependency rules, registration rules and health states documented |
+| KERNEL-002 | Service Registry | Platform Core Sprint 1 | Documentation completed | Platform Services, service manifests, Engine registration and engine catalog documented |
+| KERNEL-003 | Platform Bootstrap | Platform Core Sprint 1 | Documentation completed | Startup sequence, runtime registration, engine registration, dependency resolution and readiness rules documented |
+| KERNEL-004 | Platform Configuration | Platform Core Sprint 1 | Documentation completed | Configuration categories, loading order, snapshots, feature flags, secrets, reload and health rules documented |
+| KERNEL-005 | Platform Lifecycle | Platform Core Sprint 1 | Documentation completed | Platform, Runtime, Engine, service and adapter lifecycle states, health escalation and graceful shutdown documented |
+
 ## Product Engine
 
 | Task | Название | Sprint | Статус | Комментарий |
