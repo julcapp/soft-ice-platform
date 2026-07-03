@@ -70,5 +70,47 @@ Decision: Event Platform is defined as a Platform Core architecture layer for fo
 Reason: The platform needs stable event contracts so every meaningful state change can be published without creating direct dependencies between domains.
 Expected effect: Future modules can react to order, payment, machine, customer and notification lifecycle changes through versioned event contracts while preserving domain ownership and allowing a future cloud event bus.
 
+## ADR-013
+Date: 2026-07-02
+Decision: Bonus Engine is defined as a separate non-monetary Finance Platform domain that manages discount rights, where one bonus gives the right to a 1 RUB nominal discount according to platform rules.
+Reason: Club Timofey, campaigns, referrals, birthday rewards and future partner programs need bonus lifecycle, expiration, reservation and redemption without treating bonuses as Wallet cash, Ledger money or accounting.
+Expected effect: Future checkout and loyalty work can coordinate Bonus, Pricing, Discount, Wallet, Ledger, CRM and Notification through events and contracts while preserving the rule that Ledger never stores bonus balance as money.
+
+## ADR-014
+Date: 2026-07-02
+Decision: Discount Engine is defined as a non-monetary price-reduction domain that calculates discount effects after gross Pricing Result and before Wallet or Payment flows.
+Reason: Coupons, campaigns, membership benefits, trusted customer discounts and bonus redemption need one deterministic stacking and priority policy without treating discounts as money or modifying Ledger.
+Expected effect: Future checkout, CRM, Reporting, Promotion Engine, Bonus, Wallet and Payment work can rely on a Discount Result that separates gross amount, discount lines and payable amount while preserving the rule that discounts do not create Wallet balance or Ledger entries.
+
+## ADR-015
+Date: 2026-07-02
+Decision: Payment Engine is defined as the Finance Platform settlement execution domain for card, SBP, Wallet and mixed payments, with provider integrations isolated behind adapters.
+Reason: Checkout needs a provider-neutral payment boundary that executes settlement from an approved payable amount without changing product, pricing, discount, bonus or wallet business logic.
+Expected effect: Future YooKassa, SBP, Wallet, refund, cancellation and provider expansion work can use stable Payment events and Ledger-backed financial facts while preserving Ledger as the source of truth.
+
+## ADR-016
+Date: 2026-07-02
+Decision: Accounting Adapter is defined as the Finance Platform integration boundary that exports and imports Ledger-backed accounting synchronization data through replaceable adapters.
+Reason: External accounting systems require vendor-specific formats, acknowledgements, retries and reconciliation without becoming the source of platform financial truth or leaking into Payment, Wallet, Ledger, Pricing, Discount, Bonus, Order or UI code.
+Expected effect: Future manual file export, accounting API and ERP integrations can share one platform-owned export/import model while preserving Ledger as the source of truth and keeping synchronization idempotent, auditable and retry-safe.
+
+## ADR-017
+Date: 2026-07-02
+Decision: Order Platform is defined as the business aggregate layer that owns immutable configuration, pricing and discount snapshots, binds payment references, coordinates fulfillment state and publishes Order business events.
+Reason: Checkout needs a stable historical purchase record that does not recalculate prices from mutable catalog data and does not let Payment, Machine, UI or Finance domains become the owner of the whole purchase flow.
+Expected effect: Future checkout, customer history, CRM, support, analytics, payment recovery and machine fulfillment work can rely on Order snapshots and events while preserving domain ownership for Configuration, Pricing, Discount, Bonus, Payment, Ledger and Machine Platform.
+
+## ADR-018
+Date: 2026-07-02
+Decision: Checkout Pipeline is defined as a deterministic orchestration sequence from product selection to confirmed order, payment success and machine queue handoff.
+Reason: The first purchase flow must calculate configuration, availability, pricing, discounts and bonus effects before payment, then collect only the accepted payable amount and preserve immutable Order snapshots after confirmation.
+Expected effect: Future checkout implementation can coordinate Product, Configuration, Pricing, Discount, Bonus, Order, Payment, Ledger, Event and Machine domains without duplicate orders, duplicate payments, duplicate bonus redemption or duplicate machine preparation.
+
+## ADR-019
+Date: 2026-07-03
+Decision: The Order State Machine uses the canonical states `Draft`, `Configured`, `Priced`, `Discounted`, `BonusReserved`, `PaymentPending`, `Paid`, `Queued`, `Preparing`, `Dispensing`, `Completed`, `Cancelled`, `RefundPending`, `Refunded` and `Expired`; terminal states are immutable.
+Reason: Order lifecycle implementation needs one explicit transition contract so Checkout, Payment, Wallet, Ledger, Bonus, Machine, CRM, Notification and Analytics can react to accepted facts without inventing screen-specific or provider-specific states.
+Expected effect: Future Order implementation can reject invalid transitions, publish one domain event per accepted transition, keep unpaid cancellation/expiry separate from paid refund compensation and preserve historical auditability.
+
 ## Правило
 Каждое значимое техническое или продуктовое решение должно добавляться в этот журнал с датой, причиной и ожидаемым эффектом.
