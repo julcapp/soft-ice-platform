@@ -3,6 +3,41 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-03 - ORDER-008 Machine Dispatch Architecture
+
+- Updated `docs/architecture/ORDER_PLATFORM.md` with Machine Dispatch architecture, lifecycle, machine selection, queue handling, delivery protocol, command acknowledgement, timeout handling, retry policy, failure recovery, event publication, monitoring, audit and architecture principles.
+- Updated `docs/tasks/ORDER-008_MACHINE_DISPATCH.md` as the detailed machine dispatch task record.
+- Updated `docs/tasks/TASK_INDEX.md`, `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register ORDER-008 and ADR-024.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
+## 2026-07-03 - ORDER-007 Refund Architecture
+
+- Updated `docs/architecture/ORDER_PLATFORM.md` with refund architecture, lifecycle, financial coordination, Ledger interaction, Wallet interaction, provider interaction, event publication, audit, fraud prevention and architecture principles.
+- Added `docs/tasks/ORDER-007_REFUND.md` as the detailed refund task record.
+- Updated `docs/tasks/TASK_INDEX.md`, `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register ORDER-007 and ADR-023.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
+## 2026-07-03 - ORDER-006 Cancellation Architecture
+
+- Updated `docs/architecture/ORDER_PLATFORM.md` with cancellation architecture, lifecycle, business rules, financial impact, machine interaction, compensation strategy, event publication, audit, monitoring and architecture principles.
+- Added `docs/tasks/ORDER-006_CANCELLATION.md` as the detailed cancellation task record.
+- Updated `docs/tasks/TASK_INDEX.md`, `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register ORDER-006 and ADR-022.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
+## 2026-07-03 - ORDER-005 Fulfillment Architecture
+
+- Updated `docs/architecture/ORDER_PLATFORM.md` with paid-order fulfillment lifecycle, queue management, machine assignment, preparation, dispensing, completion, failure handling, retry, compensation, event publication, audit and monitoring rules.
+- Added `docs/tasks/ORDER-005_FULFILLMENT.md` as the detailed fulfillment task record.
+- Updated `docs/tasks/TASK_INDEX.md`, `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register ORDER-005 and ADR-021.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
+## 2026-07-03 - ORDER-004 Order Events Architecture
+
+- Updated `docs/architecture/ORDER_PLATFORM.md` with the canonical Order Platform business event catalog and the rule that every accepted Order transition emits exactly one business event.
+- Added `docs/tasks/ORDER-004_ORDER_EVENTS.md` with event catalog, payload principles, versioning, ordering, idempotency, consumers, producers, failure handling, replay strategy and audit requirements.
+- Updated `docs/tasks/TASK_INDEX.md`, `CHANGELOG.md` and `docs/architecture/PROJECT_DECISIONS.md` to register ORDER-004 and ADR-020.
+- Verification: documentation-only change; no application source code or frontend files modified.
+
 ## 2026-07-03 - ORDER-003 Order State Machine Architecture
 
 - Updated `docs/architecture/ORDER_PLATFORM.md` with the canonical Order State Machine states, immutable terminal state rule and allowed transition summary.

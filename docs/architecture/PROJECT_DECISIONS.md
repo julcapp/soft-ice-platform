@@ -112,5 +112,35 @@ Decision: The Order State Machine uses the canonical states `Draft`, `Configured
 Reason: Order lifecycle implementation needs one explicit transition contract so Checkout, Payment, Wallet, Ledger, Bonus, Machine, CRM, Notification and Analytics can react to accepted facts without inventing screen-specific or provider-specific states.
 Expected effect: Future Order implementation can reject invalid transitions, publish one domain event per accepted transition, keep unpaid cancellation/expiry separate from paid refund compensation and preserve historical auditability.
 
+## ADR-020
+Date: 2026-07-03
+Decision: Order Platform uses the ORDER-004 canonical business event catalog: `OrderCreated`, `OrderConfigured`, `OrderValidated`, `PriceCalculated`, `DiscountApplied`, `BonusReserved`, `PaymentStarted`, `PaymentConfirmed`, `OrderQueued`, `PreparationStarted`, `DispensingStarted`, `OrderCompleted`, `OrderCancelled`, `RefundStarted`, `RefundCompleted` and `OrderExpired`.
+Reason: Checkout, Payment, Bonus, Machine, CRM, Notification, Analytics and support flows need stable Order-scoped event contracts where every accepted Order transition emits exactly one business event and retries or rejected commands do not duplicate lifecycle facts.
+Expected effect: Future Order implementation can publish idempotent, versioned events through Event Platform, rebuild projections by replay, preserve auditability and prevent duplicate payment, refund, bonus or machine side effects.
+
+## ADR-021
+Date: 2026-07-03
+Decision: Fulfillment starts only from paid Orders, keeps financial data immutable and delegates queue execution, machine assignment, preparation, dispensing and telemetry to Machine Platform while Order owns business fulfillment state.
+Reason: The first purchase flow needs a safe boundary between paid business orders, physical vending execution and financial compensation so machine failures cannot rewrite Payment, Wallet, Bonus or Ledger history.
+Expected effect: Future fulfillment implementation can queue and prepare products idempotently, publish domain events at every stage, retry or reconcile machine failures safely and move paid orders to refund compensation without duplicating products or mutating financial facts.
+
+## ADR-022
+Date: 2026-07-03
+Decision: Order cancellation is defined as an explicit business process that closes unpaid orders as `Cancelled` and routes paid stop or cancellation cases through `RefundPending` and refund compensation.
+Reason: The platform must stop orders without editing historical transactions, immutable Order snapshots, Ledger entries, payment facts, wallet facts, bonus facts or machine facts.
+Expected effect: Future cancellation implementation can coordinate Payment, Refund Engine, Wallet, Bonus, Ledger and Machine domains through idempotent commands and business events while preserving auditability and financial truth.
+
+## ADR-023
+Date: 2026-07-03
+Decision: Refund is defined as a compensating financial process that never edits historical Ledger records and is represented by new financial transactions, Ledger entries and refund events.
+Reason: Paid order recovery, support corrections and provider refunds must return value without rewriting the original sale, payment, wallet, bonus, machine or Order snapshot facts.
+Expected effect: Future refund implementation can coordinate Order, Payment Provider adapters, Ledger, Wallet, Bonus, CRM and Notification through idempotent, auditable contracts while preserving method-line attribution and financial truth.
+
+## ADR-024
+Date: 2026-07-03
+Decision: Machine Dispatch is defined as the Machine Platform execution boundary for paid-order machine selection, dispatch queue handling, command delivery, acknowledgement, timeout, retry and recovery; Dispatch never changes financial data and never changes Order state directly.
+Reason: The first purchase flow needs a safe machine communication layer so only confirmed paid orders reach a vending machine, duplicate physical preparation is prevented and machine failures can be reconciled without mutating Payment, Wallet, Ledger or Order lifecycle facts directly.
+Expected effect: Future Machine Platform implementation can use idempotent dispatch commands, explicit acknowledgements, technical and business events, monitoring and audit trails while Order Platform remains the owner of business state transitions and Finance domains remain the owners of financial truth.
+
 ## Правило
 Каждое значимое техническое или продуктовое решение должно добавляться в этот журнал с датой, причиной и ожидаемым эффектом.

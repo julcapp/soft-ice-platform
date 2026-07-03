@@ -37,6 +37,11 @@
 | ORDER-001 | Order Domain | Order Platform Sprint 1 | Architecture documented | Order lifecycle, states, snapshots, payment binding, fulfillment and recovery policy |
 | ORDER-002 | Checkout Pipeline | Order Platform Sprint 1 | Architecture documented | Deterministic checkout from product selection to payment confirmation and machine queue handoff |
 | ORDER-003 | Order State Machine | Order Platform Sprint 1 | Architecture documented | Canonical Order states, allowed transitions, invalid transitions, events, compensation, idempotency and audit rules |
+| ORDER-004 | Order Events | Order Platform Sprint 1 | Architecture documented | Canonical Order event catalog, payload principles, ordering, idempotency, consumers, producers, replay and audit rules |
+| ORDER-005 | Fulfillment | Order Platform Sprint 1 | Architecture documented | Paid-order fulfillment lifecycle, queue management, machine assignment, preparation, dispensing, completion, failure handling, retry, compensation, events, audit and monitoring |
+| ORDER-006 | Cancellation | Order Platform Sprint 1 | Architecture documented | Cancellation as a business process with unpaid cancellation, paid refund compensation, machine and financial coordination, events, audit and monitoring |
+| ORDER-007 | Refund | Order Platform Sprint 1 | Architecture documented | Refund as a compensating financial process with full and partial refund policy, Ledger, Wallet, provider, event, audit and fraud boundaries |
+| ORDER-008 | Machine Dispatch | Order Platform Sprint 1 | Architecture documented | Machine dispatch architecture for paid-order machine selection, queue handling, command delivery, acknowledgement, timeout, retry, recovery, events, audit and monitoring |
 
 ## Future Epics
 
