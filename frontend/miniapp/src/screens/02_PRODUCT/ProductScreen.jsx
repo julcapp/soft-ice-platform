@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { flavorOfDay, product, syrups, toppings } from '../../domain/catalog.js';
 import { trackEvent } from '../../analytics/trackEvent.js';
+import { DESIGN_RULES } from '../../shared/design/index.js';
 
 function OptionCard({ item, selected, onSelect }) {
   return (
@@ -68,7 +69,7 @@ export function ProductScreen({ onBack }) {
           <span>Итого</span>
           <strong>{product.price} {product.currency}</strong>
         </div>
-        <button className="button primary" type="button" onClick={continueOrder}>Далее</button>
+        <button className="button primary" type="button" onClick={continueOrder}>{DESIGN_RULES.microcopy.cta}</button>
       </footer>
     </main>
   );

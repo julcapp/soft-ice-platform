@@ -3,6 +3,66 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-06 - Mini App Design Rules
+
+- Added a Mini App design rules module under `frontend/miniapp/src/shared/design/` with spacing, fixed hierarchy values and shared microcopy.
+- Connected product flow CTA copy to `DESIGN_RULES.microcopy.cta`, changing the order continuation button to `Продолжить с комфортом`.
+- Updated active Mini App CSS variables in `frontend/miniapp/src/styles/global.css` for the approved spacing scale and fixed h1/body hierarchy values without viewport-width font scaling.
+- Updated `docs/design/DESIGN_TOKENS.md`, `docs/testing/TEST_SCENARIOS.md` and `CHANGELOG.md`.
+- Verification: `npm run build` passed in `frontend/miniapp`.
+
+## 2026-07-06 - Customer Domain Documentation
+
+- Created `docs/domain/CUSTOMER_DOMAIN.md` as a documentation-only DDD Lite Customer Domain contract for EPIC-300 / DOMAIN-001.
+- Defined Customer Domain ownership of `customer_id`, lifecycle, profile attributes, contact points, identity links, consent summary, Club Timofey status, trusted customer status, referral relationships, activity timeline, commands, queries, events, business rules, privacy and fraud controls.
+- Documented Telegram identification as an external alias flow: Authentication verifies Telegram init data, Customer Domain resolves or creates `customer_id`, and Telegram ID remains an external identity link.
+- Preserved domain boundaries: Customer does not calculate price, apply discounts, accrue bonuses, mutate wallet balance, execute payment, change Order lifecycle, deliver notifications or enforce API route authorization.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified.
+
+## 2026-07-06 - Event API Documentation
+
+- Filled `docs/api/EVENT_API.md` as a documentation-only Event API contract for Soft ICE Platform.
+- Defined Event API as an asynchronous fact boundary: events are immutable, events describe facts, Runtime owns business logic and transport can change without changing event contracts.
+- Documented event-driven architecture, event categories, domain events, integration events, notification events, envelope, metadata, versioning, ordering, delivery, retry policy, dead-letter handling, idempotent consumers, registry, `<Domain>.<Fact>` naming, security, acceptance criteria and roadmap.
+- Covered required event domains: Orders, Payments, Wallet, Bonus, Products, Promotions, Machines, Customers and Analytics.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration or generated build output modified.
+
+## 2026-07-06 - REST API Documentation
+
+- Created `docs/api/REST_API.md` as a documentation-only REST contract direction for Soft ICE Platform.
+- Defined REST API as synchronous transport only: endpoints expose capabilities, Runtime owns business rules and route handlers must not contain business logic.
+- Documented REST vision, design principles, resource naming, HTTP methods, URI convention, request and response structure, pagination, filtering, sorting, error format, API versioning, idempotency, rate limiting, authentication integration and authorization integration.
+- Documented resource groups for Customers, Wallet, Bonus, Orders, Payments, Products, Promotions, Machines, Events and Analytics with endpoint candidates and Runtime ownership boundaries.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration or generated build output modified.
+
+## 2026-07-06 - Authorization Documentation
+
+- Created `docs/api/AUTHORIZATION.md` as a documentation-only authorization contract for Soft ICE Platform API consumers, integrations and platform services.
+- Defined authorization as access policy enforcement only, separate from authentication and Runtime business rules.
+- Documented CustomerID as the primary platform identity, with TelegramID, phone, email, VK ID and external OAuth IDs treated as external identities only.
+- Documented permission, role and scope models, customer, machine, admin, partner, CRM and API client permissions, least privilege, role assignment, permission checks, access denied handling, audit logging, security rules, acceptance criteria and roadmap.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration or generated build output modified.
+
+## 2026-07-06 - Authentication Documentation
+
+- Filled `docs/api/AUTHENTICATION.md` as a documentation-only authentication contract for Soft ICE Platform API consumers and integrations.
+- Defined authentication as identity verification only, with authorization documented separately and business logic kept in Runtime contracts.
+- Documented identity model, consumer types, human, machine, Telegram Mini App, vending machine and partner authentication, API keys, JWT tokens, refresh tokens, token lifetime, session management, security rules, authentication flow, acceptance criteria and roadmap.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration or generated build output modified.
+
+## 2026-07-06 - API Overview Documentation
+
+- Created `docs/api/API_OVERVIEW.md` as a documentation-only API contract overview for Soft ICE Platform.
+- Defined API as a contract and integration layer for REST, Event API, webhooks, authentication, authorization, idempotency, versioning, error handling, security, rate limiting, monitoring and future SDKs.
+- Preserved the architecture rule that API never contains business logic, Runtime owns business logic, API is a contract and configuration controls behavior.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration or generated build output modified.
+
 ## 2026-07-03 - Platform Kernel Registries and Lifecycle
 
 - Created `docs/kernel/RUNTIME_REGISTRY.md`, `docs/kernel/SERVICE_REGISTRY.md`, `docs/kernel/PLATFORM_BOOTSTRAP.md`, `docs/kernel/PLATFORM_CONFIGURATION.md` and `docs/kernel/PLATFORM_LIFECYCLE.md` as documentation-only Platform Kernel contract references.
