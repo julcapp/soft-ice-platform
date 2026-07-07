@@ -6,6 +6,79 @@
 
 ---
 
+# Decision: DECISION-038 - Platform Data Model Is the Logical Source of Truth
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform now has domain documentation for Product, Customer, Club Account, Bonus, Payment, Order, Finance, Event, Machine and related architecture boundaries.
+
+Future implementation needs one logical data model that ties those domains together without treating the current Prisma schema, JSON files, UI state or provider payloads as the full platform model.
+
+Without this boundary, future storage work could duplicate ownership rules, put business data into UI, mutate historical financial or order facts, or let provider-specific schemas leak into platform contracts.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/data/PLATFORM_DATA_MODEL.md` as the canonical logical data model direction for platform entities, attributes, relationships, cardinality, aggregate boundaries, data owners, storage rules, immutable records, audit, retention direction and future expansion.
+
+Physical database schemas, Prisma models, JSON files and provider adapter schemas are implementation artifacts. They must follow the logical model, but they are not the full source of truth for domain ownership.
+
+Domain runtimes own source-of-truth records inside their boundaries. Other domains may store references, snapshots, events or projections only through approved contracts.
+
+---
+
+## Architecture Principles
+
+Logical model first, physical schema second.
+
+UI state is never source-of-truth business data.
+
+Historical orders use immutable snapshots.
+
+Financial facts are append-only and Ledger remains the financial source of truth.
+
+Payment provider identifiers are correlation references, not platform IDs.
+
+Events and audit records are immutable facts.
+
+Corrections use compensating records instead of silent edits.
+
+Retention and personal-data handling require explicit policy and audit before production automation.
+
+---
+
+## Consequences
+
+Future database migrations must be reviewed against the logical model and domain ownership map.
+
+Future API, event, CRM, analytics and runtime implementations must use platform IDs, aggregate boundaries and source-of-truth ownership from the data model.
+
+Future changes to data ownership, immutable records, retention direction or aggregate boundaries require documentation updates and, when significant, a new architecture decision.
+
+Any future implementation that treats UI state, provider payloads, current Prisma schema or analytics events as the authoritative platform data model requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/architecture/ARCHITECTURE_PRINCIPLES.md`
+- `docs/architecture/DDD_LITE_ARCHITECTURE.md`
+- `docs/architecture/ORDER_PLATFORM.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/BONUS_DOMAIN.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/LEDGER.md`
+- `docs/architecture/EVENT_PLATFORM.md`
+
+---
+
 # Decision: DECISION-037 - YooKassa API Configuration Uses Environment Variables
 
 **Date:** 2026-07-07

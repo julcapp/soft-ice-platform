@@ -8,6 +8,12 @@
 
 ### Added
 
+- Architecture status dashboard in `docs/architecture/ARCHITECTURE_STATUS.md` for EPIC-355 / ARCH-002 summarizing the current architecture version, completion and readiness scores, completed and in-progress EPICs, core layer status, documentation statistics, top risks, next priorities, readiness assessment and short roadmap while keeping the change documentation-only.
+
+- Architecture consistency audit report in `docs/architecture/ARCHITECTURE_AUDIT.md` for EPIC-355 / ARCH-001 covering every Markdown document under `docs/`, documentation statistics, duplicate concepts, terminology conflicts, ownership drift across Domain/Data/Finance/API, cross-reference integrity, folder and naming organization, glossary status, decision-log coverage, task-index coverage, changelog and journal chronology, obsolete references, recommended moves and merges, architecture risks, documentation debt and a documentation quality score while keeping the change documentation-only.
+
+- Platform Data Model documentation in `docs/data/PLATFORM_DATA_MODEL.md` defining EPIC-350 / DATA-001 logical platform data model with required core entities, entity identifiers, required and optional fields, relationships, cardinality, aggregate boundaries, data owners, storage rules, soft delete policy, immutable records, audit policy, retention policy, registry and reconciliation direction and future extensions while keeping the change documentation-only and independent from application code.
+
 - Payment Domain documentation in `docs/domain/PAYMENT_DOMAIN.md` defining EPIC-300 / DOMAIN-004 DDD Lite payment model with provider-agnostic payment intents, limited-lifetime sessions, YooKassa as primary provider, SBP, QR, payment links, saved payment methods, one-click top-up, voluntary auto top-up, webhook and polling confirmation, expiration, failure, cancellation, full and partial refunds, internal operations registry, reports, reconciliation, accounting, Club Account, Bonus, Order and machine dispatch boundaries.
 
 - YooKassa API configuration documentation and `.env.example` template with `YOOKASSA_SHOP_ID=1368517`, `YOOKASSA_API_URL=https://api.yookassa.ru/v3` and secret-key handling through environment variables only.

@@ -3,6 +3,31 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-07 - Architecture Status Dashboard
+
+- Created `docs/architecture/ARCHITECTURE_STATUS.md` as a documentation-only executive dashboard for EPIC-355 / ARCH-002.
+- Summarized Architecture Release 1.0, active runtime line `v0.3.0-alpha.1`, architecture readiness, runtime readiness, documentation quality score, completed EPICs, in-progress EPICs, core layer status, documentation statistics, top risks, next priorities, readiness assessment and short roadmap.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register ARCH-002.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-07 - Architecture Consistency Audit
+
+- Created `docs/architecture/ARCHITECTURE_AUDIT.md` as a documentation-only consistency audit for EPIC-355 / ARCH-001.
+- Scanned all Markdown documents under `docs/` and reviewed active root governance files `AGENTS.md`, `CHANGELOG.md`, `ENGINEERING_JOURNAL.md` and `PROJECT_MEMORY.md`.
+- Documented repository structure, documentation statistics, duplicate concepts, terminology conflicts, obsolete documents, obsolete references, missing documents, recommended relocations, recommended merges, architecture risks, documentation debt and documentation quality score.
+- Fixed obvious documentation reference drift in prior release audits and updated `docs/tasks/TASK_INDEX.md` to include EPIC-355 / ARCH-001, restore EPIC-210 traceability and align PRODUCT-004 through PRODUCT-006 with completed task records.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-07 - Platform Data Model Documentation
+
+- Created `docs/data/PLATFORM_DATA_MODEL.md` as a documentation-only logical data model for EPIC-350 / DATA-001.
+- Documented required platform entities across Customer, CustomerIdentity, CustomerConsent, Club Account, Bonus, Order, Product, Recipe, Machine, MachineGroup, Location, SalesChannel, Payment, PaymentSession, PaymentOperation, RefundOperation, PaymentRegistry, FinancialRegistry, Promotion, Referral, Notification and AuditEvent boundaries.
+- Captured key attributes, required fields, optional fields, relationships, cardinality, aggregate boundaries, data owners, source-of-truth rules, storage direction, soft delete policy, immutable records, audit requirements, retention direction, registry/reconciliation rules and future expansion paths.
+- Added `DECISION-038` to `docs/architecture/PROJECT_DECISIONS.md`, establishing `docs/data/PLATFORM_DATA_MODEL.md` as the canonical logical data model while keeping physical database schemas implementation-specific.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register DATA-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
 ## 2026-07-07 - Payment Domain Documentation
 
 - Created `docs/domain/PAYMENT_DOMAIN.md` as a documentation-only DDD Lite Payment Domain contract for EPIC-300 / DOMAIN-004.

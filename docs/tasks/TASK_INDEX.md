@@ -9,6 +9,7 @@
 | Task | Title | Sprint | Status | Comment |
 |---|---|---|---|---|
 | EPIC-050 | Platform Kernel | Platform Core Sprint 1 | Architecture documented | Kernel coordinates Runtime, provides infrastructure services and stays free of business logic |
+| EPIC-210 | Event Platform | Platform Core Sprint 1 | Architecture documented | Event Bus, event contracts, naming, versioning, delivery, storage, security and initial event catalog documented |
 | KERNEL-001 | Runtime Registry | Platform Core Sprint 1 | Documentation completed | Runtime manifest model, runtime catalog, dependency rules, registration rules and health states documented |
 | KERNEL-002 | Service Registry | Platform Core Sprint 1 | Documentation completed | Platform Services, service manifests, Engine registration and engine catalog documented |
 | KERNEL-003 | Platform Bootstrap | Platform Core Sprint 1 | Documentation completed | Startup sequence, runtime registration, engine registration, dependency resolution and readiness rules documented |
@@ -20,6 +21,21 @@
 | API-004 | REST API | Platform Core Sprint 1 | Documentation completed | REST API contract documented for transport-only route design, request and response shape, pagination, filtering, sorting, errors, versioning, idempotency, rate limits, auth integration, resource groups and roadmap |
 | API-005 | Event API | Platform Core Sprint 1 | Documentation completed | Event API contract documented for immutable fact events, event-driven architecture, categories, domain, integration and notification events, envelope, metadata, versioning, ordering, delivery, retry, dead-letter, idempotent consumers, registry, `<Domain>.<Fact>` naming, security and roadmap |
 
+## Data Platform
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-350 | Platform Data Model | Data Platform Sprint 1 | Architecture documented | Logical platform data model direction documented for entities, owners, aggregate boundaries, storage, immutable records, audit, retention and expansion |
+| DATA-001 | Logical Platform Data Model | Data Platform Sprint 1 | Documentation completed | Created `docs/data/PLATFORM_DATA_MODEL.md` as the canonical documentation-only logical data model with required entities, identifiers, required/optional fields, ownership, immutability, registries, reconciliation and retention direction |
+
+## Architecture Governance
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-355 | Architecture Consistency Audit | Architecture Governance Sprint 1 | Architecture documented | Full documentation repository consistency audit created for duplicate concepts, ownership drift, references, naming, glossary, chronology and architecture risks |
+| ARCH-001 | Documentation Consistency Audit | Architecture Governance Sprint 1 | Documentation completed | Created `docs/architecture/ARCHITECTURE_AUDIT.md` and updated active governance tracking without application code changes |
+| ARCH-002 | Architecture Status Dashboard | Architecture Governance Sprint 1 | Documentation completed | Created `docs/architecture/ARCHITECTURE_STATUS.md` as the executive architecture dashboard with version, completion, EPIC rollup, layer status, documentation statistics, risks, priorities, readiness and roadmap |
+
 ## Product Engine
 
 | Task | Название | Sprint | Статус | Комментарий |
@@ -27,10 +43,10 @@
 | PRODUCT-001 | DDD Lite Domain Foundation | Sprint 1.1 | Done | Создан каркас доменной архитектуры |
 | PRODUCT-002 | Catalog Domain Foundation | Sprint 1.1 | Review / Commit pending | Создан первый домен каталога |
 | PRODUCT-003 | Domain Entity Normalization | Sprint 1.1 | Review / Commit pending | Нормализация сущностей Product, Flavor, Syrup, Topping |
-| PRODUCT-004 | Product Configurator | Sprint 1.1 | Planned | Конфигурация выбора пользователя |
-| PRODUCT-005 | Recipe Engine Foundation | Sprint 1.2 | Planned | Связь конфигурации с приготовлением |
-| PRODUCT-006 | Media Engine Foundation | Sprint 1.2 | Planned | Выбор изображений и fallback |
-| PRODUCT-007 | Pricing Engine Foundation | Sprint 1.2 | Planned | Базовая цена, скидки, подготовка бонусов |
+| PRODUCT-004 | Configuration Engine Foundation | Sprint 1.1 | Done | ConfigurationEntity, ConfigurationRepository, ConfigurationService and module exports completed |
+| PRODUCT-005 | Recipe Engine Core | Sprint 1.2 | Done | RecipeEntity, RecipeRepository definitions, RecipeService validation and module exports completed |
+| PRODUCT-006 | Pricing Engine Core | Sprint 1.2 | Done | PricingEntity, repository-backed MVP pricing rules, PricingService and PricingEngine facade completed |
+| PRODUCT-007 | Media Engine Foundation | Sprint 1.2 | Planned | Выбор изображений и fallback |
 
 ## Finance Platform
 
@@ -73,10 +89,7 @@
 
 | Epic | Статус |
 |---|---|
-| Event Platform | Architecture documented |
-| Customer Engine | Architecture documented |
 | Loyalty Engine | Planned |
-| Payment Engine | Architecture documented |
 | Machine Engine | Planned |
 | CRM Engine | Planned |
 | Analytics Engine | Planned |

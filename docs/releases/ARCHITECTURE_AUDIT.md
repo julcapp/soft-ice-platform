@@ -279,9 +279,9 @@ Positive findings:
 Risks and gaps:
 
 - Product task status is inconsistent with implementation and engineering journal entries.
-- `TASK_INDEX.md` still lists PRODUCT-004 as Product Configurator planned, while `PRODUCT-004_CONFIGURATION_ENGINE.md` and runtime configuration code exist.
-- `TASK_INDEX.md` lists PRODUCT-005 as Recipe Engine planned, while recipe runtime code and `PRODUCT-005_RECIPE_ENGINE.md` exist.
-- `TASK_INDEX.md` lists PRODUCT-006 as Media Engine planned, while `PRODUCT-006_PRICING_ENGINE.md` exists and pricing runtime code exists.
+- `docs/tasks/TASK_INDEX.md` still lists PRODUCT-004 as Product Configurator planned, while `PRODUCT-004_CONFIGURATION_ENGINE.md` and runtime configuration code exist.
+- `docs/tasks/TASK_INDEX.md` lists PRODUCT-005 as Recipe Engine planned, while recipe runtime code and `PRODUCT-005_RECIPE_ENGINE.md` exist.
+- `docs/tasks/TASK_INDEX.md` lists PRODUCT-006 as Media Engine planned, while `PRODUCT-006_PRICING_ENGINE.md` exists and pricing runtime code exists.
 - There is no visible PRODUCT-007 task file for the Pricing Engine name used in the task index.
 - EPIC-230 has an internal planned task table that no longer fully matches ORDER-001 through ORDER-008 task files.
 

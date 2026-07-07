@@ -674,7 +674,7 @@ Risk Level: High
 
 Recommendations:
 
-- Create `docs/architecture/NOTIFICATION_ENGINE.md` before implementation.
+- Create dedicated Notification Engine architecture documentation before implementation.
 - Implement minimal payment/order status notifications after Event Runtime exists.
 - Keep message templates out of event contracts.
 
