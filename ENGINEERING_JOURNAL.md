@@ -3,6 +3,34 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-07 - Payment Domain Documentation
+
+- Created `docs/domain/PAYMENT_DOMAIN.md` as a documentation-only DDD Lite Payment Domain contract for EPIC-300 / DOMAIN-004.
+- Defined Payment Domain as a provider-agnostic bounded context with payment intents, limited-lifetime payment sessions, payment methods, saved payment method references, one-click top-up, voluntary auto top-up, webhook confirmation, status polling, expiration, failure, cancellation, full refunds, partial refunds, operations registry, reports and reconciliation.
+- Documented YooKassa as the primary payment provider while keeping YooKassa-specific fields, statuses, payloads and secrets inside the provider adapter boundary.
+- Preserved mandatory boundaries: QR codes and payment links have limited lifetime; expired sessions cannot start preparation; product preparation starts only after full confirmed payment; machine receives only paid orders; Club Account and Bonus Account remain separate; Bonus is not money; refunds are new financial operations, not edits to historical records.
+- Added `DECISION-033`, `DECISION-034`, `DECISION-035` and `DECISION-036` to `docs/architecture/PROJECT_DECISIONS.md`.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified.
+
+## 2026-07-06 - Bonus Domain Documentation
+
+- Created `docs/domain/BONUS_DOMAIN.md` as a documentation-only DDD Lite Bonus Domain contract for EPIC-300 / DOMAIN-003.
+- Defined Bonus Account as the customer-linked account for non-monetary discount rights and Bonus Transaction as the append-only journal for accrual, activation, reservation, redemption, release, expiration, cancellation, reversal and manual adjustment.
+- Documented bonus batches, projection fields, account lifecycle, transaction model, expiration policy, Burn Scheduler, Notification Scheduler, Referral Bonus, Birthday Bonus, Trusted Customer Bonus, Seasonal Bonus, Manual Adjustment, audit trail, state machines, sequence diagrams, events, business rules, edge cases, error scenarios and roadmap.
+- Preserved domain boundaries: Bonus is not money, not Wallet balance, not Club Account balance, not cash and not a payment method; Discount/Pricing owns the final discount effect and payable amount; Payment collects only the accepted payable amount; Ledger remains the financial source of truth.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified.
+
+## 2026-07-06 - Club Account Domain Documentation
+
+- Created `docs/domain/CLUB_ACCOUNT.md` as a documentation-only DDD Lite Club Account contract for EPIC-300 / DOMAIN-002.
+- Defined Club Account as a customer-facing prepaid balance for purchases inside Soft ICE Platform, not a bank account, not saved card storage and not bonus balance.
+- Documented lifecycle, available and reserved balance, 150 ₽ minimum recommended balance, automatic low-balance notification rule, 100 ₽ recommended top-up, activation, suspension, restoration, closing, transaction history, top-up, spending, refund, saved payment method consent, auto top-up, payment confirmation, purchase authorization, state machine, sequence diagrams, events, edge cases, error scenarios and roadmap.
+- Preserved domain boundaries: Bonus remains an independent right to discount of 1 ₽; Payment Engine owns provider confirmation; Ledger remains the financial source of truth; purchase preparation starts only after successful payment authorization; no automatic debit occurs without explicit consent.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the documentation increment.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified.
+
 ## 2026-07-06 - Mini App Design Rules
 
 - Added a Mini App design rules module under `frontend/miniapp/src/shared/design/` with spacing, fixed hierarchy values and shared microcopy.

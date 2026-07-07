@@ -6,6 +6,496 @@
 
 ---
 
+# Decision: DECISION-037 - YooKassa API Configuration Uses Environment Variables
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs YooKassa API settings for the first provider-backed payment integration.
+
+The shop identifier and API base URL are non-secret operational configuration. The YooKassa secret key is sensitive provider credential material and must not leak into code, documentation, frontend bundles, events, logs or committed environment files.
+
+---
+
+## Decision
+
+Soft ICE Platform configures the YooKassa provider adapter through environment variables:
+
+- `YOOKASSA_SHOP_ID` with value `1368517`;
+- `YOOKASSA_SECRET_KEY` from secure environment configuration only;
+- `YOOKASSA_API_URL` with value `https://api.yookassa.ru/v3`.
+
+The repository may include `.env.example` with variable names and non-secret values, but no real secret key.
+
+Real `.env` files are local/deployment artifacts and must not be committed.
+
+---
+
+## Architecture Principles
+
+Provider credentials are runtime secrets, not domain data.
+
+The YooKassa provider adapter may read `YOOKASSA_SECRET_KEY` from process environment, but must not expose it to Payment Domain events, UI, logs, Markdown examples or generic domain models.
+
+Startup/configuration validation may confirm that the secret exists, but must not print the secret value or authorization header.
+
+---
+
+## Consequences
+
+Future YooKassa implementation must load credentials through backend/runtime configuration and keep the secret inside the provider adapter boundary.
+
+Future logging, telemetry and error handling must mask provider credentials and avoid dumping full environment variables.
+
+Any future code, documentation or configuration that stores a real YooKassa secret key in repository files requires immediate correction and security review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `.env.example`
+- `.gitignore`
+
+---
+
+# Decision: DECISION-036 - Payment Provider Agnostic Model
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs payment by card, SBP, QR, payment link, saved payment method, Club Account, Wallet and future providers.
+
+YooKassa is the primary initial provider, but payment business logic must remain portable. If Order, Club Account, Bonus, Machine, UI or generic Payment code depends on YooKassa-specific fields, provider replacement and new method support would require broad rewrites and would weaken reconciliation.
+
+---
+
+## Decision
+
+Soft ICE Platform defines Payment Domain as provider agnostic.
+
+The platform-owned payment model uses:
+
+- `payment_id` as the platform payment identity;
+- payment intent;
+- payment session;
+- payment method line;
+- platform payment statuses;
+- platform refund operations;
+- provider-neutral confirmation, webhook, polling, expiration, cancellation and reconciliation rules.
+
+Provider-specific request fields, response fields, status names, SDKs, webhook payloads and secrets stay inside provider adapters and protected integration records.
+
+SBP, QR, payment links, cards, saved payment methods and future providers use the same payment model.
+
+---
+
+## Architecture Principles
+
+Payment business rules must not depend on YooKassa-specific fields.
+
+Provider status is translated into platform payment status before other domains consume it.
+
+Provider references are correlation metadata, not platform source IDs.
+
+Adding a provider must not require rewriting Pricing, Discount, Bonus, Club Account, Wallet, Ledger, Order, Machine or UI business logic.
+
+---
+
+## Consequences
+
+Future provider work must implement a provider adapter behind Payment Domain contracts.
+
+Provider adapters must declare capabilities, normalize errors, verify webhooks, map statuses and preserve idempotency.
+
+Any future code outside provider adapters that imports YooKassa-specific request shapes, statuses or SDK constants requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/api/REST_API.md`
+- `docs/api/EVENT_API.md`
+
+---
+
+# Decision: DECISION-035 - Financial Registry Is Internal
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Payment providers can produce reports, webhook history, settlement files and status responses. These external records are necessary for reconciliation, but they are not sufficient as the platform's only financial history.
+
+Soft ICE Platform must preserve its own payment operations, Ledger-backed facts, refund operations, accounting handoff records and reconciliation results.
+
+---
+
+## Decision
+
+Soft ICE Platform keeps an internal financial registry for payment history and reconciliation.
+
+Provider reports are inputs to reconciliation, not the only source of financial history.
+
+Ledger remains the source of truth for financial facts. Payment Operations Registry, Payment Session Registry, Refund Registry and provider report imports support traceability and reconciliation around Ledger-backed facts.
+
+External accounting systems and provider reports must not rewrite accepted platform financial history.
+
+---
+
+## Architecture Principles
+
+Completed payments, refunds and corrections must be represented internally.
+
+Provider success alone is not enough to erase internal recording and reconciliation requirements.
+
+Accounting Adapter exports Ledger-backed facts and records external acknowledgements without mutating original Ledger entries.
+
+Refunds and corrections are compensating facts.
+
+---
+
+## Consequences
+
+Future payment implementation must store enough internal history to reconstruct payment, refund and reconciliation outcomes even if provider reports are unavailable.
+
+Provider report imports must create import and reconciliation records.
+
+Any future implementation that treats provider reports as the sole source of platform payment history requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/architecture/LEDGER.md`
+- `docs/architecture/ACCOUNTING_ADAPTER.md`
+
+---
+
+# Decision: DECISION-034 - Payment Operations Registry
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Payment flows are asynchronous and can involve webhooks, polling, customer redirects, QR expiration, provider retries, one-click top-up, auto top-up, cancellations, refunds and reconciliation.
+
+Without an internal append-only operations registry, duplicate callbacks, late provider success, ambiguous states and refund corrections would be hard to audit and reconcile.
+
+---
+
+## Decision
+
+Soft ICE Platform introduces Payment Operations Registry as the internal append-only record of accepted payment-related operations and facts.
+
+The registry stores platform operations such as payment intent creation, session creation, QR or link creation, webhook acceptance, status polling, provider status mapping, authorization, capture, completion, expiration, failure, cancellation, refund request, refund completion, reconciliation and manual review.
+
+Payment Operations Registry does not store raw card data, CVV, provider secrets or unmasked provider payloads.
+
+---
+
+## Architecture Principles
+
+Payment operation records are append-only.
+
+Corrections are new operation records.
+
+Every provider side effect and webhook effect must be idempotent.
+
+Every operation must include stable platform references, amount, currency, source, correlation metadata and audit context where required.
+
+---
+
+## Consequences
+
+Future Payment Runtime implementation must define operation schema, idempotency scope, retention policy and audit access before production payment processing.
+
+Support, finance, reconciliation and CRM views should read authorized projections from the registry, not provider dashboards alone.
+
+Any future payment implementation that mutates historical operations in place requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/api/EVENT_API.md`
+
+---
+
+# Decision: DECISION-033 - YooKassa Is the Primary Payment Provider
+
+**Date:** 2026-07-07
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs an initial external payment provider for MVP payment scenarios, including card and SBP-oriented flows, while keeping the platform ready for future providers.
+
+The existing Payment Engine architecture identifies YooKassa as the planned initial external payment provider candidate.
+
+---
+
+## Decision
+
+Soft ICE Platform selects YooKassa as the primary payment provider for the first provider-backed payment integration.
+
+YooKassa integration is implemented through a YooKassa provider adapter behind the provider-agnostic Payment Domain model.
+
+YooKassa-specific API calls, request schemas, status names, webhook parsing and provider secrets are isolated inside the adapter and protected integration records.
+
+---
+
+## Architecture Principles
+
+YooKassa payment ID is a provider reference, not `payment_id`.
+
+YooKassa webhooks must be verified and deduplicated before they affect platform state.
+
+YooKassa statuses must be mapped into platform payment states.
+
+YooKassa confirmation data, QR data and payment links are limited-lifetime operational data.
+
+YooKassa reports are reconciliation inputs, not the only source of platform financial history.
+
+---
+
+## Consequences
+
+Future MVP payment implementation should prioritize YooKassa adapter contracts, webhook verification, status mapping, idempotency and reconciliation.
+
+Future provider migration or additional providers must preserve old provider references for refunds, reports and reconciliation.
+
+Any future code that exposes YooKassa secrets to frontend code, events, logs or generic domain models requires correction or security review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/architecture/ACCOUNTING_ADAPTER.md`
+- `docs/api/REST_API.md`
+- `docs/api/EVENT_API.md`
+
+---
+
+# Decision: Bonus Domain Non-Monetary Rights Boundary
+
+**Date:** 2026-07-06
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs a full Bonus Domain model for Club Timofey, referrals, birthdays, trusted customers, seasonal campaigns, support recovery and future Promotion Platform scenarios.
+
+Without a documented boundary, bonuses could be confused with Wallet cash, Club Account prepaid balance, discounts, payment method lines, accounting entries, campaign definitions or CRM operator notes.
+
+That confusion would create risk around financial reporting, customer messaging, refund handling, expiration, manual adjustments, fraud review and future scheduler automation.
+
+---
+
+## Decision
+
+Soft ICE Platform defines Bonus Domain as the owner of customer bonus rights.
+
+One bonus is a non-monetary right to receive a discount with a nominal value of 1 RUB according to platform rules.
+
+Bonus is not money.
+
+Bonus is not Wallet balance.
+
+Bonus is not Club Account balance.
+
+Bonus is not a payment method, cash payout, deposit, customer debt or accounting balance.
+
+Bonus Domain owns Bonus Account, Bonus Transaction, bonus batches, bonus projection, reservation, redemption, release, expiration, cancellation, reversal, manual adjustment, audit metadata, Burn Scheduler policy, Notification Scheduler trigger policy and bonus domain events.
+
+Bonus redemption creates a discount effect before payment.
+
+Discount/Pricing owns stacking, redemption caps, final discount effect and payable amount.
+
+Payment collects only the accepted payable amount.
+
+Ledger remains the source of truth for financial facts and never stores bonus balance as money.
+
+Wallet and Club Account must label bonus rights separately from monetary balances.
+
+Referral Bonus, Birthday Bonus, Trusted Customer Bonus, Seasonal Bonus and Manual Adjustment are supported as source-specific bonus operations, but final commercial amounts and production eligibility rules require Product Owner approval before implementation.
+
+All bonus operations are append-only. Corrections use compensating transactions and audit records.
+
+---
+
+## Architecture Principles
+
+Bonus Account is customer-linked but separate from Customer profile, Wallet and Club Account.
+
+Bonus Transaction is the immutable bonus history record.
+
+Bonus batches preserve source, rule ID, rule version, activation and expiration policy.
+
+Expiration is evaluated by batch.
+
+Burn Scheduler applies scheduled policy transitions such as expiration and approved automated cancellation; it does not redeem bonuses for checkout.
+
+Notification Scheduler detects bonus notification candidates and requests Notification Runtime; it does not deliver messages directly.
+
+CRM and support must use approved Bonus commands for manual adjustments.
+
+UI must not calculate, reserve, redeem, expire, cancel, reverse or manually adjust bonuses.
+
+Future Promotion Runtime may author campaigns and budgets, but Bonus Domain executes bonus rights lifecycle.
+
+---
+
+## Consequences
+
+Future Bonus Runtime implementation must expose command, query and event contracts before Mini App, Telegram Bot, CRM, Notification, Discount, Checkout or Promotion flows depend on it.
+
+Future referral, birthday, trusted customer, seasonal and manual adjustment flows must be idempotent, auditable and rule-versioned.
+
+Future Burn Scheduler and Notification Scheduler implementations must store scheduler run state, support safe redrive and avoid duplicate expiration, cancellation or message delivery.
+
+Future refunds and cancellations must use explicit Bonus cancellation or reversal policies and must not mutate historical bonus transactions.
+
+Any future code that treats bonuses as money, stores bonuses in Wallet or Club Account, passes bonuses as payment method lines, edits bonus history directly or sends bonus notifications from Bonus Domain requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/BONUS_DOMAIN.md`
+- `docs/architecture/BONUS_ENGINE.md`
+- `docs/architecture/DISCOUNT_ENGINE.md`
+- `docs/architecture/PRICING_ENGINE.md`
+- `docs/architecture/CHECKOUT.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/architecture/WALLET.md`
+- `docs/architecture/LEDGER.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/CONSENT_MODEL.md`
+- `docs/api/EVENT_API.md`
+
+---
+
+# Decision: Club Account Prepaid Balance Boundary
+
+**Date:** 2026-07-06
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs a Club Account model for Club Timofey customers that can support prepaid balance, top-ups, spending, refunds, low-balance notifications, saved payment method consent and future auto top-up.
+
+Without a documented boundary, prepaid balance could be confused with a bank account, Wallet implementation detail, saved card storage, bonus balance, discount value, Payment provider state or Order fulfillment permission.
+
+That confusion would create risk around automatic debits, purchase preparation, refunds, customer messaging, audit and future CRM support.
+
+---
+
+## Decision
+
+Soft ICE Platform defines Club Account as the customer-facing prepaid account boundary for purchases inside the platform.
+
+Club Account is not a bank account.
+
+Club Account funds represent prepaid balance for platform purchases only.
+
+Club Account owns the customer-facing account lifecycle, available and reserved balance rules, minimum recommended balance rule, top-up recommendation rule, transaction history, saved payment method consent status, auto top-up policy state and Club Account events.
+
+Minimum recommended balance is 150 ₽.
+
+When available balance drops below 150 ₽, the platform emits a low-balance fact so Notification can contact the customer according to consent and throttling policy.
+
+The system recommends top-up by 100 ₽. The customer may choose another valid amount.
+
+Saved payment method means provider-safe payment method reference, not saved card data.
+
+Saved payment method can be used for one-click top-up only after explicit consent.
+
+No automatic debit is allowed without explicit consent. Auto top-up requires separate consent, configured limits and provider/legal approval before production use.
+
+Purchase preparation starts only after successful payment authorization under approved Payment and Order policy.
+
+If Club Account balance is insufficient, the customer may top up, pay the difference or use another payment method.
+
+Bonus balance is independent from Club Account balance. Bonus is a right to discount of 1 ₽.
+
+Club Account keeps immutable transaction history; corrections and refunds are compensating operations, not edits.
+
+---
+
+## Architecture Principles
+
+Ledger remains the source of truth for financial facts.
+
+Wallet may provide a Ledger-backed projection.
+
+Payment Engine owns provider confirmation and external settlement.
+
+Order owns purchase lifecycle and machine fulfillment handoff.
+
+Bonus Engine owns bonus rights.
+
+Discount/Pricing own payable amount calculation.
+
+Club Account must not calculate product price, apply discounts, accrue bonuses, store raw card data, execute provider API calls, mutate Order state or start machine preparation.
+
+UI must not reconstruct balance, infer payment success or start preparation from local state.
+
+---
+
+## Consequences
+
+Future Club Account implementation must expose command, query and event contracts before Mini App, Telegram Bot, CRM or backend flows depend on it.
+
+Future top-up, one-click top-up, auto top-up, spending, refund and closing flows must be idempotent, auditable and Ledger/Payment aligned.
+
+Future saved payment method implementation must store only provider-safe references and consent metadata, never raw card data.
+
+Future low-balance notification must use the 150 ₽ threshold and 100 ₽ top-up recommendation unless Product Owner approves a versioned policy change.
+
+Any future code that treats Club Account as a bank account, merges bonuses into prepaid balance, debits without consent or starts machine preparation before approved payment authorization requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/domain/CONSENT_MODEL.md`
+- `docs/architecture/WALLET.md`
+- `docs/architecture/LEDGER.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/architecture/BONUS_ENGINE.md`
+- `docs/architecture/DISCOUNT_ENGINE.md`
+- `docs/architecture/CHECKOUT.md`
+- `docs/architecture/ORDER_PLATFORM.md`
+- `docs/api/EVENT_API.md`
+
+---
+
 # Decision: Customer Domain Identity and Relationship Boundary
 
 **Date:** 2026-07-06

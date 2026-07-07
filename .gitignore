@@ -1,9 +1,18 @@
 # -----------------------------
 # Environment
 # -----------------------------
-backend/.env
-telegram-bot/.env
 .env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+telegram-bot/.env
+telegram-bot/.env.*
+!telegram-bot/.env.example
+frontend/miniapp/.env
+frontend/miniapp/.env.*
+!frontend/miniapp/.env.example
 
 # -----------------------------
 # Node

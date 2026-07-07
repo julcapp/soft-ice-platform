@@ -63,8 +63,11 @@
 
 | Task | Title | Sprint | Status | Comment |
 |---|---|---|---|---|
-| EPIC-300 | Customer Platform | Customer Platform Sprint 1 | Architecture documented | Customer identity, lifecycle, consent, club, trust, referral and activity boundaries documented |
+| EPIC-300 | Customer Platform | Customer Platform Sprint 1 | Architecture documented | Customer identity, lifecycle, consent, club, trust, referral, activity, Club Account, Bonus and Payment boundaries documented |
 | DOMAIN-001 | Customer Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite Customer domain documented in `docs/domain/CUSTOMER_DOMAIN.md` |
+| DOMAIN-002 | Club Account Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite Club Account prepaid balance, top-up, spending, refund, consent, authorization and history model documented in `docs/domain/CLUB_ACCOUNT.md` |
+| DOMAIN-003 | Bonus Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite Bonus Account, transaction, expiration, scheduler, referral, birthday, trusted, seasonal and manual adjustment model documented in `docs/domain/BONUS_DOMAIN.md` |
+| DOMAIN-004 | Payment Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite provider-agnostic payment model, YooKassa primary provider, SBP, QR, payment links, saved payment methods, refunds, operations registry and reconciliation documented in `docs/domain/PAYMENT_DOMAIN.md` |
 
 ## Future Epics
 
