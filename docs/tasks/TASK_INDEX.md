@@ -80,9 +80,13 @@
 | Task | Title | Sprint | Status | Comment |
 |---|---|---|---|---|
 | EPIC-370 | Machine Platform | Machine Platform Sprint 1 | Architecture documented | Machine equipment execution boundary documented for paid-order dispatch, machine state, inventory, telemetry, maintenance and physical outcomes |
+| EPIC-373 | Machine State Model | Machine Platform Sprint 1 | Architecture documented | Machine lifecycle, runtime states, operation states, command states, transitions, recovery, offline behavior, maintenance mode, security and integration boundaries documented |
+| EPIC-374 | Machine Events and Telemetry | Machine Platform Sprint 1 | Architecture documented | Event-driven communication between Machine Digital Twin and Platform documented with event model, lifecycle events, order execution events, hardware events, telemetry, reliability, boundaries and security |
 | MACHINE-001 | Machine Domain | Machine Platform Sprint 1 | Documentation completed | Created `docs/domain/MACHINE_DOMAIN.md` as the DDD Lite machine model covering machine entity, lifecycle, statuses, location, configuration, capabilities, components, paid dispensing rules, payment-to-dispatch boundary, inventory, telemetry, commands, events, errors, maintenance, operator actions, audit and Order/Payment/Product integrations |
 | MACHINE-002 | Machine Passport | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_PASSPORT.md` as the official equipment passport with verified machine context, explicit Unknown and To be confirmed hardware fields, section-level verification statuses and manufacturer confirmation references |
 | MACHINE-003 | Machine Documentation Consistency Review | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_MODEL_REVIEW.md` for EPIC-372 / MACHINE-003 and fixed concrete Machine data-model identifier and relationship drift without application code changes |
+| MACHINE-STATE-001 | Machine State Model | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_STATE_MODEL.md` for EPIC-373 with lifecycle, runtime status, operation and command state models, transitions, commands, events, errors, recovery flows, offline behavior, maintenance mode, security rules and integration boundaries |
+| MACHINE-004 | Machine Events and Telemetry | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_EVENTS_TELEMETRY.md` for EPIC-374 with machine event model, lifecycle events, order execution events, hardware events, telemetry model, JSON examples, duplicate/delayed/offline/retry behavior, integration boundaries and security requirements |
 
 ## Customer Platform
 

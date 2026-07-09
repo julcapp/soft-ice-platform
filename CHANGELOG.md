@@ -8,6 +8,10 @@
 
 ### Added
 
+- Machine Events and Telemetry documentation in `docs/machine/MACHINE_EVENTS_TELEMETRY.md` for EPIC-374 / MACHINE-004, defining event-driven communication between the Machine Digital Twin and Platform, including the machine event model, lifecycle events, order execution events, hardware events, telemetry model, JSON examples, reliability rules, integration boundaries, security requirements and future extension while preserving the rule that machines report facts and the platform makes business decisions.
+
+- Machine State Model documentation in `docs/machine/MACHINE_STATE_MODEL.md` for EPIC-373 / MACHINE-STATE-001, defining machine lifecycle, runtime status, operation and command state models, transitions, commands, events, error states, recovery flows, offline behavior, maintenance mode, security rules and integration boundaries while preserving the rules that machines execute commands, the platform controls business decisions, payment confirmation is required before preparation and machines report results through events.
+
 - Machine model consistency review in `docs/machine/MACHINE_MODEL_REVIEW.md` for EPIC-372 / MACHINE-003, documenting reviewed Machine documents, fixed identifier and relationship inconsistencies in the platform data model, decisions required and recommendations while keeping the change documentation-only.
 
 - Machine Passport documentation in `docs/machine/MACHINE_PASSPORT.md` defining EPIC-372 / MACHINE-002 official equipment passport with verified general machine context, verified platform/equipment boundaries, documented cup and option counts where already approved, explicit unknowns for manufacturer, model, dimensions, power, sensors, actuators, connectivity, maintenance intervals and hardware payment details, and references for future manufacturer confirmation.

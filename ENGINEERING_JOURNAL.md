@@ -3,6 +3,25 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-09 - Machine Events and Telemetry Documentation
+
+- Created `docs/machine/MACHINE_EVENTS_TELEMETRY.md` as a documentation-only Machine Events and Telemetry contract for EPIC-374 / MACHINE-004.
+- Defined event-driven communication between the Machine Digital Twin and Platform, including event identity, event type, timestamps, machine identifiers, correlation IDs, payload, source and severity.
+- Documented lifecycle, order execution and hardware event families: `MachineConnected`, `MachineDisconnected`, `MachineStarted`, `MachineReady`, `MachineBusy`, `MachineError`, `MachineMaintenanceRequired`, `OrderReceived`, `OrderAccepted`, `PreparationStarted`, `PreparationCompleted`, `PreparationFailed`, `ProductDispensed`, `TemperatureWarning`, `IngredientLow`, `CupMagazineLow`, `ComponentFailure` and `CleaningRequired`.
+- Documented telemetry coverage for temperature, consumables, counters, runtime, connectivity and hardware health, with JSON examples for machine readiness, order acceptance, temperature warning, product dispensing and telemetry reporting.
+- Captured reliability, offline buffering, duplicate handling, retry, integration boundary and security requirements while preserving that machines report facts and platform domains make business decisions.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-374 / MACHINE-004.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-09 - Machine State Model Documentation
+
+- Created `docs/machine/MACHINE_STATE_MODEL.md` as a documentation-only Machine State Model for EPIC-373 / MACHINE-STATE-001.
+- Defined separate state axes for lifecycle, runtime status, connectivity, operation, command, maintenance and incidents so active business lifecycle is not confused with live equipment readiness.
+- Documented lifecycle, runtime, operation and command state machines with allowed transitions, command and event catalogs, error states, recovery flows, offline behavior, maintenance mode, security rules and integration boundaries.
+- Preserved mandatory boundaries: machine executes commands; platform controls business decisions; payment confirmation is required before preparation; machine reports results through events; Machine Runtime does not own payment, refund, bonus, product catalog or Order lifecycle decisions.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-373 / MACHINE-STATE-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
 ## 2026-07-09 - Machine Model Consistency Review
 
 - Created `docs/machine/MACHINE_MODEL_REVIEW.md` as a documentation-only consistency review for EPIC-372 / MACHINE-003.
