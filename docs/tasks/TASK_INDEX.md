@@ -75,6 +75,15 @@
 | ORDER-007 | Refund | Order Platform Sprint 1 | Architecture documented | Refund as a compensating financial process with full and partial refund policy, Ledger, Wallet, provider, event, audit and fraud boundaries |
 | ORDER-008 | Machine Dispatch | Order Platform Sprint 1 | Architecture documented | Machine dispatch architecture for paid-order machine selection, queue handling, command delivery, acknowledgement, timeout, retry, recovery, events, audit and monitoring |
 
+## Machine Platform
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-370 | Machine Platform | Machine Platform Sprint 1 | Architecture documented | Machine equipment execution boundary documented for paid-order dispatch, machine state, inventory, telemetry, maintenance and physical outcomes |
+| MACHINE-001 | Machine Domain | Machine Platform Sprint 1 | Documentation completed | Created `docs/domain/MACHINE_DOMAIN.md` as the DDD Lite machine model covering machine entity, lifecycle, statuses, location, configuration, capabilities, components, paid dispensing rules, payment-to-dispatch boundary, inventory, telemetry, commands, events, errors, maintenance, operator actions, audit and Order/Payment/Product integrations |
+| MACHINE-002 | Machine Passport | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_PASSPORT.md` as the official equipment passport with verified machine context, explicit Unknown and To be confirmed hardware fields, section-level verification statuses and manufacturer confirmation references |
+| MACHINE-003 | Machine Documentation Consistency Review | Machine Platform Sprint 1 | Documentation completed | Created `docs/machine/MACHINE_MODEL_REVIEW.md` for EPIC-372 / MACHINE-003 and fixed concrete Machine data-model identifier and relationship drift without application code changes |
+
 ## Customer Platform
 
 | Task | Title | Sprint | Status | Comment |
@@ -90,7 +99,7 @@
 | Epic | Статус |
 |---|---|
 | Loyalty Engine | Planned |
-| Machine Engine | Planned |
+| Machine Engine | Architecture documented; runtime planned |
 | CRM Engine | Planned |
 | Analytics Engine | Planned |
 | AI Engine | Planned |

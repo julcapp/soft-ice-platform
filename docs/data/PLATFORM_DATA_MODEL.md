@@ -363,11 +363,11 @@ Financial record rules:
 | `MachineGroup` | Machine Runtime | `machine_group_id`, `name`, group type, status, routing policy, owner scope | Machine Group 1 -> N machines. Location 0..N -> N groups by future routing policy. | Groups support routing, maintenance, reporting, franchise or partner boundaries. |
 | `Machine` | Machine Runtime | `machine_id`, `machine_group_id`, `name`, `location_id`, `status`, capabilities, current flavor, firmware/controller metadata | Machine Group 1 -> N machines. Machine 1 -> N inventory records, operations, telemetry and orders. | Machine identity is stable. Vendor IDs are aliases. |
 | `Location` | Operations / Machine | `location_id`, address/display name, geo reference, status, opening policy | Location 1 -> N machines. Location 0..N -> N machine groups by future routing policy. | Enables maps, routing and operations. |
-| `MachineInventory` | Machine Runtime | `inventory_id`, `machine_id`, item type, item ID/name, capacity, quantity left, threshold, updated_at | Machine 1 -> N inventory items. Inventory item 0..N machine events. | Inventory affects availability projections, not Product Catalog truth. |
+| `MachineInventory` | Machine Runtime | `machine_inventory_id`, `machine_id`, item type, item ID/name, capacity, quantity left, threshold, updated_at | Machine 1 -> N inventory items. Inventory item 0..N machine events. | Inventory affects availability projections, not Product Catalog truth. |
 | `MachineCapability` | Machine Runtime | `capability_id`, `machine_id`, supported recipes/options, constraints, status | Machine 1 -> N capabilities. Recipe N <-> N machines through capability mapping. | Needed before dispatch. |
 | `DispatchQueueEntry` | Machine Runtime | `queue_entry_id`, `order_id`, `order_item_id`, `machine_id`, `recipe_id`, status, priority, timestamps | Fully paid order item 0..1 active queue entry. Machine 1 -> N queue entries. | Only paid orders can enter queue. |
 | `MachineOperation` | Machine Runtime | `machine_operation_id`, queue entry, order, machine, recipe, command status, attempt count, result, timestamps | Queue entry 1 -> N operations/attempts. | Hardware execution record. Does not change finance. |
-| `MachineCommand` | Machine adapter boundary | `machine_command_id`, operation ID, command type, payload reference, status, sent_at, acknowledged_at | Operation 1 -> N commands. | Command payloads are adapter contracts, not Order state. |
+| `MachineCommand` | Machine adapter boundary | `command_id`, operation ID, command type, payload reference, status, sent_at, acknowledged_at | Operation 1 -> N commands. | Command payloads are adapter contracts, not Order state. |
 | `MachineTelemetryEvent` | Machine Runtime / Analytics | `telemetry_event_id`, `machine_id`, event type, severity, occurred_at, payload, correlation ID | Machine 1 -> N telemetry events. | Raw telemetry can be retained shorter than incidents and business operations. |
 | `MachineIncident` | Operations / Machine | `incident_id`, `machine_id`, severity, status, source event, opened_at, resolved_at, operator references | Machine 0..N incidents. Incident 1 -> N audit actions. | Used for support, maintenance and fulfillment recovery. |
 
@@ -468,7 +468,13 @@ Financial record rules:
 | MachineGroup -> Machine | 1 -> N | Machine groups support operations, routing and reporting. |
 | Location -> Machine | 1 -> N | A physical or business location can contain multiple machines. |
 | Machine -> MachineInventory | 1 -> N | Inventory drives availability projections. |
+| Machine -> MachineCapability | 1 -> N | Capabilities determine supported recipes and options before dispatch. |
+| Machine -> DispatchQueueEntry | 1 -> N | Queue entries represent paid order items waiting for machine execution. |
 | Machine -> MachineOperation | 1 -> N | Operation correlates to paid order and recipe. |
+| DispatchQueueEntry -> MachineOperation | 1 -> N | Retry or recovery policy may create multiple operation attempts for one queue entry. |
+| MachineOperation -> MachineCommand | 1 -> N | Commands are adapter delivery records for one machine operation. |
+| Machine -> MachineTelemetryEvent | 1 -> N | Telemetry supports readiness, diagnostics and incident investigation. |
+| Machine -> MachineIncident | 1 -> 0..N | Incidents support maintenance, support and recovery audit. |
 | Order -> DispatchQueueEntry | 1 -> 0..N | Only paid orders can be queued. |
 | EventEnvelope -> EventConsumerOffset | N -> N by stream/consumer | Consumers manage idempotency and replay. |
 | PaymentRegistry -> ReconciliationResult | 1 -> N | Imported provider records are compared to internal payment and ledger facts. |

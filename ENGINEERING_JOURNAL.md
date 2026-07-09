@@ -3,6 +3,33 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-09 - Machine Model Consistency Review
+
+- Created `docs/machine/MACHINE_MODEL_REVIEW.md` as a documentation-only consistency review for EPIC-372 / MACHINE-003.
+- Reviewed `docs/machine/MACHINE_PASSPORT.md`, `docs/domain/MACHINE_DOMAIN.md`, `docs/data/PLATFORM_DATA_MODEL.md` and `docs/architecture/PROJECT_DECISIONS.md` for terminology consistency, entity naming, component naming, missing relationships, conflicting definitions and unknown hardware assumptions.
+- Fixed concrete platform data model drift by aligning `MachineInventory` on `machine_inventory_id`, aligning `MachineCommand` on `command_id` and adding missing Machine relationship summary rows for capabilities, queue entries, operations, commands, telemetry and incidents.
+- Confirmed no conflicting ownership definition was found across Machine, Order, Payment and Product boundaries, and no unmarked hardware assumptions were found in the Machine Passport.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register MACHINE-003.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-09 - Machine Passport Documentation
+
+- Created `docs/machine/MACHINE_PASSPORT.md` as a documentation-only official engineering passport for EPIC-372 / MACHINE-002.
+- Recorded only verified equipment information from repository documentation and explicitly marked unknown hardware facts as `Unknown` or `To be confirmed`.
+- Documented verification status for every major passport section, including general information, physical characteristics, hardware components, capacity, sensors, actuators, consumables, connectivity, payments, maintenance, safety, manufacturer limitations, expandability and references.
+- Preserved hardware accuracy boundaries: manufacturer, model, dimensions, weight, power, real sensor list, actuator list, exact network interfaces, maintenance intervals, certifications and serial number are not invented and require confirmation.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register MACHINE-002.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-08 - Machine Domain Documentation
+
+- Created `docs/domain/MACHINE_DOMAIN.md` as a documentation-only DDD Lite Machine Domain contract for EPIC-370 / MACHINE-001.
+- Defined Machine as the business entity for physical vending equipment, including lifecycle, operational statuses, location, configuration, capabilities, components, inventory, telemetry, machine commands, machine events, error scenarios, maintenance, service operator actions and audit trail.
+- Preserved mandatory boundaries: machine does not start preparation before payment is confirmed; machine receives only paid orders; Machine Domain does not own payment logic, bonus logic, product pricing or Order lifecycle transitions; platform sends commands and machine returns events and execution results.
+- Added `DECISION-039` to `docs/architecture/PROJECT_DECISIONS.md`, establishing Machine Domain as the equipment execution boundary.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register MACHINE-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
 ## 2026-07-07 - Architecture Status Dashboard
 
 - Created `docs/architecture/ARCHITECTURE_STATUS.md` as a documentation-only executive dashboard for EPIC-355 / ARCH-002.

@@ -6,6 +6,78 @@
 
 ---
 
+# Decision: DECISION-039 - Machine Domain Owns Equipment Execution Boundary
+
+**Date:** 2026-07-08
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs a practical Machine Domain before real vending machine integration can be implemented.
+
+Existing Order, Payment, Product, REST, Event and Data Model documentation already establishes that paid order fulfillment must be separated from payment settlement, product catalog rules and UI behavior.
+
+Without a dedicated Machine Domain boundary, implementation could let machine adapters decide payment eligibility, mix inventory with financial state, hide preparation failures, duplicate physical dispensing through unsafe retries or make support unable to reconstruct machine incidents.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/domain/MACHINE_DOMAIN.md` as the documentation-only DDD Lite Machine Domain model.
+
+Machine Domain owns machine identity, lifecycle, status, location assignment, configuration, capabilities, components, dispatch queue execution, machine commands, acknowledgements, operation outcomes, inventory, telemetry, maintenance, service operator actions and machine audit trail.
+
+Machine Domain does not own payment logic, bonus logic, product pricing, customer profile, Product catalog source data, Ledger facts, refund execution, notification templates or Order lifecycle transitions.
+
+Machine receives only paid orders through approved Order and Machine dispatch contracts. Machine does not start preparation before payment is confirmed and accepted by Order policy.
+
+Platform sends commands; machine or adapter returns acknowledgements, status reports, telemetry and events. Product preparation failure must be reported as a Machine event.
+
+---
+
+## Architecture Principles
+
+Machine Domain reflects real equipment behavior, including offline state, stale telemetry, safety blocks, inventory shortages, component faults, preparation failures, partial dispensing and unknown physical outcomes.
+
+Machine inventory is tracked separately from payments and financial records.
+
+Machine command execution is idempotent and auditable.
+
+Timeouts and unknown outcomes require status reconciliation before retrying physical side effects.
+
+Order Domain owns purchase lifecycle and consumes validated machine facts through approved transitions.
+
+Payment Domain owns settlement confirmation and refund execution.
+
+Product Domain owns catalog, configuration and recipe source models.
+
+---
+
+## Consequences
+
+Future Machine Runtime implementation must expose approved command, query and event contracts before production machine integration.
+
+Future machine adapters must authenticate machine-originated facts, normalize vendor payloads, preserve idempotency and avoid leaking raw hardware protocol details into other domains.
+
+Future Order, CRM, Notification and Analytics work must consume Machine events and projections instead of polling raw adapters or inferring progress from timers.
+
+Any future implementation that lets machines prepare unpaid orders, decide payment state, mutate bonus or financial records, hide product preparation failures or retry physical commands without reconciliation requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/MACHINE_DOMAIN.md`
+- `docs/architecture/ORDER_PLATFORM.md`
+- `docs/tasks/ORDER-008_MACHINE_DISPATCH.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/api/REST_API.md`
+- `docs/api/EVENT_API.md`
+
+---
+
 # Decision: DECISION-038 - Platform Data Model Is the Logical Source of Truth
 
 **Date:** 2026-07-07

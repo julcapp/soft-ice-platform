@@ -8,6 +8,12 @@
 
 ### Added
 
+- Machine model consistency review in `docs/machine/MACHINE_MODEL_REVIEW.md` for EPIC-372 / MACHINE-003, documenting reviewed Machine documents, fixed identifier and relationship inconsistencies in the platform data model, decisions required and recommendations while keeping the change documentation-only.
+
+- Machine Passport documentation in `docs/machine/MACHINE_PASSPORT.md` defining EPIC-372 / MACHINE-002 official equipment passport with verified general machine context, verified platform/equipment boundaries, documented cup and option counts where already approved, explicit unknowns for manufacturer, model, dimensions, power, sensors, actuators, connectivity, maintenance intervals and hardware payment details, and references for future manufacturer confirmation.
+
+- Machine Domain documentation in `docs/domain/MACHINE_DOMAIN.md` defining EPIC-370 / MACHINE-001 DDD Lite machine model with machine entity, lifecycle, statuses, location, configuration, capabilities, components, paid-order dispensing rules, payment-to-dispatch boundary, inventory, telemetry, commands, events, error scenarios, maintenance, service operator actions, audit trail and integrations with Order, Payment and Product domains while preserving the rules that machines receive only paid orders and report physical execution results.
+
 - Architecture status dashboard in `docs/architecture/ARCHITECTURE_STATUS.md` for EPIC-355 / ARCH-002 summarizing the current architecture version, completion and readiness scores, completed and in-progress EPICs, core layer status, documentation statistics, top risks, next priorities, readiness assessment and short roadmap while keeping the change documentation-only.
 
 - Architecture consistency audit report in `docs/architecture/ARCHITECTURE_AUDIT.md` for EPIC-355 / ARCH-001 covering every Markdown document under `docs/`, documentation statistics, duplicate concepts, terminology conflicts, ownership drift across Domain/Data/Finance/API, cross-reference integrity, folder and naming organization, glossary status, decision-log coverage, task-index coverage, changelog and journal chronology, obsolete references, recommended moves and merges, architecture risks, documentation debt and a documentation quality score while keeping the change documentation-only.
