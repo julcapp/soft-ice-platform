@@ -36,6 +36,39 @@
 | ARCH-001 | Documentation Consistency Audit | Architecture Governance Sprint 1 | Documentation completed | Created `docs/architecture/ARCHITECTURE_AUDIT.md` and updated active governance tracking without application code changes |
 | ARCH-002 | Architecture Status Dashboard | Architecture Governance Sprint 1 | Documentation completed | Created `docs/architecture/ARCHITECTURE_STATUS.md` as the executive architecture dashboard with version, completion, EPIC rollup, layer status, documentation statistics, risks, priorities, readiness and roadmap |
 
+## Release Readiness
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-205 | MVP Backend Architecture | MVP Launch Sprint 1 | Architecture documented | First production backend architecture specified as a modular monolith with module boundaries, PostgreSQL ownership, REST API, event layer, integrations, security, deployment and future scaling path |
+| TECH-001 | MVP Backend Architecture Specification | MVP Launch Sprint 1 | Documentation completed | Created `docs/architecture/MVP_BACKEND_ARCHITECTURE.md` with backend goal, modular monolith approach, high-level architecture, Customer, Club Account, Bonus, Payment, Order, Machine and Notification modules, database, API, events, integrations, security, deployment and scaling |
+| EPIC-204 | MVP Implementation Roadmap | MVP Launch Sprint 1 | Roadmap documented | First production implementation roadmap created for one machine, one product, real customer, real payment and real loyalty across infrastructure, customer, payment, machine, Mini App and testing phases |
+| PLAN-001 | MVP Implementation Roadmap | MVP Launch Sprint 1 | Documentation completed | Created `docs/releases/MVP_IMPLEMENTATION_ROADMAP.md` with MVP goal, implementation phases, priority table, release criteria and post-MVP backlog |
+| EPIC-203 | First Machine Launch Readiness | MVP Launch Sprint 1 | Audit documented | First production launch readiness for one vending machine audited across customer journey, machine, payment, data, missing items, first launch scenario and risks |
+| MVP-001 | First Machine Launch Readiness Audit | MVP Launch Sprint 1 | Documentation completed | Created `docs/releases/MVP_LAUNCH_READINESS.md` as a documentation-only audit and recorded that the platform is architecture-ready but not yet production-launch-ready |
+
+## Mini App / UX
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-200 | Mini App Experience | Mini App Sprint 1 | MVP specified | Telegram Mini App implementation readiness reviewed and first practical customer account, loyalty and payment MVP specification documented |
+| UX-001 | Mini App Architecture Audit | Mini App Sprint 1 | Documentation completed | Created `docs/product/MINI_APP_AUDIT.md` with current status, existing and missing components, user journey analysis, required screens, API dependencies, authentication readiness, payment readiness, CRM readiness and MVP roadmap |
+| UX-002 | Mini App MVP Specification | Mini App Sprint 1 | Documentation completed | Created `docs/product/MINI_APP_MVP_SPEC.md` with Mini App purpose, MVP user journey, Home, Club Account, Payments, Purchases, Bonus Account and Profile screens, authentication, API dependencies, business rules, out-of-scope boundaries, UI/UX principles and future extensions |
+
+## Brand Website / UX
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-201 | Brand Website Landing | Website Sprint 1 | Landing specified | Customer-facing "У Тимоши" landing structure documented for brand introduction, vending concept explanation, Telegram handoff and Club customer conversion |
+| UX-003 | Landing Specification | Website Sprint 1 | Documentation completed | Created `docs/product/LANDING_SPEC.md` with landing purpose, audiences, customer journey, Hero, About, How it works, Product, Club, Machine, Telegram, Trust, SEO, design principles, MVP scope, integrations and future extensions |
+
+## Telegram Bot / UX
+
+| Task | Title | Sprint | Status | Comment |
+|---|---|---|---|---|
+| EPIC-202 | Telegram Bot Experience | Bot Sprint 1 | Flow specified | Customer bot flow documented for entry point, notifications, Mini App launch, customer communication, identity binding and backend-owned business boundaries |
+| BOT-001 | Telegram Bot User Flow Specification | Bot Sprint 1 | Documentation completed | Created `docs/product/TELEGRAM_BOT_FLOW.md` with bot purpose, first launch, main menu, registration/profile completion, payments, notifications, errors, security and integration boundaries |
+
 ## Product Engine
 
 | Task | Название | Sprint | Статус | Комментарий |

@@ -6,6 +6,88 @@
 
 ---
 
+# Decision: DECISION-040 - MVP Backend Uses Modular Monolith for First Machine Launch
+
+**Date:** 2026-07-10
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform needs a practical backend direction for the first real vending machine launch.
+
+The platform documentation already defines many domain boundaries, runtimes, APIs, events, payments, orders, finance, machine and notification responsibilities. Those boundaries are important, but the first commercial launch must not become a distributed system before one machine, one product slice and one payment path are proven in production.
+
+If the MVP backend is split into premature services, the project would inherit deployment, networking, tracing, retries, transactions and operational recovery complexity before there is enough production evidence to justify it.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/architecture/MVP_BACKEND_ARCHITECTURE.md` as the MVP backend architecture specification.
+
+The MVP backend uses a modular monolith by default:
+
+- one backend deployable;
+- one primary PostgreSQL database;
+- explicit internal modules for Customer, Club Account, Bonus, Payment, Order, Machine and Notification;
+- Product, Pricing, Configuration, Recipe and Media dependencies consumed through approved contracts;
+- REST, webhook and integration endpoints routed through module contracts;
+- database-backed outbox and idempotency records for first launch;
+- Telegram, YooKassa/SBP and machine integration isolated behind adapters.
+
+Microservices, an external message broker, CQRS read-store split, event-sourcing platform, service mesh, Kubernetes, multi-region deployment and separate runtime processes are not required for the first launch.
+
+A module may be separated only when there is a strong production reason such as provider network constraints, security isolation, machine vendor deployment constraints, proven load, independent uptime requirements or operational ownership that cannot be handled safely inside the monolith.
+
+---
+
+## Architecture Principles
+
+First machine launch reliability is more important than infrastructure sophistication.
+
+Module boundaries are still mandatory inside the monolith.
+
+API handlers, webhooks and adapters must authenticate, validate, deduplicate and route work; they must not own product, pricing, payment, order, bonus or machine business decisions.
+
+PostgreSQL is the MVP source of truth for customer, order, payment, machine, notification, idempotency, audit and outbox records.
+
+Domain events are internal facts first. External event infrastructure can be introduced later only when production need justifies it.
+
+Machine dispatch remains gated by accepted paid-order state.
+
+Provider-specific payment and machine payloads stay inside adapters.
+
+---
+
+## Consequences
+
+Future MVP backend implementation must start from a single deployable modular monolith and keep module ownership explicit in code, database schemas or table prefixes, events and API contracts.
+
+Future service extraction must preserve existing module contracts, source-of-truth ownership, idempotency, auditability and event semantics.
+
+Future infrastructure work must not introduce distributed-system requirements before the first machine launch unless the Product Owner approves a concrete production constraint.
+
+Any future implementation that requires multiple backend services, an external broker, a separate payment runtime, a separate machine runtime or advanced orchestration for the first launch requires architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/architecture/ARCHITECTURE_PRINCIPLES.md`
+- `docs/api/API_OVERVIEW.md`
+- `docs/api/REST_API.md`
+- `docs/api/WEBHOOKS.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/domain/ORDER_DOMAIN.md`
+- `docs/domain/MACHINE_DOMAIN.md`
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/releases/MVP_IMPLEMENTATION_ROADMAP.md`
+- `docs/releases/MVP_LAUNCH_READINESS.md`
+
+---
+
 # Decision: DECISION-039 - Machine Domain Owns Equipment Execution Boundary
 
 **Date:** 2026-07-08

@@ -3,6 +3,89 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-10 - MVP Backend Architecture Specification
+
+- Created `docs/architecture/MVP_BACKEND_ARCHITECTURE.md` as a documentation-only backend architecture specification for EPIC-205 / TECH-001.
+- Defined the first production MVP backend as a modular monolith with one deployable backend, one PostgreSQL database, internal module boundaries, an internal event/outbox layer and isolated integration adapters.
+- Documented high-level architecture for Landing, Telegram Bot, Mini App, API Layer, Domain Modules, Database, Event Layer and Integration Layer.
+- Defined backend modules for Customer, Club Account, Bonus, Payment, Order, Machine and Notification, including responsibilities and boundaries.
+- Captured PostgreSQL schema ownership direction, audit tables, immutable financial record rules, REST API authentication/authorization/versioning, domain/payment/machine/notification events, external integrations, security, MVP deployment and future scaling path.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-205 / TECH-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - MVP Implementation Roadmap
+
+- Created `docs/releases/MVP_IMPLEMENTATION_ROADMAP.md` as a documentation-only implementation roadmap for EPIC-204 / PLAN-001.
+- Defined the first production milestone as one machine, one product, real customer, real payment and real loyalty.
+- Converted current launch readiness, Mini App, landing, Telegram Bot, domain, data and architecture documentation into six implementation phases: Infrastructure, Customer, Payments, Machine, Mini App and Testing.
+- Captured the MVP loyalty interpretation as real customer identity, consent, Club Timofey or loyalty state and Bonus/loyalty projection, while moving advanced loyalty campaigns, saved payment methods, auto top-up and bonus redemption to post-MVP unless fully implemented and tested before launch.
+- Added a priority table with task, domain, priority, dependency and status columns for production infrastructure, Telegram identity, customer profile, loyalty state, order/payment binding, YooKassa/SBP, refunds, machine registration, inventory, events, Mini App API integration and launch tests.
+- Defined release criteria for infrastructure, customer, product/order, payment, machine, Mini App, loyalty and testing readiness before first production launch.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-204 / PLAN-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - First Machine Launch Readiness Audit
+
+- Created `docs/releases/MVP_LAUNCH_READINESS.md` as a documentation-only readiness audit for EPIC-203 / MVP-001.
+- Audited current documentation for first production launch with one ice cream vending machine.
+- Recorded the current platform verdict: architecture and documentation are strong enough to guide implementation, but the runtime is not production-launch-ready for a real vending machine.
+- Documented completed domains and specifications across Landing, Telegram Bot, Mini App, Customer, Club Account, Bonus, Payment, Machine, Platform Data Model and architecture decisions.
+- Checked customer journey readiness for Landing, Telegram Bot, Mini App, registration, payment, purchase and bonus flows.
+- Checked machine readiness for machine profile, inventory, telemetry, events and configuration, including hardware verification gaps from the Machine Passport.
+- Checked payment readiness for YooKassa, SBP, QR, refunds and payment registries.
+- Checked data readiness for customer data, transactions, orders, audit logs, idempotency and event storage.
+- Separated missing implementation items into must-have before launch and items that can be postponed.
+- Defined a narrow first launch scenario with one machine, one product, one YooKassa-backed payment flow and one Telegram Bot -> Mini App customer journey.
+- Identified technical, operational and business risks for the first launch.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-203 / MVP-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - Telegram Bot User Flow Specification
+
+- Created `docs/product/TELEGRAM_BOT_FLOW.md` as a documentation-only Telegram Bot customer flow specification for EPIC-202 / BOT-001.
+- Defined Telegram Bot as the entry point, notification channel, Mini App launcher and customer communication channel, while explicitly keeping business logic in backend Runtimes.
+- Documented first launch flow from opening the bot through welcome, consent, registration/profile completion, Telegram identity binding and Mini App launch.
+- Defined main menu buttons: Open Mini App, Club Account, Bonuses, Purchases, Profile and Help.
+- Captured registration/profile completion requirements for name, phone, email and consent management with Customer/Consent backend ownership.
+- Documented payment scenarios for Club Account top-up, YooKassa, SBP link, QR payment and payment confirmation, preserving Payment Runtime as source of truth.
+- Defined bot notifications for balance low, payment success, purchase completed, bonus received and promotions, including consent and Notification Runtime boundaries.
+- Added error scenarios for payment failed, user not registered/customer not resolved, expired payment and unavailable service.
+- Documented security rules for user identification, permissions and personal data, and integration boundaries for Bot, Mini App and Backend.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-202 / BOT-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - Landing Specification
+
+- Created `docs/product/LANDING_SPEC.md` as a documentation-only landing page specification for EPIC-201 / UX-003.
+- Defined the landing purpose as brand introduction, customer acquisition, vending ice cream concept explanation, Telegram ecosystem connection and conversion into Club customers.
+- Documented target audiences: children and parents, teenagers, students, casual buyers, repeat customers and Club members.
+- Captured the customer journey from visitor through landing page, nearest machine discovery, Telegram Bot / Mini App, Club Account activation, purchase, bonus and return visit.
+- Defined the landing structure: Hero, About "У Тимоши", How it works, Product, Club, Machine, Telegram and Trust sections.
+- Added SEO requirements, design principles, first-launch MVP scope, non-MVP exclusions, integration points for Telegram Bot, Mini App, CRM and Analytics, and future extensions such as machine map, live availability, promotions, customer stories and loyalty campaigns.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-201 / UX-003.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - Mini App MVP Specification
+
+- Created `docs/product/MINI_APP_MVP_SPEC.md` as a documentation-only MVP specification for EPIC-200 / UX-002.
+- Defined Mini App role as customer self-service interface, personal account, loyalty interface and payment entry point, while explicitly excluding CRM, admin panel and machine control responsibilities.
+- Documented the MVP customer journey from discovery through Telegram Bot, Mini App launch, Telegram WebApp authentication, customer profile creation, Club Account, payment, purchase history, bonuses and return visit.
+- Defined MVP screens: Home, Club Account, Payments, Purchases, Bonus Account and Profile, including required content and core states.
+- Mapped screens to Customer, Club Account, Bonus, Payment, Order and Notification API dependencies, and listed relevant Event API facts for customer, account, bonus, payment, order and notification projections.
+- Captured MVP business rules, out-of-scope items, UI/UX principles and future extensions while preserving existing Customer, Club Account, Bonus, Payment, REST API and Event API boundaries.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-200 / UX-002.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
+## 2026-07-10 - Mini App Architecture Audit
+
+- Created `docs/product/MINI_APP_AUDIT.md` as a documentation-only Mini App architecture audit for EPIC-200 / UX-001.
+- Reviewed `frontend/miniapp` structure, Telegram bot handoff, backend payment stub, authentication documentation, Telegram Mini App WebApp flow, Customer Domain, Club Account Domain, Bonus Domain, Payment Domain, API documentation and CRM direction.
+- Documented current Mini App readiness as a product-selection prototype and UI shell, not yet a paid vending MVP.
+- Captured existing UI components, implemented domain service foundations, placeholder repositories, missing authentication, checkout, order, payment, machine fulfillment, club, bonus, CRM and API integration pieces.
+- Documented current and required MVP user journeys, required screens, API dependencies, authentication readiness, payment integration readiness, CRM readiness and an incremental MVP roadmap that preserves existing architecture decisions.
+- Updated `CHANGELOG.md` and `docs/tasks/TASK_INDEX.md` to register EPIC-200 / UX-001.
+- Verification: documentation-only change; no application source code, frontend code, backend code, Telegram bot code, runtime configuration, database migration or generated build output modified. Build was not run because no executable application behavior changed.
+
 ## 2026-07-09 - Machine Events and Telemetry Documentation
 
 - Created `docs/machine/MACHINE_EVENTS_TELEMETRY.md` as a documentation-only Machine Events and Telemetry contract for EPIC-374 / MACHINE-004.
