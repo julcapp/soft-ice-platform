@@ -5,7 +5,8 @@
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "dev": "node src/index.js"
+    "dev": "node src/main.js",
+    "start": "node src/main.js"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

@@ -3,6 +3,19 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-10 - Backend Foundation
+
+- Created the first technical backend foundation for the MVP modular monolith according to `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`.
+- Added `backend/src/main.js` as the active Express entrypoint and kept `backend/src/index.js` as a compatibility wrapper.
+- Added module boundary folders for `customer`, `club_account`, `bonus`, `payment`, `order` and `machine` with manifest-only placeholders and no business commands or workflows.
+- Added PostgreSQL runtime configuration through `backend/.env.example` and local PostgreSQL service definition in `backend/docker-compose.yml`.
+- Added Prisma-based database connection and readiness check under `backend/src/common/database/`.
+- Added infrastructure-only health endpoints: `GET /health` and `GET /health/ready`.
+- Added migration structure documentation in `backend/prisma/README.md` and `backend/prisma/migrations/README.md`.
+- Created `docs/architecture/BACKEND_FOUNDATION.md` and updated `CHANGELOG.md`, `docs/tasks/TASK_INDEX.md` and `docs/testing/TEST_SCENARIOS.md`.
+- Explicitly did not implement payment operations, YooKassa API calls, Telegram integration, order checkout, machine dispatch, bonus accrual, Club Account mutations or Notification runtime.
+- Verification: backend syntax checks passed for `src/main.js`, database connection layer, health router and module registry; backend import smoke check passed after installing dependencies from `backend/package-lock.json`; local health smoke check returned `/health` 200 and `/health/ready` 503 without configured database; `frontend/miniapp` `npm run build` passed; `git diff --check` passed.
+
 ## 2026-07-10 - MVP Backend Architecture Specification
 
 - Created `docs/architecture/MVP_BACKEND_ARCHITECTURE.md` as a documentation-only backend architecture specification for EPIC-205 / TECH-001.

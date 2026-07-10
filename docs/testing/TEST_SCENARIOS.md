@@ -48,3 +48,10 @@
 - корректность изображений;
 - расчёт стоимости;
 - отсутствие ошибок в консоли браузера.
+
+## TS-008 Backend foundation
+1. Запустить backend с PostgreSQL configuration из `backend/.env.example`.
+2. Проверить `GET /health`.
+3. Проверить `GET /health/ready`.
+
+Ожидаемый результат: `/health` возвращает liveness backend, `/health/ready` возвращает readiness по фактической доступности PostgreSQL. Платёжные операции, YooKassa API calls, Telegram integration и machine dispatch не выполняются.

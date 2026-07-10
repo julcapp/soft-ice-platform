@@ -8,6 +8,8 @@
 
 ### Added
 
+- Backend foundation for the MVP modular monolith, including `backend/src/main.js`, module boundary folders for Customer, Club Account, Bonus, Payment, Order and Machine, PostgreSQL environment configuration, local PostgreSQL Docker Compose, Prisma database connection/readiness layer, migration structure documentation and `docs/architecture/BACKEND_FOUNDATION.md`, while removing active payment test endpoints from the runtime and keeping YooKassa, Telegram, payment operations, order checkout and machine dispatch out of scope.
+
 - MVP Backend Architecture specification in `docs/architecture/MVP_BACKEND_ARCHITECTURE.md` for EPIC-205 / TECH-001, defining the first production backend as a modular monolith with clear Customer, Club Account, Bonus, Payment, Order, Machine and Notification module boundaries, PostgreSQL ownership and audit rules, REST API, internal event/outbox direction, Telegram, YooKassa/SBP and machine integrations, MVP deployment shape, first-machine launch constraints, future scaling path and DECISION-040 while keeping the change documentation-only and avoiding unnecessary technology expansion.
 
 - MVP Implementation Roadmap in `docs/releases/MVP_IMPLEMENTATION_ROADMAP.md` for EPIC-204 / PLAN-001, converting current launch readiness, product, domain, data and architecture documentation into a first-production implementation roadmap with one-machine/one-product MVP goal, infrastructure, customer, payment, machine, Mini App and testing phases, priority table, release criteria and post-MVP backlog while keeping the change documentation-only.
