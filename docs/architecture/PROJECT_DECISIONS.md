@@ -6,6 +6,540 @@
 
 ---
 
+# Decision: DECISION-047 - Auth Core Defines Identity, Session, Role and Permission Boundaries Before Implementation
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform already documents authentication, authorization and API v1 route boundaries. The next security step needs one consolidated Auth Core contract that defines the foundation for user identity, Telegram authentication, Mini App sessions, tokens, roles, permissions, API authorization and audit logging before backend implementation.
+
+The main risk is implementing authentication handlers, Mini App session exchange, operator access, role assignment or provider/machine callback trust in separate ad hoc modules that duplicate policy, treat Telegram IDs as platform identity, put business state in tokens, allow broad admin access, or skip audit for sensitive security actions.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/security/AUTH_CORE_CONTRACT.md` as the platform authentication and authorization foundation contract.
+
+Auth Core is platform security infrastructure. It verifies identity, creates security context, manages sessions/tokens as future infrastructure contracts, enforces route access policy and records security audit facts. Runtime contracts continue to own business validation.
+
+The contract defines:
+
+- authentication model and normalized security context;
+- canonical user identity model with `customer_id` as the platform user/customer ID;
+- Telegram Mini App init data verification and Telegram Bot webhook authentication boundaries;
+- Mini App session exchange, refresh and logout direction;
+- session, access token and refresh token model;
+- initial human roles: User, Project Admin and Platform Owner;
+- permission boundaries and deny-by-default API authorization rules;
+- audit logging requirements;
+- security decisions and future implementation readiness.
+
+Telegram ID, phone, email and provider customer references remain external aliases. They must be resolved to platform IDs before protected platform contracts use them.
+
+Access tokens must be short-lived and must not contain business state such as balance, final price, payment state, order state, discount eligibility or machine state. Refresh tokens must be opaque or protected, revocable and excluded from Runtime contracts.
+
+Project Admin and Platform Owner roles are elevated human roles, but they do not bypass Runtime business rules, immutable financial records, provider verification, machine facts, idempotency or audit requirements.
+
+This decision is documentation-only. It does not create backend middleware, routes, Telegram verification code, JWT signing, session storage, database schema, Prisma migrations, operator UI, API keys, secrets, provider integrations, machine credential code or generated build output.
+
+---
+
+## Architecture Principles
+
+Auth Core answers who the actor is and whether the actor may call a protected route.
+
+Runtime answers whether the business action is valid.
+
+`customer_id` is the canonical customer/user identity. Telegram ID and other external identifiers are aliases.
+
+Security context must contain safe identity, credential, session, token, consumer, trust and correlation references only.
+
+Secrets, raw tokens, raw Telegram init data, webhook signatures, API key values and payment credentials must not be logged, committed or exposed.
+
+Permissions are explicit, semantic and deny by default.
+
+User access is own-resource access. Project Admin access is operational and audited. Platform Owner access is governance-level and audited.
+
+Provider, machine, partner and internal service credentials authenticate non-human actors only.
+
+Machine and provider callbacks must be authenticated and deduplicated before Runtime processing.
+
+Every sensitive authentication, authorization, role, credential, denied access and emergency access operation requires audit logging.
+
+---
+
+## Consequences
+
+Future backend authentication and authorization implementation must follow `docs/security/AUTH_CORE_CONTRACT.md` or explicitly update the contract before implementation.
+
+Future OpenAPI, middleware, route policy, token, session, role assignment, credential registry and audit event work must use Auth Core as the source direction.
+
+Future Telegram Mini App implementation must verify init data server-side and resolve Telegram aliases to `customer_id` before protected customer routes are used.
+
+Future CRM/admin work must distinguish Project Admin from Platform Owner and must audit role and credential operations.
+
+Any future implementation that trusts Telegram IDs as platform identity, stores business state in tokens, logs raw credential material, grants broad admin bypasses, skips route policy, or lets Auth Core decide product, pricing, payment, order, machine, loyalty or promotion outcomes requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/security/AUTH_CORE_CONTRACT.md`
+- `docs/api/AUTHENTICATION.md`
+- `docs/api/AUTHORIZATION.md`
+- `docs/api/API_CONTRACT_V1.md`
+- `docs/api/REST_API.md`
+- `docs/api/IDEMPOTENCY.md`
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/architecture/DOMAIN_EVENTS_CONTRACT.md`
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/product/TELEGRAM_BOT_FLOW.md`
+
+---
+
+# Decision: DECISION-046 - API Contract v1 Defines MVP REST Boundaries Before Runtime Implementation
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform already documents API overview, REST API direction, authentication, authorization, domain events, database foundation, Payment ledger completion and Club Account transaction contracts.
+
+The next MVP backend step needs one consolidated API v1 contract that names the initial REST endpoint groups for the customer journey: customer identity, Club Account, payment, order, machine dispatch and Telegram integration.
+
+The main risk is implementing ad hoc routes that duplicate business logic, trust raw provider or Telegram data, mutate Club Account balance directly, mark orders paid from redirect/webhook state, dispatch machines before Order accepts paid state, or retry side effects without idempotency.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/api/API_CONTRACT_V1.md` as the MVP REST API contract v1.
+
+API v1 uses `/api/v1` as the base path and keeps route handlers transport-only. Routes authenticate, authorize, validate, enforce idempotency, route to Runtime contracts, observe and return DTOs. Runtimes own business behavior.
+
+The contract defines:
+
+- API principles and common headers;
+- Telegram Mini App authentication flow and machine/provider/Telegram integration authentication boundaries;
+- Customer endpoints;
+- Club Account endpoints;
+- Payment endpoints;
+- Order endpoints;
+- Machine dispatch endpoints;
+- Telegram integration endpoints;
+- standard error response format;
+- idempotency requirements.
+
+Payment and top-up behavior follow `PAYMENT_LEDGER_CONTRACT` and `CLUB_ACCOUNT_CONTRACT`: raw provider success, redirect success, QR scan success or webhook delivery is not enough to credit Club Account, mark an Order as paid or dispatch a Machine.
+
+Machine dispatch is exposed as a paid-order Runtime contract. API does not decide that an order is paid, and machine acknowledgements do not directly mutate Order state.
+
+Telegram Bot remains a channel adapter. Telegram endpoints authenticate and deduplicate updates, but Notification Runtime decides messages and domain Runtimes own source-of-truth state.
+
+This decision is documentation-only. It does not create backend routes, application code, OpenAPI schemas, database migrations, Prisma changes, Telegram bot behavior, provider calls, machine adapter behavior, payment processing or generated build output.
+
+---
+
+## Architecture Principles
+
+API is a contract boundary and must remain free of business logic.
+
+Database ownership follows `DATABASE_FOUNDATION`: source-of-truth records are owned by explicit Runtimes and financial records are immutable after acceptance.
+
+`customer_id` is the canonical customer identity. Telegram ID, phone, email and provider customer IDs are external aliases.
+
+Payment completion requires Payment ledger and Ledger-backed policy before downstream consumers react.
+
+Club Account balance changes require immutable Club Account transactions and accepted payment/refund facts.
+
+Order paid state is accepted by Order Runtime from approved payment facts, not from raw provider status.
+
+Machine facts are accepted by Machine Runtime and then by Order Runtime before order lifecycle events are emitted.
+
+Domain events use canonical `<Domain>.<Fact>` names, shared envelope fields and idempotent producer/consumer rules.
+
+Every mutating endpoint that can duplicate side effects requires idempotency.
+
+---
+
+## Consequences
+
+Future backend route implementation must follow `docs/api/API_CONTRACT_V1.md` or explicitly update the contract before implementation.
+
+Future OpenAPI or JSON Schema work must use API Contract v1 as the source direction for route groups, request/response shapes, errors and idempotency.
+
+Future payment, Club Account, Order, Machine and Telegram work must preserve the documented side-effect boundaries and must not trust raw provider, machine or Telegram payloads as domain truth.
+
+Future implementation tasks must define route-level permissions, exact schemas, idempotency storage, provider webhook signature validation, machine replay protection and contract tests before production use.
+
+Any implementation that puts pricing, discount, payment completion, balance mutation, order transition, machine fulfillment or notification decision logic inside API route handlers requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/api/API_CONTRACT_V1.md`
+- `docs/api/API_OVERVIEW.md`
+- `docs/api/REST_API.md`
+- `docs/api/AUTHENTICATION.md`
+- `docs/api/AUTHORIZATION.md`
+- `docs/api/EVENT_API.md`
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/domain/PAYMENT_LEDGER_CONTRACT.md`
+- `docs/domain/CLUB_ACCOUNT_CONTRACT.md`
+- `docs/architecture/DOMAIN_EVENTS_CONTRACT.md`
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/product/TELEGRAM_BOT_FLOW.md`
+
+---
+
+# Decision: DECISION-045 - Domain Events Use Runtime-Owned Contracts, Shared Envelope and Idempotent Audit
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform already documents a general Event API, Event Platform direction, Order event catalog, Machine event telemetry contract, Payment ledger completion contract and Club Account transaction contract.
+
+Future backend implementation still needs one platform-level domain events contract that aligns event naming, envelope fields, Runtime ownership, Payment/Club Account/Order/Machine/Customer event families and Telegram notification triggers before event handlers, outbox records, schemas or message delivery are implemented.
+
+The main risk is publishing duplicate or conflicting events from different modules, treating Telegram or Event Runtime as a business-state owner, emitting payment or account events from raw provider success, or repeating payments, balance credits, machine commands or customer messages during retries and replay.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/architecture/DOMAIN_EVENTS_CONTRACT.md` as the platform domain events architecture contract.
+
+New platform event names use canonical `<Domain>.<Fact>` names, such as `Payments.Completed`, `ClubAccounts.TopUpCredited`, `Orders.PaymentConfirmed`, `Machines.ProductDispensed` and `Customers.TelegramIdentityLinked`.
+
+Older aliases such as `PaymentCompleted`, `OrderCreated` or `PaymentConfirmed` may remain as business aliases in legacy documentation, but new implementation contracts and Event Registry entries must use the canonical names or document an explicit migration bridge.
+
+Every domain event uses the shared Event API envelope with stable `event_id`, `event_name`, `event_version`, `event_category`, producer, timestamps, aggregate identity, correlation, causation, idempotency, actor context, payload and metadata fields.
+
+The producing Runtime owns event semantics and payload versioning. Event Runtime owns validation, routing, retry, replay and dead-letter behavior. Consumers own idempotent processing. Notification Runtime owns notification decisions. Telegram Bot remains a channel adapter and must not own payment, account, order, machine or customer state.
+
+This decision is documentation-only. It does not create event bus code, event handlers, backend runtime behavior, database migrations, schemas, Telegram bot behavior, payment provider calls, machine commands or generated build output.
+
+---
+
+## Architecture Principles
+
+Domain events are immutable facts emitted after the owning Runtime accepts the state change.
+
+Payment events are provider-independent and `Payments.Completed` requires Payment ledger and Ledger-backed policy.
+
+Club Account balance events require immutable Club Account transactions and must not be emitted from raw provider success.
+
+Order events represent accepted Order lifecycle transitions and checkpoints.
+
+Machine events report equipment facts and physical outcomes; they do not decide payment, refund, bonus or order completion.
+
+Customer events use `customer_id` as platform identity and minimize personal data.
+
+Telegram notifications are triggered through Notification Runtime after consent, preference, throttling and deduplication policy.
+
+Retries reuse the same `event_id`. Consumers deduplicate by `event_id` and domain idempotency keys.
+
+Replay must suppress non-replay-safe side effects, including payments, refunds, Club Account credits/debits, machine commands and customer notifications.
+
+Audit is mandatory for financial, account, order, machine, identity, consent, notification, replay, dead-letter and manual correction events.
+
+---
+
+## Consequences
+
+Future Event Registry work must register canonical `<Domain>.<Fact>` names, versions, owners, schemas, sensitivity, permissions, replay policy and idempotency keys.
+
+Future backend modules must publish only their own accepted facts and must not emit events owned by another Runtime.
+
+Future Payment, Club Account and Order work must preserve Ledger-backed payment completion semantics before balance credit, paid order state or machine dispatch.
+
+Future Telegram notification implementation must consume source events through Notification Runtime and must suppress duplicates and replay messages.
+
+Any future implementation that publishes duplicate aliases for the same fact, emits financial events from raw provider status, lets Telegram mutate domain state, repeats machine commands during replay, or omits audit/idempotency for sensitive events requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/architecture/DOMAIN_EVENTS_CONTRACT.md`
+- `docs/api/EVENT_API.md`
+- `docs/architecture/EVENT_PLATFORM.md`
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/domain/PAYMENT_LEDGER_CONTRACT.md`
+- `docs/domain/CLUB_ACCOUNT_CONTRACT.md`
+- `docs/architecture/ORDER_PLATFORM.md`
+- `docs/domain/MACHINE_DOMAIN.md`
+- `docs/machine/MACHINE_EVENTS_TELEMETRY.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/product/TELEGRAM_BOT_FLOW.md`
+
+---
+
+# Decision: DECISION-044 - Club Account Balance Changes Require Immutable Transactions and PaymentCompleted Contracts
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+The platform already documents Club Account as a prepaid customer account and Payment ledger as the Ledger-backed completion gate for payment facts.
+
+Future runtime work still needs a sharper Club Account implementation contract so top-ups, reservations, minimum balance notifications, discounts, bonuses, referral rewards and birthday rewards cannot be mixed into one mutable balance model.
+
+The main risk is crediting Club Account from raw provider success, treating bonuses or discounts as prepaid money, or allowing UI/account state to decide reward eligibility without versioned rules and audit.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/domain/CLUB_ACCOUNT_CONTRACT.md` as the Club Account domain contract for future implementation.
+
+Club Account balance changes must happen only through immutable `ClubAccountTransaction` records.
+
+Top-up/deposit credit is posted only after the Club Account consumer accepts a Ledger-backed `PaymentCompleted` event for `purpose = club_account_top_up`.
+
+Club Account owns prepaid account state, available/reserved balance, top-up workflows, purchase reservations and account transaction history.
+
+Bonus remains a separate non-monetary discount-rights domain. Discount Engine owns discount eligibility, stacking and payable amount. Referral and birthday rewards are executed through Bonus, Discount or future Promotion rules unless a Product Owner-approved monetary credit policy is explicitly introduced.
+
+This decision is documentation-only. It does not create Club Account runtime code, event handlers, database migrations, Prisma schema changes, payment provider calls, Bonus implementation, Discount implementation, Order transitions or machine dispatch behavior.
+
+---
+
+## Architecture Principles
+
+Club Account is customer-facing prepaid balance, not a bank account, bonus balance or discount store.
+
+Ledger is the monetary source of truth. Club Account transactions reference Ledger-backed facts when money changes.
+
+Payment does not write Club Account storage directly. Club Account consumes accepted payment facts idempotently.
+
+Posted Club Account transactions are append-only. Corrections use compensating transactions.
+
+Minimum balance is a recommendation threshold, not a spending block or discount rule.
+
+Discount eligibility is versioned policy owned by Discount Engine.
+
+Bonus accrual, referral rewards and birthday rewards are non-monetary Bonus facts unless a separate approved monetary credit policy exists.
+
+Audit and idempotency are mandatory for every balance-affecting or sensitive Club Account operation.
+
+---
+
+## Consequences
+
+Future Club Account implementation must introduce transaction append policy before exposing real top-up, purchase reservation, refund or adjustment behavior.
+
+Future payment work must emit the approved `PaymentCompleted` event contract with Payment ledger and Ledger references before Club Account can credit top-ups.
+
+Future checkout work must reserve and debit only the accepted payable amount after Pricing, Discount and Bonus decisions.
+
+Future referral and birthday reward work must not silently credit prepaid balance. Reward rules require Product Owner-approved versions and must preserve Bonus/Discount/Club Account boundaries.
+
+Any implementation that mutates Club Account balance in place, credits from raw provider status, treats bonuses as Club Account funds, or lets the UI calculate eligibility requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/CLUB_ACCOUNT_CONTRACT.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/PAYMENT_LEDGER_CONTRACT.md`
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/domain/BONUS_DOMAIN.md`
+- `docs/architecture/BONUS_ENGINE.md`
+- `docs/architecture/DISCOUNT_ENGINE.md`
+- `docs/architecture/CHECKOUT.md`
+- `docs/product/MINI_APP_MVP_SPEC.md`
+- `docs/api/EVENT_API.md`
+
+---
+
+# Decision: DECISION-043 - Payment Completion Requires Ledger-Backed Payment Ledger and Settlement Contracts
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+`PAYMENT_DOMAIN_V2_REVIEW` accepted the Payment Domain v2 architecture baseline but identified missing implementation contracts before runtime, provider integration, reconciliation automation or refund execution can begin.
+
+The main risk is treating raw provider success, QR success, redirect success or webhook delivery as enough to credit Club Account, mark an Order as paid, dispatch a machine or export financial facts.
+
+The platform needs explicit contracts for Payment ledger entries, PaymentRegistry records, YooKassa mapping, settlement reconciliation, refund lifecycle, `PaymentCompleted` event payloads and idempotency before any production payment code is implemented.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/domain/PAYMENT_LEDGER_CONTRACT.md` as the Payment ledger and settlement implementation contract.
+
+Payment completion is accepted only when provider-independent payment success is normalized and the required Ledger-backed recording policy is satisfied.
+
+`PaymentCompleted` is the downstream business fact for Club Account and Order consumers. It must not be emitted from raw provider status alone.
+
+PaymentRegistry records provider webhooks, status polls, reports, external references, reconciliation runs and manual review outcomes. It is an internal traceability layer and does not replace Ledger.
+
+YooKassa remains behind the Payment provider adapter. YooKassa statuses and webhook events are mapped into platform states before they can affect Payment ledger or downstream event contracts.
+
+Refunds are compensating workflows. `RefundCompleted` also requires Payment ledger and Ledger-backed completion policy, not provider refund success alone.
+
+This decision is documentation-only. It does not create payment runtime code, YooKassa calls, webhook handlers, provider credentials, database migrations, Prisma schema changes, Club Account transaction code, Order transitions or machine dispatch behavior.
+
+---
+
+## Architecture Principles
+
+Ledger remains the source of truth for financial history.
+
+Payment ledger is a Payment Domain contract and projection that links PaymentOperations, provider references, registry records and Ledger entries.
+
+PaymentRegistry is internal and reconciles provider facts with platform payment and Ledger facts.
+
+Provider reports and webhooks are evidence. They are not platform financial truth by themselves.
+
+Club Account credits top-up only after consuming the approved `PaymentCompleted` event contract.
+
+Order paid state is evaluated from accepted payment facts, not raw provider status.
+
+Refunds and corrections are new compensating entries, never edits to original payment or Ledger records.
+
+Duplicate provider webhooks, polling results, report imports, payment retries, refund retries and event deliveries must be idempotent.
+
+---
+
+## Consequences
+
+Future payment implementation must implement Payment ledger, registry, reconciliation and event contracts before YooKassa production payment handling can safely credit balances or move orders forward.
+
+Future Club Account top-up implementation must consume `PaymentCompleted` idempotently and must reject or review duplicate, mismatched, missing-Ledger or wrong-account events.
+
+Future refund implementation must preserve method-line attribution, remaining refundable amount checks, provider reference mapping, Ledger-backed refund completion and manual review states.
+
+Future reconciliation work must classify mismatches such as internal missing, provider missing, Ledger missing, amount mismatch, duplicate provider reference and late success after expiry.
+
+Any future implementation that credits Club Account from YooKassa `succeeded`, emits payment completion without Ledger-backed policy, treats PaymentRegistry as the financial source of truth or retries provider side effects without stable idempotency requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_LEDGER_CONTRACT.md`
+- `docs/reviews/PAYMENT_DOMAIN_V2_REVIEW.md`
+- `docs/domain/PAYMENT_DOMAIN_V2.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/architecture/LEDGER.md`
+- `docs/architecture/ACCOUNTING_ADAPTER.md`
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/api/EVENT_API.md`
+- `docs/integrations/YOOKASSA.md`
+
+---
+
+# Decision: DECISION-042 - Payment Domain v2 Uses Provider-Independent Intent, Session, Operation and Registry Boundaries
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform already documents a provider-agnostic payment direction, YooKassa as the primary initial provider, internal payment operation registries, database immutability rules and first-launch backend boundaries.
+
+The next payment architecture step needs a clearer v2 domain model that separates payment requests, concrete provider attempts, immutable financial events, provider reconciliation and future accounting export without implementing payment code or provider integrations.
+
+The platform must support Club Account top-up, product purchase, QR payment, YooKassa, future Telegram payment surfaces, multiple vending machines, multiple products, multiple providers and multiple sales channels while keeping Club Account balance, Order lifecycle and Machine dispatch outside Payment ownership.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/domain/PAYMENT_DOMAIN_V2.md` as the Payment Domain v2 architecture specification.
+
+Payment Domain v2 uses:
+
+- provider-independent `PaymentIntent`;
+- concrete provider or channel-specific `PaymentSession`;
+- immutable `PaymentOperation` financial events;
+- internal `PaymentRegistry` records for provider reconciliation, external references, reports and future accounting export;
+- refund operations as compensating records.
+
+Payment Domain does not store business balance and does not modify Club Account directly.
+
+Successful payment creates auditable financial events. Club Account, Order, Ledger/Finance, Notification, CRM, Analytics and future Accounting/ERP integrations consume those events through their own contracts.
+
+This decision is documentation-only. It does not create payment runtime code, YooKassa API calls, SBP production integration, QR payment runtime, Telegram payment integration, webhook handlers, database migrations, accounting integration or real API keys.
+
+---
+
+## Architecture Principles
+
+Payment business rules remain provider-independent.
+
+Provider IDs are external references for correlation and reconciliation, not platform payment identity.
+
+PaymentIntent represents the approved request to collect money.
+
+PaymentSession represents one concrete payment attempt or presentation through YooKassa, SBP link, QR payment, Telegram payment or a future provider.
+
+PaymentOperation is the immutable event that other domains consume.
+
+PaymentRegistry is internal and reconciles platform operations with provider reports and external references.
+
+Club Account balance changes happen only inside Club Account through its own transaction model after consuming accepted payment facts.
+
+Order paid state is evaluated by Order after consuming accepted payment facts.
+
+Machine dispatch remains gated by Order's accepted paid state, not by raw provider status.
+
+---
+
+## Consequences
+
+Future payment implementation must start from the v2 domain model and keep provider adapters behind Payment contracts.
+
+Future YooKassa, SBP, QR or Telegram payment work must not leak provider request shapes, statuses, credentials or raw payloads into Order, Club Account, Bonus, Machine, UI or generic Payment records.
+
+Future Club Account top-up implementation must consume `PAYMENT_CONFIRMED` or equivalent accepted payment facts instead of letting Payment mutate Club Account balance directly.
+
+Future database work must preserve immutable PaymentOperation and Refund records, provider references, audit metadata, idempotency and reconciliation status.
+
+Any future implementation that stores business balance in Payment, mutates Club Account directly from Payment, dispatches machines from raw provider status, or treats provider reports as the only financial history requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/domain/PAYMENT_DOMAIN_V2.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/architecture/PAYMENT_ENGINE.md`
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/ORDER_DOMAIN.md`
+- `docs/domain/MACHINE_DOMAIN.md`
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/api/EVENT_API.md`
+- `docs/api/REST_API.md`
+
+---
+
 # Decision: DECISION-041 - Database Foundation Uses PostgreSQL and Prisma With Domain-Separated Immutable Records
 
 **Date:** 2026-07-13

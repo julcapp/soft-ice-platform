@@ -20,6 +20,9 @@
 | API-003 | Authorization | Platform Core Sprint 1 | Documentation completed | Authorization contract documented for CustomerID identity boundary, permission, role and scope models, least privilege, role assignment, permission checks, access denied handling, audit, security and roadmap |
 | API-004 | REST API | Platform Core Sprint 1 | Documentation completed | REST API contract documented for transport-only route design, request and response shape, pagination, filtering, sorting, errors, versioning, idempotency, rate limits, auth integration, resource groups and roadmap |
 | API-005 | Event API | Platform Core Sprint 1 | Documentation completed | Event API contract documented for immutable fact events, event-driven architecture, categories, domain, integration and notification events, envelope, metadata, versioning, ordering, delivery, retry, dead-letter, idempotent consumers, registry, `<Domain>.<Fact>` naming, security and roadmap |
+| API-006 | Domain Events Contract | Platform Core Sprint 1 | Documentation completed | Created `docs/architecture/DOMAIN_EVENTS_CONTRACT.md` with canonical domain event naming, shared envelope, Runtime ownership, Payment, Club Account, Order, Machine and Customer event families, Telegram notification triggers, idempotency and audit requirements |
+| API-007 | API Contract v1 | Platform Core Sprint 1 | Documentation completed | Created `docs/api/API_CONTRACT_V1.md` with MVP REST API principles, authentication flow, Customer, Club Account, Payment, Order, Machine Dispatch and Telegram endpoint groups, standard error format and idempotency requirements without implementation code |
+| SECURITY-001 | Auth Core Contract | Platform Core Sprint 1 | Documentation completed | Created `docs/security/AUTH_CORE_CONTRACT.md` with authentication model, user identity model, Telegram and Mini App auth flows, session/token model, User, Project Admin and Platform Owner roles, permission boundaries, API authorization rules, audit logging requirements and security decisions without implementation code |
 
 ## Data Platform
 
@@ -96,6 +99,7 @@
 | FINANCE-006 | Discount Engine | Finance Platform Sprint 1 | Architecture documented | Discounts as non-monetary price reductions before payment |
 | FINANCE-007 | Payment Engine | Finance Platform Sprint 1 | Architecture documented | Payment as financial settlement execution with provider abstraction |
 | FINANCE-008 | Accounting Adapter | Finance Platform Sprint 1 | Architecture documented | Ledger-backed export/import boundary for external accounting systems |
+| FINANCE-009 | Payment Domain v2 | Finance Platform Sprint 1 | Architecture documented | Provider-independent PaymentIntent, PaymentSession, PaymentOperation, PaymentRegistry and refund architecture documented in `docs/domain/PAYMENT_DOMAIN_V2.md` without payment code, YooKassa calls, webhooks, database migrations or accounting integration |
 
 ## Order Platform
 
@@ -133,6 +137,7 @@
 | DOMAIN-002 | Club Account Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite Club Account prepaid balance, top-up, spending, refund, consent, authorization and history model documented in `docs/domain/CLUB_ACCOUNT.md` |
 | DOMAIN-003 | Bonus Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite Bonus Account, transaction, expiration, scheduler, referral, birthday, trusted, seasonal and manual adjustment model documented in `docs/domain/BONUS_DOMAIN.md` |
 | DOMAIN-004 | Payment Domain | Customer Platform Sprint 1 | Architecture documented | DDD Lite provider-agnostic payment model, YooKassa primary provider, SBP, QR, payment links, saved payment methods, refunds, operations registry and reconciliation documented in `docs/domain/PAYMENT_DOMAIN.md` |
+| DOMAIN-005 | Club Account Domain Contract | Customer Platform Sprint 1 | Documentation completed | Created `docs/domain/CLUB_ACCOUNT_CONTRACT.md` with aggregate, immutable transaction, top-up/deposit, minimum balance, discount, bonus, referral, birthday, `PaymentCompleted`, audit and idempotency contracts without implementation code |
 
 ## Future Epics
 

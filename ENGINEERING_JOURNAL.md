@@ -3,6 +3,72 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-13 - Auth Core Contract
+
+- Created `docs/security/AUTH_CORE_CONTRACT.md` as a documentation-only authentication and authorization foundation.
+- Defined the platform Auth Core model for authenticated actor types, normalized security context, canonical user identity and Telegram identity aliases.
+- Documented Telegram Mini App init data verification, Telegram Bot webhook authentication and Mini App session exchange boundaries.
+- Defined the session and token model, including short-lived access tokens, opaque revocable refresh tokens, session records, lifetime policy and the rule that tokens must not contain business state.
+- Defined initial human roles: User, Project Admin and Platform Owner, with permission boundaries, deny-by-default API authorization rules and Runtime-owned business validation.
+- Captured audit logging requirements for sessions, identity links, denied access, role changes, credential operations, provider/machine failures and emergency access.
+- Verification: documentation-only change; no build required by task. `git diff --check` passed.
+
+## 2026-07-13 - API Contract v1
+
+- Created `docs/api/API_CONTRACT_V1.md` as a documentation-only REST API contract for MVP.
+- Defined API v1 principles, common headers, response metadata and the rule that REST routes expose Runtime-owned commands and queries without business logic.
+- Documented authentication flow for Telegram Mini App sessions, session refresh, logout and machine/provider/Telegram integration authentication boundaries.
+- Documented Customer, Club Account, Payment, Order, Machine Dispatch and Telegram integration endpoint groups with Runtime ownership, request/response fields and side-effect boundaries.
+- Aligned payment and top-up behavior with `PAYMENT_LEDGER_CONTRACT` and `CLUB_ACCOUNT_CONTRACT`, including the rule that raw provider success does not credit balance, mark an order paid or dispatch a machine.
+- Captured the standard REST error format and operation-specific idempotency requirements for customer updates, top-ups, payments, webhooks, orders, dispatches, machine acknowledgements and Telegram updates.
+- Verification: documentation-only change; no build required by task. `git diff --check` passed.
+
+## 2026-07-13 - Domain Events Contract
+
+- Created `docs/architecture/DOMAIN_EVENTS_CONTRACT.md` as a documentation-only platform domain events contract.
+- Defined canonical `<Domain>.<Fact>` event naming rules, the shared Event API envelope, Runtime ownership boundaries and legacy alias handling for older event names.
+- Documented Payment, Club Account, Order, Machine and Customer event families with owner, emission conditions, required payload fields and forbidden sensitive payload data.
+- Defined Telegram notification triggers as Notification Runtime decisions over source domain events, preserving Telegram Bot as a channel adapter rather than a business-state owner.
+- Captured idempotency key patterns, replay suppression rules and audit requirements for payment, account, order, machine, customer and notification events.
+- Verification: documentation-only change; no build required by task. `git diff --check` passed.
+
+## 2026-07-13 - Club Account Domain Contract
+
+- Created `docs/domain/CLUB_ACCOUNT_CONTRACT.md` as a documentation-only implementation-facing contract based on `PAYMENT_LEDGER_CONTRACT`, `DATABASE_FOUNDATION` and MVP business rules.
+- Defined the Club Account aggregate model, immutable account transaction contract, balance invariants, top-up/deposit lifecycle, minimum recommended balance and low-balance policy.
+- Documented discount eligibility boundaries, bonus accrual/spending boundaries, referral bonus integration and birthday reward rules without inventing final commercial reward amounts.
+- Defined `PaymentCompleted` consumption requirements for Club Account top-up credit, including Ledger-backed references, account/customer matching, idempotency and manual review cases.
+- Captured audit and idempotency requirements for future Club Account runtime implementation.
+- Verification: documentation-only change; no build required by task. `git diff --check` passed.
+
+## 2026-07-13 - Payment Ledger and Settlement Contract
+
+- Created `docs/domain/PAYMENT_LEDGER_CONTRACT.md` as a documentation-only implementation contract after `PAYMENT_DOMAIN_V2_REVIEW`.
+- Defined Payment ledger entries, method lines, completion semantics and the rule that raw provider success does not credit Club Account or mark Order as paid.
+- Defined PaymentRegistry records, provider webhook/status/report registration, settlement reconciliation runs, mismatch taxonomy and manual review resolution states.
+- Documented YooKassa mapping for payment statuses, webhook events and refund success while keeping provider details behind the adapter boundary.
+- Defined refund lifecycle, `PaymentCompleted` / `Payments.Completed` event payload for Club Account top-up and idempotency scopes for payments, refunds, provider events, reconciliation and Club Account consumption.
+- Verification: documentation-only change; no build by request. `git diff --check` passed.
+
+## 2026-07-13 - Payment Domain v2 Architecture Review
+
+- Created `docs/reviews/PAYMENT_DOMAIN_V2_REVIEW.md` as a documentation-only architecture review of `docs/domain/PAYMENT_DOMAIN_V2.md`.
+- Checked PaymentIntent vs PaymentSession separation, QR payment lifecycle, YooKassa registry and reconciliation readiness, refund model and Payment Domain separation from Club Account.
+- Found no blocking architecture conflict with accepted project decisions for the documentation baseline.
+- Recorded implementation-readiness follow-ups for Ledger-backed payment completion semantics, dedicated registry/reconciliation specifications, YooKassa status and webhook mapping, refund execution policy and Payment-to-Club-Account event contracts.
+- Verification: documentation-only change; no build by request. `git diff --check` passed.
+
+## 2026-07-13 - Payment Domain v2 Architecture Documentation
+
+- Created `docs/domain/PAYMENT_DOMAIN_V2.md` as a documentation-only Payment Domain v2 architecture specification for FINANCE-009 / PAYMENT-DOMAIN-V2.
+- Defined provider-independent `PaymentIntent`, concrete `PaymentSession`, immutable `PaymentOperation`, internal `PaymentRegistry` and refund model boundaries.
+- Documented required payment principles: provider independence, no business balance stored in Payment, no direct Club Account mutation by Payment, successful payment as financial events for other domains and mandatory auditability.
+- Captured Club Account top-up, product purchase, QR payment and YooKassa boundary flows, including QR generation, lifetime, expiration, payment checking, successful confirmation, YooKassa API boundary, webhook boundary, polling fallback concept and reconciliation reports.
+- Documented PaymentIntent states `CREATED`, `WAITING_PAYMENT`, `PAID`, `FAILED`, `EXPIRED`, `CANCELLED` and PaymentSession states `CREATED`, `ACTIVE`, `EXPIRED`, `SUCCESS`, `FAILED`.
+- Explicitly kept real API keys, YooKassa calls, SBP production integration, webhook handlers, database migrations and accounting integration out of scope.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the payment domain v2 increment.
+- Verification: documentation-only change; no application build required. `git diff --check` passed.
+
 ## 2026-07-13 - Database Foundation Consistency Review
 
 - Created `docs/reviews/DATABASE_FOUNDATION_REVIEW.md` as a documentation-only consistency review of `docs/data/DATABASE_FOUNDATION.md`.
