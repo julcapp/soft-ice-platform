@@ -6,6 +6,85 @@
 
 ---
 
+# Decision: DECISION-041 - Database Foundation Uses PostgreSQL and Prisma With Domain-Separated Immutable Records
+
+**Date:** 2026-07-13
+
+**Status:** Accepted
+
+## Context
+
+Soft ICE Platform already has a logical platform data model, a modular monolith backend direction and an initial backend foundation with PostgreSQL configuration.
+
+The next database planning step needs to define how future physical storage should be shaped without prematurely creating tables, Prisma migrations or runtime database behavior.
+
+The platform must preserve clear boundaries between Customer, Club Account, Bonus, Payment, Order and Machine data while remaining ready for multiple vending machines, products, payment providers and sales channels.
+
+---
+
+## Decision
+
+Soft ICE Platform defines `docs/data/DATABASE_FOUNDATION.md` as the database foundation v1 strategy.
+
+PostgreSQL is the primary datasource for future source-of-truth platform records.
+
+Prisma is the ORM and migration layer for future backend implementation tasks.
+
+The database model must keep domain ownership explicit, either through PostgreSQL schemas, table prefixes or another documented ownership convention.
+
+Financial and financial-adjacent records, including Club Account transactions, Bonus transactions, Payment operations, refund operations, order payment snapshots, provider webhook facts and reconciliation results, are immutable after acceptance.
+
+Corrections must use new compensating records instead of editing historical facts in place.
+
+This decision is documentation-only. It does not create runtime code, Prisma migrations, database tables, production database infrastructure, real payment processing or payment webhooks.
+
+---
+
+## Architecture Principles
+
+The logical data model remains the source of domain meaning. Prisma schemas and migrations are implementation artifacts that must follow the documented model.
+
+The database must support auditability through actor, source, reason, target, correlation, causation, idempotency and timestamp metadata where applicable.
+
+Customer identity, contacts, consent records and external aliases are owned by the Customer boundary.
+
+Club Account prepaid balance and Bonus Account discount points are separate domains with separate transaction histories.
+
+Payment Intent and Payment Operation records are provider agnostic. YooKassa, SBP, QR payments, payment links and future providers use provider references for correlation, not platform identity.
+
+Order stores immutable product, configuration, pricing, discount and payment snapshots for historical purchase truth.
+
+Machine records and Machine Events report equipment facts and physical outcomes without deciding payment state.
+
+---
+
+## Consequences
+
+Future Prisma migrations must be reviewed against `docs/data/DATABASE_FOUNDATION.md`, `docs/data/PLATFORM_DATA_MODEL.md` and the owning domain documents before implementation.
+
+Future database work must preserve source-of-truth ownership, immutability, auditability, idempotency and provider isolation.
+
+Future implementation may add schemas, tables and migrations only through explicit coding tasks.
+
+Any future implementation that rewrites accepted financial history, lets provider payloads become platform business IDs, mixes Club Account and Bonus balance, or lets machines decide payment state requires correction or architecture review.
+
+---
+
+## Related Documentation
+
+- `docs/data/DATABASE_FOUNDATION.md`
+- `docs/data/PLATFORM_DATA_MODEL.md`
+- `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`
+- `docs/architecture/BACKEND_FOUNDATION.md`
+- `docs/domain/CUSTOMER_DOMAIN.md`
+- `docs/domain/CLUB_ACCOUNT.md`
+- `docs/domain/BONUS_DOMAIN.md`
+- `docs/domain/PAYMENT_DOMAIN.md`
+- `docs/domain/ORDER_DOMAIN.md`
+- `docs/domain/MACHINE_DOMAIN.md`
+
+---
+
 # Decision: DECISION-040 - MVP Backend Uses Modular Monolith for First Machine Launch
 
 **Date:** 2026-07-10

@@ -27,6 +27,8 @@
 |---|---|---|---|---|
 | EPIC-350 | Platform Data Model | Data Platform Sprint 1 | Architecture documented | Logical platform data model direction documented for entities, owners, aggregate boundaries, storage, immutable records, audit, retention and expansion |
 | DATA-001 | Logical Platform Data Model | Data Platform Sprint 1 | Documentation completed | Created `docs/data/PLATFORM_DATA_MODEL.md` as the canonical documentation-only logical data model with required entities, identifiers, required/optional fields, ownership, immutability, registries, reconciliation and retention direction |
+| EPIC-351 | Database Foundation | Data Platform Sprint 1 | Architecture documented | PostgreSQL and Prisma database foundation documented with domain-separated ownership, immutable financial records, auditability, core entities, relationships and future readiness |
+| DATA-002 | Database Foundation v1 | Data Platform Sprint 1 | Documentation completed | Created `docs/data/DATABASE_FOUNDATION.md` as documentation-only database strategy for PostgreSQL, Prisma, Customer, Club Account, Bonus Account, Payment Intent, Payment Operation, Order, Machine and Machine Event without migrations, tables, webhooks or production database |
 
 ## Architecture Governance
 

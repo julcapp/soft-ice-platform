@@ -3,6 +3,26 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-13 - Database Foundation Consistency Review
+
+- Created `docs/reviews/DATABASE_FOUNDATION_REVIEW.md` as a documentation-only consistency review of `docs/data/DATABASE_FOUNDATION.md`.
+- Checked Club Account and Bonus Account separation, PaymentIntent and PaymentOperation boundaries, multiple payment provider readiness, machine scalability and conflicts with `docs/architecture/PROJECT_DECISIONS.md`.
+- Found no blocking architecture conflict with accepted project decisions.
+- Recorded follow-up documentation risks around Payment aggregate/session explicitness, payment operation enum alignment, Club Account "wallet" wording and Club Account transaction naming before future Prisma schema work.
+- Verification: documentation-only review; no application code, Prisma schema, migrations, runtime configuration or generated build output modified.
+
+## 2026-07-13 - Database Foundation v1 Documentation
+
+- Created `docs/data/DATABASE_FOUNDATION.md` as a documentation-only database foundation v1 strategy for EPIC-351 / DATA-002.
+- Defined PostgreSQL as the primary datasource and Prisma as the future ORM/migration layer without creating runtime code, Prisma migrations or database tables.
+- Documented domain-separated ownership for Customer, Club Account, Bonus, Payment, Order, Machine, Event, Audit and Integration storage groups.
+- Defined core database strategy for Customer, ClubAccount, BonusAccount, PaymentIntent, PaymentOperation, Order, Machine and MachineEvent.
+- Captured immutable financial record rules for Club Account transactions, Bonus transactions, Payment operations, refund operations, provider webhook facts, order payment snapshots and reconciliation records.
+- Documented relationships between customer identity, contacts, consent, prepaid wallet, bonus points, payment lifecycle, orders, machines and machine events.
+- Explicitly kept real payment processing, YooKassa/SBP/QR flows, webhooks, production database provisioning, Prisma migrations and database tables out of scope.
+- Updated `CHANGELOG.md`, `docs/architecture/PROJECT_DECISIONS.md` and `docs/tasks/TASK_INDEX.md` to register the database foundation increment.
+- Verification: documentation-only change; no application build required. `git diff --check` passed.
+
 ## 2026-07-10 - Backend Foundation
 
 - Created the first technical backend foundation for the MVP modular monolith according to `docs/architecture/MVP_BACKEND_ARCHITECTURE.md`.
