@@ -198,6 +198,19 @@ class ClubAccountRuntime {
       total_balance: balance.availableBalanceRub + balance.reservedBalanceRub,
     };
   }
+
+  async prepareOrderPaidIntegration(order) {
+    return {
+      service: 'ClubAccountService',
+      status: 'prepared',
+      applied: false,
+      order_id: order.id,
+      customer_id: order.customerId,
+      amount: Number(order.amount ?? order.amountPaidRub ?? 0),
+      currency: order.currency || SUPPORTED_CURRENCY,
+      future_capabilities: ['bonus_accrual', 'deposit_usage', 'loyalty_rules'],
+    };
+  }
 }
 
 function assertAccountCanChangeBalance(clubAccount) {

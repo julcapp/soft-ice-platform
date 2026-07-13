@@ -3,6 +3,19 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-13 - MVP Vertical Slice 003 Order and Purchase Core
+
+- Implemented the first complete Order purchase domain flow on top of Auth Core, Customer and Club Account foundations.
+- Added Order Runtime, Order Service, Order Repository, Order Entity/status contract and Order DTOs under `backend/src/modules/order/`.
+- Added protected API v1 endpoints: `POST /api/v1/orders`, `GET /api/v1/orders/:id` and `GET /api/v1/customer/orders`.
+- Added Prisma `OrderStatus` enum and MVP order core fields: `customerId`, `status`, `amount`, `currency`, `createdAt` and `updatedAt`, while keeping older fulfillment/configuration columns optional for future slices.
+- Added `createOrder` with `PAYMENT_PENDING` state, internal `confirmPayment` transition to `PAID`, and `cancelOrder` support for the event contract.
+- Added lightweight in-process domain event generation for `OrderCreated`, `OrderPaid` and `OrderCancelled`, mapped to canonical `Orders.Created`, `Orders.PaymentConfirmed` and `Orders.Cancelled`.
+- Prepared the Club Account integration point for future bonus accrual, deposit usage and loyalty rules without recalculating loyalty or mutating Club Account balances.
+- Added backend tests for customer order creation, unauthorized rejection, payment confirmation state change, `OrderPaid` event generation and customer order history.
+- Explicitly kept YooKassa, machine dispatch and Telegram notifications out of scope.
+- Verification: `npm.cmd test` passed; `npm.cmd run build` passed.
+
 ## 2026-07-13 - MVP Vertical Slice 002 Club Account and Loyalty Core
 
 - Implemented the first business loyalty flow on top of the existing Customer/Auth foundation.

@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrderStatus {
+  CREATED
+  PAYMENT_PENDING
+  PAID
+  DISPENSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model Customer {
   id                String   @id @default(uuid())
   phone             String?  @unique
@@ -264,28 +274,36 @@ model MachineInventory {
 }
 
 model Order {
-  id                  String   @id @default(uuid())
-  customerId           String?
-  machineId            String
-  flavor               String
+  id                  String      @id @default(uuid())
+  customerId           String
+  status              OrderStatus @default(CREATED)
+  amount              Float
+  currency            String      @default("RUB")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  machineId            String?
+  flavor               String?
   syrup                String?
   topping              String?
-  basePriceRub         Float
-  clubDiscountRub      Float    @default(0)
-  promoDiscountRub     Float    @default(0)
-  bonusSpent           Int      @default(0)
-  amountPaidRub        Float
-  bonusEarned          Int      @default(0)
-  paymentMethod        String
-  paymentStatus        String   @default("pending")
-  createdAt            DateTime @default(now())
+  basePriceRub         Float?
+  clubDiscountRub      Float      @default(0)
+  promoDiscountRub     Float      @default(0)
+  bonusSpent           Int        @default(0)
+  amountPaidRub        Float?
+  bonusEarned          Int        @default(0)
+  paymentMethod        String?
+  paymentStatus        String     @default("pending")
   paidAt               DateTime?
 
-  customer             Customer? @relation(fields: [customerId], references: [id])
-  machine              Machine @relation(fields: [machineId], references: [id])
+  customer             Customer @relation(fields: [customerId], references: [id])
+  machine              Machine? @relation(fields: [machineId], references: [id])
   bonusTransactions    BonusTransaction[]
   photoChallenge       PhotoChallenge?
   birthdayReward       BirthdayReward?
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Referral {

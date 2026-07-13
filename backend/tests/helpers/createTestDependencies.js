@@ -1,6 +1,10 @@
 const { ClubAccountRuntime } = require('../../src/modules/club_account/ClubAccountRuntime');
 const { CustomerRuntime } = require('../../src/modules/customer/CustomerRuntime');
+const { ORDER_STATUS } = require('../../src/modules/order/OrderEntity');
+const { OrderRuntime } = require('../../src/modules/order/OrderRuntime');
+const { OrderService } = require('../../src/modules/order/OrderService');
 const { NoopAuditRepository } = require('../../src/platform/audit/AuditRepository');
+const { InMemoryDomainEventPublisher } = require('../../src/platform/events/DomainEventPublisher');
 const { InMemoryIdempotencyRepository } = require('../../src/platform/idempotency/IdempotencyRepository');
 const { IdempotencyService } = require('../../src/platform/idempotency/IdempotencyService');
 const { AuthCoreService } = require('../../src/platform/security/AuthCoreService');
@@ -10,8 +14,10 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
   const auditRepository = new NoopAuditRepository();
   const customerRepository = new InMemoryCustomerRepository();
   const clubAccountRepository = new InMemoryClubAccountRepository();
+  const orderRepository = new InMemoryOrderRepository({ now });
   const authSessionRepository = new InMemoryAuthSessionRepository();
   const idempotencyService = new IdempotencyService(new InMemoryIdempotencyRepository());
+  const domainEventPublisher = new InMemoryDomainEventPublisher({ clock: () => now });
 
   const customerRuntime = new CustomerRuntime({
     customerRepository,
@@ -21,6 +27,18 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
   const clubAccountRuntime = new ClubAccountRuntime({
     clubAccountRepository,
     auditRepository,
+  });
+
+  const orderService = new OrderService({
+    orderRepository,
+    auditRepository,
+    domainEventPublisher,
+    clubAccountService: clubAccountRuntime,
+    clock: () => now,
+  });
+
+  const orderRuntime = new OrderRuntime({
+    orderService,
   });
 
   const authCoreService = new AuthCoreService({
@@ -42,6 +60,8 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
     authCoreService,
     customerRuntime,
     clubAccountRuntime,
+    orderRuntime,
+    domainEventPublisher,
   };
 }
 
@@ -294,6 +314,87 @@ class InMemoryClubAccountRepository {
           reservedBalanceRub: 0,
         },
       );
+  }
+}
+
+class InMemoryOrderRepository {
+  constructor({ now }) {
+    this.orders = new Map();
+    this.sequence = 0;
+    this.now = now;
+  }
+
+  async create({ customerId, status, amount, currency }) {
+    this.sequence += 1;
+
+    const createdAt = new Date(this.now);
+    const order = {
+      id: `order_test_${this.sequence}`,
+      customerId,
+      status,
+      amount,
+      currency,
+      amountPaidRub: amount,
+      paymentStatus: 'pending',
+      paidAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    this.orders.set(order.id, order);
+
+    return order;
+  }
+
+  async findById(orderId) {
+    return this.orders.get(orderId) || null;
+  }
+
+  async findByIdForCustomer(orderId, customerId) {
+    const order = this.orders.get(orderId);
+
+    if (!order || order.customerId !== customerId) {
+      return null;
+    }
+
+    return order;
+  }
+
+  async findByCustomerId(customerId, { limit = 50 } = {}) {
+    return [...this.orders.values()]
+      .filter((order) => order.customerId === customerId)
+      .sort((left, right) => {
+        const createdDiff = right.createdAt.getTime() - left.createdAt.getTime();
+
+        if (createdDiff !== 0) {
+          return createdDiff;
+        }
+
+        return right.id.localeCompare(left.id);
+      })
+      .slice(0, limit);
+  }
+
+  async updateStatus(orderId, status, updates = {}) {
+    const order = this.orders.get(orderId);
+
+    if (!order) {
+      return null;
+    }
+
+    const updatedAt = new Date(this.now);
+
+    order.status = status;
+    order.updatedAt = updatedAt;
+
+    if (status === ORDER_STATUS.PAID) {
+      order.paymentStatus = 'paid';
+      order.paidAt = updates.paidAt || updatedAt;
+    }
+
+    this.orders.set(order.id, order);
+
+    return order;
   }
 }
 

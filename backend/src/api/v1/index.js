@@ -5,6 +5,7 @@ const { attachCorrelationId, sendError } = require('../../platform/http/apiRespo
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
+const { createCustomerOrdersRouter, createOrderRouter } = require('./orderRoutes');
 const { createTelegramRouter } = require('./telegramRoutes');
 
 function createApiV1Router(dependencies) {
@@ -30,8 +31,10 @@ function createApiV1Router(dependencies) {
 
   router.use('/auth', createAuthRouter(dependencies));
   router.use('/customers', createCustomerRouter(dependencies));
+  router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
   router.use('/club-account', createClubAccountRouter(dependencies));
   router.use('/club-accounts', createClubAccountRouter(dependencies));
+  router.use('/orders', createOrderRouter(dependencies));
   router.use('/telegram', createTelegramRouter(dependencies));
 
   router.use((req, res, next) => {

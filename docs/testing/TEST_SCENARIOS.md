@@ -79,3 +79,14 @@ Expected result: valid Telegram init data creates or resolves one canonical cust
 7. Call `GET /api/v1/club-account/me`, `POST /api/v1/club-account/top-up` and `GET /api/v1/club-account/history` without a Bearer token.
 
 Expected result: the customer has an active Club Account after registration, the top-up creates an immutable credit ledger record and updates the stored balance projection, internal debit creates an immutable debit ledger record and recalculates balance from ledger deltas, history returns customer-safe credit/debit records with reason, reference entity and timestamps, and unauthenticated requests return `401`.
+
+## TS-011 MVP vertical slice 003 - Order and Purchase Core
+1. Create a customer session through `POST /api/v1/auth/telegram-mini-app/sessions`.
+2. Call `POST /api/v1/orders` with a RUB amount and Bearer token.
+3. Call `GET /api/v1/orders/:id` with the same Bearer token.
+4. Call the internal Order Runtime payment confirmation flow for the order.
+5. Call `GET /api/v1/orders/:id` again.
+6. Create a second order and call `GET /api/v1/customer/orders`.
+7. Call order create/read/history endpoints without a Bearer token.
+
+Expected result: order creation returns a customer-owned `PAYMENT_PENDING` order and emits `OrderCreated`, internal payment confirmation changes the order to `PAID`, prepares the Club Account future integration point and emits `OrderPaid`, order history returns only the current customer's orders, and unauthenticated requests return `401`. YooKassa, machine dispatch and Telegram notifications remain out of scope.

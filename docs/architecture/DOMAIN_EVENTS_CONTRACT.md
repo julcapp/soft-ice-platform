@@ -357,7 +357,7 @@ Owner:
 Order Runtime
 ```
 
-Order events describe accepted purchase lifecycle transitions and checkpoints. Older Order architecture documents use aliases such as `OrderCreated` and `PaymentConfirmed`. New platform contracts use `Orders.Created` and `Orders.PaymentConfirmed`.
+Order events describe accepted purchase lifecycle transitions and checkpoints. Older Order architecture documents use aliases such as `OrderCreated`, `PaymentConfirmed`, `OrderPaid` and `OrderCancelled`. New platform contracts use `Orders.Created`, `Orders.PaymentConfirmed` and `Orders.Cancelled`.
 
 Canonical Order event catalog:
 
@@ -370,7 +370,7 @@ Canonical Order event catalog:
 | `Orders.DiscountApplied` | domain | Discount and payable amount accepted. | `DiscountApplied` |
 | `Orders.BonusReserved` | domain | Bonus reservation reference accepted. | `BonusReserved` |
 | `Orders.PaymentStarted` | domain | Payment may start from accepted payable amount. | `PaymentStarted` |
-| `Orders.PaymentConfirmed` | integration | `Payments.Completed` accepted for the order. | `PaymentConfirmed` |
+| `Orders.PaymentConfirmed` | integration | `Payments.Completed` accepted for the order. | `PaymentConfirmed`, `OrderPaid` |
 | `Orders.Queued` | integration | Machine fulfillment queue entry accepted. | `OrderQueued` |
 | `Orders.PreparationStarted` | integration | Machine preparation fact accepted by Order. | `PreparationStarted` |
 | `Orders.DispensingStarted` | integration | Machine dispensing fact accepted by Order. | `DispensingStarted` |
@@ -379,6 +379,14 @@ Canonical Order event catalog:
 | `Orders.Expired` | integration | Unpaid active order expired. | `OrderExpired` |
 | `Orders.RefundStarted` | integration | Paid order requires compensation. | `RefundStarted` |
 | `Orders.RefundCompleted` | integration | Refund completion accepted and order closed as refunded. | `RefundCompleted` |
+
+MVP Vertical Slice 003 runtime aliases:
+
+| Runtime event | Canonical event | Produced after |
+|---|---|---|
+| `OrderCreated` | `Orders.Created` | Customer-owned Order is accepted and moved to `PAYMENT_PENDING`. |
+| `OrderPaid` | `Orders.PaymentConfirmed` | Internal payment confirmation moves Order to `PAID`. |
+| `OrderCancelled` | `Orders.Cancelled` | Unpaid active Order is cancelled. |
 
 Order event rules:
 
