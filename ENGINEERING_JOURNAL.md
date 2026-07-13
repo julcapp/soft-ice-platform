@@ -3,6 +3,31 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-13 - MVP Vertical Slice 002 Club Account and Loyalty Core
+
+- Implemented the first business loyalty flow on top of the existing Customer/Auth foundation.
+- Completed the backend Club Account projection model with account status, RUB currency, available/reserved balance fields, current balance compatibility, last transaction reference and projection version.
+- Added immutable Club Account ledger records with credit/debit direction, amount, reason, reference entity, balance-after fields, actor/correlation metadata and timestamps.
+- Added initial MVP deposit support through `POST /api/v1/club-account/top-up`, plus `GET /api/v1/club-account/me` and `GET /api/v1/club-account/history`.
+- Kept the existing `/api/v1/club-accounts/*` route family as compatibility aliases while adding the requested singular `/api/v1/club-account/*` endpoints.
+- Added Runtime support for ledger-backed credit, internal debit, customer history reads and balance recalculation from posted transaction deltas.
+- Added Prisma schema and migration changes for Club Account transaction storage and enriched BonusTransaction ledger fields.
+- Added backend tests for account creation after registration, balance calculation, ledger credit, ledger debit and unauthorized access.
+- Explicitly kept YooKassa, real payments, machine integration and order fulfillment out of scope.
+
+## 2026-07-13 - MVP Vertical Slice 001 Customer Registration Flow
+
+- Implemented the first working customer registration vertical slice for the backend modular monolith.
+- Added API v1 routes for `POST /api/v1/auth/telegram-mini-app/sessions`, `GET /api/v1/customers/me`, `GET /api/v1/club-accounts/me` and `GET /api/v1/telegram/mini-app/bootstrap`.
+- Added compatibility aliases for the MVP brief: `POST /api/auth/telegram` and `GET /api/customer/me`, both backed by the same Auth Core, customer session middleware and Customer Runtime contracts as API v1.
+- Added Auth Core runtime foundation with Telegram Mini App init data verification, opaque bearer access tokens, token hashing at rest, session persistence and customer bearer authentication.
+- Added Customer Runtime identity resolution from verified Telegram aliases using `customer_id` as canonical platform identity.
+- Added Club Account Runtime creation after registration with a zero-balance RUB account projection; payments, top-ups and machine dispatch remain disabled and out of scope.
+- Added PostgreSQL/Prisma persistence for `CustomerIdentity`, `AuthSession`, `IdempotencyRecord` and `AuditEvent`, plus a migration for the registration slice.
+- Added backend tests for the Telegram registration flow, customer profile read, Club Account read, Mini App bootstrap and invalid Telegram init data rejection.
+- Added backend `test`, `build` and `prisma:validate` scripts; backend build validates JavaScript syntax and Prisma schema without requiring a live PostgreSQL connection.
+- Verification: `npm test` passed; `npm run build` passed.
+
 ## 2026-07-13 - Auth Core Contract
 
 - Created `docs/security/AUTH_CORE_CONTRACT.md` as a documentation-only authentication and authorization foundation.

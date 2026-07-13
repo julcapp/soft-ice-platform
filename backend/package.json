@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "node scripts/build.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:validate": "prisma validate",
+    "test": "node --test tests/*.test.js",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },

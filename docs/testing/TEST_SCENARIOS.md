@@ -55,3 +55,27 @@
 3. Проверить `GET /health/ready`.
 
 Ожидаемый результат: `/health` возвращает liveness backend, `/health/ready` возвращает readiness по фактической доступности PostgreSQL. Платёжные операции, YooKassa API calls, Telegram integration и machine dispatch не выполняются.
+
+## TS-009 MVP vertical slice 001 - customer registration
+1. Configure backend with `DATABASE_URL` and `TELEGRAM_BOT_TOKEN`.
+2. Send valid Telegram Mini App init data to `POST /api/v1/auth/telegram-mini-app/sessions` with `source_channel = telegram_mini_app`.
+3. Verify response contains `customer_id`, `session_id`, Bearer `access_token` and `expires_at`.
+4. Call `GET /api/v1/customers/me` with the Bearer token.
+5. Call `GET /api/v1/club-accounts/me` with the Bearer token.
+6. Call `GET /api/v1/telegram/mini-app/bootstrap` with the Bearer token.
+7. Send invalid Telegram init data to the session endpoint.
+8. Send valid Telegram Mini App init data to `POST /api/auth/telegram`.
+9. Call `GET /api/customer/me` with the Bearer token returned by the compatibility endpoint.
+
+Expected result: valid Telegram init data creates or resolves one canonical customer, creates a zero-balance RUB Club Account after registration, returns customer-safe profile/account/bootstrap DTOs through API v1, returns the customer-safe profile through the compatibility API aliases and rejects invalid init data with `AUTHENTICATION_INVALID`. Payments, top-ups and machine dispatch remain disabled in this slice.
+
+## TS-010 MVP vertical slice 002 - Club Account and Loyalty Core
+1. Create a customer session through `POST /api/v1/auth/telegram-mini-app/sessions`.
+2. Call `GET /api/v1/club-account/me` with the Bearer token.
+3. Call `POST /api/v1/club-account/top-up` with an initial RUB amount, reason and reference entity.
+4. Call `GET /api/v1/club-account/me` again.
+5. Call `GET /api/v1/club-account/history`.
+6. Exercise an internal debit through Club Account Runtime test coverage.
+7. Call `GET /api/v1/club-account/me`, `POST /api/v1/club-account/top-up` and `GET /api/v1/club-account/history` without a Bearer token.
+
+Expected result: the customer has an active Club Account after registration, the top-up creates an immutable credit ledger record and updates the stored balance projection, internal debit creates an immutable debit ledger record and recalculates balance from ledger deltas, history returns customer-safe credit/debit records with reason, reference entity and timestamps, and unauthenticated requests return `401`.

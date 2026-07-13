@@ -9,8 +9,8 @@ datasource db {
 
 model Customer {
   id                String   @id @default(uuid())
-  phone             String   @unique
-  name              String
+  phone             String?  @unique
+  name              String?
   telegramId        String?  @unique
   telegramUsername  String?
   email             String?
@@ -23,6 +23,8 @@ model Customer {
   updatedAt         DateTime @updatedAt
 
   clubAccount       ClubAccount?
+  identities        CustomerIdentity[]
+  authSessions      AuthSession[]
   bonusAccount      BonusAccount?
   orders            Order[]
   consents          CustomerConsent[]
@@ -32,6 +34,78 @@ model Customer {
   photoChallenges   PhotoChallenge[]
   birthdayRewards   BirthdayReward[]
   payments          Payment[]
+}
+
+model CustomerIdentity {
+  id                  String   @id @default(uuid())
+  customerId          String
+  provider            String
+  externalSubjectHash String
+  externalUsername    String?
+  displayName         String?
+  verificationMethod  String
+  status              String   @default("active")
+  sourceChannel       String?
+  verifiedAt          DateTime @default(now())
+  linkedAt            DateTime @default(now())
+  lastSeenAt          DateTime @default(now())
+  revokedAt           DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer            Customer @relation(fields: [customerId], references: [id])
+
+  @@unique([provider, externalSubjectHash])
+}
+
+model AuthSession {
+  id              String   @id @default(uuid())
+  subjectType     String
+  customerId      String
+  authMethod      String
+  consumerType    String
+  accessTokenHash String   @unique
+  tokenType       String   @default("Bearer")
+  correlationId   String?
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+
+  customer        Customer @relation(fields: [customerId], references: [id])
+}
+
+model IdempotencyRecord {
+  id              String   @id @default(uuid())
+  scope           String
+  key             String
+  actorContext    Json?
+  semanticHash    String
+  status          String
+  resultReference String?
+  correlationId   String?
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  expiresAt       DateTime?
+
+  @@unique([scope, key])
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  eventType     String
+  subjectType   String?
+  subjectId     String?
+  targetType    String?
+  targetId      String?
+  action        String
+  decision      String
+  reasonCode    String?
+  authMethod    String?
+  sourceChannel String?
+  correlationId String?
+  metadata      Json?
+  occurredAt    DateTime @default(now())
 }
 
 model DocumentVersion {
@@ -62,17 +136,57 @@ model CustomerConsent {
 }
 
 model ClubAccount {
-  id              String   @id @default(uuid())
-  customerId      String   @unique
-  balanceRub      Float    @default(0)
-  clubActive      Boolean  @default(false)
-  activatedAt     DateTime?
-  lastTopupAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  customerId         String   @unique
+  status             String   @default("active")
+  currency           String   @default("RUB")
+  balanceRub         Float    @default(0)
+  availableBalanceRub Float   @default(0)
+  reservedBalanceRub Float    @default(0)
+  clubActive         Boolean  @default(false)
+  activatedAt        DateTime?
+  lastTopupAt        DateTime?
+  lastTransactionId  String?
+  projectionVersion  Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  customer        Customer @relation(fields: [customerId], references: [id])
-  topups          ClubTopup[]
+  customer           Customer @relation(fields: [customerId], references: [id])
+  topups             ClubTopup[]
+  transactions       ClubAccountTransaction[]
+}
+
+model ClubAccountTransaction {
+  id                       String   @id @default(uuid())
+  clubAccountId            String
+  customerId               String
+  transactionType          String
+  direction                String
+  amountRub                Float
+  currency                 String   @default("RUB")
+  availableDeltaRub        Float
+  reservedDeltaRub         Float    @default(0)
+  availableBalanceAfterRub Float
+  reservedBalanceAfterRub  Float
+  balanceAfterRub          Float
+  status                   String   @default("posted")
+  reason                   String
+  referenceEntityType      String?
+  referenceEntityId        String?
+  sourceDomain             String?
+  sourceId                 String?
+  idempotencyKey           String?
+  actorType                String   @default("customer")
+  actorId                  String?
+  correlationId            String?
+  createdAt                DateTime @default(now())
+  postedAt                 DateTime @default(now())
+
+  clubAccount              ClubAccount @relation(fields: [clubAccountId], references: [id])
+
+  @@unique([clubAccountId, idempotencyKey])
+  @@index([customerId, postedAt])
+  @@index([clubAccountId, postedAt])
 }
 
 model ClubTopup {
@@ -107,10 +221,16 @@ model BonusTransaction {
   orderId        String?
   referralId     String?
   type           String
+  direction      String   @default("credit")
   amountBonus    Int
   source         String
+  reason         String?
+  referenceEntityType String?
+  referenceEntityId   String?
+  balanceAfterBonus   Int?
   comment        String?
   createdAt      DateTime @default(now())
+  postedAt       DateTime @default(now())
 
   customer       Customer @relation(fields: [customerId], references: [id])
   order          Order?   @relation(fields: [orderId], references: [id])
