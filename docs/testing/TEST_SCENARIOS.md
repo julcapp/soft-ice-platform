@@ -90,3 +90,17 @@ Expected result: the customer has an active Club Account after registration, the
 7. Call order create/read/history endpoints without a Bearer token.
 
 Expected result: order creation returns a customer-owned `PAYMENT_PENDING` order and emits `OrderCreated`, internal payment confirmation changes the order to `PAID`, prepares the Club Account future integration point and emits `OrderPaid`, order history returns only the current customer's orders, and unauthenticated requests return `401`. YooKassa, machine dispatch and Telegram notifications remain out of scope.
+
+## TS-012 MVP vertical slice 004 - Machine Integration and Dispense Flow
+1. Create a customer session through `POST /api/v1/auth/telegram-mini-app/sessions`.
+2. Register an online machine through `POST /api/v1/machines/register` with a Bearer token.
+3. Call `GET /api/v1/machines/:id` with the same Bearer token.
+4. Create an order through `POST /api/v1/orders`.
+5. Call the internal Order Runtime payment confirmation flow for the order.
+6. Call `GET /api/v1/orders/:id/dispense` with the same Bearer token.
+7. Exercise Machine Runtime command receipt so the dispense request moves from `REQUESTED` to `STARTED`.
+8. Exercise Machine Runtime completion so the dispense request moves to `COMPLETED`.
+9. Exercise a separate Machine Runtime failure path so the dispense request moves to `FAILED` with a safe failure reason.
+10. Call machine register/read and order dispense endpoints without a Bearer token.
+
+Expected result: a paid order creates exactly one `DispenseRequest` with a stored `DispenseCommand`, emits `MachineDispenseRequested`, command receipt emits `DispenseStarted`, completion emits `DispenseCompleted`, failure emits `DispenseFailed`, failed requests keep the safe reason and reject completion, and unauthenticated requests return `401`. Vendor SDKs, Huaxin API integration, real telemetry, payment providers and Telegram notifications remain out of scope.

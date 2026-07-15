@@ -99,6 +99,12 @@ test('payment confirmation changes order state and generates OrderPaid event', a
     telegramUserId: 779002,
     idempotencyKey: 'order-core-session-payment',
   });
+  await registerMachine({
+    baseUrl,
+    accessToken,
+    machineCode: 'machine_order_core_001',
+    idempotencyKey: 'order-core-machine-register',
+  });
   const orderId = await createOrder({
     baseUrl,
     accessToken,
@@ -124,6 +130,13 @@ test('payment confirmation changes order state and generates OrderPaid event', a
     'deposit_usage',
     'loyalty_rules',
   ]);
+  assert.equal(result.machineDispenseIntegration.service, 'MachineRuntime');
+  assert.equal(result.machineDispenseIntegration.applied, true);
+  assert.equal(result.machineDispenseIntegration.state, 'REQUESTED');
+  assert.match(
+    result.machineDispenseIntegration.dispense_request_id,
+    /^dispense_/,
+  );
 
   const events = dependencies.domainEventPublisher.getPublishedEvents({
     name: 'OrderPaid',
@@ -248,6 +261,33 @@ async function createOrder({ baseUrl, accessToken, amount, idempotencyKey }) {
     body: JSON.stringify({
       amount,
       currency: 'RUB',
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const payload = await response.json();
+
+  return payload.data.id;
+}
+
+async function registerMachine({
+  baseUrl,
+  accessToken,
+  machineCode,
+  idempotencyKey,
+}) {
+  const response = await fetch(`${baseUrl}/api/v1/machines/register`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      machine_code: machineCode,
+      name: 'Order Core Test Machine',
+      location: 'Test location',
+      status: 'ONLINE',
     }),
   });
 

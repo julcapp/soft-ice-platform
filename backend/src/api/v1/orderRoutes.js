@@ -1,10 +1,11 @@
 const express = require('express');
 
+const { toDispenseRequestDto } = require('../../modules/machine/machineDto');
 const { toOrderCreationDto, toOrderDto } = require('../../modules/order/orderDto');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 
-function createOrderRouter({ authCoreService, orderRuntime }) {
+function createOrderRouter({ authCoreService, machineRuntime, orderRuntime }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -39,6 +40,19 @@ function createOrderRouter({ authCoreService, orderRuntime }) {
       );
 
       sendData(res, req, toOrderDto(order));
+    }),
+  );
+
+  router.get(
+    '/:id/dispense',
+    authenticateCustomer,
+    asyncHandler(async (req, res) => {
+      const dispenseRequest = await machineRuntime.getOwnOrderDispense(
+        req.securityContext.subject_id,
+        req.params.id,
+      );
+
+      sendData(res, req, toDispenseRequestDto(dispenseRequest));
     }),
   );
 

@@ -1,5 +1,7 @@
 const { ClubAccountRuntime } = require('../../src/modules/club_account/ClubAccountRuntime');
 const { CustomerRuntime } = require('../../src/modules/customer/CustomerRuntime');
+const { MachineRuntime } = require('../../src/modules/machine/MachineRuntime');
+const { MachineService } = require('../../src/modules/machine/MachineService');
 const { ORDER_STATUS } = require('../../src/modules/order/OrderEntity');
 const { OrderRuntime } = require('../../src/modules/order/OrderRuntime');
 const { OrderService } = require('../../src/modules/order/OrderService');
@@ -15,6 +17,7 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
   const customerRepository = new InMemoryCustomerRepository();
   const clubAccountRepository = new InMemoryClubAccountRepository();
   const orderRepository = new InMemoryOrderRepository({ now });
+  const machineRepository = new InMemoryMachineRepository({ now, orderRepository });
   const authSessionRepository = new InMemoryAuthSessionRepository();
   const idempotencyService = new IdempotencyService(new InMemoryIdempotencyRepository());
   const domainEventPublisher = new InMemoryDomainEventPublisher({ clock: () => now });
@@ -29,11 +32,23 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
     auditRepository,
   });
 
+  const machineService = new MachineService({
+    machineRepository,
+    auditRepository,
+    domainEventPublisher,
+    clock: () => now,
+  });
+
+  const machineRuntime = new MachineRuntime({
+    machineService,
+  });
+
   const orderService = new OrderService({
     orderRepository,
     auditRepository,
     domainEventPublisher,
     clubAccountService: clubAccountRuntime,
+    machineRuntime,
     clock: () => now,
   });
 
@@ -60,6 +75,7 @@ function createTestDependencies({ botToken, now = new Date('2026-07-13T12:00:00.
     authCoreService,
     customerRuntime,
     clubAccountRuntime,
+    machineRuntime,
     orderRuntime,
     domainEventPublisher,
   };
@@ -395,6 +411,173 @@ class InMemoryOrderRepository {
     this.orders.set(order.id, order);
 
     return order;
+  }
+}
+
+class InMemoryMachineRepository {
+  constructor({ now, orderRepository }) {
+    this.machines = new Map();
+    this.dispenseRequests = new Map();
+    this.sequence = 0;
+    this.now = now;
+    this.orderRepository = orderRepository;
+  }
+
+  async createMachine({ machineCode, name, location, status }) {
+    this.sequence += 1;
+
+    const createdAt = new Date(this.now);
+    const machine = {
+      id: `machine_test_${this.sequence}`,
+      machineCode,
+      name,
+      location: location || null,
+      status,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    this.machines.set(machine.id, machine);
+
+    return machine;
+  }
+
+  async findById(machineId) {
+    return this.machines.get(machineId) || null;
+  }
+
+  async findByMachineCode(machineCode) {
+    return (
+      [...this.machines.values()].find(
+        (machine) => machine.machineCode === machineCode,
+      ) || null
+    );
+  }
+
+  async findFirstOnlineMachine() {
+    return (
+      [...this.machines.values()]
+        .filter((machine) => machine.status === 'ONLINE')
+        .sort((left, right) => {
+          const createdDiff = left.createdAt.getTime() - right.createdAt.getTime();
+
+          if (createdDiff !== 0) {
+            return createdDiff;
+          }
+
+          return left.id.localeCompare(right.id);
+        })[0] || null
+    );
+  }
+
+  async createDispenseRequest(command) {
+    const existing = await this.findDispenseByOrderId(command.orderId);
+
+    if (existing) {
+      return {
+        dispenseRequest: existing,
+        created: false,
+      };
+    }
+
+    const createdAt = new Date(this.now);
+    const machine = await this.findById(command.machineId);
+    const order = await this.orderRepository.findById(command.orderId);
+    const dispenseRequest = {
+      id: command.id,
+      orderId: command.orderId,
+      machineId: command.machineId,
+      state: command.state,
+      commandId: command.commandId,
+      commandType: command.commandType,
+      commandPayload: command.commandPayload,
+      failureReason: null,
+      requestedAt: command.requestedAt || createdAt,
+      startedAt: null,
+      completedAt: null,
+      failedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+      machine,
+      order,
+    };
+
+    this.dispenseRequests.set(dispenseRequest.id, dispenseRequest);
+
+    return {
+      dispenseRequest,
+      created: true,
+    };
+  }
+
+  async findDispenseById(dispenseRequestId) {
+    return this.withRelations(this.dispenseRequests.get(dispenseRequestId) || null);
+  }
+
+  async findDispenseByOrderId(orderId) {
+    const dispenseRequest =
+      [...this.dispenseRequests.values()].find(
+        (request) => request.orderId === orderId,
+      ) || null;
+
+    return this.withRelations(dispenseRequest);
+  }
+
+  async findDispenseByOrderIdForCustomer(orderId, customerId) {
+    const dispenseRequest = await this.findDispenseByOrderId(orderId);
+
+    if (!dispenseRequest || !dispenseRequest.order) {
+      return null;
+    }
+
+    if (dispenseRequest.order.customerId !== customerId) {
+      return null;
+    }
+
+    return dispenseRequest;
+  }
+
+  async updateDispenseState(dispenseRequestId, state, updates = {}) {
+    const dispenseRequest = this.dispenseRequests.get(dispenseRequestId);
+
+    if (!dispenseRequest) {
+      return null;
+    }
+
+    dispenseRequest.state = state;
+    dispenseRequest.updatedAt = new Date(this.now);
+
+    if (updates.startedAt) {
+      dispenseRequest.startedAt = updates.startedAt;
+    }
+
+    if (updates.completedAt) {
+      dispenseRequest.completedAt = updates.completedAt;
+    }
+
+    if (updates.failedAt) {
+      dispenseRequest.failedAt = updates.failedAt;
+    }
+
+    if (updates.failureReason) {
+      dispenseRequest.failureReason = updates.failureReason;
+    }
+
+    this.dispenseRequests.set(dispenseRequest.id, dispenseRequest);
+
+    return this.withRelations(dispenseRequest);
+  }
+
+  async withRelations(dispenseRequest) {
+    if (!dispenseRequest) {
+      return null;
+    }
+
+    return {
+      ...dispenseRequest,
+      machine: await this.findById(dispenseRequest.machineId),
+      order: await this.orderRepository.findById(dispenseRequest.orderId),
+    };
   }
 }
 

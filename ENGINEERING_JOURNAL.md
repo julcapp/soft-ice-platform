@@ -3,6 +3,19 @@
 Status: Active
 Project: Soft ICE Platform / Utimoshi
 
+## 2026-07-13 - MVP Vertical Slice 004 Machine Integration and Dispense Flow
+
+- Implemented the first machine integration foundation on top of the existing Order paid-state flow.
+- Added Machine Runtime, Machine Service, Machine Repository, Machine Entity/status contracts and machine/dispense DTOs under `backend/src/modules/machine/`.
+- Added Prisma `MachineStatus` and `DispenseRequestState` enums, upgraded the existing `Machine` model to `machineCode`, `name`, `location`, `status`, `createdAt` and `updatedAt`, and added `DispenseRequest` with Machine 1:N and Order 1:1 relations.
+- Added protected API v1 endpoints: `POST /api/v1/machines/register`, `GET /api/v1/machines/:id` and `GET /api/v1/orders/:id/dispense`.
+- Connected `OrderService.confirmPayment` so accepted `PAID` orders create a `DispenseRequest` and stored `DispenseCommand` through Machine Runtime after `OrderPaid` is emitted.
+- Added lightweight in-process machine events for `MachineDispenseRequested`, `DispenseStarted`, `DispenseCompleted` and `DispenseFailed`.
+- Added runtime methods to receive a command, mark dispense started, mark dispense completed and mark dispense failed without physical hardware control.
+- Added backend tests for paid order dispense request creation, command receipt, completed dispense, failed dispense and unauthorized access.
+- Explicitly kept vendor SDKs, Huaxin API integration, real telemetry, payment providers and Telegram notifications out of scope.
+- Verification: `npm.cmd test` passed; `npm.cmd run build` passed.
+
 ## 2026-07-13 - MVP Vertical Slice 003 Order and Purchase Core
 
 - Implemented the first complete Order purchase domain flow on top of Auth Core, Customer and Club Account foundations.

@@ -19,6 +19,34 @@ const ORDER_DOMAIN_EVENTS = Object.freeze({
   },
 });
 
+const MACHINE_DOMAIN_EVENTS = Object.freeze({
+  MACHINE_DISPENSE_REQUESTED: {
+    name: 'MachineDispenseRequested',
+    canonicalName: 'Machines.DispenseRequested',
+    version: 1,
+    category: 'domain',
+  },
+  DISPENSE_STARTED: {
+    name: 'DispenseStarted',
+    canonicalName: 'Machines.DispenseStarted',
+    version: 1,
+    category: 'domain',
+  },
+  DISPENSE_COMPLETED: {
+    name: 'DispenseCompleted',
+    canonicalName: 'Machines.DispenseCompleted',
+    version: 1,
+    category: 'domain',
+  },
+  DISPENSE_FAILED: {
+    name: 'DispenseFailed',
+    canonicalName: 'Machines.DispenseFailed',
+    version: 1,
+    category: 'domain',
+  },
+});
+
 module.exports = {
+  MACHINE_DOMAIN_EVENTS,
   ORDER_DOMAIN_EVENTS,
 };

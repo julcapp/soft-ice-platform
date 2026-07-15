@@ -10,12 +10,14 @@ class OrderService {
     auditRepository,
     domainEventPublisher,
     clubAccountService,
+    machineRuntime,
     clock = () => new Date(),
   }) {
     this.orderRepository = orderRepository;
     this.auditRepository = auditRepository;
     this.domainEventPublisher = domainEventPublisher;
     this.clubAccountService = clubAccountService;
+    this.machineRuntime = machineRuntime;
     this.clock = clock;
   }
 
@@ -99,10 +101,20 @@ class OrderService {
     }
 
     if (order.status === ORDER_STATUS.PAID) {
+      const clubAccountIntegration = await this.prepareClubAccountIntegration(
+        order,
+        context,
+      );
+      const machineDispenseIntegration = await this.prepareMachineDispenseIntegration(
+        order,
+        context,
+      );
+
       return {
         order,
         event: null,
-        clubAccountIntegration: await this.prepareClubAccountIntegration(order, context),
+        clubAccountIntegration,
+        machineDispenseIntegration,
         changed: false,
       };
     }
@@ -143,10 +155,19 @@ class OrderService {
       context,
     });
 
+    const machineDispenseIntegration = await this.prepareMachineDispenseIntegration(
+      paidOrder,
+      {
+        ...context,
+        causationId: event ? event.id : context.causationId,
+      },
+    );
+
     return {
       order: paidOrder,
       event,
       clubAccountIntegration,
+      machineDispenseIntegration,
       changed: true,
     };
   }
@@ -238,6 +259,43 @@ class OrderService {
       amount: Number(order.amount ?? order.amountPaidRub ?? 0),
       currency: order.currency || SUPPORTED_CURRENCY,
       future_capabilities: ['bonus_accrual', 'deposit_usage', 'loyalty_rules'],
+    };
+  }
+
+  async prepareMachineDispenseIntegration(order, context) {
+    if (
+      this.machineRuntime &&
+      typeof this.machineRuntime.requestDispenseForPaidOrder === 'function'
+    ) {
+      const result = await this.machineRuntime.requestDispenseForPaidOrder(order, {
+        ...context,
+        actorType: context.actorType || 'system',
+        actorId: context.actorId || 'order_runtime',
+      });
+
+      return {
+        service: 'MachineRuntime',
+        status: 'requested',
+        applied: true,
+        created: result.created,
+        order_id: order.id,
+        machine_id: result.dispenseRequest.machineId,
+        dispense_request_id: result.dispenseRequest.id,
+        command_id: result.dispenseRequest.commandId,
+        state: result.dispenseRequest.state,
+      };
+    }
+
+    return {
+      service: 'MachineRuntime',
+      status: 'prepared',
+      applied: false,
+      order_id: order.id,
+      future_capabilities: [
+        'dispense_request',
+        'machine_command_delivery',
+        'machine_execution_events',
+      ],
     };
   }
 

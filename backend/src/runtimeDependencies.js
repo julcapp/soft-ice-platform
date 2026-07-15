@@ -2,6 +2,9 @@ const { ClubAccountRepository } = require('./modules/club_account/ClubAccountRep
 const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntime');
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
+const { MachineRepository } = require('./modules/machine/MachineRepository');
+const { MachineRuntime } = require('./modules/machine/MachineRuntime');
+const { MachineService } = require('./modules/machine/MachineService');
 const { OrderRepository } = require('./modules/order/OrderRepository');
 const { OrderRuntime } = require('./modules/order/OrderRuntime');
 const { OrderService } = require('./modules/order/OrderService');
@@ -19,6 +22,7 @@ function createRuntimeDependencies() {
   const customerRepository = new CustomerRepository(prisma);
   const clubAccountRepository = new ClubAccountRepository(prisma);
   const orderRepository = new OrderRepository(prisma);
+  const machineRepository = new MachineRepository(prisma);
   const authSessionRepository = new AuthSessionRepository(prisma);
   const idempotencyRepository = new IdempotencyRepository(prisma);
   const idempotencyService = new IdempotencyService(idempotencyRepository);
@@ -34,11 +38,22 @@ function createRuntimeDependencies() {
     auditRepository,
   });
 
+  const machineService = new MachineService({
+    machineRepository,
+    auditRepository,
+    domainEventPublisher,
+  });
+
+  const machineRuntime = new MachineRuntime({
+    machineService,
+  });
+
   const orderService = new OrderService({
     orderRepository,
     auditRepository,
     domainEventPublisher,
     clubAccountService: clubAccountRuntime,
+    machineRuntime,
   });
 
   const orderRuntime = new OrderRuntime({
@@ -57,6 +72,7 @@ function createRuntimeDependencies() {
     authCoreService,
     customerRuntime,
     clubAccountRuntime,
+    machineRuntime,
     orderRuntime,
     domainEventPublisher,
   };

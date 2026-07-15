@@ -17,6 +17,20 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum MachineStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+}
+
+enum DispenseRequestState {
+  REQUESTED
+  STARTED
+  COMPLETED
+  FAILED
+}
+
 model Customer {
   id                String   @id @default(uuid())
   phone             String?  @unique
@@ -248,17 +262,17 @@ model BonusTransaction {
 }
 
 model Machine {
-  id             String   @id @default(uuid())
-  name           String
-  location       String?
-  currentFlavor  String
-  status         String   @default("online")
-  cupsCapacity   Int      @default(160)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String        @id @default(uuid())
+  machineCode      String        @unique
+  name             String
+  location         String?
+  status           MachineStatus @default(OFFLINE)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  orders         Order[]
-  inventory      MachineInventory[]
+  orders           Order[]
+  inventory        MachineInventory[]
+  dispenseRequests DispenseRequest[]
 }
 
 model MachineInventory {
@@ -298,12 +312,36 @@ model Order {
 
   customer             Customer @relation(fields: [customerId], references: [id])
   machine              Machine? @relation(fields: [machineId], references: [id])
+  dispenseRequest      DispenseRequest?
   bonusTransactions    BonusTransaction[]
   photoChallenge       PhotoChallenge?
   birthdayReward       BirthdayReward?
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+}
+
+model DispenseRequest {
+  id              String               @id @default(uuid())
+  orderId         String               @unique
+  machineId       String
+  state           DispenseRequestState @default(REQUESTED)
+  commandId       String               @unique
+  commandType     String               @default("DispenseCommand")
+  commandPayload  Json
+  failureReason   String?
+  requestedAt     DateTime             @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  order           Order                @relation(fields: [orderId], references: [id])
+  machine         Machine              @relation(fields: [machineId], references: [id])
+
+  @@index([machineId, state])
+  @@index([state, createdAt])
 }
 
 model Referral {
