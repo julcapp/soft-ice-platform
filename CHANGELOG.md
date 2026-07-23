@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [Unreleased] - Soft ICE Platform Master Architecture Map v1
+
+### Added
+
+- Authoritative eight-area platform map covering Customer Platform, CRM/Admin Console, Machine Platform, Machine Operations, Payment Platform, Advertising Platform, Identity and Security, and Infrastructure.
+- Mandatory platform ownership and access boundaries, including administrator-only commercial configuration, assigned Operator scope, complete administrator audit, separate actor interfaces and vendor-neutral `MachineGateway` isolation.
+- High-level data flows for registration/consent, purchase/payment, payment-to-dispense, operator service/refill, test consumption, advertising tracking, and CRM reporting/audit.
+- Architecture governance requiring a domain document for every new module, ADRs for major choices, backend permission enforcement, adapter isolation, configurable business policy where appropriate, complete slice documentation and honest maturity status.
+
+### Updated
+
+- Architecture Status, Architecture Roadmap and Roadmap Next Phase aligned to Master Architecture Map v1.
+
+### Scope
+
+- Documentation only; application code, Prisma schema, tests and business logic were not changed.
+
 ## [Unreleased] - Machine Operations Architecture Checkpoint
 
 ### Added

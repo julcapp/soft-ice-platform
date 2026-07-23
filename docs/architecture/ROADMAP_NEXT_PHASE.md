@@ -1,51 +1,58 @@
 # Roadmap: Next Phase
 
-Status: Proposed sequencing under accepted architecture
-Version: 1.0
+Status: Proposed sequencing under Master Architecture Map v1
+Version: 2.0
 Date: 2026-07-23
 
 ## Objective
 
-Convert the Machine Operations checkpoint into separately approved, testable increments while retaining CRM/Admin Console as the central management surface and keeping Advertising execution deferred.
+Convert the Master Architecture Map v1 into separately approved, production-oriented increments while retaining domain ownership, backend-enforced permissions, vendor isolation and honest capability status.
 
 ## Recommended increments
 
-### 1. Machine Operations contract hardening
+### 1. Payment Platform production slice
 
-- reconcile current Machine Operations implementation and documentation with the accepted permission matrix;
-- define immutable checklist-version attachment and service-report approval transitions;
-- define inventory-ledger integration for all accepted test-consumption reasons;
-- verify administrator actions are separately attributed and audited.
+- select one approved production payment channel and record provider decisions in an ADR;
+- implement provider-neutral checkout, payment intent/session and accepted payment fact;
+- implement authenticated, replay-safe and idempotent provider confirmation;
+- post immutable ledger/operation facts and define reconciliation evidence;
+- keep YooKassa, Sber and SBP provider types inside adapter boundaries.
 
-### 2. Operator evidence and inventory traceability
+### 2. Paid purchase-to-dispense completion
 
-- add before/after evidence policy;
-- define ingredient batch and expiry capture;
-- define media retention, privacy and access rules;
-- define stock reconciliation reports separating sales, tests, cleaning, calibration and waste.
+- wire Mini App checkout to backend Product, Pricing, Order and Payment contracts;
+- allow Order to accept only Payment Core confirmation;
+- dispatch only paid orders through `MachineGateway`;
+- validate success, timeout, duplicate webhook, duplicate command, dispense failure and recovery paths;
+- keep final price and media selection out of UI components.
 
-### 3. Field operations planning
+### 3. CRM/Admin Console security and management foundation
 
-- define maintenance schedules, operator routes and GPS confirmation policy;
-- define senior operator permissions without weakening administrator separation;
-- define digital service acceptance and dispute history.
+- establish a separate Administrator interface and session boundary;
+- enforce granular backend permissions for prices, product commercial settings, loyalty and advertising;
+- expose payment reconciliation, operator oversight and audit through owning-domain queries;
+- version and audit configuration changes;
+- prohibit direct database editing from management workflows.
 
-### 4. Offline Operator App architecture
+### 4. Machine Operations and inventory hardening
 
-- define local encrypted storage, assignment scope and data minimization;
-- define idempotency, synchronization, conflict resolution and evidence upload recovery;
-- define revoked-access and stale-checklist behavior while offline.
+- reconcile current implementation with the master access matrix;
+- guarantee every test dispense produces linked non-sale inventory consumption;
+- define immutable checklist attachment and service-report approval transitions;
+- add before/after evidence, batch/expiry and reconciliation policy;
+- separately design scheduling, routes, GPS and offline synchronization.
 
-### 5. CRM/Admin Console integration
+### 5. Customer Platform completion
 
-- expose central views for customers, loyalty, payments, reports, analytics and commercial settings;
-- add operator monitoring and Machine Operations oversight through owned APIs/contracts;
-- add service-report approval and audit views;
-- reserve future Advertising management navigation without implementing delivery.
+- complete Customer Profile, Club Account and production purchase history;
+- define dedicated Loyalty, Referral and Segmentation module slices;
+- preserve canonical `customer_id`, verified-provider boundaries and consent history;
+- keep customer, operator and administrator interfaces separate;
+- reserve the future advertising carousel behind explicit eligibility gates.
 
 ### 6. Advertising foundation implementation proposal
 
-- define entity states and authorization contracts for advertiser, campaign, creative, placement, referral link and click;
+- define entity states and authorization contracts for Advertiser, Campaign, Creative, Placement, Referral Link, Click Event and Conversion Event;
 - bind advertiser eligibility to authenticated customer identity and verified phone;
 - enforce authoritative consent checks and withdrawal behavior;
 - submit moderation, retention, attribution and anti-fraud decisions for Product Owner approval.
@@ -56,10 +63,15 @@ Delivery algorithms remain outside this phase.
 
 - Product Owner approval for major product or commercial decisions;
 - explicit domain ownership and permission matrix;
+- an approved domain document for every new module;
+- an ADR for every major architectural choice;
 - privacy/security review for identity, consent, photos, GPS and click data;
 - inventory reconciliation acceptance criteria;
+- adapter contracts for every external machine, payment or identity provider;
 - migration, API and behavior changes scoped in a later engineering increment.
 
 ## Completion evidence for later implementation
 
-Each implementation increment must include code, migrations where approved, automated tests, updated test scenarios and changelog, successful builds and no generated build output committed. This checkpoint itself remains documentation-only.
+Each implementation increment must include code, migrations where approved, automated tests, updated API/event contracts, updated test scenarios, changelog and Architecture Status, successful required builds and no generated build output committed.
+
+Documentation for each slice must identify what is Implemented, Foundation, Documented and Future. This Master Architecture Map v1 checkpoint itself remains documentation-only.

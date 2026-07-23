@@ -2,7 +2,7 @@
 
 Status: Active
 Document code: ARCH-002
-Version: 2.1
+Version: 3.0
 Snapshot date: 2026-07-23
 Project: Soft ICE Platform / «У Тимоши»
 
@@ -16,7 +16,7 @@ The repository contains an executable modular-monolith backend foundation, a Rea
 
 The MVP is not production-launch-ready. Real payment execution is the principal missing link: the Payment module is still a foundation, while Sber and YooKassa adapters and payment webhooks are contract/configuration work rather than executable integrations.
 
-The 2026-07-23 Machine Operations architecture checkpoint additionally confirms that Machine Operations is a bounded context separate from CRM. It records the Operator App and administrator permission split, mandatory non-sales inventory movements for tests/service work, future field-operations capabilities, and the foundation boundary for a future consent-controlled Advertising Platform. These checkpoint additions are documentation decisions and do not claim new runtime implementation.
+The 2026-07-23 Master Architecture Map v1 establishes the authoritative eight-area platform structure, mandatory access boundaries, high-level cross-platform data flows and architecture governance rules. It incorporates the Machine Operations checkpoint, central CRM/Admin Console role, future consent-controlled Advertising Platform, vendor-neutral Machine Gateway boundary and shared infrastructure responsibilities. These map additions are documentation decisions and do not claim new runtime implementation.
 
 Status terms used below:
 
@@ -24,6 +24,38 @@ Status terms used below:
 - **Foundation** — schema, module boundary, or partial runtime exists, but the production capability is incomplete.
 - **Documented** — architecture or integration contracts exist without executable runtime code.
 - **Future** — intentionally recorded for a later increment.
+
+## Master Architecture Baseline v1
+
+| Platform area | Baseline status | Current architecture position |
+|---|---|---|
+| Customer Platform | Implemented foundation / Future extensions | Telegram Mini App and authenticated customer/Club Account surfaces exist. Complete checkout, loyalty/referral engines, production customer payments and the advertising carousel remain incomplete or future. |
+| CRM and Admin Console | Documented / Future | Defined as the central permission-scoped management surface for customers, loyalty, commercial settings, products/menu, payments/reconciliation, reports, advertising, operator oversight, system configuration and audit. It does not absorb owning domains. |
+| Machine Platform | Implemented foundation | Machine Domain, vendor-neutral `MachineGateway`, Huaxin-isolated adapter boundary and deterministic simulator exist. Production physical transport, hardware validation and full inventory/fulfillment hardening remain incomplete. |
+| Machine Operations Platform | Implemented foundation / Future extensions | Backend domain foundation exists for assignments, tasks, checklists, service reports, tests, inventory movements and evidence metadata. Scheduling, routes, GPS, offline mode and batch tracking are future. |
+| Payment Platform | Foundation / Documented adapters | Payment models and provider-independent contracts exist. YooKassa, Sber, SBP QR, authenticated provider webhooks and production reconciliation are not executable end to end. |
+| Advertising Platform | Documented / Future | Entities, access gates and boundaries are documented. No delivery, click collector, conversion runtime, reporting runtime or advertising management UI is implemented. |
+| Identity and Security Platform | Implemented foundation / Future providers | Telegram customer authentication, canonical customer identity, verified-phone boundary, sessions, audit/idempotency foundations and consent records exist. Production SberID/MAX and complete operator/administrator authorization surfaces remain future or incomplete. |
+| Infrastructure Platform | Implemented foundation | Configuration, structured logging, metrics primitives, health checks, domain-event foundations, idempotency, errors, PostgreSQL/Prisma and deployment foundations exist. Production monitoring and operational hardening remain incomplete. |
+
+Authoritative high-level documents:
+
+- `docs/architecture/SOFT_ICE_PLATFORM_MAP.md`;
+- `docs/architecture/PLATFORM_BOUNDARIES.md`;
+- `docs/architecture/PLATFORM_ROLES_AND_ACCESS.md`;
+- `docs/architecture/PLATFORM_DATA_FLOWS.md`;
+- `docs/architecture/ARCHITECTURE_GOVERNANCE.md`.
+
+## Mandatory Platform Boundaries
+
+- Only an authorized administrator may change prices, product commercial settings, loyalty rules or advertising configuration.
+- Operators are limited to assigned-machine service, approved tests, inventory movements, evidence and service-report submission.
+- Every test dispense creates non-sale inventory consumption records that participate in reconciliation.
+- Administrators can view and audit every operator action.
+- Advertising requires an authenticated customer, at least a verified phone and all required active consents.
+- Customer, Operator and Administrator interfaces remain separate.
+- Vendor-specific machine behavior remains behind `MachineGateway` adapters.
+- Permissions are enforced by backend policy and owning services, not only by interface controls.
 
 ## Current MVP Modules
 
@@ -54,6 +86,12 @@ Status terms used below:
 | Advertising | Authenticated customer plus verified phone minimum, mandatory consent, separate core entities; delivery algorithms deferred. |
 
 CRM/Admin Console remains the central management system for customers, loyalty, payments, reports, analytics, commercial settings, operator monitoring, Machine Operations oversight and future advertising management. Central management does not transfer bounded-context ownership.
+
+## Governance Status
+
+Architecture Governance v1 is approved. Every new module requires a domain document; every major architecture choice requires an ADR; application code must depend on ports instead of vendor-specific adapters; and each implementation slice must update applicable tests, API/event contracts, test scenarios, changelog and Architecture Status.
+
+All future status updates must distinguish Implemented, Foundation, Documented and Future functionality. Roadmap placement is not evidence of implementation.
 
 ## Implemented MVP Flow
 
