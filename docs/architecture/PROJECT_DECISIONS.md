@@ -1,5 +1,82 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-053 - Machine Operations Owns Audited Human Service Work
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+Machine Operations is a separate backend domain for operator identity and permissions, versioned maintenance checklists, assigned tasks, reviewed service logs, test runs, inventory integration, photo-evidence metadata, and operational machine settings. Operator permissions are allow-listed and explicitly exclude pricing, commercial settings, and loyalty settings. Admin operations are separately granted and audited.
+
+Successful test runs and required cup, ice-cream-mix, and topping consumption movements commit atomically. Machine remains owner of machine identity/state, inventory movement is an integration fact, and binary photo objects remain outside the relational database.
+
+Consequences: deployments establish verified operator identity at a trusted gateway; every mutation is auditable; checklist versions are immutable; future inventory-ledger and object-storage adapters can replace persistence without moving rules into routes.
+
+---
+
+# Decision: DECISION-052 - Consent Privacy Core Owns Immutable Legal Decisions
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+Consent Privacy Core is a dedicated backend module owning customer consent decisions and history. It uses constrained `ConsentType` and `ConsentSourceChannel` database enums, server-generated consent timestamps, versioned document evidence, customer-scoped idempotency, authenticated own-resource APIs and audit facts. Customer Identity remains responsible for canonical identity and is only used to establish that the customer exists.
+
+The v1 legal categories are `PERSONAL_DATA`, `MARKETING`, `ADVERTISING`, `PARTNER_OFFERS` and `PHOTO_USAGE`; channels are `TELEGRAM`, `MINI_APP`, `MACHINE` and `WEBSITE`. `ADVERTISING` is data classification only. No advertising execution, profiling, targeting, campaigns or outbound delivery is implemented.
+
+Consequences: records are append-only; the API caller cannot supply the authoritative timestamp; unsupported types/channels fail validation; repeated decision IDs are idempotent only for identical facts; advertising consumers require a separate approved increment.
+
+---
+
+# Decision: DECISION-051 - Customer Identity Core Uses Canonical Customer ID and Verified Provider Boundaries
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+Customer Identity Core owns canonical `customer_id`, verified phone identity, external identity aliases and immutable versioned consent decisions. Phone is the primary verified identifier, but it becomes trusted only after an injected provider verifies an opaque proof. Telegram remains a verified external binding. SberID and MAX are fail-closed adapter boundaries until production provider implementations are approved and configured.
+
+Auth Core continues to own authentication sessions and security context. Customer Identity Core does not own loyalty, promotions, advertising, payments, orders or machine behavior. Provider subjects are hashed, provider credentials are never persisted in customer records, identity conflicts are rejected, and identity/consent mutations are audited.
+
+Consequences:
+
+- interfaces resolve all aliases to canonical `customer_id`;
+- no API caller may self-assert a verified phone or provider subject;
+- consent decisions append immutable records keyed by a stable decision ID and document version;
+- SberID/MAX public linking routes wait for approved callback authentication and provider contracts;
+- loyalty, promotions and advertising remain separate future modules.
+
+---
+
+# Decision: DECISION-050 - Machine Simulator Implements the Vendor-Neutral Gateway Port
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+The deterministic vending machine simulator is a separate backend module and a concrete implementation of the existing `MachineGateway` interface. It models operational lifecycle, heartbeat, telemetry, consumable inventory, dispensing outcomes and machine faults without importing Huaxin protocol classes or changing Order, Payment or Machine business rules.
+
+Production adapters and the simulator remain interchangeable at the composition boundary. Seeded pseudo-random values and explicitly scripted dispense outcomes make automated tests repeatable. Machine Runtime continues to accept validated machine facts and remains the owner of dispense-request transitions; the simulator does not mark orders paid or completed.
+
+Consequences:
+
+- simulator-specific controls and state stay in `backend/src/modules/machine_simulator`;
+- business runtimes depend on machine behavior only through platform contracts;
+- vendor protocol details cannot be introduced into the simulator;
+- physical timing, persistence, concurrent command execution and hardware safety certification remain outside simulator v1.
+
+---
+
+# Decision: DECISION-048 - Production Platform Foundation Centralizes Runtime Concerns
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+The backend centralizes validated environment profiles, secret lookup and feature flags at the composition root. JSON structured logs carry request and correlation IDs; health separates process liveness from database/Prisma readiness; an in-process metrics registry defines order, payment, machine, inventory and Telegram-session instruments; and shutdown stops HTTP traffic before disconnecting Prisma and flushing logs. API failures retain the safe v1 contract. These facilities observe existing runtimes and do not alter business decisions.
+
+---
+
 > Файл должен лежать в репозитории по пути:
 >
 > `docs/architecture/PROJECT_DECISIONS.md`
@@ -2082,3 +2159,29 @@ Promotion Platform становится единым центром управл
 **Accepted**
 
 Architecture Decision approved.
+# Decision: DECISION-049 - Huaxin Integration Uses a Vendor-Isolated Machine Gateway
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+Huaxin connectivity is implemented behind the `MachineGateway` port in a dedicated `machine_gateway` module. Session lifecycle, heartbeat freshness, bounded reconnect, command correlation/queueing, vendor XML, error translation and telemetry normalization belong to this adapter boundary. Existing Machine, Order, Payment, Inventory and customer business logic may depend on the port but must not import Huaxin protocol classes. Machine facts continue through domain events and owning Runtime contracts. The real network/serial transport remains deployment-specific and injectable because a verified Huaxin transport specification and credentials are not stored in this repository.
+
+---
+# Decision: DECISION-053 - Segmentation Owns Classification Definitions and Assignment History
+
+**Date:** 2026-07-21
+
+**Status:** Accepted
+
+## Decision
+
+Customer segmentation is a dedicated modular-monolith boundary. It owns segment definitions, declarative system rules, activation state, and append-only customer assignment periods. Manual and system assignment sources are distinct. Consumers such as loyalty, CRM, advertising, and recommendations may read approved segment projections but do not own or rewrite segmentation history.
+
+Core v1 stores rules but does not evaluate them. Advertising execution, recommendation ranking, rewards, and consent decisions remain in their own future or existing boundaries. Operator HTTP mutations are deferred until operator authorization exists; runtime contracts are available for trusted orchestration.
+
+## Consequences
+
+Inactive segments remain auditable and reject new assignments. Removing membership closes an assignment period instead of deleting it. Future automatic evaluators must use `SegmentationRuntime`, be idempotent, and preserve the assignment source and reason.
+
+Related documentation: `docs/domain/CUSTOMER_SEGMENTATION_CORE.md`, `docs/api/API_CONTRACT_V1.md`.

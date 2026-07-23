@@ -1,4 +1,24 @@
-# Consent Model
+# Consent Privacy Core v1
+
+Status: Implemented  
+Version: 1.0  
+Updated: 2026-07-21
+
+## Runtime contract
+
+Consent Privacy Core is the source of truth for authenticated customer consent decisions. Each decision is an immutable `CustomerConsent` record linked to canonical `customer_id` and a versioned `DocumentVersion`. Repeated delivery can use `decision_id`; the same ID with different facts is rejected.
+
+Canonical v1 consent types are `PERSONAL_DATA`, `MARKETING`, `ADVERTISING`, `PARTNER_OFFERS`, and `PHOTO_USAGE`. Canonical source channels are `TELEGRAM`, `MINI_APP`, `MACHINE`, and `WEBSITE`. The backend records the authoritative `consented_at` timestamp. A negative decision is appended with `is_granted = false` and `revoked_at`; history is never overwritten.
+
+Authenticated API:
+
+- `POST /api/v1/customers/me/consents` appends a decision;
+- `GET /api/v1/customers/me/consents` returns complete customer history;
+- `/api/v1/customers/me/consent-decisions` remains a compatibility alias.
+
+`ADVERTISING` is only a consent classification in v1. This increment does not implement advertising, profiling, targeting, campaign selection, partner delivery, or outbound communication.
+
+## Legacy draft reference
 
 Статус: Draft  
 Версия: 0.1  

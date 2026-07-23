@@ -1,5 +1,48 @@
 # TEST_SCENARIOS
 
+## Machine Operations Platform v1
+
+1. Verify an active Operator can execute only an assigned task and must submit every required checklist result.
+2. Verify an Operator can submit reports, attach valid SHA-256 photo metadata, and record positive consumption.
+3. Verify every test run atomically creates consumption for cups, ice cream mix, and toppings; missing categories reject the command without writes.
+4. Verify an Operator is denied price, commercial, loyalty, checklist, report-approval, global-action, and machine-setting changes.
+5. Verify an Admin can configure versioned checklists, assign tasks, approve submitted reports, read all operator audit actions, and manage operational settings.
+6. Verify suspended, missing, and unknown operators cannot execute commands.
+7. Verify audit facts use canonical operator IDs and never contain credentials or binary photos.
+
+## Consent Privacy Core v1
+
+1. Submit every supported type through authenticated `POST /api/v1/customers/me/consents`; verify an immutable record with a server timestamp and approved source channel.
+2. Read `GET /api/v1/customers/me/consents`; verify complete customer-scoped history.
+3. Submit an unsupported type or channel; verify `VALIDATION_FAILED`.
+4. Repeat an identical `decision_id`; verify idempotent success without duplication.
+5. Reuse a `decision_id` with changed facts; verify `CONSENT_DECISION_CONFLICT`.
+6. Call the endpoints without a customer session; verify authentication failure.
+7. Record `ADVERTISING`; verify it triggers no advertising behavior.
+
+Expected result: constrained, timestamped and auditable consent history with no advertising implementation.
+
+## Customer Identity Core v1
+
+1. Resolve a customer through verified Telegram Mini App init data and confirm one canonical `customer_id` and safe Telegram binding.
+2. Submit a normalized phone and opaque proof to a configured test phone verifier; confirm the verified E.164 phone becomes the primary identifier.
+3. List external identities and confirm provider subject hashes and credentials are absent.
+4. Invoke SberID and MAX provider placeholders without configured adapters; confirm fail-closed `IDENTITY_PROVIDER_UNAVAILABLE` results.
+5. Append the same versioned consent decision twice with one `decision_id`; confirm one immutable record, `201` then idempotent `200`.
+6. List consent history and verify document type/version, decision and timestamps.
+7. Call identity endpoints without a Bearer session and confirm `401`.
+
+Expected result: Customer Identity Core unifies phone and provider aliases behind canonical `customer_id`, accepts phone identity only from a verifier, stores idempotent versioned consent decisions, exposes safe DTOs and introduces no loyalty, promotion or advertising behavior.
+
+## Production Platform Foundation v1
+
+- Production startup rejects missing database and Telegram secrets or invalid typed configuration.
+- `/health/live` remains `200` independently of database availability; `/health/ready` returns `503` when the database/Prisma probe fails.
+- API responses carry request and correlation trace headers and safe standardized errors.
+- Structured JSON logging covers requests, domain events, payments and machines without credentials.
+- Metrics instruments cover orders, payments, machine status, inventory and Telegram sessions.
+- Shutdown stops HTTP traffic, releases resources, disconnects Prisma and flushes logs.
+
 Статус: Draft
 Версия: 0.1
 
@@ -104,3 +147,35 @@ Expected result: order creation returns a customer-owned `PAYMENT_PENDING` order
 10. Call machine register/read and order dispense endpoints without a Bearer token.
 
 Expected result: a paid order creates exactly one `DispenseRequest` with a stored `DispenseCommand`, emits `MachineDispenseRequested`, command receipt emits `DispenseStarted`, completion emits `DispenseCompleted`, failure emits `DispenseFailed`, failed requests keep the safe reason and reject completion, and unauthenticated requests return `401`. Vendor SDKs, Huaxin API integration, real telemetry, payment providers and Telegram notifications remain out of scope.
+
+## TS-013 Huaxin Machine Gateway v1
+
+1. Build a dispense command containing XML-sensitive values and verify escaped Huaxin XML.
+2. Parse successful, rejected, heartbeat and telemetry XML; reject unsafe declarations and unsupported responses.
+3. Queue concurrent commands and verify serialized execution and bounded overflow behavior.
+4. Connect a fake transport, correlate acknowledgements by command ID and map rejections/timeouts safely.
+5. Verify connection/availability transitions, heartbeat freshness, stale status, telemetry retention and machine events.
+6. Fail a connection, verify retryable `MACHINE_CONNECTION_UNAVAILABLE`, then reconnect successfully.
+7. Call status, telemetry, command and reconnect endpoints with valid authentication; verify unauthenticated calls return `401`.
+8. Run existing paid-order and dispense tests to prove business behavior is unchanged.
+
+Expected result: Huaxin details remain inside `machine_gateway`; commands and responses are safe and correlated; operational state and telemetry are observable; failures use stable API errors; existing order and machine-domain tests remain green. A real machine connection requires a deployment transport based on the manufacturer-verified protocol.
+
+## TS-014 Vending Machine Simulator v1
+
+1. Create two simulators with the same seed, clock, cup stock and ingredient levels.
+2. Start both and verify `OFFLINE -> ONLINE -> READY`, matching heartbeat timestamps and identical first telemetry samples.
+3. Send a dispense command through `MachineGateway.sendCommand`; verify `READY -> BUSY -> DISPENSING -> READY`, one cup consumed and only requested ingredient doses consumed.
+4. Run `READY -> CLEANING -> READY`.
+5. Script a dispense failure; verify the simulator enters `ERROR`, exposes a safe telemetry error code and can reset through `ONLINE -> READY`.
+6. Exhaust cup stock and verify `MACHINE_INVENTORY_INSUFFICIENT` without false success.
+7. Create an order, confirm payment through existing Order Runtime, obtain the resulting `DispenseCommand`, send it through the simulated `MachineGateway`, and report start/completion through existing Machine Runtime.
+
+Expected result: the simulator is deterministic, implements only the vendor-neutral gateway interface, covers all seven simulator lifecycle states, simulates heartbeat/telemetry/inventory/success/failure/error behavior, and completes the automated `order -> payment -> machine -> dispense` flow without changing business logic or using Huaxin-specific behavior.
+# Customer Segmentation Core v1
+
+- Create manual and system segments with unique stable codes.
+- Add declarative criteria to a system segment and reject rules for a manual segment.
+- Assign a customer idempotently and retain the closed assignment in history after unassignment.
+- Reject assignment to an inactive segment and exclude inactive memberships from the active projection.
+- Return authenticated customer-safe active and historical segment DTOs without rule criteria.

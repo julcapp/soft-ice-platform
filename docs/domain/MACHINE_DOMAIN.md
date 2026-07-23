@@ -7,8 +7,8 @@ Status: Draft
 Project: Soft ICE Platform / Utimoshi
 Owner: Product Owner Alexander Ilyin
 Created: 2026-07-08
-Last updated: 2026-07-08
-Scope: Documentation only
+Last updated: 2026-07-21
+Scope: Domain contract and implemented simulator boundary
 
 Related documents:
 
@@ -914,6 +914,45 @@ Implementation-ready criteria for future tasks:
 
 # 24. Documentation Scope
 
-This document is documentation-only.
+Sections 1-24 define the documentation-only Machine Domain baseline. Section 25 records the subsequently implemented simulator boundary. The simulator adds no frontend code, Telegram bot code, database migrations, payment provider integration, real machine firmware commands, real machine credentials, CRM screens, notification templates or final hardware safety certification.
 
-It does not introduce application code, frontend code, backend code, Telegram bot code, runtime configuration, database migrations, generated build output, payment provider integration, real machine firmware commands, real machine credentials, CRM screens, notification templates or final hardware safety certification.
+---
+
+# 25. Vending Machine Simulator v1
+
+The backend provides a deterministic development and test adapter in `backend/src/modules/machine_simulator`. `SimulatedMachineGateway` implements the vendor-neutral `MachineGateway` port; it does not import or emulate Huaxin XML, transport or firmware behavior.
+
+Supported simulator lifecycle:
+
+```text
+OFFLINE -> ONLINE -> READY -> BUSY -> DISPENSING -> READY
+                     READY -> CLEANING -> READY
+                     DISPENSING -> ERROR -> ONLINE -> READY
+```
+
+Simulator v1 provides:
+
+- explicit and interval-driven heartbeat simulation;
+- deterministic telemetry containing lifecycle, temperature, cup stock, ingredient levels and safe error code;
+- cup stock and semantic ingredient-level consumption;
+- seeded probabilities and scripted outcomes for repeatable dispense success/failure;
+- explicit machine-error injection and error reset;
+- bounded in-memory telemetry and lifecycle transition history.
+
+Boundary rules:
+
+- Order and Payment logic do not import the simulator;
+- paid-order validation and `DispenseRequest` state transitions remain in existing business runtimes;
+- test orchestration passes the stored machine command through `MachineGateway.sendCommand` and reports the resulting facts through Machine Runtime;
+- simulator inventory and telemetry are ephemeral test projections, not production records;
+- no simulator result is accepted as payment confirmation;
+- no Huaxin-specific command, XML, error or transport behavior belongs in this module.
+# Huaxin Machine Gateway v1 boundary
+
+`MachineGateway` is the vendor-neutral outbound port used for machine connectivity. `MachineGatewayRuntime` implements that port and composes `MachineSession`, `CommandQueue`, `XmlCommandBuilder`, `XmlResponseParser`, `MachineErrorMapper` and the bounded telemetry store. Huaxin XML and transport lifecycle stay inside `backend/src/modules/machine_gateway`.
+
+Connection states are `DISCONNECTED`, `CONNECTING`, `CONNECTED` and `RECONNECTING`. Availability is tracked independently as `UNKNOWN`, `ONLINE`, `DEGRADED`, `STALE` or `OFFLINE`. Heartbeats update freshness; missed heartbeats mark the projection stale. Reconnect uses bounded exponential backoff. Commands are serialized through a bounded queue and correlated by `command_id`.
+
+Gateway facts publish `Machines.Connected`, `Machines.Disconnected`, `Machines.CommandAcknowledged`, `Machines.TelemetryReceived`, `Machines.HeartbeatMissed` and `Machines.ProtocolErrorDetected`. These are transport/domain facts only. They do not mark orders paid, alter inventory, decide refunds or bypass Machine Runtime transitions.
+
+Telemetry is normalized into `{ machineId, recordedAt, receivedAt, values }`, retained in memory with a configurable bound, and treated as operational projection data rather than immutable business truth.

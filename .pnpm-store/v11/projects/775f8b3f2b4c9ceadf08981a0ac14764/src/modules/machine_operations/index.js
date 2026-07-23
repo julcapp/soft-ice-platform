@@ -1,0 +1,1 @@
+module.exports = { name: 'machine_operations', status: 'active', version: '1.0.0', ...require('./MachineOperationsEntity'), ...require('./MachineOperationsRepository'), ...require('./MachineOperationsRuntime'), ...require('./MachineOperationsService') };

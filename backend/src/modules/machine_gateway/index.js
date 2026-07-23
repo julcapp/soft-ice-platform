@@ -1,0 +1,9 @@
+const { MachineGateway } = require('./MachineGateway');
+const { MachineGatewayRuntime } = require('./MachineGatewayRuntime');
+const { MachineSession, UnconfiguredTransport } = require('./MachineSession');
+const { XmlCommandBuilder } = require('./XmlCommandBuilder');
+const { XmlResponseParser } = require('./XmlResponseParser');
+const { CommandQueue } = require('./CommandQueue');
+const { MachineErrorMapper } = require('./MachineErrorMapper');
+const { TelemetryStore } = require('./TelemetryStore');
+module.exports = { name: 'machine_gateway', status: 'runtime', owns: ['Huaxin protocol adapter', 'machine connection lifecycle', 'command delivery queue', 'telemetry normalization'], MachineGateway, MachineGatewayRuntime, MachineSession, UnconfiguredTransport, XmlCommandBuilder, XmlResponseParser, CommandQueue, MachineErrorMapper, TelemetryStore };

@@ -1,5 +1,31 @@
 # API Contract v1
 
+## Machine Operations Platform v1 (2026-07-21)
+
+Base path: `/api/v1/machine-operations`. These endpoints require a verified operator security context. `X-Operator-ID` is a trusted reverse-proxy assertion for internal v1 deployment only: the gateway must authenticate the operator, strip caller-supplied identity headers, and inject canonical `operator_id`. Missing/unknown identity returns `401`; missing permission returns `403`.
+
+| Method | Path | Permission | Result |
+|---|---|---|---|
+| `POST` | `/operators` | admin settings management | Create an operator. |
+| `POST` | `/checklists` | checklist configure | Create an immutable checklist version. |
+| `POST` | `/maintenance-tasks` | checklist configure | Assign a task. |
+| `POST` | `/maintenance-tasks/{id}/execute` | maintenance execute | Complete the assigned task. |
+| `POST` | `/test-runs` | test execute + inventory consume | Atomically record a run and consumption. |
+| `POST` | `/inventory-movements` | inventory consume | Record standalone consumption. |
+| `POST` | `/service-logs` | service report submit | Submit a service report. |
+| `POST` | `/service-logs/{id}/approve` | service report approve | Approve a submitted report. |
+| `POST` | `/photo-evidence` | photo evidence create | Store immutable photo metadata. |
+| `GET` | `/actions` | actions read-all | Return audited operator actions. |
+| `PUT` | `/machines/{machineId}/settings/{key}` | machine settings manage | Upsert an operational setting. |
+
+Test-run `consumptions` must include `cup`, `ice_cream_mix`, and `topping`, each with positive `quantity` and a `unit`. The response embeds created inventory movements. Common idempotency, correlation, and request headers apply.
+
+## Production platform endpoints and tracing
+
+`GET /health/live` reports process liveness without database access. `GET /health/ready` returns `200` only when the database/Prisma probe succeeds and otherwise returns `503`. These operational routes are outside `/api/v1`.
+
+API responses return `X-Request-ID` and `X-Correlation-ID`; callers may supply either or the platform generates it. Unexpected failures are normalized to `INTERNAL_ERROR` without stack traces or secrets.
+
 Document code: API-CONTRACT-V1-001
 Task: API-007
 Version: 0.1
@@ -221,8 +247,9 @@ Customer Runtime, with Notification Runtime for preferences
 |---|---|---|---|---|
 | Read own customer profile | `GET` | `/api/v1/customers/me` | Customer | No |
 | Update own allowed profile fields | `PATCH` | `/api/v1/customers/me` | Customer | Yes |
-| Read own consent summary | `GET` | `/api/v1/customers/me/consents` | Customer | No |
-| Submit consent decision | `POST` | `/api/v1/customers/me/consent-decisions` | Customer | Yes |
+| Read own consent history | `GET` | `/api/v1/customers/me/consents` | Customer | No |
+| Submit consent decision | `POST` | `/api/v1/customers/me/consents` | Customer | Decision ID |
+| Consent compatibility alias | `GET/POST` | `/api/v1/customers/me/consent-decisions` | Customer | Decision ID for POST |
 | Read notification preferences | `GET` | `/api/v1/customers/me/notification-preferences` | Customer | No |
 | Update notification preferences | `PATCH` | `/api/v1/customers/me/notification-preferences` | Customer | Yes |
 | Read CRM customer view | `GET` | `/api/v1/customers/{customer_id}` | Operator | No |
@@ -259,6 +286,19 @@ Forbidden fields:
 - Notification preference changes may produce `Customers.NotificationPreferenceChanged`.
 
 ---
+
+## 3.4 Customer Segmentation Endpoints
+
+Runtime owner: `SegmentationRuntime`.
+
+| Capability | Method | Endpoint | Auth |
+|---|---|---|---|
+| Read active own segments | `GET` | `/api/v1/customers/me/segments` | Customer |
+| Read own assignment history | `GET` | `/api/v1/customers/me/segment-history` | Customer |
+
+The customer segment DTO contains `customer_id`, `segment_id`, `segment_code`, `source`, `reason`, `assigned_by`, `active`, `assigned_at` and `unassigned_at`. Future operator mutation endpoints must call `SegmentationRuntime`; direct table mutation is forbidden. They are deferred until operator authentication and authorization exist.
+
+Segment rule criteria are internal declarative configuration. Customer endpoints do not expose criteria, advertising audiences, or recommendation logic.
 
 # 4. Club Account Endpoints
 
@@ -899,3 +939,29 @@ Future implementation readiness additionally requires:
 - idempotency storage policy;
 - event registry entries for emitted domain events;
 - contract tests for validation, authorization, idempotency, duplicate webhooks and replay-safe behavior.
+# Huaxin Machine Gateway v1
+
+All gateway endpoints require Bearer authentication and return the standard API v1 `data` and `meta` envelope. Vendor XML is never exposed through this API.
+
+| Method | Path | Result |
+|---|---|---|
+| `GET` | `/api/v1/machine/status` | Connection, availability, heartbeat freshness, reconnect attempts and queue depth. |
+| `GET` | `/api/v1/machine/telemetry` | Bounded, newest-first normalized telemetry samples. |
+| `POST` | `/api/v1/machine/command` | Queues a command with `type`, optional `command_id`, `machine_id` and scalar `payload`; returns `202` after acknowledgement. |
+| `POST` | `/api/v1/machine/reconnect` | Requests a disconnect/connect cycle and returns `202` with current status. |
+
+Gateway errors use `MACHINE_COMMAND_INVALID`, `MACHINE_CONNECTION_UNAVAILABLE`, `MACHINE_COMMAND_TIMEOUT`, `MACHINE_QUEUE_FULL`, `MACHINE_PROTOCOL_INVALID_RESPONSE`, `MACHINE_COMMAND_REJECTED` or `MACHINE_GATEWAY_ERROR`. Retryability is explicit in the standard error envelope. API handlers do not build XML, operate sockets or make Order, Payment, Inventory or customer decisions.
+
+# Customer Identity Core v1
+
+Customer identity routes require Bearer authentication and use the standard API v1 envelope.
+
+| Method | Path | Result |
+|---|---|---|
+| `GET` | `/api/v1/customers/me` | Safe canonical customer profile with verified-phone and linked-provider status. |
+| `POST` | `/api/v1/customers/me/phone-verifications` | Verifies and binds a unique normalized phone through the configured phone verifier. |
+| `GET` | `/api/v1/customers/me/identities` | Safe active external identity list; hashes and provider credentials are excluded. |
+| `POST` | `/api/v1/customers/me/consent-decisions` | Appends an idempotent decision for a versioned policy document. |
+| `GET` | `/api/v1/customers/me/consent-decisions` | Customer consent decision history. |
+
+SberID and MAX are Runtime/provider placeholders only in v1. No public provider-linking callback is exposed. Loyalty, promotions and advertising are outside this contract.

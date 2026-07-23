@@ -1,0 +1,13 @@
+const SIMULATOR_STATE = Object.freeze({
+  OFFLINE: 'OFFLINE',
+  ONLINE: 'ONLINE',
+  READY: 'READY',
+  BUSY: 'BUSY',
+  DISPENSING: 'DISPENSING',
+  CLEANING: 'CLEANING',
+  ERROR: 'ERROR',
+});
+
+const SIMULATOR_STATES = Object.freeze(Object.values(SIMULATOR_STATE));
+
+module.exports = { SIMULATOR_STATE, SIMULATOR_STATES };

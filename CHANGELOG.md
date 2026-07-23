@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## [Unreleased] - Machine Operations Platform v1
+
+### Added
+
+- Separate `machine_operations` backend domain with Operator permissions, maintenance tasks/checklists, service-report approval, test runs, inventory movements, photo-evidence metadata, and admin-managed operational machine settings.
+- Transactional test-run consumption records for cups, ice cream mix, and toppings.
+- API v1 routes/contracts, Prisma migration, authorization/domain documentation, and focused tests.
+
+## [Unreleased] - Consent Privacy Core v1
+
+### Added
+
+- Dedicated Consent entity, repository, service and runtime with immutable customer history.
+- Constrained legal consent types and source channels, server timestamps, authenticated API, document evidence, idempotency conflict protection, Prisma migration and automated tests.
+- Advertising consent classification without advertising execution, profiling, targeting or delivery behavior.
+
+## [Unreleased] - Production Platform Foundation v1
+
+### Added
+
+- Customer Identity Core v1 with canonical Customer entity state, verified E.164 phone as the primary identifier, existing Telegram identity binding, fail-closed SberID and MAX provider boundaries, immutable/idempotent versioned consent decisions, Customer repository/service/runtime layers, authenticated API v1 contracts, Prisma migration, audit integration, automated tests, and architecture/domain/test documentation. Loyalty, promotions and advertising remain out of scope.
+- Project baseline checkpoint in `docs/architecture/ARCHITECTURE_STATUS.md`, recording the executable Auth Core, customer portal API foundation, machine runtime/gateway, Huaxin-isolated adapter boundary, deterministic machine simulator, and Mini App backend/frontend state; distinguishing the Payment Core foundation and documented-only Sber/YooKassa/webhook integrations from production-ready runtime capability; and listing Customer Profile Core, Loyalty Engine, Promotion Engine, Analytics Engine, and SberID authentication as future modules.
+- Deterministic vending machine simulator v1 in `backend/src/modules/machine_simulator`, implemented only through the vendor-neutral `MachineGateway` interface. It covers the `OFFLINE`, `ONLINE`, `READY`, `BUSY`, `DISPENSING`, `CLEANING` and `ERROR` lifecycle, heartbeat and telemetry generation, cup and ingredient consumption, scripted/seeded dispense outcomes, simulated machine errors, and automated order-to-payment-to-dispense coverage without changing existing business services or adding vendor-specific behavior.
+- Central validated backend configuration with profiles, secret abstraction and feature flags.
+- Structured tracing logs, liveness/readiness probes, platform metrics primitives, graceful shutdown and production exception normalization.
+- Platform foundation tests and deployment environment examples.
+
 Все значимые изменения проекта Soft ICE Platform фиксируются в этом файле.
 
 Формат версий следует Semantic Versioning.
@@ -163,3 +190,16 @@
 - Architecture Principles.
 - Document Header Standard.
 - Test Scenarios.
+# 2026-07-21 - Huaxin Machine Gateway v1
+
+- Added a vendor-neutral `MachineGateway` abstraction and Huaxin gateway runtime.
+- Added session lifecycle, heartbeat freshness, bounded reconnect, status tracking, serialized command queue, safe XML generation/parsing, error mapping, telemetry retention, metrics and machine events.
+- Added authenticated machine status, telemetry, command and reconnect API v1 endpoints.
+- Added automated gateway protocol, queue, session, lifecycle, telemetry, event, error and reconnect tests without changing existing order/dispense business rules.
+- Documented the API, machine boundary, architecture decision and test scenarios.
+# 2026-07-21 — Customer Segmentation Core v1
+
+- Added the Segmentation modular-monolith domain with `Segment`, `SegmentRule`, and append-only `CustomerSegment` assignment periods.
+- Added Prisma persistence and migration support for manual/system segments, activation, declarative rules, and assignment history.
+- Added runtime/repository/service/DTO layers plus authenticated customer active-segment and history API contracts.
+- Added segmentation tests and domain documentation; advertising, rule evaluation, and recommendation execution remain out of scope.

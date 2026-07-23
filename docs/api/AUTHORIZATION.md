@@ -1,5 +1,11 @@
 # Authorization
 
+## Machine Operations permissions
+
+Machine Operations v1 defines `machine_operations:maintenance:execute`, `machine_operations:test_run:execute`, `machine_operations:inventory:consume`, `machine_operations:photo_evidence:create`, `machine_operations:service_report:submit`, `machine_operations:actions:read_all`, `machine_operations:service_report:approve`, `machine_operations:checklist:configure`, and `machine_operations:machine_settings:manage`.
+
+Operator receives only the first five execution/reporting grants. Admin additionally receives read-all, approval, checklist, and machine-settings grants. Neither role receives price, commercial, or loyalty mutation authority from Machine Operations. Operator identity headers are trusted only after gateway authentication.
+
 Status: Draft
 Version: 0.1
 Date: 2026-07-06
