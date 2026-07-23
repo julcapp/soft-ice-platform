@@ -2,8 +2,8 @@
 
 Status: Active
 Document code: ARCH-002
-Version: 2.0
-Snapshot date: 2026-07-21
+Version: 2.1
+Snapshot date: 2026-07-23
 Project: Soft ICE Platform / «У Тимоши»
 
 ## Purpose
@@ -15,6 +15,8 @@ This document is the project baseline checkpoint for the current MVP platform. I
 The repository contains an executable modular-monolith backend foundation, a React/Vite Mini App, authenticated customer-facing API slices, order-to-machine dispatch, a vendor-neutral machine gateway, a Huaxin-isolated gateway implementation, and a deterministic machine simulator.
 
 The MVP is not production-launch-ready. Real payment execution is the principal missing link: the Payment module is still a foundation, while Sber and YooKassa adapters and payment webhooks are contract/configuration work rather than executable integrations.
+
+The 2026-07-23 Machine Operations architecture checkpoint additionally confirms that Machine Operations is a bounded context separate from CRM. It records the Operator App and administrator permission split, mandatory non-sales inventory movements for tests/service work, future field-operations capabilities, and the foundation boundary for a future consent-controlled Advertising Platform. These checkpoint additions are documentation decisions and do not claim new runtime implementation.
 
 Status terms used below:
 
@@ -38,6 +40,20 @@ Status terms used below:
 | Machine Simulator | Implemented | A deterministic `MachineGateway` implementation models lifecycle, heartbeat, telemetry, inventory consumption, scripted/seeded dispense outcomes, and machine faults for development and automated end-to-end flow testing. |
 | Mini App backend | Implemented foundation | Express API v1 exposes Telegram session creation, customer profile/bootstrap, Club Account, order, dispense, Telegram, machine, and machine-gateway routes over Prisma-backed runtimes. Production payment routes are not mounted. |
 | Mini App frontend | Implemented prototype | React/Vite provides the home and product-selection flow, consent handling, analytics hooks, shared design primitives, and domain repositories/services. It is not yet wired to a complete production checkout, provider payment, or live fulfillment journey. |
+
+## Machine Operations Architecture Checkpoint
+
+| Area | Accepted status |
+|---|---|
+| Bounded context | Machine Operations is separate from CRM; CRM/Admin Console provides central oversight through explicit contracts. |
+| Operator App | Assigned machines, maintenance tasks, versioned checklists, refills, test runs, photo evidence, fault reports and service-report submission. |
+| Operator restrictions | No prices, commercial machine settings, loyalty rules, advertising or customer management. |
+| Administrator | Commercial administration through owning domains, checklist configuration, task assignment/review, complete operator audit, service-report approval/rejection and emergency maintenance/test execution. |
+| Test inventory | `TEST_CUP`, `TEST_ICECREAM`, `TEST_TOPPING`, `TEST_FULL_CYCLE`, `CALIBRATION`, `CLEANING` and `WASTE` movements are distinct from sales and included in total reconciliation. |
+| Future Operator App | Before/after evidence, batches/expiry, GPS, scheduling, routes, offline mode, digital acceptance and senior operator role. |
+| Advertising | Authenticated customer plus verified phone minimum, mandatory consent, separate core entities; delivery algorithms deferred. |
+
+CRM/Admin Console remains the central management system for customers, loyalty, payments, reports, analytics, commercial settings, operator monitoring, Machine Operations oversight and future advertising management. Central management does not transfer bounded-context ownership.
 
 ## Implemented MVP Flow
 

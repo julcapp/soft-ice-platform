@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## [Unreleased] - Machine Operations Architecture Checkpoint
+
+### Added
+
+- Architecture roadmap and next-phase plan separating Machine Operations from CRM while retaining CRM/Admin Console as the central management surface.
+- Machine Operations Platform domain checkpoint covering Operator App responsibilities and restrictions, administrator permissions, versioned checklists, service-report review, audit and future field-operations expansion.
+- Mandatory non-sales inventory-consumption classifications for `TEST_CUP`, `TEST_ICECREAM`, `TEST_TOPPING`, `TEST_FULL_CYCLE`, `CALIBRATION`, `CLEANING` and `WASTE`, all included in total stock reconciliation.
+- Advertising Platform foundation with authenticated-customer and verified-phone eligibility, mandatory consent enforcement, separate advertiser/campaign/creative/placement/referral-link/click entities and deferred delivery algorithms.
+- Accepted ADRs for Machine Operations separation and the Advertising Platform foundation, plus an updated architecture status snapshot.
+
+### Scope
+
+- Documentation only; application code, Prisma schema and business logic were not changed.
+
 ## [Unreleased] - Machine Operations Platform v1
 
 ### Added
