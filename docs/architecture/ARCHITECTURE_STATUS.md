@@ -2,7 +2,7 @@
 
 Status: Active
 Document code: ARCH-002
-Version: 3.1
+Version: 3.4
 Snapshot date: 2026-07-23
 Project: Soft ICE Platform / «У Тимоши»
 
@@ -20,12 +20,23 @@ The 2026-07-23 Master Architecture Map v1 establishes the authoritative eight-ar
 
 Admin Console Foundation v1 and Executive Console architecture are now documented and accepted. ADR-014 defines context ownership, `/api/v1/admin` query/command boundaries, permission bundles and scopes, dashboards, reporting, operator workflows, inventory and advertising integrations, and the privileged-action audit model. ADR-015 defines a separate read-mostly Executive Console and a future evidence-linked, human-supervised AI Supervisor. No console UI, routes, schema, projections, authorization middleware, integrations or business logic were implemented.
 
+Admin Console UI/UX Specification v1 now documents the future information architecture and interaction contract. It covers all navigation sections and screens, dashboard widgets, machine and operator workflows, inventory and warehouse control, customer/loyalty support, advertising and campaign management, governed reports and analytics, audit, notifications, settings, seven role bundles and the separate owner-only Executive Console. The specification remains documentation only and does not change the runtime status of either console.
+
+Soft ICE Platform Design System v1 now defines the unified, implementation-neutral design language for Admin Console, Executive Console, Operator App and Customer Mini App. It establishes shared color, typography, grid, navigation, component, dashboard, chart, iconography, mobile and accessibility contracts, with separate application principles for executive decision support, field operations and administrative control. This checkpoint is documentation only; no UI, frontend, backend or business logic is implemented by it.
+
+Command Center Foundation v1 now documents the owner-level operating view, required widgets, drill-downs and per-KPI data contracts. Digital Twin Foundation v1 defines a provenance- and freshness-aware machine read model assembled from authoritative domains without becoming a source of truth or command path. Everything Is Event Foundation v1 defines the standard event envelope, initial catalog and immutable, versioned, privacy-minimizing, idempotent governance. These are documentation/foundation decisions only; no projections, broker, event publisher/consumer, APIs, UI, schema or business logic were implemented.
+
+Admin Dashboard v1 now has a complete Platform UI Specification. It defines its responsive page structure, global search/filter/export behavior, KPI cards, alert panel and mandatory widgets for fleet state, sales, ingredient and cup stock, operators, recent service, incidents, campaigns, CRM, finance and the event journal. Every widget records source domains, future projection owner, refresh/freshness target, access scope, actions and drill-down. Owner and Administrator experiences are defined; Regional Manager is documented only as a future region-scoped permission bundle. No Dashboard UI, reporting projection, Admin API, permission, export runtime or business logic was implemented.
+
 Status terms used below:
 
 - **Implemented** — executable code exists and is covered by repository validation.
 - **Foundation** — schema, module boundary, or partial runtime exists, but the production capability is incomplete.
 - **Documented** — architecture or integration contracts exist without executable runtime code.
 - **Future** — intentionally recorded for a later increment.
+- **BLOCKED_EXTERNAL** — implementation depends on an unavailable or unapproved external provider, hardware, policy or authority.
+
+Canonical status vocabulary for new foundation records is `IMPLEMENTED`, `FOUNDATION_ONLY`, `DOCUMENTED_ONLY`, `FUTURE` and `BLOCKED_EXTERNAL`.
 
 ## Master Architecture Baseline v1
 
@@ -55,6 +66,23 @@ Status terms used below:
 | Audit | Append-only privileged read/write/denial/export/access evidence with integrity and correlation references. | Documented / Future |
 | Executive Console | Separate read-mostly `/api/v1/executive` surface over aggregated, redacted and versioned reporting projections. | Documented / Future |
 | AI Supervisor | Evidence-linked observations, anomaly detection, forecasts and draft recommendations with mandatory human review; no autonomous commands. | Documented / Deferred |
+| Admin Console UI/UX Specification v1 | Complete navigation map, screen catalog, role matrix, dashboard widget contract and owner-only Executive Console experience aligned with ADR-014/015. | Documented / Future implementation |
+| Soft ICE Platform Design System v1 | Unified foundations and component contracts for Admin, Executive, Operator and Customer applications, including dashboard, mobile, color, iconography and WCAG 2.2 AA guidance. | Documented / Future implementation |
+| Command Center v1 | Owner-level read-oriented operating screen with governed KPI sourcing, freshness, permissions and drill-down. | DOCUMENTED_ONLY |
+| Admin Dashboard v1 | Permission-composed Admin Console home with complete widget, data-source, freshness, access, interaction, export, responsive and drill-down contracts for Owner, Administrator and future region-scoped Regional Manager. | DOCUMENTED_ONLY; projections, APIs, authorization and UI FUTURE |
+| Machine Digital Twin | Read projection with identity, location, connectivity, telemetry, stock, menu, price, advertising, work, tests, sales and refill prediction. | FOUNDATION_ONLY; runtime FUTURE |
+| Everything Is Event | Immutable versioned event envelope, initial catalog, normalization and consumer governance. | FOUNDATION_ONLY; platform-wide adoption FUTURE |
+
+## Foundation Governance Checkpoint
+
+- All future UI screens use shared tokens and component contracts.
+- Role permissions are enforced by backend policy, never only by UI visibility.
+- Every dashboard metric has documented source domains, formula/calculation owner, freshness and drill-down.
+- Optional modules collapse cleanly when disabled.
+- AI output is labelled as recommendation, forecast or observation and cannot autonomously change prices, loyalty rules, payments, machine settings or operator assignments without a separately approved policy.
+- Digital Twin remains read-oriented and cannot bypass domain services.
+- Every new event is documented and versioned.
+- Customer, Operator, Administrator, Executive and support interfaces remain separate by role.
 
 Authoritative high-level documents:
 

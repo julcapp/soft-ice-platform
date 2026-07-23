@@ -1,7 +1,7 @@
 # Roadmap: Next Phase
 
 Status: Proposed sequencing under Master Architecture Map v1
-Version: 2.0
+Version: 2.1
 Date: 2026-07-23
 
 ## Objective
@@ -9,6 +9,15 @@ Date: 2026-07-23
 Convert the Master Architecture Map v1 into separately approved, production-oriented increments while retaining domain ownership, backend-enforced permissions, vendor isolation and honest capability status.
 
 ## Recommended increments
+
+### 0. Shared UI, read-model and event readiness
+
+- establish a versioned token package and component acceptance process from Platform Design System v1;
+- create a governed metric registry with source domains, formula owner, refresh objective, permission and drill-down;
+- define projection storage, lineage, lag, replay, rebuild and reconciliation for Command Center and Digital Twin;
+- adopt the event envelope one bounded context at a time with schema ownership, idempotent consumers and atomic publication;
+- retain separate Customer, Operator, Administrator, Executive and support interfaces;
+- keep AI advisory and Digital Twin read-oriented.
 
 ### 1. Payment Platform production slice
 
@@ -69,9 +78,12 @@ Delivery algorithms remain outside this phase.
 - inventory reconciliation acceptance criteria;
 - adapter contracts for every external machine, payment or identity provider;
 - migration, API and behavior changes scoped in a later engineering increment.
+- explicit Product Owner policy before AI may propose or execute any high-risk autonomous action; v1 grants no such authority.
 
 ## Completion evidence for later implementation
 
 Each implementation increment must include code, migrations where approved, automated tests, updated API/event contracts, updated test scenarios, changelog and Architecture Status, successful required builds and no generated build output committed.
 
 Documentation for each slice must identify what is Implemented, Foundation, Documented and Future. This Master Architecture Map v1 checkpoint itself remains documentation-only.
+
+Use the canonical status labels `IMPLEMENTED`, `FOUNDATION_ONLY`, `DOCUMENTED_ONLY`, `FUTURE` and `BLOCKED_EXTERNAL` in new readiness records.

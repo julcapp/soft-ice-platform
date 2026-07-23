@@ -1,5 +1,81 @@
 # CHANGELOG
 
+## [Unreleased] - Admin Dashboard v1 Platform UI Specification
+
+### Added
+
+- Complete Admin Dashboard v1 specification with the desktop grid, tablet/mobile/large-touch adaptation, global scope/period filters, permission-filtered search, export and drill-down contracts.
+- Mandatory widgets for machine network state, sales, ingredient stock, cup stock, operator state, recent service, recent incidents, advertising campaigns, CRM statistics, financial indicators, event journal and critical notifications.
+- Per-widget source domains, future projection owner, refresh/freshness targets, access permissions, user actions and related-screen navigation.
+- Owner, Administrator and future region-scoped Regional Manager scenarios with backend-enforced scope, field redaction and audited export requirements.
+
+### Updated
+
+- Architecture Roadmap adds Admin Dashboard v1 as a documented implementation gate.
+- Architecture Status records Admin Dashboard v1 as `DOCUMENTED_ONLY` and keeps projections, APIs, authorization, exports and UI implementation in `FUTURE`.
+
+### Scope
+
+- Platform UI documentation only; no backend, frontend, Prisma, database, tests or business logic changed.
+
+## [Unreleased] - Command Center Foundation v1
+
+### Added
+
+- Complete UI foundation documents for typography, layout/spacing, tables/filters, forms/validation, status/alerts and accessibility.
+- Normative reusable component inventory covering shared actions, controls, cards, operational records, search, evidence, maps, Digital Twin and AI recommendations.
+- Soft ICE Command Center owner-view specification with required widgets, governed data sources, refresh expectations, calculation owners, permission scopes and drill-downs.
+- Machine Digital Twin read-model foundation with provenance, freshness, partial-state and source-of-truth boundaries.
+- Everything Is Event envelope, initial event catalog and immutable/versioned/idempotent governance.
+- ADR-016 for the platform Design System, ADR-017 for Command Center and Digital Twin, and ADR-018 for event-driven foundations.
+
+### Updated
+
+- Design System scope now covers Customer Portal and service/support interfaces alongside Admin, Executive, Operator and Customer Mini App.
+- Color, dashboard, mobile and icon guidance now records the complete operational semantic vocabulary.
+- Architecture Status, Architecture Roadmap and Next Phase Roadmap now classify the new capabilities and record their implementation gates.
+
+### Scope
+
+- Documentation only; no application code, backend, Prisma schema, migrations, tests, business logic or generated artifacts changed.
+
+## [Unreleased] - Soft ICE Platform Design System v1
+
+### Added
+
+- Unified design language for Admin Console, Executive Console, Operator App and Customer Mini App.
+- UI documentation for color, typography, grid, navigation, widgets, tables, cards, forms, buttons, charts, status badges, alerts, dialogs, icons, responsive behavior, accessibility, component naming and design tokens.
+- Separate experience principles for executive decision support, mobile field operations and permission-controlled administration.
+- Component Library, Dashboard Design Guide, Color System, Mobile Guidelines and Iconography v1 under `docs/ui/`.
+
+### Updated
+
+- Architecture Status records Design System v1 as documented with future implementation.
+- Architecture Roadmap adds design-system adoption as a future implementation gate.
+
+### Scope
+
+- Documentation only; no UI, frontend, backend, Prisma schema, tests or business logic changed.
+
+## [Unreleased] - Admin Console UI/UX Specification v1
+
+### Added
+
+- Complete future Admin Console UI/UX specification covering shared interaction patterns, responsive/accessibility requirements, privacy, command safety and cross-module workflows.
+- Role-aware navigation map for all requested administrative sections, the mobile-first Operator workspace and the separate owner-only Executive Console.
+- Screen catalog defining purpose, displayed data, actions, filters, sorting, search, bulk actions, permissions, related modules and future extensions for every planned screen.
+- Seven-role permission matrix for Owner, Administrator, Operator, Support, Marketing, Accountant and Read-only Auditor.
+- Dashboard widget contract for revenue, sales, machine availability/health, top products, low inventory, operator tasks, payments, alerts and future AI recommendations.
+- Executive Console specification covering KPIs, profit, cash flow, ROI, map/network views, business health, predictions, risks and human-supervised AI recommendations.
+
+### Updated
+
+- Architecture Status and Architecture Roadmap aligned to the Admin Console UI/UX v1 documentation checkpoint without changing console runtime maturity.
+
+### Scope
+
+- Documentation only; application code, frontend, backend, Prisma schema, business logic and tests were not changed.
+
 ## [Unreleased] - Soft ICE Platform Master Architecture Map v1
 
 ### Added
