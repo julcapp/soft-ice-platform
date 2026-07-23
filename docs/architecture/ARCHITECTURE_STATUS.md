@@ -2,7 +2,7 @@
 
 Status: Active
 Document code: ARCH-002
-Version: 3.0
+Version: 3.1
 Snapshot date: 2026-07-23
 Project: Soft ICE Platform / «У Тимоши»
 
@@ -18,6 +18,8 @@ The MVP is not production-launch-ready. Real payment execution is the principal 
 
 The 2026-07-23 Master Architecture Map v1 establishes the authoritative eight-area platform structure, mandatory access boundaries, high-level cross-platform data flows and architecture governance rules. It incorporates the Machine Operations checkpoint, central CRM/Admin Console role, future consent-controlled Advertising Platform, vendor-neutral Machine Gateway boundary and shared infrastructure responsibilities. These map additions are documentation decisions and do not claim new runtime implementation.
 
+Admin Console Foundation v1 and Executive Console architecture are now documented and accepted. ADR-014 defines context ownership, `/api/v1/admin` query/command boundaries, permission bundles and scopes, dashboards, reporting, operator workflows, inventory and advertising integrations, and the privileged-action audit model. ADR-015 defines a separate read-mostly Executive Console and a future evidence-linked, human-supervised AI Supervisor. No console UI, routes, schema, projections, authorization middleware, integrations or business logic were implemented.
+
 Status terms used below:
 
 - **Implemented** — executable code exists and is covered by repository validation.
@@ -30,13 +32,29 @@ Status terms used below:
 | Platform area | Baseline status | Current architecture position |
 |---|---|---|
 | Customer Platform | Implemented foundation / Future extensions | Telegram Mini App and authenticated customer/Club Account surfaces exist. Complete checkout, loyalty/referral engines, production customer payments and the advertising carousel remain incomplete or future. |
-| CRM and Admin Console | Documented / Future | Defined as the central permission-scoped management surface for customers, loyalty, commercial settings, products/menu, payments/reconciliation, reports, advertising, operator oversight, system configuration and audit. It does not absorb owning domains. |
+| CRM and Admin Console | Documented / Future | Foundation v1 architecture is accepted: separate Admin BFF, owning-domain query/command APIs, backend permissions/scopes, reporting projections, operator/inventory/advertising workflows and immutable audit. No runtime or UI is implemented. |
 | Machine Platform | Implemented foundation | Machine Domain, vendor-neutral `MachineGateway`, Huaxin-isolated adapter boundary and deterministic simulator exist. Production physical transport, hardware validation and full inventory/fulfillment hardening remain incomplete. |
 | Machine Operations Platform | Implemented foundation / Future extensions | Backend domain foundation exists for assignments, tasks, checklists, service reports, tests, inventory movements and evidence metadata. Scheduling, routes, GPS, offline mode and batch tracking are future. |
 | Payment Platform | Foundation / Documented adapters | Payment models and provider-independent contracts exist. YooKassa, Sber, SBP QR, authenticated provider webhooks and production reconciliation are not executable end to end. |
 | Advertising Platform | Documented / Future | Entities, access gates and boundaries are documented. No delivery, click collector, conversion runtime, reporting runtime or advertising management UI is implemented. |
 | Identity and Security Platform | Implemented foundation / Future providers | Telegram customer authentication, canonical customer identity, verified-phone boundary, sessions, audit/idempotency foundations and consent records exist. Production SberID/MAX and complete operator/administrator authorization surfaces remain future or incomplete. |
 | Infrastructure Platform | Implemented foundation | Configuration, structured logging, metrics primitives, health checks, domain-event foundations, idempotency, errors, PostgreSQL/Prisma and deployment foundations exist. Production monitoring and operational hardening remain incomplete. |
+
+## Console Architecture Checkpoint
+
+| Capability | Accepted architecture | Runtime status |
+|---|---|---|
+| Admin Console Foundation v1 | Separate administrator application and Admin BFF; domain ownership remains in owning services. | Documented / Future |
+| Admin APIs | Versioned `/api/v1/admin` read composition and explicit action commands with idempotency, correlation, reason and expected-version controls. | Documented / Future |
+| Authorization | Deny-by-default permission bundles plus organization/region/location/machine scope, field redaction, step-up and break-glass controls. | Documented / Future |
+| Admin dashboards | Operations, commercial, finance/reconciliation, inventory, advertising and audit/access projections with visible freshness. | Documented / Future |
+| Reporting | Versioned metric definitions, reproducible filters, governed projections and audited asynchronous export. | Documented / Future |
+| Operator oversight | Task triage/assignment, checklist-version review, evidence and service-report approval/rejection through Machine Operations contracts. | Documented / Future |
+| Inventory integration | Ledger-based stock, sales/test/service/waste separation, variance and explicit correction workflow. | Documented / Future |
+| Advertising integration | Contract-based advertiser/campaign/creative/placement administration; delivery algorithms remain deferred. | Documented / Future |
+| Audit | Append-only privileged read/write/denial/export/access evidence with integrity and correlation references. | Documented / Future |
+| Executive Console | Separate read-mostly `/api/v1/executive` surface over aggregated, redacted and versioned reporting projections. | Documented / Future |
+| AI Supervisor | Evidence-linked observations, anomaly detection, forecasts and draft recommendations with mandatory human review; no autonomous commands. | Documented / Deferred |
 
 Authoritative high-level documents:
 
