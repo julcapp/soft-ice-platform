@@ -1,45 +1,31 @@
-# -----------------------------
-# Environment
-# -----------------------------
+node_modules/
+**/node_modules/
+
+.pnpm-store/
+**/.pnpm-store/
+
+frontend/miniapp/dist/
+frontend/admin-console/dist/
+**/.vite/
+**/.cache/
+coverage/
+**/coverage/
+
 .env
 .env.*
 !.env.example
-backend/.env
-backend/.env.*
-!backend/.env.example
-telegram-bot/.env
-telegram-bot/.env.*
-!telegram-bot/.env.example
-frontend/miniapp/.env
-frontend/miniapp/.env.*
-!frontend/miniapp/.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-# -----------------------------
-# Node
-# -----------------------------
-node_modules/
-backend/node_modules/
-telegram-bot/node_modules/
-frontend/miniapp/node_modules/
-
-# -----------------------------
-# Build
-# -----------------------------
-frontend/miniapp/dist/
-
-# -----------------------------
-# Logs
-# -----------------------------
 *.log
 npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# -----------------------------
-# OS
-# -----------------------------
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# -----------------------------
-# Local backup
-# -----------------------------
 backup_git_conflict/

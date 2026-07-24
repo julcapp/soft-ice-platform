@@ -1,5 +1,22 @@
 # Soft ICE Admin Dashboard v1
 
+## Implementation checkpoint — Vertical Slice 001
+
+Status: `IMPLEMENTED` (read-only shell and demo projection), 2026-07-23.
+
+The first executable slice lives in `frontend/admin-console/` and consumes
+`GET /api/v1/admin/dashboard`. It implements the application shell, the required
+summary/inventory/operator/maintenance/payment/event widgets, shared chart cards,
+responsive behavior and loading, empty, stale/demo, unavailable and denied states.
+All controls are read-only; global search and non-Dashboard navigation are visible
+placeholders only.
+
+Live cross-domain reporting integrations, governed metric projections, exports,
+drill-downs, preferences and `REGIONAL_MANAGER` scope are `FOUNDATION_ONLY`.
+The runtime uses an explicitly labelled demo provider until those integrations exist.
+Production administrator identity/session integration is `FOUNDATION_ONLY`; production
+does not accept the development header adapter.
+
 Status: Specification  
 Version: 1.0  
 Date: 2026-07-23  
@@ -663,6 +680,10 @@ Critical notification panel and policy-mandatory operational widgets cannot be h
 - `docs/domain/ADVERTISING_PLATFORM.md`
 - `docs/architecture/EVERYTHING_IS_EVENT.md`
 
-## 18. Non-implementation statement
+## 18. Implementation boundary
 
-This is a Platform UI Specification only. It does not change backend, frontend, Prisma, database schema, API, tests, authorization, events, projections or business logic. All named refresh targets, projection owners, permission keys and routes require separately approved implementation work.
+Vertical Slice 001 implements only the read-only shell, Dashboard composition,
+demo-provider read model, `admin.dashboard.read` boundary and tests described above.
+All mutation workflows, live projections, exports, source integrations and other
+named refresh targets remain unimplemented. No Prisma schema, source-domain facts or
+business mutation logic is changed by this slice.

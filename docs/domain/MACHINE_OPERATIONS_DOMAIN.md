@@ -41,3 +41,6 @@ Public clients cannot self-assert operator identity. API v1 consumes `X-Operator
 ## Boundaries
 
 The module does not own prices, commercial configuration, loyalty, customers, payments, orders, hardware protocols, binary media storage, or physical safety certification. Inventory facts can later feed a dedicated inventory ledger without changing application contracts.
+# Runtime integration addendum
+
+Operator tests, cleaning, calibration, maintenance, and recovery open matching Runtime sessions. Test material consumption remains separate from sales via reason codes. Operator roles cannot enter commercial configuration states.

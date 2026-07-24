@@ -965,3 +965,41 @@ Customer identity routes require Bearer authentication and use the standard API 
 | `GET` | `/api/v1/customers/me/consent-decisions` | Customer consent decision history. |
 
 SberID and MAX are Runtime/provider placeholders only in v1. No public provider-linking callback is exposed. Loyalty, promotions and advertising are outside this contract.
+
+# Admin Dashboard Read Model v1
+
+Status: `IMPLEMENTED` with `FOUNDATION_ONLY` live integrations.
+
+`GET /api/v1/admin/dashboard` returns one read-only Admin Console composition.
+The route permits only authenticated security contexts containing
+`PLATFORM_OWNER` or `ADMIN`; `REGIONAL_MANAGER` is denied until a scoped policy is
+implemented. Development/test may supply `X-Admin-Role`; production rejects this
+adapter and requires a trusted injected administrator security context.
+
+Response fields:
+
+- `generatedAt`;
+- `freshness` (`status`, `source`, `generatedAt`, `isDemo`, `message`);
+- `permissionScope` (`roles`, `permissions`, `access: READ_ONLY`);
+- `summary`;
+- `machineStatus`;
+- `inventoryAlerts`;
+- `operatorSummary`;
+- `maintenanceSummary`;
+- `paymentSummary`;
+- `recentEvents`.
+
+Only `GET` is defined. `POST`, `PUT`, `PATCH` and `DELETE` are not routed and return
+the standard not-found error. The current provider identifies itself as
+`DEMO_READ_MODEL`; consumers must visibly display its demo/stale message. Live
+domain projections are `FOUNDATION_ONLY`.
+# Machine Digital Twin Admin API
+
+`GET /api/v1/admin/machine-twins`, `GET /:machineId`,
+`GET /:machineId/components`, `GET /:machineId/events`,
+`GET /:machineId/snapshots`, and `GET /:machineId/health` are read-only
+ADMIN/PLATFORM_OWNER contracts. Mutation methods are intentionally absent.
+See `docs/api/MACHINE_DIGITAL_TWIN_API.md`.
+# Machine Runtime and Platform Events read APIs
+
+Admin-only read contracts are defined in `MACHINE_RUNTIME_API.md` and `PLATFORM_EVENTS_API.md`. No v1 mutation or remote-control routes are exposed.

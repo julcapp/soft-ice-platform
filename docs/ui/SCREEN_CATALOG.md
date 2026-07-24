@@ -162,3 +162,17 @@ Executive screens are detailed in `EXECUTIVE_CONSOLE.md`. All share: owner-only 
 | EXE-08 Machine Network Map | Geographic network, health, utilization, revenue and risk clusters. | Fleet, Locations; future expansion planning. |
 | EXE-09 Business Health | Composite transparent scorecard by commercial, cash, fleet, inventory, customer and compliance dimensions. | Governed metrics; future board targets. |
 | EXE-10 AI Supervisor (future) | Evidence-linked observations, predictions, risks and recommendations with confidence, expiry and human review status. | Reporting/Audit only; no autonomous commands. |
+# Machine Digital Twin screens
+
+- Admin / Machine Twins list — implemented, read-only.
+- Admin / Machine Twin detail / Overview — implemented, read-only.
+- Admin / Machine Twin detail / Components — implemented, read-only.
+- Admin / Machine Twin detail / Events — implemented, read-only.
+- Admin / Machine Twin detail / Snapshots — implemented, read-only.
+- Admin / Machine Twin detail / Health — implemented, read-only.
+# Runtime/Event screens
+
+- Runtime Monitor — implemented, read-only.
+- Runtime Detail — implemented, read-only.
+- Event Stream — implemented, read-only.
+- Dead Letter Queue — implemented, read-only.

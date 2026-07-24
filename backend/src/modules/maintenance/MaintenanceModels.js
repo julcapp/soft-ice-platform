@@ -1,0 +1,22 @@
+const MAINTENANCE_TYPE = Object.freeze({ PREVENTIVE: 'PREVENTIVE', CORRECTIVE: 'CORRECTIVE' });
+const SESSION_STATUS = Object.freeze({
+  OPEN: 'OPEN', IN_PROGRESS: 'IN_PROGRESS', SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED', REJECTED: 'REJECTED', CANCELLED: 'CANCELLED',
+});
+const CHECK_STATUS = Object.freeze({ PENDING: 'PENDING', PASSED: 'PASSED', FAILED: 'FAILED', NOT_APPLICABLE: 'NOT_APPLICABLE' });
+const TEST_STATUS = Object.freeze({ PASSED: 'PASSED', FAILED: 'FAILED' });
+const ROLE = Object.freeze({ OPERATOR: 'OPERATOR', ADMIN: 'ADMIN', PLATFORM_OWNER: 'PLATFORM_OWNER' });
+const PERMISSION = Object.freeze({
+  PLAN_MANAGE: 'maintenance:plan:manage',
+  SESSION_EXECUTE: 'maintenance:session:execute',
+  SESSION_APPROVE: 'maintenance:session:approve',
+  PROJECTION_READ: 'maintenance:projection:read',
+});
+
+const ROLE_PERMISSIONS = Object.freeze({
+  [ROLE.OPERATOR]: [PERMISSION.SESSION_EXECUTE],
+  [ROLE.ADMIN]: Object.values(PERMISSION),
+  [ROLE.PLATFORM_OWNER]: Object.values(PERMISSION),
+});
+
+module.exports = { CHECK_STATUS, MAINTENANCE_TYPE, PERMISSION, ROLE, ROLE_PERMISSIONS, SESSION_STATUS, TEST_STATUS };

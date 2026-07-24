@@ -59,4 +59,7 @@ Names describe completed facts in past tense. `PAYMENT_PENDING` and other state 
 - Cross-domain consumers may build projections or invoke their own policy; they do not rewrite the producer's facts.
 - Vendor-specific machine events are normalized behind `MachineGateway` before platform publication.
 - Every new event requires an owner, purpose, producer, consumers, schema, classification, retention, ordering expectation and version documentation.
+# Machine Runtime Foundation v1 addendum
+
+Events are immutable transport facts, not authoritative domain state. Machine Runtime remains authoritative for current execution state. V1 uses synchronous in-process delivery and in-memory stores; durable outbox/broker support is not yet implemented. See `PLATFORM_EVENT_BUS.md` and ADR-022/023.
 

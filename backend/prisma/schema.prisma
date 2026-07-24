@@ -104,6 +104,25 @@ enum InventoryItemType {
   TOPPING
 }
 
+enum MaintenancePlanType {
+  PREVENTIVE
+  CORRECTIVE
+}
+enum MaintenanceSessionStatus {
+  OPEN
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+enum MaintenanceCheckStatus {
+  PENDING
+  PASSED
+  FAILED
+  NOT_APPLICABLE
+}
+
 enum SegmentType {
   MANUAL
   SYSTEM
@@ -594,6 +613,128 @@ model MachineSetting {
   updatedBy   Operator @relation(fields: [updatedById], references: [id])
 
   @@unique([machineId, key])
+}
+
+model MaintenancePlanV1 {
+  id String @id @default(uuid())
+  code String
+  name String
+  type MaintenancePlanType
+  version Int
+  machineIds Json
+  intervalDays Int?
+  checklistTemplate Json
+  requiredPhotoCount Int @default(0)
+  requireTestDispense Boolean @default(true)
+  active Boolean @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  sessions MaintenanceSessionV1[]
+  @@unique([code, version])
+  @@index([active, type])
+}
+
+model MaintenanceSessionV1 {
+  id String @id @default(uuid())
+  machineId String
+  machineCode String
+  planId String?
+  type MaintenancePlanType
+  status MaintenanceSessionStatus @default(OPEN)
+  operatorId String
+  issue String?
+  summary String?
+  runtimeSessionId String?
+  requiredPhotoCount Int @default(0)
+  requireTestDispense Boolean @default(true)
+  startedAt DateTime
+  submittedAt DateTime?
+  approvedAt DateTime?
+  approvedBy String?
+  approvalNote String?
+  rejectedAt DateTime?
+  rejectedBy String?
+  rejectionReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plan MaintenancePlanV1? @relation(fields: [planId], references: [id])
+  checklistItems MaintenanceChecklistResultV1[]
+  photos MaintenancePhotoEvidenceV1[]
+  replacements MaintenanceConsumableReplacementV1[]
+  testDispenses MaintenanceTestDispenseV1[]
+  auditHistory MaintenanceAuditEntryV1[]
+  @@index([machineId, status, startedAt])
+  @@index([operatorId, status])
+  @@index([status, submittedAt])
+}
+
+model MaintenanceChecklistResultV1 {
+  id String @id @default(uuid())
+  sessionId String
+  itemCode String
+  label String
+  required Boolean @default(true)
+  evidenceRequired Boolean @default(false)
+  status MaintenanceCheckStatus @default(PENDING)
+  note String?
+  completedAt DateTime?
+  completedBy String?
+  session MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+  @@unique([sessionId, itemCode])
+}
+
+model MaintenancePhotoEvidenceV1 {
+  id String @id @default(uuid())
+  sessionId String
+  storageKey String @unique
+  contentType String
+  checksumSha256 String
+  capturedAt DateTime
+  attachedAt DateTime @default(now())
+  operatorId String
+  session MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+  @@index([sessionId, capturedAt])
+}
+
+model MaintenanceConsumableReplacementV1 {
+  id String @id @default(uuid())
+  sessionId String
+  itemId String
+  locationId String
+  quantity Float
+  reason String
+  lotReference String?
+  inventoryMovementId String?
+  replacedAt DateTime @default(now())
+  session MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+  @@index([sessionId, replacedAt])
+  @@index([inventoryMovementId])
+}
+
+model MaintenanceTestDispenseV1 {
+  id String @id @default(uuid())
+  sessionId String
+  status TestRunStatus
+  dispenseReference String
+  notes String?
+  performedAt DateTime @default(now())
+  session MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+  @@index([sessionId, performedAt])
+}
+
+model MaintenanceAuditEntryV1 {
+  id String @id @default(uuid())
+  sessionId String
+  eventId String @unique
+  eventType String
+  actorId String
+  actorRoles Json
+  correlationId String
+  idempotencyKey String
+  payload Json
+  occurredAt DateTime @default(now())
+  session MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+  @@index([sessionId, occurredAt])
 }
 
 model Order {

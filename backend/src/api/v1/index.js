@@ -10,6 +10,12 @@ const { createMachineOperationsRouter } = require('./machineOperationsRoutes');
 const { createMachineGatewayRouter } = require('./machineGatewayRoutes');
 const { createCustomerOrdersRouter, createOrderRouter } = require('./orderRoutes');
 const { createTelegramRouter } = require('./telegramRoutes');
+const { createAdminDashboardRouter } = require('./adminDashboardRoutes');
+const { createMachineTwinRouter } = require('./machineTwinRoutes');
+const { createMachineRuntimeRouter } = require('./machineRuntimeRoutes');
+const { createPlatformEventRouter } = require('./platformEventRoutes');
+const { createInventoryRouter } = require('./inventoryRoutes');
+const { createMaintenanceRouter } = require('./maintenanceRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -42,6 +48,14 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine', createMachineGatewayRouter(dependencies));
   router.use('/orders', createOrderRouter(dependencies));
   router.use('/telegram', createTelegramRouter(dependencies));
+  router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
+  router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
+  router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
+  router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
+  router.use('/inventory', createInventoryRouter(dependencies));
+  router.use('/admin/inventory', createInventoryRouter(dependencies));
+  router.use('/maintenance', createMaintenanceRouter(dependencies));
+  router.use('/admin/maintenance', createMaintenanceRouter(dependencies));
 
   router.use((req, res, next) => {
     next(

@@ -1,5 +1,37 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-056 - Maintenance Runtime Owns Service Lifecycle
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Maintenance Runtime owns preventive/corrective plans, QR-identified service sessions, checklist/evidence completion, replacement and test-dispense references, administrator decisions, immutable maintenance history, KPIs and event-driven projections. Machine Operations owns operator identity, Machine Runtime owns execution state, Inventory owns stock and Digital Twin remains read-only. Commands are role-scoped and idempotent. V1 uses an in-memory adapter with a Prisma durable target.
+
+---
+
+# Decision: DECISION-055 - Inventory Runtime Owns Multi-Location Stock
+
+**Date:** 2026-07-23
+
+**Status:** Accepted
+
+Inventory Runtime is the authoritative bounded context for ingredients, consumables, service materials, warehouse/machine locations, append-only movements, reservations, and calculated balances. Machine Runtime and Machine Operations integrate through Platform Event Bus or stable service contracts; CRM/Admin Console is read-only. Commands are idempotent and audited. The v1 active adapter is in-memory; Prisma models define the durable target and production requires transactional locking and outbox delivery.
+
+---
+
+# Decision: DECISION-054 - Runtime State Authority and Event Transport Are Separate
+
+**Date:** 2026-07-23
+
+**Status:** Accepted
+
+Machine Runtime exclusively owns current machine operational execution state and valid session transitions. Platform Event Bus transports immutable facts and never replaces authoritative state. Cross-domain effects use service contracts or idempotent subscribers without direct database writes. Digital Twin is read-only; Inventory owns stock; Orders and Payments retain their states; Gateway retains vendor communication.
+
+V1 Runtime, Event Store, Outbox and Dead Letter Store adapters are in-memory and explicitly non-durable. Production claims require PostgreSQL runtime persistence, a transactional outbox, durable event storage/broker delivery and verified Huaxin mapping.
+
+---
+
 # Decision: DECISION-053 - Machine Operations Owns Audited Human Service Work
 
 **Date:** 2026-07-21
@@ -2185,3 +2217,16 @@ Core v1 stores rules but does not evaluate them. Advertising execution, recommen
 Inactive segments remain auditable and reject new assignments. Removing membership closes an assignment period instead of deleting it. Future automatic evaluators must use `SegmentationRuntime`, be idempotent, and preserve the assignment source and reason.
 
 Related documentation: `docs/domain/CUSTOMER_SEGMENTATION_CORE.md`, `docs/api/API_CONTRACT_V1.md`.
+# Decision: DECISION-054 - Machine Digital Twin Is a Read Projection
+
+**Date:** 2026-07-23
+
+**Status:** Accepted
+
+Machine Digital Twin is a separate bounded context that aggregates trusted
+Machine, Gateway, Operations, Inventory, Orders, Payments, Catalog,
+Advertising, and Simulator facts into immutable read projections. It is not
+authoritative for any source fact and exposes no command API. Missing sources
+remain explicit; deterministic health is explainable; prediction is advisory.
+
+---

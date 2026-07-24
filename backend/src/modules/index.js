@@ -6,6 +6,10 @@ const machine = require('./machine');
 const machineOperations = require('./machine_operations');
 const machineGateway = require('./machine_gateway');
 const machineSimulator = require('./machine_simulator');
+const machineDigitalTwin = require('./machine_digital_twin');
+const machineRuntime = require('./machine_runtime');
+const inventory = require('./inventory');
+const maintenance = require('./maintenance');
 const order = require('./order');
 const payment = require('./payment');
 const segmentation = require('./segmentation');
@@ -22,6 +26,10 @@ const moduleManifests = [
   machineOperations,
   machineGateway,
   machineSimulator,
+  machineDigitalTwin,
+  machineRuntime,
+  inventory,
+  maintenance,
 ];
 
 module.exports = {

@@ -25,7 +25,12 @@ Soft ICE Platform Design System v1 is now the shared UI foundation for Admin Con
 
 Command Center, Digital Twin and Everything Is Event foundations are accepted through ADR-017 and ADR-018. Command Center is a documented read-oriented owner surface. Digital Twin and event governance are foundation-only contracts. Their runtimes remain future work and cannot bypass authoritative domains.
 
-Admin Dashboard v1 now has a complete Platform UI Specification for Owner, Administrator and a future region-scoped Regional Manager permission bundle. It defines the page grid, mandatory fleet, sales, inventory, operator, service, incident, campaign, CRM, finance, event and notification widgets, their source domains, projection ownership, refresh targets, permissions, actions, exports and drill-downs. This is documentation only: reporting projections, Admin APIs, authorization and UI implementation remain future work.
+Admin Dashboard Vertical Slice 001 is now implemented as a separate responsive
+read-only Admin Console application and `GET /api/v1/admin/dashboard` composition.
+The shell, core widgets, charts, explicit demo/freshness states and `PLATFORM_OWNER`
+/ `ADMIN` role boundary are executable. Governed live projections, production
+administrator identity, exports, drill-downs, mutation workflows and the future
+region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 
 ## Delivery sequence
 
@@ -34,8 +39,8 @@ Admin Dashboard v1 now has a complete Platform UI Specification for Owner, Admin
 | 1. Master architecture baseline | Approve platform map, boundaries, roles/access, data flows and governance rules. | Accepted documentation |
 | 2. Production payment slice | Implement one provider-backed checkout/payment session, authenticated idempotent webhook, accepted ledger fact and reconciliation path without vendor leakage. | Next / implementation required |
 | 3. End-to-end paid dispense | Connect Mini App checkout to accepted payment, Order and `MachineGateway`; validate recovery against simulator and physical-machine boundary. | Future |
-| 4. Admin Console Foundation v1 | Implement the separate Admin BFF, backend-enforced permission/scope checks, owning-domain command/query contracts, reporting projections and audit pipeline defined by ADR-014; use the UI/UX v1 documents as the screen and interaction baseline. | Architecture and UI/UX specification documented / implementation future |
-| 4d. Admin Dashboard v1 | Implement governed projections, scoped access and the responsive Dashboard composition defined by `ADMIN_DASHBOARD_UI_SPEC.md`; validate every metric source, freshness target, export and drill-down before release. | Platform UI Specification documented / implementation future |
+| 4. Admin Console Foundation v1 | Implement the separate Admin BFF, backend-enforced permission/scope checks, owning-domain command/query contracts, reporting projections and audit pipeline defined by ADR-014; use the UI/UX v1 documents as the screen and interaction baseline. | Vertical Slice 001 read-only shell `IMPLEMENTED`; remaining foundation `FOUNDATION_ONLY` |
+| 4d. Admin Dashboard v1 | Implement governed projections, scoped access and the responsive Dashboard composition defined by `ADMIN_DASHBOARD_UI_SPEC.md`; validate every metric source, freshness target, export and drill-down before release. | Shell/demo composition `IMPLEMENTED`; live projections, exports and drill-downs `FOUNDATION_ONLY` |
 | 4a. Shared Design System adoption | Before UI implementation, map approved designs for Admin, Executive, Operator and Customer applications to Design System v1 semantic tokens, component contracts, responsive rules and accessibility acceptance criteria. | Design System documented / adoption future |
 | 4b. Governed read-model foundation | Define metric registry, projection ownership, freshness/lineage contract and rebuild policy for Command Center and machine Digital Twin. | Architecture foundation accepted / implementation future |
 | 4c. Event adoption slices | Adopt the standard envelope per domain using versioned schemas, idempotent consumers, atomic publication and observable recovery. | Foundation accepted / implementation future |
@@ -102,3 +107,13 @@ Admin Dashboard v1 now has a complete Platform UI Specification for Owner, Admin
 - `docs/architecture/ADR/ADR-018-everything-is-event.md`
 - `docs/architecture/ROADMAP_NEXT_PHASE.md`
 - `docs/architecture/ARCHITECTURE_STATUS.md`
+# Machine Digital Twin
+
+- Completed: Core v1 read projection, health, source status, simulator support,
+  GET API, and Admin Console vertical slice.
+- Next: durable snapshot store, normalized telemetry integration, scoped support
+  roles, verified vendor diagram map, and source-backed refill estimates.
+# Machine Runtime roadmap update
+
+- Implemented: explicit runtime state machine, sessions, normalized signals, synchronous event bus, idempotent projection/consumption adapters, read-only monitoring.
+- Next: PostgreSQL runtime persistence and transactional outbox, durable broker/event store, verified Huaxin adapter, filtered support/auditor access.

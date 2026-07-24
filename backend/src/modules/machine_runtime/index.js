@@ -1,0 +1,11 @@
+const { MachineRuntimeState, StateCategory } = require('./MachineRuntimeState');
+const { MachineRuntimeSession, MachineRuntimeSessionType, MachineRuntimeSessionStatus } = require('./MachineRuntimeSession');
+const { MachineRuntimeTransition } = require('./MachineRuntimeTransition');
+const { MachineRuntimePolicy } = require('./MachineRuntimePolicy');
+const { MachineRuntimeRepository, InMemoryMachineRuntimeRepository } = require('./MachineRuntimeRepository');
+const { MachineRuntimeEventMapper } = require('./MachineRuntimeEventMapper');
+const { MachineRuntimeService } = require('./MachineRuntimeService');
+const { MachineRuntimeProjectionAdapter } = require('./MachineRuntimeProjectionAdapter');
+const { MachineRuntimeSignalType, MachineRuntimeSignalMapper } = require('./MachineRuntimeSignal');
+const { MachineRuntimeConsumptionSubscriber } = require('./MachineRuntimeConsumptionSubscriber');
+module.exports = { id: 'machine-runtime', version: '1.0.0', status: 'FOUNDATION_ONLY', MachineRuntimeState, StateCategory, MachineRuntimeSession, MachineRuntimeSessionType, MachineRuntimeSessionStatus, MachineRuntimeTransition, MachineRuntimePolicy, MachineRuntimeRepository, InMemoryMachineRuntimeRepository, MachineRuntimeEventMapper, MachineRuntimeService, MachineRuntimeProjectionAdapter, MachineRuntimeSignalType, MachineRuntimeSignalMapper, MachineRuntimeConsumptionSubscriber };

@@ -179,3 +179,67 @@ Expected result: the simulator is deterministic, implements only the vendor-neut
 - Assign a customer idempotently and retain the closed assignment in history after unassignment.
 - Reject assignment to an inactive segment and exclude inactive memberships from the active projection.
 - Return authenticated customer-safe active and historical segment DTOs without rule criteria.
+# Admin Console Vertical Slice 001
+
+Status: `IMPLEMENTED`
+
+## Dashboard endpoint
+
+1. Request `GET /api/v1/admin/dashboard` without administrator authentication and expect `401`.
+2. Request with `REGIONAL_MANAGER` and expect `403` without metric disclosure.
+3. Request with `ADMIN` or `PLATFORM_OWNER` and expect `200`.
+4. Verify `generatedAt`, `freshness`, `permissionScope`, `summary`,
+   `machineStatus`, `inventoryAlerts`, `operatorSummary`, `maintenanceSummary`,
+   `paymentSummary` and `recentEvents`.
+5. Verify `freshness.isDemo=true`, `source=DEMO_READ_MODEL` and
+   `permissionScope.access=READ_ONLY`.
+6. Verify POST/PUT/PATCH/DELETE are not routed.
+
+## Admin Console states
+
+1. Pending request preserves layout with skeletons and no fake values.
+2. Empty activity renders the approved empty state.
+3. Demo/stale data renders the freshness warning.
+4. Transport failure renders the unavailable state without mutation affordances.
+5. `401`/`403` renders the permission-denied state without hidden values.
+6. Dashboard renders every required Vertical Slice 001 widget and chart.
+7. Production build completes and responsive CSS covers desktop, tablet and mobile.
+# Machine Digital Twin Core v1 scenarios
+
+- ADMIN and PLATFORM_OWNER can list and inspect twins; OPERATOR is denied.
+- Projection contains the complete contract and every source declares status.
+- Missing telemetry is UNAVAILABLE; aged telemetry becomes STALE/EXPIRED.
+- Simulator projections include `dataMode: DEMO`, generation time, and source.
+- Health score is deterministic, clamped to 0–100, and returns factors.
+- Snapshots and twin events are immutable and event-versioned.
+- All six GET endpoints respond; POST/PUT/PATCH/DELETE are not implemented.
+- Development admin headers fail in production configuration.
+- Admin Console covers list/detail/components/events/snapshots/health and
+  loading, empty, stale, unavailable, denied, and demo presentation.
+- Digital Twin adapters never expose source-domain mutation methods.
+# Machine Runtime and Event Bus Foundation v1
+
+Automated coverage includes legal/illegal transitions; purchase, test, and maintenance sessions; conflict prevention; error/recovery; normalized signals; envelope validation/immutability; ordered handlers; failure isolation/retry/dead letters; subscriber idempotency; duplicate consumption prevention; Digital Twin projection; read authorization/no mutation; and Admin Console loading, empty, denied, unavailable, runtime, event, and foundation/stale displays.
+# Inventory Runtime Foundation v1
+
+- Create ingredients, consumables, service materials, warehouse locations, and machine locations with stable IDs.
+- Record receipt, consumption, test consumption, maintenance consumption, inventory count, and signed adjustment movements.
+- Verify on-hand, reserved, and available balances independently for multiple locations.
+- Reject negative stock and reservations above available stock.
+- Reserve, consume, and release stock while preserving terminal reservation history.
+- Replay identical commands without duplicate movements; reject an idempotency key reused with a different payload.
+- Deliver a Machine Runtime consumption event twice and verify one Inventory movement.
+- Verify every mutation emits audit and platform event facts.
+- Verify Admin Console renders only balances and movement journal without stock mutation controls.
+# Maintenance Runtime v1
+
+- MR-001: ADMIN creates a versioned preventive plan assigned to multiple machines.
+- MR-002: OPERATOR resolves a registered QR and opens an exclusive maintenance session.
+- MR-003: another active session for the same machine is rejected.
+- MR-004: only the assigned operator can complete checklist, photo, replacement and test steps.
+- MR-005: submission fails until required checklist items, photo count and test dispense are complete.
+- MR-006: replacement records an idempotent Inventory Runtime maintenance movement.
+- MR-007: ADMIN approves or rejects; OPERATOR cannot approve.
+- MR-008: approved sessions reject further mutation and retain append-only audit history.
+- MR-009: identical idempotent replay returns the first result; changed input conflicts.
+- MR-010: event-driven Admin Console projection reports multi-machine queue and KPIs.

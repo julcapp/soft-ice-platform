@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [Unreleased] - Admin Console Vertical Slice 001
+
+### Added
+
+- Separate responsive React/Vite Admin Console application with the read-only Dashboard shell, navigation, header, global-search placeholder, role display, notification indicator and Design System-based reusable components.
+- Dashboard widgets for revenue, sales, machine availability and attention, critical alerts, cup/ingredient stock, active operators, pending service approvals, maintenance, payments and platform events.
+- Accessible SVG sales/revenue trends and machine-status distribution with shared chart cards.
+- Versioned `GET /api/v1/admin/dashboard` read model with backend role enforcement for `PLATFORM_OWNER` and `ADMIN`, explicit `READ_ONLY` permission scope and demo/freshness metadata.
+- Backend and frontend coverage for authorization, response contract, mutation rejection, demo labeling and loading/empty/unavailable/stale/denied UI states.
+
+### Status
+
+- Dashboard shell and demo read-model slice: `IMPLEMENTED`.
+- Live reporting, inventory, payment, telemetry, operator and maintenance projection integrations: `FOUNDATION_ONLY`.
+- Production administrator identity/session adapter: `FOUNDATION_ONLY`; development headers are rejected in production.
+
 ## [Unreleased] - Admin Dashboard v1 Platform UI Specification
 
 ### Added
@@ -310,3 +326,39 @@
 - Added Prisma persistence and migration support for manual/system segments, activation, declarative rules, and assignment history.
 - Added runtime/repository/service/DTO layers plus authenticated customer active-segment and history API contracts.
 - Added segmentation tests and domain documentation; advertising, rule evaluation, and recommendation execution remain out of scope.
+# 2026-07-23 — Machine Digital Twin Core v1
+
+- Added the read-only Machine Digital Twin bounded context, domain models,
+  explicit source status, immutable snapshots/events, and explainable component
+  health scoring.
+- Added six ADMIN/PLATFORM_OWNER GET endpoints and simulator-backed demo data
+  with production-safe identity handling.
+- Added Admin Console list/detail/components/events/snapshots/health views,
+  reusable twin components, navigation, responsive styles, and UI tests.
+- Added domain, API, UI, ADR, roadmap, navigation, and test documentation.
+# 2026-07-23 — Machine Runtime and Platform Event Bus Foundation v1
+
+- Added authoritative machine operational state/session transitions with normalized Gateway/Simulator signals.
+- Added immutable platform events, ordered idempotent synchronous delivery, retry, delivery history, and dead-letter foundation.
+- Added Digital Twin and Inventory subscriber boundaries without cross-domain database writes.
+- Added ADMIN/PLATFORM_OWNER read-only runtime/event APIs and Admin Console monitoring screens.
+- Marked runtime/event/outbox/dead-letter persistence and Huaxin mapping as non-durable `FOUNDATION_ONLY`.
+# 2026-07-23 — Inventory Runtime Foundation v1
+
+- Added the Inventory bounded context with item/location models, immutable stock ledger, all v1 movement classes, reservations, balance projections, audit, and idempotency.
+- Integrated machine/operator consumption facts through Platform Event Bus without CRM dependencies.
+- Added Inventory API v1, Prisma persistence model and migration, backend tests, and Admin Console read-only balance/journal projections.
+- Documented domain, API, and ADR-024 boundaries and production durability requirements.
+# 2026-07-24 — Maintenance Runtime v1
+
+- Added preventive and corrective maintenance plans and service sessions.
+- Added QR machine identification, role-scoped checklists, photo evidence metadata, consumable replacement logging and test dispensing.
+- Integrated maintenance execution with Machine Runtime, Inventory Runtime and Platform Event Bus.
+- Added administrator approval/rejection, immutable audit history, event-driven Admin Console projection and maintenance KPIs.
+- Added Prisma durable-target models/migration, backend tests, API/domain documentation and Admin Console coverage.
+# 2026-07-24 — Языковая нормализация пользовательского слоя
+
+- Пользовательские тексты Консоли администратора переведены на русский язык.
+- Названия модулей унифицированы: «Складской учёт», «Техническое обслуживание», «Контур управления автоматами», «Цифровой двойник автомата», «Панель управления», «Журнал событий» и «Хранилище событий».
+- Русифицированы новые API-документы приоритетных операционных модулей.
+- Технические идентификаторы, API-маршруты, поля JSON, enum и коды событий сохранены без изменений.

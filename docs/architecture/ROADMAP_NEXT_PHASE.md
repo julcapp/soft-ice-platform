@@ -87,3 +87,12 @@ Each implementation increment must include code, migrations where approved, auto
 Documentation for each slice must identify what is Implemented, Foundation, Documented and Future. This Master Architecture Map v1 checkpoint itself remains documentation-only.
 
 Use the canonical status labels `IMPLEMENTED`, `FOUNDATION_ONLY`, `DOCUMENTED_ONLY`, `FUTURE` and `BLOCKED_EXTERNAL` in new readiness records.
+# Digital Twin next phase
+
+Connect production read adapters for Inventory, Orders, Payments, Catalog,
+Advertising, Machine Operations, and normalized Gateway telemetry. Add durable
+snapshot/event retention only after schema review. Do not add commands or
+autonomous action to the Digital Twin context.
+# Runtime/Event next phase
+
+Productionize Machine Runtime storage and transactional publication; verify Huaxin protocols; introduce broker-backed delivery/replay controls under separate approval. Autonomous remote control remains out of scope.

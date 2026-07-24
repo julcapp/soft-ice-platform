@@ -43,7 +43,7 @@ Canonical status vocabulary for new foundation records is `IMPLEMENTED`, `FOUNDA
 | Platform area | Baseline status | Current architecture position |
 |---|---|---|
 | Customer Platform | Implemented foundation / Future extensions | Telegram Mini App and authenticated customer/Club Account surfaces exist. Complete checkout, loyalty/referral engines, production customer payments and the advertising carousel remain incomplete or future. |
-| CRM and Admin Console | Documented / Future | Foundation v1 architecture is accepted: separate Admin BFF, owning-domain query/command APIs, backend permissions/scopes, reporting projections, operator/inventory/advertising workflows and immutable audit. No runtime or UI is implemented. |
+| CRM and Admin Console | Implemented read-only slice / Future extensions | Admin Console Vertical Slice 001 provides a separate responsive Dashboard application and versioned read-only aggregation endpoint. Live projections, production administrator identity, mutations and remaining console screens are not implemented. |
 | Machine Platform | Implemented foundation | Machine Domain, vendor-neutral `MachineGateway`, Huaxin-isolated adapter boundary and deterministic simulator exist. Production physical transport, hardware validation and full inventory/fulfillment hardening remain incomplete. |
 | Machine Operations Platform | Implemented foundation / Future extensions | Backend domain foundation exists for assignments, tasks, checklists, service reports, tests, inventory movements and evidence metadata. Scheduling, routes, GPS, offline mode and batch tracking are future. |
 | Payment Platform | Foundation / Documented adapters | Payment models and provider-independent contracts exist. YooKassa, Sber, SBP QR, authenticated provider webhooks and production reconciliation are not executable end to end. |
@@ -55,10 +55,10 @@ Canonical status vocabulary for new foundation records is `IMPLEMENTED`, `FOUNDA
 
 | Capability | Accepted architecture | Runtime status |
 |---|---|---|
-| Admin Console Foundation v1 | Separate administrator application and Admin BFF; domain ownership remains in owning services. | Documented / Future |
-| Admin APIs | Versioned `/api/v1/admin` read composition and explicit action commands with idempotency, correlation, reason and expected-version controls. | Documented / Future |
-| Authorization | Deny-by-default permission bundles plus organization/region/location/machine scope, field redaction, step-up and break-glass controls. | Documented / Future |
-| Admin dashboards | Operations, commercial, finance/reconciliation, inventory, advertising and audit/access projections with visible freshness. | Documented / Future |
+| Admin Console Foundation v1 | Separate administrator application and Admin BFF; domain ownership remains in owning services. | `IMPLEMENTED` for Vertical Slice 001 read-only shell; broader foundation `FOUNDATION_ONLY` |
+| Admin APIs | Versioned `/api/v1/admin` read composition and explicit action commands with idempotency, correlation, reason and expected-version controls. | Dashboard GET `IMPLEMENTED`; live sources and all commands `FOUNDATION_ONLY` |
+| Authorization | Deny-by-default permission bundles plus organization/region/location/machine scope, field redaction, step-up and break-glass controls. | Dashboard roles `IMPLEMENTED`; production admin identity and scoped policy `FOUNDATION_ONLY` |
+| Admin dashboards | Operations, commercial, finance/reconciliation, inventory, advertising and audit/access projections with visible freshness. | Dashboard shell/demo composition `IMPLEMENTED`; live projections `FOUNDATION_ONLY` |
 | Reporting | Versioned metric definitions, reproducible filters, governed projections and audited asynchronous export. | Documented / Future |
 | Operator oversight | Task triage/assignment, checklist-version review, evidence and service-report approval/rejection through Machine Operations contracts. | Documented / Future |
 | Inventory integration | Ledger-based stock, sales/test/service/waste separation, variance and explicit correction workflow. | Documented / Future |
@@ -69,7 +69,7 @@ Canonical status vocabulary for new foundation records is `IMPLEMENTED`, `FOUNDA
 | Admin Console UI/UX Specification v1 | Complete navigation map, screen catalog, role matrix, dashboard widget contract and owner-only Executive Console experience aligned with ADR-014/015. | Documented / Future implementation |
 | Soft ICE Platform Design System v1 | Unified foundations and component contracts for Admin, Executive, Operator and Customer applications, including dashboard, mobile, color, iconography and WCAG 2.2 AA guidance. | Documented / Future implementation |
 | Command Center v1 | Owner-level read-oriented operating screen with governed KPI sourcing, freshness, permissions and drill-down. | DOCUMENTED_ONLY |
-| Admin Dashboard v1 | Permission-composed Admin Console home with complete widget, data-source, freshness, access, interaction, export, responsive and drill-down contracts for Owner, Administrator and future region-scoped Regional Manager. | DOCUMENTED_ONLY; projections, APIs, authorization and UI FUTURE |
+| Admin Dashboard v1 | Permission-composed Admin Console home with complete widget, data-source, freshness, access, interaction, export, responsive and drill-down contracts for Owner, Administrator and future region-scoped Regional Manager. | Vertical Slice 001 `IMPLEMENTED`; live integrations, export, drill-down and Regional Manager `FOUNDATION_ONLY` |
 | Machine Digital Twin | Read projection with identity, location, connectivity, telemetry, stock, menu, price, advertising, work, tests, sales and refill prediction. | FOUNDATION_ONLY; runtime FUTURE |
 | Everything Is Event | Immutable versioned event envelope, initial catalog, normalization and consumer governance. | FOUNDATION_ONLY; platform-wide adoption FUTURE |
 
@@ -193,3 +193,13 @@ This flow does not mean that a real provider payment is production-ready. Paymen
 ## Baseline Verdict
 
 Soft ICE Platform has an executable customer, order, and machine integration foundation, including both Huaxin-isolated and simulated gateway paths. The commercial MVP remains incomplete until a real payment provider adapter, authenticated/idempotent webhooks, accepted settlement flow, and end-to-end Mini App checkout are implemented and validated against a physical machine.
+# 2026-07-23 — Machine Digital Twin Core v1
+
+Implemented a separate read-model bounded context, explicit source adapters,
+immutable projection snapshots/events, deterministic component health, GET-only
+Admin API, simulator demo projection, and read-only Admin Console screens.
+Durable snapshot persistence and live Inventory/Payment/Advertising adapters
+remain future work.
+# 2026-07-23 update
+
+Machine Runtime state/session authority and Platform Event Bus Foundation v1 are implemented with read-only admin APIs and console projections. Persistence, outbox, event store, dead letters, and delivery are in-memory/non-durable; Huaxin signal mapping remains foundation-only.

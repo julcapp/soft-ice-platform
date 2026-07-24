@@ -221,3 +221,20 @@ Identifiers are opaque. Sensitive values such as phone numbers, emails, provider
 - **Stale/partial:** retain route with freshness warning.
 - **Critical attention:** count badge reflects unresolved permitted items, not all platform items.
 - **Unsaved work:** route change requires discard/save-draft confirmation.
+# Admin Console Machine navigation
+
+```text
+Machines
+  Fleet
+  Digital Twins
+    Overview
+    Components
+    Events
+    Snapshots
+    Health
+```
+# Runtime/Event navigation
+
+- Machines → Runtime Monitor → Runtime Detail
+- Platform → Event Stream
+- Platform → Dead Letter Queue

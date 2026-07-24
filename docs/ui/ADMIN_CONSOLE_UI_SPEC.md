@@ -196,3 +196,9 @@ Approved future design directions include offline operator work, route optimizat
 ## 13. Non-implementation statement
 
 This specification creates no frontend, backend, Prisma, API, permission, report, AI or business-logic implementation. Screen names and routes are information-architecture identifiers, not evidence that executable endpoints exist.
+# Machine Digital Twin extension
+
+Admin Console includes `Machines → Digital Twins` with responsive list and
+detail views. All controls are navigational/read-only. Demo, loading, empty,
+stale, unavailable, and denied states are visible. See
+`docs/ui/MACHINE_DIGITAL_TWIN_UI_SPEC.md`.
