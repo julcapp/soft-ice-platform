@@ -16,6 +16,13 @@ const { createMachineRuntimeRouter } = require('./machineRuntimeRoutes');
 const { createPlatformEventRouter } = require('./platformEventRoutes');
 const { createInventoryRouter } = require('./inventoryRoutes');
 const { createMaintenanceRouter } = require('./maintenanceRoutes');
+const { createOperatorWorkspaceRouter } = require('./operatorWorkspaceRoutes');
+const { createCRMRouter } = require('./crmRoutes');
+const { createCustomer360Router, createAdminCustomer360Router } = require('./customer360Routes');
+const { createExternalChannelRouter } = require('./externalChannelRoutes');
+const { createMachineConnectivityRouter } = require('./machineConnectivityRoutes');
+const { createVideoSurveillanceRouter } = require('./videoSurveillanceRoutes');
+const { createEventCenterRouter } = require('./eventCenterRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -56,6 +63,14 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/inventory', createInventoryRouter(dependencies));
   router.use('/maintenance', createMaintenanceRouter(dependencies));
   router.use('/admin/maintenance', createMaintenanceRouter(dependencies));
+  router.use('/operator-workspace', createOperatorWorkspaceRouter(dependencies));
+  router.use('/admin/crm', createCRMRouter(dependencies));
+  router.use('/customer-360', createCustomer360Router(dependencies));
+  router.use('/admin/customer-360', createAdminCustomer360Router(dependencies));
+  router.use('/admin/customers', createExternalChannelRouter(dependencies));
+  router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
+  router.use('/admin', createVideoSurveillanceRouter(dependencies));
+  if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
 
   router.use((req, res, next) => {
     next(

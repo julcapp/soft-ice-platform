@@ -13,6 +13,11 @@ const maintenance = require('./maintenance');
 const order = require('./order');
 const payment = require('./payment');
 const segmentation = require('./segmentation');
+const crm = require('./crm');
+const customer360 = require('./customer_360');
+const machineConnectivity = require('./machine_connectivity');
+const videoSurveillance = require('./video_surveillance');
+const eventCenter = require('./event_center');
 
 const moduleManifests = [
   customer,
@@ -30,6 +35,11 @@ const moduleManifests = [
   machineRuntime,
   inventory,
   maintenance,
+  crm,
+  customer360,
+  machineConnectivity,
+  videoSurveillance,
+  eventCenter,
 ];
 
 module.exports = {

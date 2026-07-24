@@ -1,6 +1,15 @@
 import React from 'react';
 import { EmptyState, StatusBadge } from './components';
 
+export function ConnectivityCard({ connectivity }) {
+  const sim = connectivity?.simCard; const plan = connectivity?.mobilePlan;
+  return <section className="card"><div className="card-heading"><h2>Связь и SIM-карта</h2><TwinStatusBadge status={connectivity?.verificationStatus || 'UNKNOWN'} /></div>
+    <dl className="identity-list"><dt>Оператор связи</dt><dd>{sim?.carrierName || 'Недоступно'}</dd><dt>Номер телефона</dt><dd>{sim?.phoneNumber || 'Недоступно'}</dd><dt>Тариф</dt><dd>{plan?.tariffName || 'Недоступно'}</dd><dt>Статус тарифа</dt><dd>{plan?.tariffStatus || 'UNKNOWN'}</dd><dt>Баланс</dt><dd>{plan?.currentBalance ?? 'Недоступно'} {plan?.currency || ''}</dd><dt>Следующее списание</dt><dd>{plan?.nextChargeAt ? new Date(plan.nextChargeAt).toLocaleString('ru-RU') : 'Недоступно'}</dd><dt>Остаток трафика</dt><dd>{plan?.trafficRemainingMb ?? 'Недоступно'} МБ</dd><dt>Автопополнение</dt><dd>{plan?.autoTopUpEnabled ? 'Включено' : 'Выключено'}</dd><dt>Минимальный баланс</dt><dd>{plan?.minimumBalanceThreshold ?? 'Недоступно'}</dd><dt>Последняя проверка</dt><dd>{sim?.lastCheckedAt || plan?.lastCheckedAt ? new Date(sim?.lastCheckedAt || plan?.lastCheckedAt).toLocaleString('ru-RU') : 'Недоступно'}</dd><dt>Источник данных</dt><dd>{connectivity?.sourceStatus}</dd></dl>
+    {connectivity?.integrationStatus === 'BLOCKED_EXTERNAL' && <p role="alert">Интеграция с оператором недоступна</p>}
+    {connectivity?.warnings?.map((warning) => <p role="alert" key={warning.code}>{warning.label}</p>)}
+  </section>;
+}
+
 export const TwinStatusBadge = ({ status }) => <StatusBadge status={status || 'UNKNOWN'} />;
 export function FreshnessIndicator({ freshness }) { return <div className="freshness" role="status"><TwinStatusBadge status={freshness?.status || 'UNAVAILABLE'} /><span>{freshness?.explanation || 'Сведения об актуальности недоступны.'}</span></div>; }
 export function MachineTwinCard({ twin, onOpen }) { return <article className="card twin-card"><div className="card-heading"><h2>{twin.name}</h2><TwinStatusBadge status={twin.operationalStatus} /></div><p>{twin.location || 'Расположение недоступно'}</p><dl><dt>Идентификатор автомата</dt><dd>{twin.externalMachineId || twin.machineId}</dd><dt>Актуальность</dt><dd><TwinStatusBadge status={twin.freshness?.status} /></dd></dl><button className="text-button" onClick={() => onOpen?.(twin.machineId)}>Открыть цифровой двойник</button></article>; }

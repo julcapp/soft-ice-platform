@@ -1,0 +1,12 @@
+CREATE TABLE "VideoCameraV1" ("id" TEXT PRIMARY KEY, "machineId" TEXT NOT NULL, "profile" JSONB NOT NULL, "status" TEXT NOT NULL, "recordingMode" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "MotionSensorV1" ("id" TEXT PRIMARY KEY, "machineId" TEXT NOT NULL, "cameraId" TEXT, "sensorType" TEXT NOT NULL, "status" TEXT NOT NULL, "enabled" BOOLEAN NOT NULL DEFAULT true, "profile" JSONB NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "VideoRecordingSessionV1" ("id" TEXT PRIMARY KEY, "machineId" TEXT NOT NULL, "cameraId" TEXT NOT NULL, "status" TEXT NOT NULL, "triggerType" TEXT NOT NULL, "payload" JSONB NOT NULL, "startedAt" TIMESTAMP(3) NOT NULL, "endedAt" TIMESTAMP(3));
+CREATE TABLE "VideoFragmentV1" ("id" TEXT PRIMARY KEY, "machineId" TEXT NOT NULL, "cameraId" TEXT NOT NULL, "recordingSessionId" TEXT NOT NULL, "triggerType" TEXT NOT NULL, "payload" JSONB NOT NULL, "retentionUntil" TIMESTAMP(3) NOT NULL, "legalHold" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "VideoIncidentV1" ("id" TEXT PRIMARY KEY, "machineId" TEXT NOT NULL, "type" TEXT NOT NULL, "severity" TEXT NOT NULL, "status" TEXT NOT NULL, "payload" JSONB NOT NULL, "openedAt" TIMESTAMP(3) NOT NULL, "closedAt" TIMESTAMP(3));
+CREATE TABLE "VideoAccessAuditV1" ("id" TEXT PRIMARY KEY, "action" TEXT NOT NULL, "actorId" TEXT NOT NULL, "machineId" TEXT, "cameraId" TEXT, "fragmentId" TEXT, "incidentId" TEXT, "outcome" TEXT NOT NULL, "payload" JSONB NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "VideoCameraV1_machineId_status_idx" ON "VideoCameraV1"("machineId", "status");
+CREATE INDEX "MotionSensorV1_machineId_cameraId_idx" ON "MotionSensorV1"("machineId", "cameraId");
+CREATE INDEX "VideoRecordingSessionV1_cameraId_status_startedAt_idx" ON "VideoRecordingSessionV1"("cameraId", "status", "startedAt");
+CREATE INDEX "VideoFragmentV1_retentionUntil_legalHold_idx" ON "VideoFragmentV1"("retentionUntil", "legalHold");
+CREATE INDEX "VideoIncidentV1_machineId_status_openedAt_idx" ON "VideoIncidentV1"("machineId", "status", "openedAt");
+CREATE INDEX "VideoAccessAuditV1_machineId_occurredAt_idx" ON "VideoAccessAuditV1"("machineId", "occurredAt");

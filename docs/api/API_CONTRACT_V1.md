@@ -1003,3 +1003,12 @@ See `docs/api/MACHINE_DIGITAL_TWIN_API.md`.
 # Machine Runtime and Platform Events read APIs
 
 Admin-only read contracts are defined in `MACHINE_RUNTIME_API.md` and `PLATFORM_EVENTS_API.md`. No v1 mutation or remote-control routes are exposed.
+# Дополнение: внешние каналы и мобильная связь
+
+Контракты административных маршрутов описаны в `CUSTOMER_EXTERNAL_CHANNELS_API.md` и `MACHINE_CONNECTIVITY_API.md`. Mutation ограничены ручным источником и ролями `PLATFORM_OWNER`, `ADMIN`.
+# Видеонаблюдение
+
+Административные маршруты камер, health, fragments, incidents и audit определены в `docs/api/VIDEO_SURVEILLANCE_API.md`. Ответы не содержат RTSP URL или secret references.
+# Центр событий
+
+Admin API v1 включает `/admin/events`, object-scoped feeds, correlation chain, statistics, acknowledgement, comments, processing state, tags, legal hold и ограниченный audit export. Редактирование `EventRecord` запрещено. Полный payload требует отдельного разрешения.

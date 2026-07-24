@@ -4,8 +4,10 @@ import { ProductScreen } from '../screens/02_PRODUCT/ProductScreen.jsx';
 import { readUserSettings } from '../consent/userSettingsStorage.js';
 import { getInitialSource } from '../analytics/source.js';
 import { trackEvent } from '../analytics/trackEvent.js';
+import { OperatorWorkspacePage } from '../operator/OperatorWorkspacePage.jsx';
 
 export function App() {
+  const operatorMode = useMemo(() => new URLSearchParams(window.location.search).get('mode') === 'operator', []);
   const source = useMemo(() => getInitialSource(), []);
   const [settings, setSettings] = useState(() => readUserSettings());
   const [screen, setScreen] = useState('home');
@@ -13,6 +15,8 @@ export function App() {
   useEffect(() => {
     trackEvent('MiniAppOpened', { source, settings_version: settings?.version || null });
   }, [source, settings]);
+
+  if (operatorMode) return <OperatorWorkspacePage />;
 
   if (screen === 'product') {
     return <ProductScreen onBack={() => setScreen('home')} />;

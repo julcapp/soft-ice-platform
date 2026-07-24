@@ -29,6 +29,12 @@ const { EventBus, EventHandlerRegistry, InMemoryEventStore, InMemoryOutbox, InMe
 const { InMemoryMachineRuntimeRepository, MachineRuntimePolicy, MachineRuntimeEventMapper, MachineRuntimeService, MachineRuntimeProjectionAdapter } = require('./modules/machine_runtime');
 const { InventoryRuntime, InventoryService, InventoryEventSubscriber, InMemoryInventoryRepository } = require('./modules/inventory');
 const { MaintenanceRuntime, MaintenanceService, InMemoryMaintenanceRepository, MaintenanceProjection } = require('./modules/maintenance');
+const { InMemoryOperatorWorkspaceRepository, OperatorWorkspaceService, OperatorWorkspaceRuntime } = require('./modules/operator_workspace');
+const { CRMRepository, CRMService, CRMRuntime } = require('./modules/crm');
+const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalChannelRepository, ExternalChannelService } = require('./modules/customer_360');
+const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
+const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
+const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -49,7 +55,27 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const deadLetterStore = new InMemoryDeadLetterStore();
   const platformEventRegistry = new EventHandlerRegistry();
   const platformEventBus = new EventBus({ registry: platformEventRegistry, eventStore: platformEventStore, outbox: platformEventOutbox, deadLetterStore, maxDeliveryAttempts: 3, logger });
+  const eventCenterRepository = new EventCenterRepository();
+  const eventTypeRegistry = createEventTypeRegistry();
+  const eventCenterMetrics = new EventMetricsAdapter();
+  const eventNormalizationService = new EventNormalizationService({ registry: eventTypeRegistry, sanitizer: new DefaultEventPayloadSanitizer() });
+  const eventIngestionService = new EventIngestionService({ repository: eventCenterRepository, normalization: eventNormalizationService, validator: new BasicEventSchemaValidator(), publisher: new InMemoryEventRecordPublisher(), metrics: eventCenterMetrics });
+  const eventCenterService = new EventCenterService({ repository: eventCenterRepository, query: new EventQueryService(eventCenterRepository), ingestion: eventIngestionService, retention: new EventRetentionService({ repository: eventCenterRepository, auditRepository }), registry: eventTypeRegistry, auditRepository });
+  const eventCenterRuntime = new EventCenterRuntime({ service: eventCenterService });
+  platformEventRegistry.register('*', new ExistingEventBusSubscriber(eventIngestionService).subscriber());
   const inventoryRepository = new InMemoryInventoryRepository();
+  for (const item of [
+    { id: 'cup_200_ml', sku: 'cup_200_ml', name: 'Стаканчик 200 мл', category: 'CONSUMABLE', baseUnit: 'piece', metadata: {} },
+    { id: 'mix_vanilla', sku: 'mix_vanilla', name: 'Смесь ванильная', category: 'INGREDIENT', baseUnit: 'gram', metadata: {} },
+    { id: 'syrup_test', sku: 'syrup_test', name: 'Сироп для тестовых проливов', category: 'INGREDIENT', baseUnit: 'milliliter', metadata: {} },
+  ]) inventoryRepository.createItem(item);
+  for (const machineId of ['machine_demo_1', 'machine_demo_2']) {
+    const locationId = `location_${machineId}`;
+    inventoryRepository.createLocation({ id: locationId, code: locationId, name: `Остатки автомата ${machineId}`, locationType: 'MACHINE', machineId, warehouseId: null, metadata: {} });
+    for (const itemId of ['cup_200_ml', 'mix_vanilla', 'syrup_test']) {
+      inventoryRepository.appendMovement({ itemId, locationId, movementType: 'RECEIPT', quantity: 10000, delta: 10000, unit: 'base', reason: 'Демонстрационный начальный остаток', sourceType: 'DEMO_SEED', sourceId: machineId, actorType: 'SYSTEM', actorId: 'runtime-bootstrap', correlationId: 'runtime-bootstrap', idempotencyKey: `seed:${machineId}:${itemId}`, occurredAt: new Date(), metadata: { demo: true } });
+    }
+  }
   const inventoryRuntime = new InventoryRuntime({ service: new InventoryService({
     repository: inventoryRepository, auditRepository, eventPublisher: platformEventBus,
   }) });
@@ -138,6 +164,35 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
       maxAgeSeconds: config.auth.telegramInitDataMaxAgeSeconds,
     }) : undefined,
   });
+  const crmRuntime = new CRMRuntime({ service: new CRMService({
+    repository: new CRMRepository(prisma),
+    clubAccountRuntime,
+    segmentationRuntime,
+    auditRepository,
+    eventPublisher: platformEventBus,
+  }) });
+  const customer360Runtime = new Customer360Runtime({ service: new Customer360Service({
+    repository: new Customer360Repository(prisma),
+    eventPublisher: platformEventBus,
+  }) });
+  const externalChannelService = new ExternalChannelService({
+    repository: new ExternalChannelRepository(), customerRepository: new Customer360Repository(prisma), eventPublisher: platformEventBus,
+  });
+  const machineConnectivityService = new MachineConnectivityService({
+    repository: new MachineConnectivityRepository(), eventPublisher: platformEventBus,
+  });
+  const videoRepository = new VideoSurveillanceRepository();
+  const videoService = new VideoSurveillanceService({
+    repository: videoRepository, cameraAdapter: new MockRtspCameraAdapter(),
+    recorderAdapter: new InMemoryVideoRecorderAdapter(), storageAdapter: new LocalMetadataVideoStorageAdapter(),
+    eventPublisher: platformEventBus,
+  });
+  const videoSurveillanceRuntime = new VideoSurveillanceRuntime({ service: videoService });
+  platformEventRegistry.register('*', videoService.subscriber());
+  const demoCamera = videoRepository.saveCamera(new VideoCamera({ id: 'camera_demo_1', machineId: 'machine_demo_1', name: 'Камера зоны выдачи', model: 'Soft ICE Edge Camera v1', locationDescription: 'Над окном выдачи', rtspUrlSecretRef: 'secret://video/machine_demo_1/camera_demo_1', status: 'ONLINE', recordingMode: 'HYBRID', codec: 'H.264', resolution: '1920x1080', frameRate: 15, localStorageEnabled: true, localStorageCapacity: 128849018880, retentionHours: 72, preBufferSeconds: 10, postBufferSeconds: 20, source: 'DEMO' }));
+  videoRepository.saveSensor(new MotionSensor({ id: 'sensor_demo_pir_1', machineId: demoCamera.machineId, cameraId: demoCamera.id, sensorType: 'PIR', status: 'ONLINE', sensitivity: 0.7, source: 'DEMO' }));
+  videoRepository.saveSensor(new MotionSensor({ id: 'sensor_demo_analytics_1', machineId: demoCamera.machineId, cameraId: demoCamera.id, sensorType: 'CAMERA_ANALYTICS', status: 'ONLINE', sensitivity: 0.6, source: 'DEMO' }));
+  videoRepository.savePolicy(new VideoRecordingPolicy({ cameraId: demoCamera.id, preBufferSeconds: 10, postBufferSeconds: 20, maximumRecordingSeconds: 300, zones: [{ zoneId: 'dispense_area', name: 'Зона выдачи', polygon: [[0.2,0.2],[0.8,0.2],[0.8,0.9],[0.2,0.9]], sensitivity: 0.6, triggerRecording: true }] }));
   for (const machine of [
     { machineId: 'machine_demo_1', machineCode: 'SI-TOM-001', qrCode: 'softice:machine:machine_demo_1:SI-TOM-001' },
     { machineId: 'machine_demo_2', machineCode: 'SI-TOM-002', qrCode: 'softice:machine:machine_demo_2:SI-TOM-002' },
@@ -145,6 +200,10 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const maintenanceRuntime = new MaintenanceRuntime({ service: new MaintenanceService({
     repository: maintenanceRepository, eventPublisher: platformEventBus, inventoryRuntime,
     machineRuntimeService, machineTwinService: null, projection: maintenanceProjection,
+  }) });
+  const operatorWorkspaceRepository = new InMemoryOperatorWorkspaceRepository();
+  const operatorWorkspaceRuntime = new OperatorWorkspaceRuntime({ service: new OperatorWorkspaceService({
+    repository: operatorWorkspaceRepository, eventPublisher: platformEventBus, inventoryRuntime,
   }) });
   const adminDashboardService = new AdminDashboardService({
     provider: new DemoAdminDashboardProvider(),
@@ -165,11 +224,12 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
         previousOperationsSource?.getSummary?.(machineId) || null,
         maintenanceProjection.getSummary(machineId),
       ]);
+      const workspace = operatorWorkspaceRuntime.getTwinSummary(machineId);
       return {
-        ...(existing || {}), ...maintenance,
-        assignedOperator: existing?.assignedOperator || maintenance.openServiceTasks[0]?.operatorId || null,
-        openServiceTasks: [...(existing?.openServiceTasks || []), ...maintenance.openServiceTasks],
-        recentTestRuns: [...(maintenance.recentTestRuns || []), ...(existing?.recentTestRuns || [])],
+        ...(existing || {}), ...maintenance, ...workspace,
+        assignedOperator: workspace.assignedOperator || existing?.assignedOperator || maintenance.openServiceTasks[0]?.operatorId || null,
+        openServiceTasks: [...(workspace.openServiceTasks || []), ...(existing?.openServiceTasks || []), ...maintenance.openServiceTasks],
+        recentTestRuns: [...(workspace.recentTestRuns || []), ...(maintenance.recentTestRuns || []), ...(existing?.recentTestRuns || [])],
       };
     },
   };
@@ -180,6 +240,13 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineRuntimeService,
     inventoryRuntime,
     maintenanceRuntime,
+    operatorWorkspaceRuntime,
+    crmRuntime,
+    customer360Runtime,
+    externalChannelService,
+    machineConnectivityService,
+    videoSurveillanceRuntime,
+    eventCenterRuntime,
     platformEventBus,
     platformEventStore,
     deadLetterStore,

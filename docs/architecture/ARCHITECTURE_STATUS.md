@@ -203,3 +203,12 @@ remain future work.
 # 2026-07-23 update
 
 Machine Runtime state/session authority and Platform Event Bus Foundation v1 are implemented with read-only admin APIs and console projections. Persistence, outbox, event store, dead letters, and delivery are in-memory/non-durable; Huaxin signal mapping remains foundation-only.
+# Статус 2026-07-24
+
+Универсальные внешние каналы Customer 360 и Machine Connectivity v1 реализованы. Официальные VK и мобильные операторские интеграции: `BLOCKED_EXTERNAL`.
+# Video Surveillance Foundation v1
+
+Реализованы домен, Event Bus subscriber, API, Admin Console, mock RTSP/in-memory recorder/local metadata storage, retention/legal hold и audit. Реальные NVR/edge-agent/FFmpeg/object storage — `BLOCKED_EXTERNAL`.
+# Центр событий — Foundation v1 (2026-07-24)
+
+Реализованы bounded context, in-memory repository, Prisma durable target, ingestion из Platform Event Bus, нормализация, sanitization, read/mutation API, Admin Console и EventFeed. PostgreSQL adapter, внешний broker, notification channels и Event Intelligence не активированы.

@@ -204,3 +204,6 @@ Reports and audit views are projections. Corrections occur through owning domain
 ## Non-Implementation Scope
 
 These flows define architecture only. No APIs, events, database schema, tests, provider calls or runtime behavior are added by this document.
+# Поток Центра событий
+
+Доменные события публикуются через существующий Event Bus. Wildcard subscriber Центра событий валидирует тип и версию, удаляет секретные поля, нормализует пользовательские title/summary, рассчитывает retention и идемпотентно сохраняет `EventRecord`. API отдаёт scoped read projection; состояние обработки и пользовательские действия хранятся отдельно.

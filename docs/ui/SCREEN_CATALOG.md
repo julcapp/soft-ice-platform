@@ -176,3 +176,15 @@ Executive screens are detailed in `EXECUTIVE_CONSOLE.md`. All share: owner-only 
 - Runtime Detail — implemented, read-only.
 - Event Stream — implemented, read-only.
 - Dead Letter Queue — implemented, read-only.
+# Дополнение 2026-07-24
+
+- Customer 360: вкладка «Внешние каналы» и «Индекс вовлечённости».
+- Карточка автомата и цифровой двойник: «Связь и SIM-карта».
+# Камера и видеонаблюдение
+
+Вкладка карточки автомата: health, PIR, архив 72 часа, инциденты, связанные записи и разрешённые действия.
+# Центр событий
+
+- Список «Центр событий» с представлениями и фильтрами.
+- Карточка «Событие» с correlation chain, evidence, обработкой, комментариями и тегами.
+- Переиспользуемый EventFeed в карточке автомата и Customer 360.

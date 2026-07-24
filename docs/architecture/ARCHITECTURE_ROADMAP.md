@@ -117,3 +117,15 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 
 - Implemented: explicit runtime state machine, sessions, normalized signals, synchronous event bus, idempotent projection/consumption adapters, read-only monitoring.
 - Next: PostgreSQL runtime persistence and transactional outbox, durable broker/event store, verified Huaxin adapter, filtered support/auditor access.
+# Следующий этап внешних интеграций
+
+После утверждения документации, credentials и требований безопасности: официальные VK API и адаптеры МТС, МегаФон, Билайн, Tele2/T2 с фоновой сверкой и устойчивым хранилищем.
+# Видеонаблюдение
+
+После foundation v1: защищённый edge-agent, локальный NVR, media proxy, FFmpeg, S3-compatible incident export, durable PostgreSQL repository и transactional outbox. Биометрия не входит в roadmap v1.
+# Event Center
+
+- Завершено: foundation v1 домена, API, Prisma target, UI и тестов.
+- FOUNDATION_ONLY: production PostgreSQL repository, retention scheduler, универсальный Incident Management, job export.
+- BLOCKED_EXTERNAL: Kafka/RabbitMQ/NATS, Telegram/email/push/SMS.
+- PLANNED: Event Intelligence и аналитические adapters ClickHouse/OpenSearch/Elasticsearch.

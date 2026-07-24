@@ -1,5 +1,35 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-059 - Customer 360 Is the Central Customer Projection
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Customer 360 composes authoritative customer data from Identity, Consent, Club Account, Bonus, Orders, CRM and Segmentation. It owns only preferences, promotion participation, game activity, the AI Profile foundation and supplemental Customer Timeline records. Financial, identity, consent and operational source data remains in its owning domain. AI Profile v1 is foundation-only and makes no automated decisions.
+
+---
+
+# Decision: DECISION-058 - CRM Soft ICE Is a Separate Customer Relationship Context
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+CRM Soft ICE owns CRM service profiles, campaigns and the notification delivery queue. Customer Identity remains authoritative for identity and consent references; Club Account and Loyalty own balances and immutable entries; Orders own purchases; Segmentation owns segment definitions and assignments. CRM composes read projections and issues audited, idempotent commands through owning Runtime contracts. It never writes another domain's tables directly. Admin Console hosts the Russian-language CRM workspace; Operator Workspace does not receive financial or marketing permissions.
+
+---
+
+# Decision: DECISION-057 - Operator Workspace Is an Application Facade
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Operator Workspace v1 orchestrates assigned-machine service work across Maintenance Runtime, Inventory Runtime, Platform Event Bus and the read-only Digital Twin projection. It requires before/after photo evidence and machine-capability-aware tests. Test consumption is recorded as `TEST_CONSUMPTION` with `commercialSale: false` and never creates a commercial order or payment. Operator access is assignment-scoped; completed sessions are immutable. The v1 workspace adapter is in-memory pending PostgreSQL, trusted operator authentication, object storage and transactional outbox adapters.
+
+---
+
 # Decision: DECISION-056 - Maintenance Runtime Owns Service Lifecycle
 
 **Date:** 2026-07-24
@@ -2228,5 +2258,42 @@ Machine, Gateway, Operations, Inventory, Orders, Payments, Catalog,
 Advertising, and Simulator facts into immutable read projections. It is not
 authoritative for any source fact and exposes no command API. Missing sources
 remain explicit; deterministic health is explainable; prediction is advisory.
+
+---
+# Decision: DECISION-061 - Machine Connectivity Belongs to Machine Domain
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Machine Domain owns SIM-card and mobile-plan facts; Digital Twin consumes a read-only connectivity projection. Manual and carrier data remain distinguishable, operator-workspace users cannot mutate connectivity, and official carrier adapters remain `BLOCKED_EXTERNAL` until approved contracts and credentials exist.
+
+---
+
+# Decision: DECISION-060 - Customer External Facts Stay Separate
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Customer 360 aggregates external profiles, subscriptions and consent references as separate facts. Consent Core retains legal authority, while an official external API is authoritative for subscription status. Manual records are never represented as externally verified. VK uses manual and mock adapters until official credentials are approved.
+
+---
+# Decision: DECISION-060 - Video Surveillance Is an Event-Driven Privacy-Bounded Context
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Video Surveillance owns camera configuration, motion confirmation, recording sessions, fragments, retention, incident links, health and access audit. PIR wake-up is not incident confirmation. Default retention is 72 hours; legal hold is separately authorized and audited. Secrets remain outside application data, browsers never receive RTSP URLs, and face recognition/biometrics are prohibited in v1.
+
+---
+# Decision: DECISION-060 - Event Center Persists Normalized History Without Owning Current State
+
+**Date:** 2026-07-24
+
+**Status:** Accepted
+
+Event Center is a separate bounded context subscribed to Platform Event Bus. It persists immutable, sanitized and correlated historical facts for search, investigations, evidence, notifications and analytics. Event Bus remains delivery infrastructure, application logs remain observability data, and domain models remain authoritative for current state. Processing state, acknowledgement, comments, tags, evidence and legal hold are separate mutable records. V1 persistence is in-memory with a Prisma/PostgreSQL durable target.
 
 ---

@@ -68,3 +68,9 @@ production.
 # Runtime event projection addendum
 
 Digital Twin subscribes idempotently to normalized Runtime events and may update only `operationalStatus`, `currentRuntimeState`, `currentSession`, `recentEvents`, `lastUpdatedAt`, `freshness`, and `activeFaults`. It cannot initiate Runtime transitions.
+# Проекция мобильной связи, 2026-07-24
+
+Цифровой двойник отображает read-only проекцию «Связь и SIM-карта» из Machine Domain; он не изменяет операторские или ручные данные.
+# Интеграция видеонаблюдения
+
+Цифровой двойник показывает read-only проекцию камеры и ведёт на вкладку «Камера и видеонаблюдение». Владельцем камер, записей, health snapshots, retention и инцидентов остаётся домен Video Surveillance.
