@@ -2175,3 +2175,6 @@ Order architecture follows these principles:
 This document is architecture-only.
 
 It does not introduce JavaScript implementation, frontend changes, routes, styles, package changes, database migrations, payment provider integration, machine integration, CRM screens, notification templates or cloud infrastructure.
+# Gift Transfer v1
+
+Order Platform сохраняет финансовую принадлежность подаренного заказа первоначальному покупателю. `gift_transfer` владеет только назначением права получения; Machine Fulfillment остаётся единственным контуром выдачи.

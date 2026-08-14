@@ -212,3 +212,6 @@ Machine Runtime state/session authority and Platform Event Bus Foundation v1 are
 # Центр событий — Foundation v1 (2026-07-24)
 
 Реализованы bounded context, in-memory repository, Prisma durable target, ingestion из Platform Event Bus, нормализация, sanitization, read/mutation API, Admin Console и EventFeed. PostgreSQL adapter, внешний broker, notification channels и Event Intelligence не активированы.
+# Передача подарочного заказа и реферальная система v1 — 2026-08-14
+
+Доменная модель, API, Prisma durable target, русскоязычные UI-компоненты, события и многоканальные контракты реализованы. Активная передача переводит заказ в `GIFT_TRANSFERRED`, исключая выдачу владельцу и возврат при активном подарке. Контракт Machine Runtime явно содержит подарок, заказ, получателя, автомат, право, сроки, одноразовость и результат, но фактическая выдача остаётся `FOUNDATION_ONLY`. In-memory repository и отсутствие production-подтверждений провайдеров сохраняют статус `FOUNDATION_ONLY`; Telegram и MAX без настроенных API/credentials имеют `BLOCKED_EXTERNAL`.

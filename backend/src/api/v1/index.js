@@ -23,6 +23,7 @@ const { createExternalChannelRouter } = require('./externalChannelRoutes');
 const { createMachineConnectivityRouter } = require('./machineConnectivityRoutes');
 const { createVideoSurveillanceRouter } = require('./videoSurveillanceRoutes');
 const { createEventCenterRouter } = require('./eventCenterRoutes');
+const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./giftTransferRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -54,6 +55,10 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine-operations', createMachineOperationsRouter(dependencies));
   router.use('/machine', createMachineGatewayRouter(dependencies));
   router.use('/orders', createOrderRouter(dependencies));
+  if (dependencies.giftTransferRuntime) {
+    router.use('/me', createGiftTransferRouter(dependencies));
+    router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
+  }
   router.use('/telegram', createTelegramRouter(dependencies));
   router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));

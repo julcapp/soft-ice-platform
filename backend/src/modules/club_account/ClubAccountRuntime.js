@@ -123,6 +123,21 @@ class ClubAccountRuntime {
     return result;
   }
 
+  async creditOrderReturn(customerId, order, context = {}) {
+    const clubAccount = await this.getOwnAccount(customerId);
+    assertAccountCanChangeBalance(clubAccount);
+    const amountRub = parsePositiveAmount(order.amount ?? order.amountPaidRub);
+    return this.clubAccountRepository.appendBalanceTransaction({
+      clubAccountId: clubAccount.id, customerId, transactionType: 'prepaid_order_return_credit',
+      direction: 'credit', amountRub, currency: order.currency || SUPPORTED_CURRENCY,
+      reason: context.reason || 'prepaid_order_cancelled_to_balance', referenceEntityType: 'Order',
+      referenceEntityId: order.id, sourceDomain: 'gift_transfer', sourceId: order.id,
+      idempotencyKey: context.idempotencyKey || `prepaid-order-return:${order.id}`,
+      actorType: context.actorType || 'customer', actorId: context.actorId || customerId,
+      correlationId: context.correlationId || null,
+    });
+  }
+
   async debitOwnAccount(customerId, request, context = {}) {
     const clubAccount = await this.getOwnAccount(customerId);
 

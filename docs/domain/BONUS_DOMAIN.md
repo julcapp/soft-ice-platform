@@ -1462,3 +1462,6 @@ Recommended future tasks:
 This document is documentation-only.
 
 It does not introduce application code, frontend code, backend code, Telegram bot code, runtime configuration, database migrations, payment provider integration, notification templates, CRM screens, generated build output or final legal/commercial bonus values.
+# Ограничение Gift Transfer
+
+За подаренный заказ стандартные purchase-бонусы не начисляются ни отправителю, ни получателю. Gift Redemption не является собственной оплачиваемой покупкой. Реферальная награда относится к отдельному типу операции и определяется Loyalty/Referral после `FIRST_OWN_PURCHASE`.

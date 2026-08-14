@@ -188,3 +188,9 @@ Executive screens are detailed in `EXECUTIVE_CONSOLE.md`. All share: owner-only 
 - Список «Центр событий» с представлениями и фильтрами.
 - Карточка «Событие» с correlation chain, evidence, обработкой, комментариями и тегами.
 - Переиспользуемый EventFeed в карточке автомата и Customer 360.
+# Gift Transfer v1
+
+- Предоплаченный заказ: вторичное действие отказа/подарка.
+- Выбор сценария и подтверждение подарка.
+- «Мои подарки»: список, карточка, принятие и получение у аппарата.
+- Admin Console: «Подарки и приглашения», foundation-метрики и delivery attempts.

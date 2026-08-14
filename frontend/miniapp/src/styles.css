@@ -268,3 +268,4 @@ p {
     right: calc(50% - 260px + 14px);
   }
 }
+.prepaid-actions,.gift-flow,.gift-card{display:grid;gap:12px;padding:20px;border-radius:20px;background:#fff}.secondary{background:transparent;color:#5d4037;border:1px solid #d7ccc8}.secondary-copy{margin:12px 0 0;color:#6d4c41}.choice{text-align:left;display:grid;gap:6px}.choice span{font-weight:400}.gift-list{display:grid;gap:16px;padding:16px;max-width:720px;margin:auto}.gift-card{border:1px solid #f1dfd4}.gift-flow input{width:100%;box-sizing:border-box;padding:12px;margin-top:6px}

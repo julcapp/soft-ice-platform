@@ -15,6 +15,7 @@ enum OrderStatus {
   COMPLETED
   FAILED
   CANCELLED
+  CANCELLED_BY_CUSTOMER
 }
 
 enum MachineStatus {
@@ -1117,19 +1118,22 @@ model Order {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
-  machineId        String?
-  flavor           String?
-  syrup            String?
-  topping          String?
-  basePriceRub     Float?
-  clubDiscountRub  Float     @default(0)
-  promoDiscountRub Float     @default(0)
-  bonusSpent       Int       @default(0)
-  amountPaidRub    Float?
-  bonusEarned      Int       @default(0)
-  paymentMethod    String?
-  paymentStatus    String    @default("pending")
-  paidAt           DateTime?
+  machineId            String?
+  flavor               String?
+  syrup                String?
+  topping              String?
+  basePriceRub         Float?
+  clubDiscountRub      Float     @default(0)
+  promoDiscountRub     Float     @default(0)
+  bonusSpent           Int       @default(0)
+  amountPaidRub        Float?
+  bonusEarned          Int       @default(0)
+  paymentMethod        String?
+  paymentStatus        String    @default("pending")
+  paidAt               DateTime?
+  expiresAt            DateTime?
+  activePickupCodeHash String?
+  cancelledToBalanceAt DateTime?
 
   customer          Customer           @relation(fields: [customerId], references: [id])
   machine           Machine?           @relation(fields: [machineId], references: [id])
@@ -1140,6 +1144,128 @@ model Order {
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+}
+
+model GiftTransfer {
+  id                       String               @id @default(uuid())
+  originalOrderId          String
+  senderCustomerId         String
+  recipientCustomerId      String?
+  recipientPhoneNormalized String
+  status                   String
+  referralId               String?
+  invitationTokenHash      String
+  expiresAt                DateTime
+  createdAt                DateTime             @default(now())
+  acceptedAt               DateTime?
+  redeemedAt               DateTime?
+  expiredAt                DateTime?
+  cancelledAt              DateTime?
+  transferredBy            String
+  correlationId            String
+  metadata                 Json?
+  invitations              GiftInvitation[]
+  claims                   GiftRecipientClaim[]
+  redemptions              GiftRedemption[]
+  referralLinks            GiftReferralLink[]
+
+  @@unique([originalOrderId])
+  @@index([senderCustomerId])
+  @@index([recipientCustomerId])
+  @@index([recipientPhoneNormalized])
+  @@index([status, expiresAt])
+  @@index([correlationId])
+  @@index([referralId])
+}
+
+model GiftInvitation {
+  id                       String       @id @default(uuid())
+  giftTransferId           String
+  recipientPhoneNormalized String
+  tokenHash                String       @unique
+  expiresAt                DateTime
+  status                   String
+  createdAt                DateTime     @default(now())
+  acceptedAt               DateTime?
+  metadata                 Json?
+  giftTransfer             GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@index([recipientPhoneNormalized, status])
+  @@index([expiresAt])
+}
+
+model GiftRecipientClaim {
+  id                      String       @id @default(uuid())
+  giftTransferId          String
+  recipientCustomerId     String
+  verifiedPhoneNormalized String
+  claimedAt               DateTime     @default(now())
+  correlationId           String
+  metadata                Json?
+  giftTransfer            GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@unique([giftTransferId])
+  @@index([recipientCustomerId])
+  @@index([correlationId])
+}
+
+model GiftRedemption {
+  id                  String       @id @default(uuid())
+  giftTransferId      String
+  recipientCustomerId String
+  authorizationHash   String       @unique
+  status              String
+  issuedAt            DateTime     @default(now())
+  expiresAt           DateTime
+  usedAt              DateTime?
+  correlationId       String
+  metadata            Json?
+  giftTransfer        GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@index([giftTransferId, status])
+  @@index([recipientCustomerId])
+  @@index([expiresAt])
+  @@index([correlationId])
+}
+
+model GiftReferralLink {
+  id                 String       @id @default(uuid())
+  giftTransferId     String
+  referralId         String?
+  referralSource     String       @default("GIFT_TRANSFER")
+  stage              String
+  referrerCustomerId String
+  referredCustomerId String?
+  firstOwnPurchaseAt DateTime?
+  createdAt          DateTime     @default(now())
+  metadata           Json?
+  giftTransfer       GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@unique([giftTransferId])
+  @@index([referralId])
+  @@index([referrerCustomerId])
+  @@index([referredCustomerId])
+}
+
+model NotificationDeliveryAttempt {
+  id                  String    @id @default(uuid())
+  notificationId      String
+  recipientCustomerId String?
+  channel             String
+  providerMessageId   String?
+  status              String
+  attemptedAt         DateTime  @default(now())
+  deliveredAt         DateTime?
+  openedAt            DateTime?
+  failedAt            DateTime?
+  failureCode         String?
+  correlationId       String
+  metadata            Json?
+
+  @@unique([notificationId, channel])
+  @@index([recipientCustomerId])
+  @@index([status, attemptedAt])
+  @@index([correlationId])
 }
 
 model DispenseRequest {

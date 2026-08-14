@@ -49,6 +49,38 @@ class OrderRepository {
       },
     });
   }
+
+  async cancelPrepaidToBalance(orderId, cancelledAt = new Date()) {
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED_BY_CUSTOMER', activePickupCodeHash: null,
+        cancelledToBalanceAt: cancelledAt, bonusEarned: 0 },
+    });
+  }
+
+  async reserveForGift(orderId) {
+    return this.prisma.order.updateMany({
+      where: { id: orderId, status: 'PAID', paymentStatus: 'paid', cancelledToBalanceAt: null },
+      data: { status: 'GIFT_TRANSFERRED', activePickupCodeHash: null, bonusEarned: 0 },
+    }).then(async ({ count }) => {
+      if (count !== 1) return null;
+      return this.findById(orderId);
+    });
+  }
+
+  async releaseGift(orderId) {
+    return this.prisma.order.updateMany({
+      where: { id: orderId, status: 'GIFT_TRANSFERRED', cancelledToBalanceAt: null },
+      data: { status: 'PAID', activePickupCodeHash: null, bonusEarned: 0 },
+    }).then(async () => this.findById(orderId));
+  }
+
+  async completeGift(orderId) {
+    return this.prisma.order.updateMany({
+      where: { id: orderId, status: 'GIFT_TRANSFERRED', cancelledToBalanceAt: null },
+      data: { status: 'COMPLETED', activePickupCodeHash: null },
+    }).then(async ({ count }) => count === 1 ? this.findById(orderId) : null);
+  }
 }
 
 module.exports = {

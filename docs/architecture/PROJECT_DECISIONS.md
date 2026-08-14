@@ -1,5 +1,25 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-061 — Gift Transfer передаёт право получения, а не платёж
+
+**Date:** 2026-08-14
+
+**Status:** Accepted
+
+`gift_transfer` передаёт право получения существующего предоплаченного заказа. Исходный платёж и финансовая принадлежность заказа сохраняются; возврат выполняется отдельной записью внутреннего баланса. Gift Referral фиксирует стадии, но коммерческую награду определяет отдельный Referral/Loyalty contract. Telegram и MAX получают независимые попытки одной Notification через общий Event Bus.
+
+# Decision: DECISION-060 - Sales Terminal Is a Channel-Agnostic Checkout Surface
+
+**Date:** 2026-07-27
+
+**Status:** Accepted
+
+The universal Sales Terminal reuses Product, Configuration, Recipe, Pricing, Order and Payment contracts for vending machines and seller-operated mobile points. The terminal owns presentation and channel selection only. It never calculates authoritative price, confirms payment from a redirect, QR scan or timer, or invents fulfillment success.
+
+After Payment Runtime confirms payment, vending fulfillment requests Machine Runtime execution. Seller-operated fulfillment creates a customer-visible sale code and a seller notification/read model; the seller verifies the order by QR or sale code before recording handoff. Production requires authenticated seller access, an auditable fulfillment command, idempotent notification delivery and a durable Order/Payment projection.
+
+---
+
 # Decision: DECISION-059 - Customer 360 Is the Central Customer Projection
 
 **Date:** 2026-07-24

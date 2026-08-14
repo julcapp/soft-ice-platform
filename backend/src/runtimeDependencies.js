@@ -35,6 +35,7 @@ const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalC
 const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
+const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -164,6 +165,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
       maxAgeSeconds: config.auth.telegramInitDataMaxAgeSeconds,
     }) : undefined,
   });
+  const giftTransferRepository = new GiftTransferRepository();
+  const notificationOrchestrator = new NotificationOrchestrator({ repository: giftTransferRepository, adapters: [new TelegramNotificationAdapter(), new MaxNotificationAdapter()] });
+  const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({ repository: giftTransferRepository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher: platformEventBus, auditRepository }) });
   const crmRuntime = new CRMRuntime({ service: new CRMService({
     repository: new CRMRepository(prisma),
     clubAccountRuntime,
@@ -256,6 +260,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     clubAccountRuntime,
     machineRuntime,
     orderRuntime,
+    giftTransferRuntime,
     domainEventPublisher,
   };
 }

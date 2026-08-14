@@ -129,3 +129,6 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 - FOUNDATION_ONLY: production PostgreSQL repository, retention scheduler, универсальный Incident Management, job export.
 - BLOCKED_EXTERNAL: Kafka/RabbitMQ/NATS, Telegram/email/push/SMS.
 - PLANNED: Event Intelligence и аналитические adapters ClickHouse/OpenSearch/Elasticsearch.
+# Передача подарочного заказа: следующий production-этап
+
+Подключить PostgreSQL repository с транзакционной блокировкой заказа, durable outbox, production Telegram adapter, утверждённый MAX API, scheduler истечения и Referral/Loyalty reward adapter. Не менять контракт передачи права получения.
