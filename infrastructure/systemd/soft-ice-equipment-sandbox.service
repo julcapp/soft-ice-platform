@@ -1,0 +1,22 @@
+[Unit]
+Description=Soft ICE Equipment Integration Sandbox
+After=network.target
+
+[Service]
+Type=simple
+User=julcapp
+Group=julcapp
+WorkingDirectory=/home/julcapp/soft-ice-platform/backend
+EnvironmentFile=/etc/soft-ice/equipment-sandbox.env
+ExecStart=/usr/bin/node src/main.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/julcapp/soft-ice-platform/backend
+
+[Install]
+WantedBy=multi-user.target
