@@ -10,6 +10,7 @@ import { CRMPage } from './CRM';
 import { Customer360Page } from './Customer360';
 import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
+import { EquipmentSandboxPage } from './EquipmentSandbox';
 import { getGiftTransfers } from './api/giftTransferClient';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
@@ -67,6 +68,7 @@ export function App({ client = getDashboard }) {
   }, []);
   const twinRoute = route.startsWith('machine-twins');
   const runtimeRoute = route.startsWith('machine-runtime');
+  const equipmentSandboxRoute = route === 'equipment-sandbox';
   const eventRoute = route.startsWith('platform-events') || route === 'dead-letter';
   const inventoryRoute = route === 'inventory';
   const maintenanceRoute = route === 'maintenance';
@@ -78,6 +80,7 @@ export function App({ client = getDashboard }) {
   if (eventCenterRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title={route.includes('/') ? 'Событие' : 'Центр событий'} copy="Единая нормализованная история событий платформы." /><EventCenterPage route={route} /></AppShell>;
   if (customer360Route) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Customer 360" copy="Единый цифровой профиль и хронологический журнал всех событий клиента." /><Customer360Page customerId={route.split('/')[1]} /></AppShell>;
   if (crmRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="CRM Soft ICE" copy="Клиенты, программа лояльности, сегменты, акции и уведомления." /><CRMPage route={route} /></AppShell>;
+  if (equipmentSandboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Автоматы" title="Тестовый стенд оборудования" copy="Телеметрия, команды и фактические результаты выдачи от внешнего контроллера." /><EquipmentSandboxPage /></AppShell>;
   const page = twinRoute ? <><ReadHeader group="Автоматы" title="Цифровой двойник автомата" copy="Достоверные проекции автоматов только для чтения." /><MachineTwinsPage route={route} /></> : runtimeRoute ? <><ReadHeader group="Автоматы" title={route.includes('/') ? 'Состояние автомата' : 'Контур управления автоматами'} copy="Основное состояние выполнения операций. Дистанционное управление недоступно." /><RuntimeMonitorPage route={route} /></> : eventRoute ? <><ReadHeader group="Платформа" title={route === 'dead-letter' ? 'Хранилище событий' : 'Журнал событий'} copy="Неизменяемые нормализованные факты и диагностика доставки." /><EventStreamPage route={route} /></> : inventoryRoute ? <><ReadHeader group="Операционная работа" title="Складской учёт" copy="Расчётные остатки, резервы и неизменяемый журнал движений." /><InventoryPage /></> : maintenanceRoute ? <><ReadHeader group="Операционная работа" title="Техническое обслуживание" copy="Плановое и корректирующее обслуживание, согласования, подтверждения и показатели." /><MaintenancePage /></> : <><PageHeader />{state.status === 'loading' && <Skeleton />}{state.status === 'unavailable' && <ErrorState />}{state.status === 'denied' && <PermissionGate allowed={false} />}{state.status === 'ready' && <PermissionGate allowed={state.data.permissionScope?.access === 'READ_ONLY'}><Dashboard data={state.data} /></PermissionGate>}</>;
   return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}>{page}</AppShell>;
 }
