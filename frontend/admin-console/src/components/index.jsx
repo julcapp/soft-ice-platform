@@ -8,7 +8,7 @@ export function StatusBadge({ status }) {
     HEALTHY: 'Исправно', IMMUTABLE: 'Неизменяемая запись', IN_MEMORY_FOUNDATION: 'Данные в памяти',
     LIVE: 'Рабочие данные', OFFLINE: 'Не в сети', ONLINE: 'В сети', PENDING: 'Ожидает',
     READ_ONLY: 'Только чтение', RESERVED: 'Зарезервировано', RUNNING: 'Выполняется',
-    STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
+    SANDBOX: 'Тестовый контур', STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
     WARNING: 'Предупреждение',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
@@ -68,8 +68,8 @@ export function PermissionGate({ allowed, children }) {
 }
 
 export function Sidebar({ open, onClose }) {
-  const items = [{ label: 'Панель управления', href: '#dashboard' }, { label: 'Парк автоматов', href: '#machines' }, { label: 'Цифровой двойник автомата', href: '#machine-twins' }, { label: 'Контур управления автоматами', href: '#machine-runtime' }, { label: 'Складской учёт', href: '#inventory' }, { label: 'Рабочее место оператора', href: '#operators' }, { label: 'Техническое обслуживание', href: '#maintenance' }, { label: 'Платежи', href: '#payments' }, { label: 'Центр событий', href: '#event-center' }, { label: 'Журнал доставки', href: '#platform-events' }, { label: 'Хранилище недоставленных событий', href: '#dead-letter' }];
-  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Автоматы</small>{items.map((item, index) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{![0,2].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Рабочая область только для чтения</div></aside>;
+  const items = [{ label: 'Панель управления', href: '#dashboard' }, { label: 'Парк автоматов', href: '#machines' }, { label: 'Цифровой двойник автомата', href: '#machine-twins' }, { label: 'Контур управления автоматами', href: '#machine-runtime' }, { label: 'Тестовый стенд оборудования', href: '#equipment-sandbox', sandbox: true }, { label: 'Складской учёт', href: '#inventory' }, { label: 'Рабочее место оператора', href: '#operators' }, { label: 'Техническое обслуживание', href: '#maintenance' }, { label: 'Платежи', href: '#payments' }, { label: 'Центр событий', href: '#event-center' }, { label: 'Журнал доставки', href: '#platform-events' }, { label: 'Хранилище недоставленных событий', href: '#dead-letter' }];
+  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Автоматы</small>{items.map((item) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{item.sandbox ? <small>Тестовый контур</small> : !['#dashboard', '#machine-twins'].includes(item.href) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Рабочая область только для чтения</div></aside>;
 }
 
 export function Header({ onMenu }) {
