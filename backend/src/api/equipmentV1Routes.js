@@ -70,6 +70,7 @@ function createEquipmentAdminRouter(dependencies, { environment = process.env.NO
   const authenticateAdmin = createAdminAuthenticator({ environment });
 
   router.use(authenticateAdmin);
+  router.use(requireEquipmentAdminRole);
 
   router.get('/machines/:id', safe(async (req, res) => {
     res.json({ data: service.dashboardSnapshot(req.params.id) });
@@ -81,6 +82,12 @@ function createEquipmentAdminRouter(dependencies, { environment = process.env.NO
   }));
 
   return router;
+}
+
+function requireEquipmentAdminRole(req, res, next) {
+  const roles = new Set(req.securityContext?.roles || []);
+  if (roles.has('ADMIN') || roles.has('PLATFORM_OWNER')) return next();
+  return res.status(403).json(errorBody('EQUIPMENT_ADMIN_FORBIDDEN', 'ADMIN or PLATFORM_OWNER role is required.'));
 }
 
 function safe(handler) {
