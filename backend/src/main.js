@@ -2,10 +2,12 @@ const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
+const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
 const { createHealthRouter } = require('./common/http/healthRouter');
 const { disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
 const { moduleManifests } = require('./modules');
+const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
 const { createRuntimeDependencies } = require('./runtimeDependencies');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
@@ -18,6 +20,11 @@ function createApp(options = {}) {
   const metrics = options.metrics || new MetricsRegistry();
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
+  dependencies.equipmentIntegrationService = dependencies.equipmentIntegrationService || new EquipmentIntegrationService({
+    testMachineId: config.equipmentIntegration?.testMachineId,
+    telemetryLimit: config.equipmentIntegration?.telemetryLimit,
+    eventLimit: config.equipmentIntegration?.eventLimit,
+  });
 
   app.use(express.json());
   app.use(attachCorrelationId);
@@ -39,6 +46,8 @@ function createApp(options = {}) {
   });
 
   app.use('/health', createHealthRouter(options.health));
+  app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
+  app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {
