@@ -40,12 +40,12 @@ test('conflicting repeated dispense result is rejected', () => {
   assert.throws(() => service.recordDispenseResult('TEST-MACHINE-001', { command_id: 'cmd_test_2', status: 'FAILED', error_code: 'NO_CUP' }), { code: 'EQUIPMENT_COMMAND_RESULT_CONFLICT' });
 });
 
-test('external equipment routes require sandbox key while health stays public', async (t) => {
+test('external equipment routes require sandbox key and admin controls require admin auth', async (t) => {
   const service = new EquipmentIntegrationService({ clock: fixedClock });
   const app = express();
   app.use(express.json());
   app.use('/equipment/v1', createEquipmentV1Router({ equipmentIntegrationService: service }, { config: { equipmentIntegration: { enabled: true, apiKey: 'sandbox-secret' } } }));
-  app.use('/api/v1/admin/equipment', createEquipmentAdminRouter({ equipmentIntegrationService: service }));
+  app.use('/api/v1/admin/equipment', createEquipmentAdminRouter({ equipmentIntegrationService: service }, { environment: 'test' }));
   app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ error: { code: error.code, message: error.message } }));
   const server = await new Promise((resolve) => { const value = app.listen(0, '127.0.0.1', () => resolve(value)); });
   t.after(() => server.close());
@@ -53,9 +53,12 @@ test('external equipment routes require sandbox key while health stays public', 
 
   assert.equal((await fetch(`${base}/equipment/v1/health`)).status, 200);
   assert.equal((await fetch(`${base}/equipment/v1/machines/TEST-MACHINE-001/commands`)).status, 401);
+  assert.equal((await fetch(`${base}/api/v1/admin/equipment/machines/TEST-MACHINE-001`)).status, 401);
 
   const admin = await fetch(`${base}/api/v1/admin/equipment/machines/TEST-MACHINE-001/test-dispense`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command_id: 'cmd_http_1', payload: { topping_code: 'CHOCOLATE' } }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Role': 'PLATFORM_OWNER', 'X-Admin-Subject': 'equipment-test' },
+    body: JSON.stringify({ command_id: 'cmd_http_1', payload: { topping_code: 'CHOCOLATE' } }),
   });
   assert.equal(admin.status, 201);
 
