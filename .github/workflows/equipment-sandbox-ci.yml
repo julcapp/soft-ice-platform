@@ -1,0 +1,53 @@
+name: Equipment Sandbox CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/src/api/equipmentV1Routes.js'
+      - 'backend/src/modules/equipment_integration/**'
+      - 'backend/tests/equipmentIntegration.test.js'
+      - 'frontend/admin-console/**'
+      - 'infrastructure/systemd/**'
+      - 'infrastructure/nginx/equipment-sandbox.location.conf'
+      - 'docs/api/EQUIPMENT_INTEGRATION_API_V1.md'
+      - 'docs/api/openapi/equipment-integration-v1.yaml'
+      - '.github/workflows/equipment-sandbox-ci.yml'
+  push:
+    branches:
+      - feature/equipment-integration-sandbox-v1
+
+jobs:
+  backend-equipment-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: node --test tests/equipmentIntegration.test.js
+
+  admin-console:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/admin-console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: frontend/admin-console/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
