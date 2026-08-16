@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=julcapp
 Group=julcapp
-WorkingDirectory=/home/julcapp/soft-ice-platform/backend
+WorkingDirectory=/home/julcapp/soft-ice-platform/equipment-sandbox/backend
 EnvironmentFile=/etc/soft-ice/equipment-sandbox.env
 ExecStart=/usr/bin/node src/main.js
 Restart=on-failure
@@ -16,7 +16,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/julcapp/soft-ice-platform/backend
+ReadWritePaths=/home/julcapp/soft-ice-platform/equipment-sandbox/backend
 
 [Install]
 WantedBy=multi-user.target
