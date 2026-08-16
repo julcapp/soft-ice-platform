@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const express = require('express');
+const { createAdminAuthenticator } = require('../platform/security/authenticateAdmin');
 
 function createEquipmentV1Router(dependencies, { config, logger } = {}) {
   const router = express.Router();
@@ -63,9 +64,12 @@ function createEquipmentV1Router(dependencies, { config, logger } = {}) {
   return router;
 }
 
-function createEquipmentAdminRouter(dependencies) {
+function createEquipmentAdminRouter(dependencies, { environment = process.env.NODE_ENV || 'development' } = {}) {
   const router = express.Router();
   const service = dependencies.equipmentIntegrationService;
+  const authenticateAdmin = createAdminAuthenticator({ environment });
+
+  router.use(authenticateAdmin);
 
   router.get('/machines/:id', safe(async (req, res) => {
     res.json({ data: service.dashboardSnapshot(req.params.id) });
