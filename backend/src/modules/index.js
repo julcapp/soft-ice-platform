@@ -18,6 +18,7 @@ const customer360 = require('./customer_360');
 const machineConnectivity = require('./machine_connectivity');
 const videoSurveillance = require('./video_surveillance');
 const eventCenter = require('./event_center');
+const organization = require('./organization');
 
 const moduleManifests = [
   customer,
@@ -40,6 +41,7 @@ const moduleManifests = [
   machineConnectivity,
   videoSurveillance,
   eventCenter,
+  organization,
 ];
 
 module.exports = {

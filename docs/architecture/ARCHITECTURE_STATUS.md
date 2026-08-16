@@ -215,3 +215,8 @@ Machine Runtime state/session authority and Platform Event Bus Foundation v1 are
 # Передача подарочного заказа и реферальная система v1 — 2026-08-14
 
 Доменная модель, API, Prisma durable target, русскоязычные UI-компоненты, события и многоканальные контракты реализованы. Активная передача переводит заказ в `GIFT_TRANSFERRED`, исключая выдачу владельцу и возврат при активном подарке. Контракт Machine Runtime явно содержит подарок, заказ, получателя, автомат, право, сроки, одноразовость и результат, но фактическая выдача остаётся `FOUNDATION_ONLY`. In-memory repository и отсутствие production-подтверждений провайдеров сохраняют статус `FOUNDATION_ONLY`; Telegram и MAX без настроенных API/credentials имеют `BLOCKED_EXTERNAL`.
+# Organization 360 v1 — 2026-08-16
+
+- Организационная модель, Prisma target, миграция, API, аудит, tenant isolation и Admin Console: `IMPLEMENTED`.
+- Event Bus/outbox/Event Center persistence и показатели клиентов/инцидентов/обслуживания: `FOUNDATION_ONLY`.
+- Карта, геокодирование и внешние HR/бухгалтерские системы: `BLOCKED_EXTERNAL`.

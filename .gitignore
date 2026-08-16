@@ -29,3 +29,6 @@ Thumbs.db
 desktop.ini
 
 backup_git_conflict/
+
+# Separate local checkout; not part of soft-ice-platform commits.
+/_sites_ice_cream_publish/

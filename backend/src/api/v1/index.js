@@ -24,6 +24,7 @@ const { createMachineConnectivityRouter } = require('./machineConnectivityRoutes
 const { createVideoSurveillanceRouter } = require('./videoSurveillanceRoutes');
 const { createEventCenterRouter } = require('./eventCenterRoutes');
 const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./giftTransferRoutes');
+const { createOrganizationRouter } = require('./organizationRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -76,6 +77,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
   router.use('/admin', createVideoSurveillanceRouter(dependencies));
   if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
+  if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
 
   router.use((req, res, next) => {
     next(

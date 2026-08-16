@@ -36,6 +36,7 @@ const { MachineConnectivityRepository, MachineConnectivityService } = require('.
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
 const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
+const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -58,11 +59,18 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const platformEventBus = new EventBus({ registry: platformEventRegistry, eventStore: platformEventStore, outbox: platformEventOutbox, deadLetterStore, maxDeliveryAttempts: 3, logger });
   const eventCenterRepository = new EventCenterRepository();
   const eventTypeRegistry = createEventTypeRegistry();
+  for (const eventCode of ['organization.created','organization.updated','organization.status_changed','organization.unit.created','organization.unit.updated','organization.member.created','organization.member.updated','organization.member.deactivated','organization.location.created','organization.location.updated','organization.machine.assigned','organization.machine.unassigned','organization.responsibility.assigned','organization.responsibility.revoked']) {
+    eventTypeRegistry.register({ eventCode, version: 1, titleTemplate: 'Изменение организации', summaryTemplate: 'Организационный факт зарегистрирован.', category: 'BUSINESS', defaultSeverity: 'BUSINESS', subjectType: 'ORGANIZATION', acknowledgementRequired: false, sourceDomain: 'organization', metadata: { foundationVersion: 1 } });
+  }
   const eventCenterMetrics = new EventMetricsAdapter();
   const eventNormalizationService = new EventNormalizationService({ registry: eventTypeRegistry, sanitizer: new DefaultEventPayloadSanitizer() });
   const eventIngestionService = new EventIngestionService({ repository: eventCenterRepository, normalization: eventNormalizationService, validator: new BasicEventSchemaValidator(), publisher: new InMemoryEventRecordPublisher(), metrics: eventCenterMetrics });
   const eventCenterService = new EventCenterService({ repository: eventCenterRepository, query: new EventQueryService(eventCenterRepository), ingestion: eventIngestionService, retention: new EventRetentionService({ repository: eventCenterRepository, auditRepository }), registry: eventTypeRegistry, auditRepository });
   const eventCenterRuntime = new EventCenterRuntime({ service: eventCenterService });
+  const organizationRuntime = new OrganizationRuntime({
+    service: new OrganizationService({ repository: new OrganizationRepository(prisma), eventPublisher: platformEventBus, auditRepository }),
+    eventCenterRuntime,
+  });
   platformEventRegistry.register('*', new ExistingEventBusSubscriber(eventIngestionService).subscriber());
   const inventoryRepository = new InMemoryInventoryRepository();
   for (const item of [
@@ -251,6 +259,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineConnectivityService,
     videoSurveillanceRuntime,
     eventCenterRuntime,
+    organizationRuntime,
     platformEventBus,
     platformEventStore,
     deadLetterStore,

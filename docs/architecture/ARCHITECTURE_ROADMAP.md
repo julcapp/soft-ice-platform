@@ -132,3 +132,7 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 # Передача подарочного заказа: следующий production-этап
 
 Подключить PostgreSQL repository с транзакционной блокировкой заказа, durable outbox, production Telegram adapter, утверждённый MAX API, scheduler истечения и Referral/Loyalty reward adapter. Не менять контракт передачи права получения.
+# Organization 360
+
+- Завершено: модель организации, вложенные подразделения, сотрудники, роли, точки, связи Machine, ответственность, API v1 и русскоязычная карточка.
+- Далее: PostgreSQL RLS, durable outbox/Event Center, production-проекции показателей, административные формы, карта и внешние HR-интеграции.

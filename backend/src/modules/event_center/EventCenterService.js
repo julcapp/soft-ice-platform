@@ -44,7 +44,7 @@ class EventIngestionService {
       return result;
     } catch (error) { this.rejected += 1; this.metrics?.increment('events_rejected_total'); throw error; }
   }
-  ingestPlatformEvent(event) { return this.ingest({ ...event, eventCode: event.eventType, sourceDomain: event.metadata?.sourceDomain || event.aggregateType?.toLowerCase(), sourceEventId: event.eventId, subjectType: event.aggregateType, subjectId: event.aggregateId }); }
+  ingestPlatformEvent(event) { return this.ingest({ ...event, tenantId: event.metadata?.tenantId || 'default', organizationId: event.metadata?.organizationId || event.payload?.organizationId || null, eventCode: event.eventType, sourceDomain: event.metadata?.sourceDomain || event.aggregateType?.toLowerCase(), sourceEventId: event.eventId, subjectType: event.aggregateType, subjectId: event.aggregateId }); }
 }
 class EventQueryService {
   constructor(repository) { this.repository = repository; }

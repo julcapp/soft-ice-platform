@@ -11,6 +11,7 @@ import { Customer360Page } from './Customer360';
 import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
+import { OrganizationsPage } from './Organizations';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -74,6 +75,8 @@ export function App({ client = getDashboard }) {
   const customer360Route = route.startsWith('customer-360/');
   const eventCenterRoute = route === 'event-center' || route.startsWith('event-center/');
   const giftTransferRoute = route === 'gift-transfers';
+  const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
+  if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
   if (eventCenterRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title={route.includes('/') ? 'Событие' : 'Центр событий'} copy="Единая нормализованная история событий платформы." /><EventCenterPage route={route} /></AppShell>;
   if (customer360Route) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Customer 360" copy="Единый цифровой профиль и хронологический журнал всех событий клиента." /><Customer360Page customerId={route.split('/')[1]} /></AppShell>;

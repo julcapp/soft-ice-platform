@@ -25,6 +25,44 @@ enum MachineStatus {
   ERROR
 }
 
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+  BLOCKED
+}
+
+enum OrganizationMemberStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum OrganizationLocationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum OrganizationRoleType {
+  OWNER
+  ADMINISTRATOR
+  MANAGER
+  OPERATOR
+  SERVICE_SPECIALIST
+  MACHINE_RESPONSIBLE
+  LOCATION_RESPONSIBLE
+  FINANCIALLY_RESPONSIBLE
+}
+
+enum OrganizationResponsibilityScope {
+  ORGANIZATION
+  UNIT
+  LOCATION
+  MACHINE
+  FINANCE
+}
+
 enum DispenseRequestState {
   REQUESTED
   STARTED
@@ -71,6 +109,7 @@ model Customer {
   timelineEvents          CustomerTimelineEvent[]
   externalProfiles        CustomerExternalProfile[]
   channelSubscriptions    CustomerChannelSubscription[]
+  organizationMemberships OrganizationMember[]
 }
 
 model CustomerPreference {
@@ -312,6 +351,33 @@ enum InventoryItemType {
   TOPPING
 }
 
+enum InventoryRuntimeItemCategory {
+  INGREDIENT
+  CONSUMABLE
+  SERVICE_MATERIAL
+}
+
+enum InventoryRuntimeLocationType {
+  WAREHOUSE
+  MACHINE
+}
+
+enum InventoryRuntimeMovementType {
+  RECEIPT
+  CONSUMPTION
+  TEST_CONSUMPTION
+  MAINTENANCE
+  INVENTORY_COUNT
+  ADJUSTMENT
+}
+
+enum InventoryRuntimeReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+  EXPIRED
+}
+
 enum MaintenancePlanType {
   PREVENTIVE
   CORRECTIVE
@@ -427,6 +493,8 @@ model AuthSession {
   revokedAt       DateTime?
 
   customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
 }
 
 model IdempotencyRecord {
@@ -460,6 +528,9 @@ model AuditEvent {
   correlationId String?
   metadata      Json?
   occurredAt    DateTime @default(now())
+
+  @@index([subjectType, subjectId])
+  @@index([correlationId])
 }
 
 model DocumentVersion {
@@ -622,18 +693,205 @@ model Machine {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  orders                Order[]
-  inventory             MachineInventory[]
-  dispenseRequests      DispenseRequest[]
-  maintenanceTasks      MaintenanceTask[]
-  serviceLogs           ServiceLog[]
-  testRuns              TestRun[]
-  inventoryMovements    InventoryMovement[]
-  settings              MachineSetting[]
-  simCard               MachineSimCard?
-  mobilePlan            MachineMobilePlan?
-  connectivitySnapshots MachineConnectivitySnapshot[]
-  connectivityEvents    MachineConnectivityEvent[]
+  orders                       Order[]
+  inventory                    MachineInventory[]
+  dispenseRequests             DispenseRequest[]
+  maintenanceTasks             MaintenanceTask[]
+  serviceLogs                  ServiceLog[]
+  testRuns                     TestRun[]
+  inventoryMovements           InventoryMovement[]
+  settings                     MachineSetting[]
+  simCard                      MachineSimCard?
+  mobilePlan                   MachineMobilePlan?
+  connectivitySnapshots        MachineConnectivitySnapshot[]
+  connectivityEvents           MachineConnectivityEvent[]
+  organizationAssignments      OrganizationMachineAssignment[]
+  organizationResponsibilities OrganizationResponsibility[]
+}
+
+model Organization {
+  id                   String             @id @default(uuid())
+  fullName             String
+  shortName            String
+  organizationType     String
+  inn                  String?
+  kpp                  String?
+  ogrn                 String?
+  legalAddress         String?
+  actualAddress        String?
+  phone                String?
+  email                String?
+  website              String?
+  status               OrganizationStatus @default(ACTIVE)
+  foundedAt            DateTime?
+  cooperationStartedAt DateTime?
+  note                 String?
+  archivedAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  units              OrganizationUnit[]
+  members            OrganizationMember[]
+  locations          OrganizationLocation[]
+  machineAssignments OrganizationMachineAssignment[]
+  responsibilities   OrganizationResponsibility[]
+  roleAssignments    OrganizationRoleAssignment[]
+  ownedMachines      OrganizationMachineAssignment[] @relation("OrganizationMachineOwner")
+  operatedMachines   OrganizationMachineAssignment[] @relation("OrganizationMachineOperator")
+
+  @@unique([inn, kpp])
+  @@index([status, shortName])
+  @@index([createdAt])
+}
+
+model OrganizationUnit {
+  id             String    @id @default(uuid())
+  organizationId String
+  parentId       String?
+  name           String
+  code           String
+  description    String?
+  status         String    @default("ACTIVE")
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization     Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent           OrganizationUnit?            @relation("OrganizationUnitHierarchy", fields: [parentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  children         OrganizationUnit[]           @relation("OrganizationUnitHierarchy")
+  members          OrganizationMember[]
+  locations        OrganizationLocation[]
+  responsibilities OrganizationResponsibility[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, parentId, status])
+}
+
+model OrganizationMember {
+  id                  String                   @id @default(uuid())
+  organizationId      String
+  unitId              String?
+  platformUserId      String?
+  fullName            String
+  position            String
+  phone               String?
+  email               String?
+  status              OrganizationMemberStatus @default(ACTIVE)
+  employmentStartedAt DateTime?
+  employmentEndedAt   DateTime?
+  responsibilityZone  String?
+  archivedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  organization         Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unit                 OrganizationUnit?               @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  platformUser         Customer?                       @relation(fields: [platformUserId], references: [id], onDelete: SetNull)
+  roleAssignments      OrganizationRoleAssignment[]
+  responsibilities     OrganizationResponsibility[]
+  responsibleLocations OrganizationLocation[]          @relation("OrganizationLocationResponsible")
+  machineAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineResponsible")
+  serviceAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineService")
+
+  @@unique([organizationId, platformUserId])
+  @@unique([id, organizationId])
+  @@index([organizationId, unitId, status])
+  @@index([platformUserId])
+}
+
+model OrganizationRoleAssignment {
+  id             String               @id @default(uuid())
+  organizationId String
+  memberId       String
+  role           OrganizationRoleType
+  grantedBy      String
+  grantedAt      DateTime             @default(now())
+  revokedAt      DateTime?
+  note           String?
+
+  member       OrganizationMember @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, memberId, role, revokedAt])
+  @@index([organizationId, role, revokedAt])
+}
+
+model OrganizationLocation {
+  id                  String                     @id @default(uuid())
+  organizationId      String
+  responsibleUnitId   String?
+  responsibleMemberId String?
+  name                String
+  address             String
+  latitude            Decimal?                   @db.Decimal(9, 6)
+  longitude           Decimal?                   @db.Decimal(9, 6)
+  openingHours        Json?
+  status              OrganizationLocationStatus @default(ACTIVE)
+  archivedAt          DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  organization       Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  responsibleUnit    OrganizationUnit?               @relation(fields: [responsibleUnitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  responsibleMember  OrganizationMember?             @relation("OrganizationLocationResponsible", fields: [responsibleMemberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  machineAssignments OrganizationMachineAssignment[]
+  responsibilities   OrganizationResponsibility[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, latitude, longitude])
+}
+
+model OrganizationMachineAssignment {
+  id                     String    @id @default(uuid())
+  organizationId         String
+  machineId              String
+  locationId             String?
+  ownerOrganizationId    String
+  operatorOrganizationId String
+  responsibleMemberId    String?
+  serviceSpecialistId    String?
+  assignedAt             DateTime  @default(now())
+  unassignedAt           DateTime?
+  assignedBy             String
+  note                   String?
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerOrganization    Organization          @relation("OrganizationMachineOwner", fields: [ownerOrganizationId], references: [id], onDelete: Restrict)
+  operatorOrganization Organization          @relation("OrganizationMachineOperator", fields: [operatorOrganizationId], references: [id], onDelete: Restrict)
+  machine              Machine               @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  location             OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  responsibleMember    OrganizationMember?   @relation("OrganizationMachineResponsible", fields: [responsibleMemberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  serviceSpecialist    OrganizationMember?   @relation("OrganizationMachineService", fields: [serviceSpecialistId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, unassignedAt])
+  @@index([machineId, unassignedAt])
+  @@index([locationId, unassignedAt])
+}
+
+model OrganizationResponsibility {
+  id             String                          @id @default(uuid())
+  organizationId String
+  memberId       String
+  scope          OrganizationResponsibilityScope
+  unitId         String?
+  locationId     String?
+  machineId      String?
+  description    String?
+  assignedBy     String
+  assignedAt     DateTime                        @default(now())
+  revokedAt      DateTime?
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member       OrganizationMember    @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  unit         OrganizationUnit?     @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  location     OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  machine      Machine?              @relation(fields: [machineId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, scope, revokedAt])
+  @@index([memberId, revokedAt])
+  @@index([machineId, revokedAt])
 }
 
 model MachineSimCard {
@@ -785,6 +1043,96 @@ model VideoAccessAuditV1 {
 
   @@index([machineId, occurredAt])
   @@index([actorId, occurredAt])
+}
+
+model InventoryRuntimeItem {
+  id        String                       @id @default(uuid())
+  sku       String                       @unique
+  name      String
+  category  InventoryRuntimeItemCategory
+  baseUnit  String
+  active    Boolean                      @default(true)
+  metadata  Json?
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
+
+  movements    InventoryRuntimeMovement[]
+  reservations InventoryRuntimeReservation[]
+}
+
+model InventoryRuntimeLocation {
+  id           String                       @id @default(uuid())
+  code         String                       @unique
+  name         String
+  locationType InventoryRuntimeLocationType
+  machineId    String?
+  warehouseId  String?
+  active       Boolean                      @default(true)
+  metadata     Json?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+
+  movements    InventoryRuntimeMovement[]
+  reservations InventoryRuntimeReservation[]
+
+  @@index([locationType, active])
+  @@index([machineId])
+  @@index([warehouseId])
+}
+
+model InventoryRuntimeMovement {
+  id             String                       @id @default(uuid())
+  itemId         String
+  locationId     String
+  movementType   InventoryRuntimeMovementType
+  quantity       Float
+  delta          Float
+  unit           String
+  reason         String
+  sourceType     String
+  sourceId       String?
+  sourceEventId  String?                      @unique
+  actorType      String
+  actorId        String
+  correlationId  String
+  idempotencyKey String                       @unique
+  occurredAt     DateTime
+  recordedAt     DateTime                     @default(now())
+  metadata       Json?
+
+  item     InventoryRuntimeItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, locationId, occurredAt])
+  @@index([sourceType, sourceId])
+  @@index([correlationId])
+}
+
+model InventoryRuntimeReservation {
+  id             String                            @id @default(uuid())
+  itemId         String
+  locationId     String
+  quantity       Float
+  unit           String
+  status         InventoryRuntimeReservationStatus @default(ACTIVE)
+  purpose        String
+  sourceType     String
+  sourceId       String?
+  actorType      String
+  actorId        String
+  correlationId  String
+  idempotencyKey String                            @unique
+  expiresAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime                          @default(now())
+  updatedAt      DateTime                          @updatedAt
+
+  item     InventoryRuntimeItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, locationId, status])
+  @@index([sourceType, sourceId])
+  @@index([expiresAt, status])
 }
 
 model MachineInventory {
@@ -1413,6 +1761,7 @@ model EventRecord {
   legalHold               Boolean   @default(false)
   createdAt               DateTime  @default(now())
 
+  @@unique([sourceDomain, sourceEventId, eventCode, eventVersion])
   @@index([tenantId, occurredAt])
   @@index([organizationId, occurredAt])
   @@index([eventCode, occurredAt])
@@ -1421,7 +1770,6 @@ model EventRecord {
   @@index([machineId, occurredAt])
   @@index([customerId, occurredAt])
   @@index([correlationId])
-  @@index([sourceDomain, sourceEventId])
   @@index([retentionUntil])
   @@index([legalHold])
 }
