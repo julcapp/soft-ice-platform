@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-063 — Sale Flow Orchestrates Existing Domain Owners
+
+**Date:** 2026-08-17
+
+**Status:** Accepted
+
+Сквозная продажа координируется application service поверх существующих Order, Payment, Machine Runtime, Inventory Runtime, Customer 360, CRM, Loyalty и Platform Event Bus. `PAID` не означает физическую выдачу; склад, продажа и бонусы фиксируются только после `DISPENSED`. V1 использует заменяемые симуляторы и in-memory idempotency с явной маркировкой `FOUNDATION_ONLY`; production требует durable state и transactional outbox. Подробности: `docs/architecture/ADR/ADR-040-soft-ice-sale-flow-v1.md`.
+
 # Decision: DECISION-062 — Organization 360 Owns Organizational Context Only
 
 **Date:** 2026-08-16
@@ -2325,3 +2333,10 @@ Video Surveillance owns camera configuration, motion confirmation, recording ses
 Event Center is a separate bounded context subscribed to Platform Event Bus. It persists immutable, sanitized and correlated historical facts for search, investigations, evidence, notifications and analytics. Event Bus remains delivery infrastructure, application logs remain observability data, and domain models remain authoritative for current state. Processing state, acknowledgement, comments, tags, evidence and legal hold are separate mutable records. V1 persistence is in-memory with a Prisma/PostgreSQL durable target.
 
 ---
+# Decision: DECISION-064 — Sale Flow Idempotency and Recovery Boundary
+
+**Date:** 2026-08-17
+
+**Status:** Accepted
+
+`sale_flow` принимает организационный контекст только через authoritative machine/location relation. Создание заказа, provider transaction, callbacks, fulfillment token и финальные эффекты имеют независимые idempotency keys. Оплаченная неуспешная выдача передаёт в Order/Payment требование `REFUND_REQUIRED`, не уничтожая payment history; Sale Flow хранит только одноимённое recovery state. Текущая in-memory реализация остаётся `FOUNDATION_ONLY`; production требует durable repository, уникальных ограничений, возобновляемого workflow и transactional outbox.

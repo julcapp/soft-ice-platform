@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-17 — устранение блокеров ревизии сквозной продажи
+
+- `sale_flow` освобождён от дублирующих статусов заказа, платежа, склада и лояльности; сохранены только orchestration/recovery state, correlation и ссылки на owning domains.
+- Вызовы жизненного цикла заказа переданы через `orderDomain`, а in-memory repository явно обозначен как `FOUNDATION_ONLY` adapter.
+- Добавлена полная Source of Truth матрица и regression test идемпотентности `REFUND_REQUIRED`.
+
 ## 2026-08-16 — Organization 360 v1
 
 - Устранён накопленный Prisma migration drift: Inventory Runtime возвращён в datamodel, а безопасная корректирующая migration синхронизирует foreign keys, defaults, unique/index definitions и имена ограничений без удаления данных.
@@ -446,3 +452,16 @@
 - Рабочие локальные пароли удалены из `.env.example` и Docker Compose; пример использует `CHANGE_ME`, а Compose требует явный `POSTGRES_PASSWORD`.
 - Для исторической ответственности за аппарат заменено конфликтующее удаление FK `SET NULL` на `RESTRICT` отдельной корректирующей миграцией.
 - Добавлены регрессионная проверка Prisma-схемы и сценарий сохранности machine responsibility history.
+# 2026-08-17 — Сквозной сценарий продажи Soft ICE v1
+
+- Добавлен application orchestration-слой продажи без дублирования существующих доменов.
+- Добавлены заменяемые симуляторы оплаты и аппарата, явная state machine, одноразовое разрешение и идемпотентные эффекты.
+- Добавлены интеграционные happy path, failure и duplicate-сценарии.
+- Зафиксированы `FOUNDATION_ONLY`, `BLOCKED_EXTERNAL` и требование возврата без фиктивного production-возврата.
+# 2026-08-17 — Архитектурная и техническая ревизия сквозной продажи
+
+- Добавлены явное состояние `REFUND_REQUIRED`, authoritative organization/location resolution и tenant-scope validation.
+- Усилена идемпотентность создания, provider transaction, machine result, inventory, Customer 360, CRM и Loyalty effects.
+- События sale flow дополнены уникальными `eventId`, `causationId` и единым `correlationId`; исправлена последовательность подтверждения выдачи и складского списания.
+- Расширены русскоязычное Admin-представление и regression suite до 21 сценария.
+- Зафиксированы transaction boundaries, partial-commit risks, `FOUNDATION_ONLY`, `BLOCKED_EXTERNAL` и критерии production readiness.

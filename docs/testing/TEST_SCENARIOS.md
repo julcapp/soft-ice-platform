@@ -1,5 +1,12 @@
 # TEST_SCENARIOS
 
+## Сквозная продажа Soft ICE v1 — ревизия orchestration boundary
+
+- Проверить, что `PAYMENT_CONFIRMED` не означает `COMPLETED` и не вызывает consume/loyalty.
+- Проверить, что один `orderId` даёт не более одного complete, consume, loyalty update и `SALE_COMPLETED`.
+- Проверить, что повторный `DISPENSE_FAILED` создаёт ровно один domain refund request, сохраняет payment fact и не завершает заказ.
+- Проверить, что Sale Flow repository хранит только workflow state, idempotency/correlation metadata и ссылки на domain entities.
+
 ## Organization 360 v1
 
 ### Целостность истории ответственности за аппарат
@@ -358,3 +365,26 @@ Automated coverage includes legal/illegal transitions; purchase, test, and maint
 - Gift Redemption не начисляет purchase-бонусы и не считается first own purchase.
 - Telegram и MAX вызываются одновременно; проверяются частичный успех, оба unavailable и достоверность статусов.
 - Все события передачи имеют общий `correlationId`; Customer Timeline, роли и русские UI-тексты проверяются отдельно.
+# Сквозная продажа Soft ICE v1
+
+- Happy path: заказ → PAID → AUTHORIZED → DISPENSING → DISPENSED → Inventory → Sale → CRM/Customer 360 → Loyalty → COMPLETED.
+- Оплата: DECLINED, TIMEOUT и CANCELLED не разрешают выдачу.
+- Аппарат: ACCEPTED и DISPENSING не считаются успехом; FAILED и TIMEOUT требуют возврата и не создают продажу/бонусы.
+- Безопасность: offline/чужой аппарат, недостаток ингредиентов и повторное использование токена отклоняются.
+- Идемпотентность: повторные payment callback и machine event не дублируют финансовый факт, списание, продажу или лояльность.
+# Регрессия сквозной продажи Soft ICE v1 — 2026-08-17
+
+- Happy path с единственными dispense, inventory consume, Customer 360, CRM и Loyalty effect.
+- `PAID` не создаёт `SALE_COMPLETED` и финальные эффекты.
+- Повторное создание заказа с одним idempotency key.
+- Duplicate payment callback и duplicate provider transaction id.
+- Payment declined/timeout/cancelled с release резерва.
+- Machine accepted/dispensing/failed/timeout и `REFUND_REQUIRED` после оплаты.
+- Duplicate machine callback, duplicate `DISPENSED`, reused fulfillment token.
+- Недостаток ингредиентов и недоступный аппарат до оплаты.
+- Запрещённые state transitions.
+- Authoritative organization/location relation и tenant mismatch.
+- Уникальные `eventId`, общий `correlationId`, последовательный `causationId`.
+- Русскоязычное Admin-представление orchestration state и domain-ссылок с маркировкой «Тестовый режим».
+
+Service restart остаётся непроверяемым до durable repository (`FOUNDATION_ONLY`). Production callback security и физический аппарат — `BLOCKED_EXTERNAL`.

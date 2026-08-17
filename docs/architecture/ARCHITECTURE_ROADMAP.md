@@ -136,3 +136,9 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 
 - Завершено: модель организации, вложенные подразделения, сотрудники, роли, точки, связи Machine, ответственность, API v1 и русскоязычная карточка.
 - Далее: PostgreSQL RLS, durable outbox/Event Center, production-проекции показателей, административные формы, карта и внешние HR-интеграции.
+# Сквозная продажа Soft ICE — следующий production-инкремент
+
+1. Добавить минимальные persistent entities: sale-flow state, idempotency keys, fulfillment authorization, payment confirmation linkage, inventory reservation linkage, completion marker и refund-required marker.
+2. Добавить transactional outbox и возобновляемую обработку partial commits без обязательного внешнего broker.
+3. Подключить утверждённые production adapters Payment/Machine с signature verification, timestamp/nonce, replay protection и source authentication.
+4. Выполнить reconciliation, clean migration-chain verification и испытание на физическом аппарате отдельным согласованным этапом.

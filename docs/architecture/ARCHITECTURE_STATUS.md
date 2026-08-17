@@ -220,3 +220,10 @@ Machine Runtime state/session authority and Platform Event Bus Foundation v1 are
 - Организационная модель, Prisma target, миграция, API, аудит, tenant isolation и Admin Console: `IMPLEMENTED`.
 - Event Bus/outbox/Event Center persistence и показатели клиентов/инцидентов/обслуживания: `FOUNDATION_ONLY`.
 - Карта, геокодирование и внешние HR/бухгалтерские системы: `BLOCKED_EXTERNAL`.
+# Сквозная продажа Soft ICE v1 — ревизия 2026-08-17
+
+- Оркестрация, отдельный workflow state, `PAID != DISPENSED`, refund-required и process-local idempotency: `IMPLEMENTED`; канонические статусы остаются в owning domains.
+- Authoritative Organization 360 context и tenant-scope validation contract: `IMPLEMENTED`.
+- PostgreSQL sale-flow repository, durable idempotency, durable workflow и transactional outbox: `FOUNDATION_ONLY`.
+- Production payment/machine callbacks, signature/replay protection, реальные refund и physical dispense verification: `BLOCKED_EXTERNAL`.
+- Production readiness: `NOT READY` до устранения перечисленных foundation/external ограничений.
