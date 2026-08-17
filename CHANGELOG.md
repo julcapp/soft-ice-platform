@@ -440,3 +440,9 @@
 - Добавлена единая многоканальная оркестрация Telegram/MAX с независимыми попытками доставки без фиктивных provider confirmations.
 - Добавлены Prisma-модели и миграция, Customer/Admin API, русскоязычные Mini App/Admin Console foundation-компоненты, тесты и документация ADR-037/038.
 - PostgreSQL runtime adapter, production MAX API и подтверждения Telegram/MAX помечены `FOUNDATION_ONLY` / `BLOCKED_EXTERNAL`.
+# 2026-08-17 — Контрольная проверка целостности main
+
+- Удалён credential-bearing fallback `DATABASE_URL` из backend build tooling; Prisma-проверки теперь требуют явную переменную окружения.
+- Рабочие локальные пароли удалены из `.env.example` и Docker Compose; пример использует `CHANGE_ME`, а Compose требует явный `POSTGRES_PASSWORD`.
+- Для исторической ответственности за аппарат заменено конфликтующее удаление FK `SET NULL` на `RESTRICT` отдельной корректирующей миграцией.
+- Добавлены регрессионная проверка Prisma-схемы и сценарий сохранности machine responsibility history.

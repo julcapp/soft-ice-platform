@@ -887,7 +887,7 @@ model OrganizationResponsibility {
   member       OrganizationMember    @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
   unit         OrganizationUnit?     @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
   location     OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  machine      Machine?              @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  machine      Machine?              @relation(fields: [machineId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, scope, revokedAt])
   @@index([memberId, revokedAt])

@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-soft_ice_platform}
       POSTGRES_USER: ${POSTGRES_USER:-soft_ice_platform}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-soft_ice_platform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the local environment}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:

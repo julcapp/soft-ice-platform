@@ -15,14 +15,14 @@ runPrisma(['generate']);
 console.log(`Backend build check passed for ${jsFiles.length} JavaScript files.`);
 
 function runPrisma(args) {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is required for Prisma build checks.');
+    process.exit(1);
+  }
+
   run(process.execPath, [join(rootDir, 'node_modules', 'prisma', 'build', 'index.js'), ...args], {
     cwd: rootDir,
-    env: {
-      ...process.env,
-      DATABASE_URL:
-        process.env.DATABASE_URL ||
-        'postgresql://soft_ice_platform:soft_ice_platform@localhost:5432/soft_ice_platform?schema=public',
-    },
+    env: process.env,
   });
 }
 
