@@ -21,6 +21,7 @@ const eventCenter = require('./event_center');
 const organization = require('./organization');
 const botCore = require('./bot_core');
 const referral = require('./referral');
+const welcomeBonus = require('./welcome_bonus');
 
 const moduleManifests = [
   customer,
@@ -46,6 +47,7 @@ const moduleManifests = [
   organization,
   botCore,
   referral,
+  welcomeBonus,
 ];
 
 module.exports = {
