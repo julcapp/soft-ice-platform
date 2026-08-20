@@ -1,4 +1,4 @@
-function createBotWebhookHandlers({ botRuntime, logger = console } = {}) {
+function createBotWebhookHandlers({ botRuntime, verifyWebhook = null, logger = console } = {}) {
   if (!botRuntime) throw new Error('botRuntime is required.');
 
   async function handleTelegram(req, res) {
@@ -11,6 +11,11 @@ function createBotWebhookHandlers({ botRuntime, logger = console } = {}) {
 
   async function handle(channel, req, res) {
     try {
+      if (verifyWebhook && !verifyWebhook(channel, req.headers || {})) {
+        if (res?.status) return res.status(401).json({ ok: false, error: 'invalid_webhook_secret' });
+        return { statusCode: 401, body: { ok: false, error: 'invalid_webhook_secret' } };
+      }
+
       await botRuntime.handle(channel, req.body || {});
       if (res?.status) return res.status(200).json({ ok: true });
       return { statusCode: 200, body: { ok: true } };
