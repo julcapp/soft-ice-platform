@@ -2,6 +2,10 @@ const { BotGateway } = require('./BotGateway');
 const { BotAdapter } = require('./BotAdapter');
 const { TelegramAdapter } = require('./TelegramAdapter');
 const { MaxAdapter } = require('./MaxAdapter');
+const { TransportRenderer } = require('./TransportRenderer');
+const { TelegramRenderer } = require('./TelegramRenderer');
+const { MaxRenderer } = require('./MaxRenderer');
+const { BotActionRouter } = require('./BotActionRouter');
 const { parseStartPayload } = require('./DeepLinkParser');
 const { BotOnboardingService } = require('./BotOnboardingService');
 const { BotUserFlowService } = require('./BotUserFlowService');
@@ -30,11 +34,17 @@ module.exports = {
     'club summary user flow',
     'referral section user flow',
     'referral qualification and reward notifications',
+    'transport-specific rendering from shared view models',
+    'bot action routing without business logic duplication',
   ],
   BotGateway,
   BotAdapter,
   TelegramAdapter,
   MaxAdapter,
+  TransportRenderer,
+  TelegramRenderer,
+  MaxRenderer,
+  BotActionRouter,
   BotOnboardingService,
   BotUserFlowService,
   ONBOARDING_STAGE,
