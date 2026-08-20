@@ -1,3 +1,5 @@
+const { parseStartPayload } = require('./DeepLinkParser');
+
 class BotRuntime {
   constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, sender } = {}) {
     this.adapters = adapters;
@@ -32,11 +34,13 @@ class BotRuntime {
         actions: [{ type: 'action', label: '← Назад', action: 'referral' }],
       };
     } else if (isStartUpdate(channel, rawUpdate) && this.onboardingService) {
+      const context = parseStartPayload(inbound.payload);
       view = await this.onboardingService.start({
         channel,
         externalUserId: inbound.externalUserId,
         profile: inbound.profile,
         payload: inbound.payload,
+        context,
         metadata: inbound.metadata,
       });
     } else {
