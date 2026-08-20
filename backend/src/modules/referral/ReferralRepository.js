@@ -29,6 +29,17 @@ class ReferralRepository {
     return this.prisma.referral.update({ where: { id }, data });
   }
 
+  markRewardPaid(id, patch) {
+    return this.prisma.referral.update({
+      where: { id },
+      data: {
+        status: patch.status,
+        referrerBonusPaid: Boolean(patch.referrerBonusPaid),
+        referredBonusPaid: Boolean(patch.referredBonusPaid),
+      },
+    });
+  }
+
   async recordQualification({ referralId, action, sourceEventId = null, occurredAt = new Date() }) {
     const id = cryptoRandomId();
     await this.prisma.$executeRawUnsafe(
