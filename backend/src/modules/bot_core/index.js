@@ -4,6 +4,12 @@ const { TelegramAdapter } = require('./TelegramAdapter');
 const { MaxAdapter } = require('./MaxAdapter');
 const { parseStartPayload } = require('./DeepLinkParser');
 const { BotOnboardingService } = require('./BotOnboardingService');
+const { BotUserFlowService } = require('./BotUserFlowService');
+const {
+  buildClubSummary,
+  buildReferralRewardNotification,
+  buildReferralQualifiedNotification,
+} = require('./BotClubView');
 const {
   ONBOARDING_STAGE,
   buildWelcomeMessage,
@@ -21,15 +27,22 @@ module.exports = {
     'bot channel event normalization',
     'bot onboarding orchestration',
     'channel subscription offer policy',
+    'club summary user flow',
+    'referral section user flow',
+    'referral qualification and reward notifications',
   ],
   BotGateway,
   BotAdapter,
   TelegramAdapter,
   MaxAdapter,
   BotOnboardingService,
+  BotUserFlowService,
   ONBOARDING_STAGE,
   buildWelcomeMessage,
   buildSubscriptionOffer,
   buildMainMenu,
+  buildClubSummary,
+  buildReferralRewardNotification,
+  buildReferralQualifiedNotification,
   parseStartPayload,
 };
