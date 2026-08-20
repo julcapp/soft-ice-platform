@@ -22,13 +22,21 @@ test('self referral is rejected', () => {
   );
 });
 
-test('first purchase qualifies registered referral once', async () => {
+test('first purchase qualifies registered referral once and persists qualification evidence', async () => {
   const events = [];
-  const service = new ReferralService({ eventCenter: { publish: async (event) => events.push(event) } });
+  const calls = [];
+  const service = new ReferralService({
+    repository: {
+      recordQualification: async (entry) => { calls.push(entry); return { action: entry.action }; },
+      update: async (id, patch) => ({ id, referrerCustomerId: 'c1', referredCustomerId: 'c2', ...patch }),
+    },
+    eventCenter: { publish: async (event) => events.push(event) },
+  });
   const referral = { id: 'r1', referrerCustomerId: 'c1', referredCustomerId: 'c2', status: REFERRAL_STATUS.REGISTERED };
   const result = await service.qualify({ referral, action: QUALIFYING_ACTION.FIRST_PURCHASE, eventId: 'order-1' });
   assert.equal(result.status, REFERRAL_STATUS.QUALIFIED);
   assert.equal(result.qualified, true);
+  assert.equal(calls[0].sourceEventId, 'order-1');
   assert.equal(events[0].type, 'REFERRAL_QUALIFIED');
 });
 
