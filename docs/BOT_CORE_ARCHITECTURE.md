@@ -1,6 +1,6 @@
 # Bot Core — Telegram + MAX
 
-Status: Foundation
+Status: Foundation + Onboarding
 Branch: `feature/bot-core-foundation`
 
 ## Назначение
@@ -46,6 +46,10 @@ MAX ──────┘             │              │
 
 Существующий Customer Core уже является источником истины для внешних identity providers. Bot Core не создаёт собственную базу пользователей.
 
+Telegram Customer может быть разрешён через существующий `resolveOrCreateTelegramCustomer`.
+
+Для MAX действует более строгая граница: неподтверждённый `max user_id` не должен автоматически создавать второй Customer. До подключения MAX identity provider такой вход остаётся pending и после подтверждения должен либо привязаться к существующему Customer, либо безопасно создать нового без дублирования профиля.
+
 ## Deep-link context
 
 Bot Core нормализует `start`/`startapp` контекст в единую модель независимо от канала.
@@ -60,9 +64,9 @@ Bot Core нормализует `start`/`startapp` контекст в един�
 
 Deep-link payload не является доказательством реферального целевого действия. Он только фиксирует attribution context.
 
-## Первый вход
+## Первый вход и onboarding
 
-Foundation flow:
+Текущий flow:
 
 ```text
 /start
@@ -75,27 +79,59 @@ DeepLinkParser
   ↓
 BOT_START_RECEIVED
   ↓
-Customer identity / onboarding (следующий инкремент)
+BotOnboardingService
+  ↓
+контекстное приветствие
+  ↓
+Customer identity resolution
+  ↓
+phone verified?
+  ├── нет → PHONE_VERIFICATION_REQUIRED
+  └── да  → предложение каналов + персональное меню
 ```
 
-Приветствие должно зависеть от контекста:
+Приветствие зависит от контекста:
 
-- direct;
-- referral;
-- machine QR;
-- campaign/partner.
+- direct — общее приветствие «У Тимоши»;
+- referral — сообщение о приглашении в Клуб Тимоши;
+- machine QR — приветствие у конкретного аппарата;
+- campaign — сообщение о специальном приглашении.
+
+После успешной верификации подписка на Telegram/MAX предлагается добровольно. Бот не пытается принудительно подписывать пользователя. В onboarding предусмотрено действие «Напомнить позже».
+
+Если вход пришёл от конкретного аппарата, кнопка открытия Mini App получает `machine_id` и ведёт в контекст этого аппарата.
+
+## Персональное меню после верификации
+
+- `📱 Открыть У Тимоши`;
+- `🎁 Мой клуб`;
+- `👥 Пригласить друга`;
+- `📦 Мой заказ`;
+- `📍 Где купить`;
+- `💬 Помощь`.
+
+Каталог, корзина и конфигуратор продукта остаются в Mini App и не дублируются внутри Bot Core.
 
 ## Следующие инкременты
 
 ### Bot Core 1.1 — Identity + onboarding
 
-- Telegram identity resolution;
-- MAX identity verification/linking;
-- единая bot session;
-- приветствия по контексту;
-- переход в Mini App на целевой экран;
-- предложение подписаться на Telegram/MAX каналы после верификации;
-- журналирование согласий и каналов.
+Foundation реализован:
+
+- Telegram identity resolution через Customer Core;
+- контекстные приветствия;
+- состояние необходимости phone verification;
+- добровольное предложение Telegram/MAX каналов после верификации;
+- персональное меню;
+- machine-aware Mini App route;
+- onboarding events.
+
+Остаётся до production:
+
+- MAX verified identity provider;
+- runtime/webhook wiring;
+- реальная проверка подписки, где это разрешает API;
+- журналирование выбора каналов и соответствующих согласий.
 
 ### Bot Core 1.2 — Referral Core
 
@@ -126,6 +162,6 @@ Customer identity / onboarding (следующий инкремент)
 - отдельный PARTNER_REWARD ответственному представителю после принятия отчёта;
 - полный складской и финансовый учёт подарочных порций через Recipe/Inventory.
 
-## Ограничения foundation
+## Ограничения текущего инкремента
 
-Этот инкремент не меняет текущий рабочий Telegram bot для ЮKassa и не подключает production webhook. Токены Telegram/MAX и transport-specific HTTP logic добавляются только после интеграции Bot Core с runtime и проверок на тестовом контуре.
+Инкремент не меняет текущий рабочий Telegram bot для ЮKassa и не подключает production webhook. Токены Telegram/MAX и transport-specific HTTP logic добавляются только после интеграции Bot Core с runtime и проверок на тестовом контуре.
