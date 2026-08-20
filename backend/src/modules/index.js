@@ -19,6 +19,7 @@ const machineConnectivity = require('./machine_connectivity');
 const videoSurveillance = require('./video_surveillance');
 const eventCenter = require('./event_center');
 const organization = require('./organization');
+const botCore = require('./bot_core');
 
 const moduleManifests = [
   customer,
@@ -42,6 +43,7 @@ const moduleManifests = [
   videoSurveillance,
   eventCenter,
   organization,
+  botCore,
 ];
 
 module.exports = {
