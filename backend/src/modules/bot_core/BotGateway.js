@@ -1,9 +1,10 @@
 const { parseStartPayload } = require('./DeepLinkParser');
 
 class BotGateway {
-  constructor({ customerIdentityRegistry, eventCenter, adapters = [] } = {}) {
+  constructor({ customerIdentityRegistry, eventCenter, onboardingService = null, adapters = [] } = {}) {
     this.customerIdentityRegistry = customerIdentityRegistry || null;
     this.eventCenter = eventCenter || null;
+    this.onboardingService = onboardingService;
     this.adapters = new Map(adapters.map((adapter) => [adapter.channel, adapter]));
   }
 
@@ -38,7 +39,13 @@ class BotGateway {
     };
 
     await this.publishEvent('BOT_START_RECEIVED', normalized);
-    return normalized;
+
+    if (!this.onboardingService || typeof this.onboardingService.start !== 'function') {
+      return normalized;
+    }
+
+    const onboarding = await this.onboardingService.start(normalized);
+    return { ...normalized, onboarding };
   }
 
   async publishEvent(type, payload) {
