@@ -19,6 +19,7 @@ const machineConnectivity = require('./machine_connectivity');
 const videoSurveillance = require('./video_surveillance');
 const eventCenter = require('./event_center');
 const organization = require('./organization');
+const saleFlow = require('./sale_flow');
 const botCore = require('./bot_core');
 const referral = require('./referral');
 const welcomeBonus = require('./welcome_bonus');
@@ -45,6 +46,7 @@ const moduleManifests = [
   videoSurveillance,
   eventCenter,
   organization,
+  saleFlow,
   botCore,
   referral,
   welcomeBonus,
