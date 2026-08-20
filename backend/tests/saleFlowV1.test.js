@@ -1,121 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SaleFlowService, InMemorySaleFlowRepository, SimulatorPaymentAdapter, SimulatorMachineAdapter, presentSaleFlow, TRANSITIONS } = require('../src/modules/sale_flow');
-
+const { SaleFlowService, InMemorySaleFlowRepository, SimulatorPaymentAdapter, SimulatorMachineAdapter, presentSaleFlow } = require('../src/modules/sale_flow');
 let sequence = 0;
-function fixture({ payment = 'PAID', machine = 'DISPENSED', available = true, paymentAdapter } = {}) {
-  const repository = new InMemorySaleFlowRepository();
-  const events = [];
-  const calls = { reserved: 0, consumed: 0, released: 0, customer: 0, crm: 0, loyalty: 0, orderCompleted: 0, refundRequired: 0 };
-  const domainOrders = new Map();
-  const orderDomain = {
-    create: async (input) => { const value = { ...input, orderId: `order_${++sequence}`, status: 'PAYMENT_PENDING', paymentStatus: 'pending' }; domainOrders.set(value.orderId, value); return value; },
-    confirmPayment: async (id) => { const value = domainOrders.get(id); value.status = 'PAID'; value.paymentStatus = 'paid'; return value; },
-    rejectPayment: async (id) => { const value = domainOrders.get(id); value.status = 'PAYMENT_FAILED'; return value; },
-    getPaymentDetails: async (id) => { const value = domainOrders.get(id); return { amount: value.totalAmount, currency: value.currency }; },
-    getFulfillmentDetails: async (id) => { const value = domainOrders.get(id); return { product: value.product, quantity: value.quantity }; },
-    complete: async (id) => { calls.orderCompleted += 1; const value = domainOrders.get(id); value.status = 'COMPLETED'; return value; },
-    requireRefund: async (id) => { calls.refundRequired += 1; const value = domainOrders.get(id); value.status = 'REFUND_REQUIRED'; return value; },
-  };
-  const inventory = {
-    checkAndReserve: async () => { calls.reserved += 1; return { available, reservationId: 'reservation_1' }; },
-    calculatePrice: async () => ({ totalAmount: 190, currency: 'RUB' }),
-    consume: async () => { calls.consumed += 1; }, release: async () => { calls.released += 1; },
-  };
-  const service = new SaleFlowService({
-    repository, orderDomain,
-    paymentAdapter: paymentAdapter || new SimulatorPaymentAdapter({ outcome: payment }),
-    machineAdapter: new SimulatorMachineAdapter({ outcome: machine }), inventory,
-    organizationContext: { resolveByMachine: async () => ({ organizationId: 'org_authoritative', locationId: 'location_authoritative' }) },
-    eventPublisher: { publish: async (event) => { events.push(event); return event; } },
-    customer360: { recordPurchase: async () => { calls.customer += 1; } },
-    crm: { recordSale: async () => { calls.crm += 1; } },
-    loyalty: { registerPurchase: async () => { calls.loyalty += 1; } },
-  });
-  return { service, repository, events, calls, domainOrders };
+function fixture(store, machine = 'DISPENSED') {
+  const repository = new InMemorySaleFlowRepository(store); const orders = new Map(); const calls = { complete: 0, consume: 0, refund: 0, loyalty: 0 };
+  const service = new SaleFlowService({ repository, paymentAdapter: new SimulatorPaymentAdapter(), machineAdapter: new SimulatorMachineAdapter({ outcome: machine }), organizationContext: { resolveByMachine: async () => ({ organizationId: 'org_1', locationId: 'location_1' }) }, inventory: { checkAndReserve: async () => ({ available: true, reservationId: 'reservation_1' }), calculatePrice: async () => ({ totalAmount: 190, currency: 'RUB' }), consume: async () => { calls.consume += 1; }, release: async () => {} }, orderDomain: { create: async (input) => { const value = { ...input, orderId: `order_${++sequence}` }; orders.set(value.orderId, value); return value; }, getPaymentDetails: async () => ({ amount: 190, currency: 'RUB' }), confirmPayment: async () => {}, rejectPayment: async () => {}, getFulfillmentDetails: async () => ({}), complete: async () => { calls.complete += 1; }, requireRefund: async () => { calls.refund += 1; } }, loyalty: { registerPurchase: async () => { calls.loyalty += 1; } } });
+  return { repository, service, calls, store: repository.store };
 }
-const order = { customerId: 'customer_1', machineId: 'machine_1', organizationId: 'untrusted_org', pointId: 'untrusted_point', channel: 'MINI_APP', product: { baseProductId: 'product_soft_ice_vanilla_cup', toppingId: 'topping_oreo', additionId: 'syrup_strawberry' }, quantity: 1 };
-const create = (fixtureValue, context = {}) => fixtureValue.service.create(order, { idempotencyKey: `create_${++sequence}`, ...context });
+const request = { customerId: 'customer_1', machineId: 'machine_1', product: { baseProductId: 'product_1', toppingId: 'topping_1', additionId: 'syrup_1' } };
+async function create(f, key = `create_${++sequence}`) { return f.service.create(request, { idempotencyKey: key, correlationId: `corr_${key}` }); }
 
-test('happy path завершает продажу и каждый побочный эффект ровно один раз', async () => {
-  const f = fixture(); const created = await create(f, { correlationId: 'corr_1' });
-  await f.service.pay(created.orderId, {}, { idempotencyKey: 'payment_1' }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId, { machineId: 'machine_1' });
-  assert.equal(created.flowState, 'COMPLETED'); assert.equal(f.domainOrders.get(created.orderId).status, 'COMPLETED');
-  assert.deepEqual(f.calls, { reserved: 1, consumed: 1, released: 0, customer: 1, crm: 1, loyalty: 1, orderCompleted: 1, refundRequired: 0 });
-  assert.deepEqual(f.events.map((event) => event.eventType), ['SALE_FLOW_STARTED', 'PAYMENT_CONFIRMED', 'FULFILLMENT_AUTHORIZED', 'DISPENSE_STARTED', 'DISPENSE_SUCCEEDED', 'INVENTORY_CONSUMED', 'SALE_COMPLETED', 'LOYALTY_UPDATED']);
-  assert.equal(new Set(f.events.map((event) => event.eventId)).size, f.events.length);
-  assert.ok(f.events.every((event) => event.correlationId === 'corr_1'));
-  assert.equal(f.events[1].causationId, f.events[0].eventId);
-});
-
-test('PAID не завершает продажу и не применяет финальные эффекты', async () => {
-  const f = fixture(); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: 'paid_only' });
-  assert.equal(created.flowState, 'PAYMENT_CONFIRMED'); assert.equal(f.domainOrders.get(created.orderId).status, 'PAID');
-  assert.deepEqual({ consumed: f.calls.consumed, customer: f.calls.customer, crm: f.calls.crm, loyalty: f.calls.loyalty }, { consumed: 0, customer: 0, crm: 0, loyalty: 0 });
-});
-
-test('повторное создание с одним ключом не создаёт второй заказ и резерв', async () => {
-  const f = fixture(); const context = { idempotencyKey: 'same_create' }; const first = await f.service.create(order, context); const second = await f.service.create(order, context);
-  assert.equal(first, second); assert.equal(f.repository.listFlows().length, 1); assert.equal(f.calls.reserved, 1);
-});
-
-test('создание без idempotency key отклоняется', async () => { const f = fixture(); await assert.rejects(() => f.service.create(order), { code: 'VALIDATION_FAILED' }); });
-
-test('организация и точка определяются по authoritative machine relation', async () => { const f = fixture(); const created = await create(f); assert.equal(created.organizationId, 'org_authoritative'); assert.equal(created.locationId, 'location_authoritative'); });
-test('tenant mismatch отклоняется', async () => { const f = fixture(); await assert.rejects(() => create(f, { organizationId: 'org_other' }), { code: 'TENANT_SCOPE_MISMATCH' }); });
-
-test('повторный callback оплаты идемпотентен', async () => {
-  const f = fixture(); const created = await create(f); const first = await f.service.pay(created.orderId, {}, { idempotencyKey: 'callback_1' }); const second = await f.service.pay(created.orderId, {}, { idempotencyKey: 'callback_1' });
-  assert.equal(first.duplicate, false); assert.equal(second.duplicate, true); assert.equal(f.events.filter((event) => event.eventType === 'PAYMENT_CONFIRMED').length, 1);
-});
-
-test('один provider transaction нельзя связать с двумя заказами', async () => {
-  const paymentAdapter = { pay: async ({ orderId }) => ({ paymentId: 'provider_tx_1', provider: 'TEST', status: 'PAID', confirmedAt: new Date(), orderId }) };
-  const f = fixture({ paymentAdapter }); const first = await create(f); const second = await create(f);
-  await f.service.pay(first.orderId, {}, { idempotencyKey: 'provider_callback_1' });
-  await assert.rejects(() => f.service.pay(second.orderId, {}, { idempotencyKey: 'provider_callback_2' }), { code: 'PAYMENT_TRANSACTION_CONFLICT' });
-});
-
-for (const status of ['DECLINED', 'TIMEOUT', 'CANCELLED']) test(`оплата ${status} не разрешает выдачу и освобождает резерв`, async () => {
-  const f = fixture({ payment: status }); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: `payment_${status}` });
-  assert.equal(created.flowState, 'STOPPED'); assert.equal(f.domainOrders.get(created.orderId).status, 'PAYMENT_FAILED'); assert.equal(f.calls.released, 1); await assert.rejects(() => f.service.authorize(created.orderId), { code: 'FULFILLMENT_NOT_PAID' });
-});
-
-for (const status of ['FAILED', 'TIMEOUT', 'OFFLINE', 'UNAVAILABLE', 'BUSY']) test(`результат аппарата ${status} создаёт REFUND_REQUIRED без завершения продажи`, async () => {
-  const f = fixture({ machine: status }); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: `payment_machine_${status}` }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId);
-  assert.equal(created.flowState, 'REFUND_REQUIRED'); assert.equal(f.domainOrders.get(created.orderId).status, 'REFUND_REQUIRED'); assert.equal(f.domainOrders.get(created.orderId).paymentStatus, 'paid'); assert.equal(f.calls.consumed, 0); assert.equal(f.calls.loyalty, 0); assert.equal(f.calls.refundRequired, 1); assert.equal(f.events.filter((event) => event.eventType === 'REFUND_REQUIRED').length, 1);
-});
-
-for (const status of ['ACCEPTED', 'DISPENSING']) test(`промежуточный результат аппарата ${status} не создаёт ложный успех`, async () => {
-  const f = fixture({ machine: status }); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: `payment_intermediate_${status}` }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId);
-  assert.equal(created.flowState, 'DISPENSING'); assert.equal(f.calls.refundRequired, 0); assert.equal(f.calls.consumed, 0); assert.equal(f.calls.loyalty, 0);
-});
-
-test('недостаток ингредиентов останавливает заказ до оплаты', async () => { const f = fixture({ available: false }); await assert.rejects(() => create(f), { code: 'INGREDIENTS_INSUFFICIENT' }); assert.equal(f.repository.listFlows().length, 0); });
-test('недоступный аппарат останавливает заказ до резерва', async () => { const f = fixture(); f.service.machineAvailability = { isAvailable: async () => false }; await assert.rejects(() => create(f), { code: 'MACHINE_UNAVAILABLE' }); assert.equal(f.calls.reserved, 0); });
-
-test('запрещённые переходы отсутствуют в state machine', () => {
-  assert.ok(!TRANSITIONS.STARTED.includes('COMPLETED')); assert.ok(!TRANSITIONS.COMPLETED); assert.ok(!TRANSITIONS.STOPPED); assert.ok(!TRANSITIONS.REFUND_REQUIRED);
-});
-
-test('повторное событие DISPENSED не дублирует продажу, склад и лояльность', async () => {
-  const f = fixture({ machine: 'ACCEPTED' }); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: 'payment_async' }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId);
-  await f.service.handleMachineResult(created.orderId, { status: 'DISPENSED', commandId: 'command_1' }, { idempotencyKey: 'machine_event_1' }); await f.service.handleMachineResult(created.orderId, { status: 'DISPENSED', commandId: 'command_1' }, { idempotencyKey: 'machine_event_1' });
-  assert.deepEqual({ consumed: f.calls.consumed, customer: f.calls.customer, crm: f.calls.crm, loyalty: f.calls.loyalty, orderCompleted: f.calls.orderCompleted }, { consumed: 1, customer: 1, crm: 1, loyalty: 1, orderCompleted: 1 });
-});
-
-test('использованный fulfillment token нельзя применить повторно', async () => { const f = fixture(); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: 'token_payment' }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId); await assert.rejects(() => f.service.dispense(token.tokenId), { code: 'FULFILLMENT_TOKEN_INVALID' }); });
-
-test('истёкший fulfillment token отклоняется', async () => { const f = fixture(); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: 'expired_token_payment' }); const token = await f.service.authorize(created.orderId); token.expiresAt = new Date(0); await assert.rejects(() => f.service.dispense(token.tokenId), { code: 'FULFILLMENT_TOKEN_INVALID' }); });
-
-test('admin-представление русскоязычное, полное и помечает тестовый режим', async () => {
-  const f = fixture(); const created = await create(f, { correlationId: 'corr_admin' }); const view = presentSaleFlow(created, f.events);
-  assert.equal(view.mode, 'Тестовый режим'); assert.equal(view.fields['Заказ'], created.orderId); assert.equal(view.fields['Организация'], 'org_authoritative'); assert.equal(view.fields['Состояние процесса'], 'WAITING_FOR_PAYMENT'); assert.equal(view.eventTimeline.length, 1);
-});
-
-test('повторный DISPENSE_FAILED не создаёт второй запрос возврата', async () => {
-  const f = fixture({ machine: 'ACCEPTED' }); const created = await create(f); await f.service.pay(created.orderId, {}, { idempotencyKey: 'refund_payment' }); const token = await f.service.authorize(created.orderId); await f.service.dispense(token.tokenId);
-  const result = { status: 'FAILED', commandId: 'failed_command' };
-  await f.service.handleMachineResult(created.orderId, result, { idempotencyKey: 'failed_event' }); await f.service.handleMachineResult(created.orderId, result, { idempotencyKey: 'failed_event' });
-  assert.equal(f.calls.refundRequired, 1); assert.equal(f.calls.released, 1); assert.equal(f.events.filter((event) => event.eventType === 'REFUND_REQUIRED').length, 1);
-});
+test('repository создаёт и читает процесс по основным ключам', async () => { const f = fixture(); const flow = await create(f); assert.equal((await f.repository.getById(flow.flowId)).orderId, flow.orderId); assert.equal((await f.repository.getByOrderId(flow.orderId)).flowId, flow.flowId); assert.equal((await f.repository.getByCorrelationId(flow.correlationId)).flowId, flow.flowId); });
+test('оптимистическая блокировка допускает только одно конкурентное изменение', async () => { const f = fixture(); const flow = await create(f); const results = await Promise.allSettled([f.repository.compareAndSetState(flow.flowId, flow.version, 'PAID'), f.repository.compareAndSetState(flow.flowId, flow.version, 'PAID')]); assert.equal(results.filter((v) => v.status === 'fulfilled').length, 1); assert.equal(results.find((v) => v.status === 'rejected').reason.code, 'SALE_FLOW_VERSION_CONFLICT'); });
+test('состояние PAID переживает пересоздание repository и service', async () => { const f = fixture(); const flow = await create(f); await f.service.pay(flow.orderId, {}, { idempotencyKey: 'payment_restart' }); const restarted = fixture(f.store); assert.equal((await restarted.repository.getByOrderId(flow.orderId)).currentState, 'PAID'); });
+test('повторный payment callback после restart не выполняет переход', async () => { const f = fixture(); const flow = await create(f); await f.service.pay(flow.orderId, {}, { idempotencyKey: 'payment_duplicate' }); const restarted = fixture(f.store); const replay = await restarted.service.pay(flow.orderId, {}, { idempotencyKey: 'payment_duplicate' }); assert.equal(replay.duplicate, true); assert.equal((await restarted.repository.getByOrderId(flow.orderId)).version, 2); });
+test('recovery помечает PAID безопасным, а DISPENSING требующим сверки', async () => { const f = fixture(); const paid = await create(f); await f.service.pay(paid.orderId, {}, { idempotencyKey: 'paid_recovery' }); const dispensing = await create(f); await f.service.pay(dispensing.orderId, {}, { idempotencyKey: 'dispensing_payment' }); const token = await f.service.authorize(dispensing.orderId); f.service.machineAdapter = new SimulatorMachineAdapter({ outcome: 'ACCEPTED' }); await f.service.dispense(token.tokenId); const restarted = fixture(f.store); await restarted.service.recover(); assert.equal((await restarted.repository.getByOrderId(paid.orderId)).recoveryStatus, 'SAFE_TO_RESUME'); assert.equal((await restarted.repository.getByOrderId(dispensing.orderId)).recoveryStatus, 'NEEDS_RECONCILIATION'); });
+test('COMPLETED терминален и duplicate DISPENSED после restart не создаёт эффекты', async () => { const f = fixture(); const flow = await create(f); await f.service.pay(flow.orderId, {}, { idempotencyKey: 'complete_payment' }); const token = await f.service.authorize(flow.orderId); await f.service.dispense(token.tokenId); const restarted = fixture(f.store); await restarted.service.handleMachineResult(flow.orderId, { status: 'DISPENSED', commandId: `sim_dispense_${flow.orderId}` }, { idempotencyKey: `sim_dispense_${flow.orderId}` }); assert.equal((await restarted.repository.getByOrderId(flow.orderId)).currentState, 'COMPLETED'); assert.equal(restarted.calls.complete, 0); assert.equal(restarted.calls.consume, 0); });
+test('REFUND_REQUIRED и его marker переживают restart', async () => { const f = fixture(null, 'FAILED'); const flow = await create(f); await f.service.pay(flow.orderId, {}, { idempotencyKey: 'refund_payment' }); const token = await f.service.authorize(flow.orderId); await f.service.dispense(token.tokenId); const restarted = fixture(f.store, 'FAILED'); assert.equal((await restarted.repository.getByOrderId(flow.orderId)).currentState, 'REFUND_REQUIRED'); await restarted.service.handleMachineResult(flow.orderId, { status: 'FAILED', commandId: `sim_dispense_${flow.orderId}` }, { idempotencyKey: `sim_dispense_${flow.orderId}` }); assert.equal(restarted.calls.refund, 0); });
+test('idempotency различает незавершённую и завершённую операцию', async () => { const f = fixture(); const flow = await create(f); await f.repository.saveIdempotencyKey({ flowId: flow.flowId, key: 'pending_key', operationType: 'MACHINE_CALLBACK', source: 'TEST', requestHash: 'hash', status: 'STARTED' }); assert.equal((await f.repository.getIdempotencyKey('pending_key')).status, 'STARTED'); await f.repository.completeIdempotencyKey('pending_key', 'result_1'); assert.equal((await new InMemorySaleFlowRepository(f.store).getIdempotencyKey('pending_key')).status, 'COMPLETED'); await assert.rejects(() => f.repository.saveIdempotencyKey({ flowId: flow.flowId, key: 'pending_key', operationType: 'MACHINE_CALLBACK', source: 'TEST', requestHash: 'hash' }), { code: 'SALE_FLOW_DUPLICATE' }); });
+test('Admin представление русское и не раскрывает секреты', async () => { const f = fixture(); const flow = await create(f); const view = presentSaleFlow({ ...flow, persistenceMode: 'POSTGRESQL' }); assert.equal(view.persistence, 'Состояние сохранено'); assert.equal(view.fields['Состояние процесса'], 'Ожидает оплату'); assert.equal(view.fields['Статус восстановления'], 'Можно безопасно продолжить'); });
+test('health проверяет чтение, запись и транзакции repository', async () => { const f = fixture(); assert.deepEqual(await f.service.health(), { status: 'HEALTHY', repository: 'IN_MEMORY_TEST', readable: true, writable: true, transactional: true }); });

@@ -1,117 +1,55 @@
 const crypto = require('crypto');
-const { FLOW_STATE, transition } = require('./SaleFlowModels');
+const { FLOW_STATE, TERMINAL_STATES, assertTransition } = require('./SaleFlowModels');
 
 class SaleFlowService {
-  constructor({ repository, orderDomain, paymentAdapter, machineAdapter, machineAvailability, organizationContext, inventory, eventPublisher, customer360, crm, loyalty, clock = () => new Date(), tokenTtlMs = 300000 }) {
-    Object.assign(this, { repository, orderDomain, paymentAdapter, machineAdapter, machineAvailability, organizationContext, inventory, eventPublisher, customer360, crm, loyalty, clock, tokenTtlMs });
-  }
-
+  constructor({ repository, orderDomain, paymentAdapter, machineAdapter, machineAvailability, organizationContext, inventory, eventPublisher, customer360, crm, loyalty, metrics, clock = () => new Date(), tokenTtlMs = 300000, retentionPolicy = new SaleFlowRetentionPolicy() }) { Object.assign(this, { repository, orderDomain, paymentAdapter, machineAdapter, machineAvailability, organizationContext, inventory, eventPublisher, customer360, crm, loyalty, metrics, clock, tokenTtlMs, retentionPolicy }); }
   async create(request, context = {}) {
     if (!context.idempotencyKey) throw invalid('Для создания заказа требуется idempotency key.');
-    const existing = this.repository.findCreated(context.idempotencyKey);
-    if (existing) return existing;
+    const key = `sale-create:${context.idempotencyKey}`; const replay = await this.repository.getIdempotencyKey(key);
+    if (replay?.resultReference) return this.required(replay.resultReference);
     for (const field of ['customerId', 'machineId']) if (!request[field]) throw invalid(`${field} обязателен.`);
     if (!request.product?.baseProductId || !request.product?.toppingId || !request.product?.additionId) throw invalid('Состав должен включать базовый продукт, топпинг и добавку.');
-
     const org = await this.organizationContext?.resolveByMachine(request.machineId);
     if (!org?.organizationId || !(org.locationId || org.pointId)) throw conflict('MACHINE_CONTEXT_UNRESOLVED', 'Не удалось определить организацию и точку по аппарату.');
     if (context.organizationId && context.organizationId !== org.organizationId) throw conflict('TENANT_SCOPE_MISMATCH', 'Аппарат не принадлежит организации из доверенного контекста.');
     if (this.machineAvailability && !(await this.machineAvailability.isAvailable(request.machineId))) throw conflict('MACHINE_UNAVAILABLE', 'Аппарат недоступен для выдачи.');
-
-    const quantity = request.quantity || 1;
-    const reservation = await this.inventory.checkAndReserve({ machineId: request.machineId, product: request.product, quantity, idempotencyKey: `reserve:${context.idempotencyKey}` });
+    const quantity = request.quantity || 1; const reservation = await this.inventory.checkAndReserve({ machineId: request.machineId, product: request.product, quantity, idempotencyKey: `reserve:${context.idempotencyKey}` });
     if (!reservation.available) throw conflict('INGREDIENTS_INSUFFICIENT', 'Недостаточно ингредиентов для заказа.');
     const price = await this.inventory.calculatePrice({ product: request.product, quantity });
     const created = await this.orderDomain.create({ customerId: request.customerId, machineId: request.machineId, organizationId: org.organizationId, locationId: org.locationId || org.pointId, product: request.product, quantity, totalAmount: price.totalAmount, currency: price.currency || 'RUB', channel: request.channel || null }, context);
-    const now = this.clock();
-    const flow = {
-      flowId: `sale_flow_${crypto.randomUUID()}`, orderId: created.orderId,
-      customerId: request.customerId, machineId: request.machineId, organizationId: org.organizationId,
-      locationId: org.locationId || org.pointId, reservationId: reservation.reservationId,
-      correlationId: context.correlationId || `sale_${crypto.randomUUID()}`,
-      flowState: FLOW_STATE.STARTED, createdAt: now, updatedAt: now, timestamps: { STARTED: now }, lastEventId: null,
-    };
-    transition(flow, FLOW_STATE.WAITING_FOR_PAYMENT, now);
-    this.repository.saveFlow(flow); this.repository.rememberCreate(context.idempotencyKey, flow);
-    await this.emit('SALE_FLOW_STARTED', flow, {});
-    return flow;
+    const now = this.clock(); const flowId = `sale_flow_${crypto.randomUUID()}`;
+    const flow = await this.repository.transaction(async (tx) => { const value = await tx.create({ flowId, orderId: created.orderId, customerId: request.customerId, machineId: request.machineId, organizationId: org.organizationId, locationId: org.locationId || org.pointId, correlationId: context.correlationId || `sale_${crypto.randomUUID()}`, currentState: FLOW_STATE.CREATED, inventoryReservationReference: reservation.reservationId, startedAt: now, updatedAt: now, recoveryStatus: 'NONE', metadata: sanitize({ mode: 'SIMULATOR', channel: request.channel || null }) }); await tx.saveIdempotencyKey(marker(value.flowId, key, 'CREATE_REQUEST', context.source || 'SALE_FLOW', hash(request))); await tx.completeIdempotencyKey(key, value.flowId); return tx.compareAndSetState(value.flowId, 0, FLOW_STATE.AWAITING_PAYMENT, { recoveryStatus: 'SAFE_TO_RESUME', updatedAt: now }); });
+    await this.emit('SALE_FLOW_STARTED', flow, {}); await this.refreshMetrics(); return flow;
   }
-
   async pay(orderId, request = {}, context = {}) {
-    const flow = this.required(orderId); const key = context.idempotencyKey || request.callbackId;
-    if (!key) throw invalid('Для callback оплаты требуется idempotency key.');
-    const remembered = this.repository.findPayment(key); if (remembered) return { ...remembered, duplicate: true };
-    if (flow.flowState !== FLOW_STATE.WAITING_FOR_PAYMENT) throw conflict('PAYMENT_NOT_ALLOWED', 'Процесс не ожидает оплату.');
-    const paymentDetails = await this.orderDomain.getPaymentDetails(orderId);
-    const payment = await this.paymentAdapter.pay({ orderId, ...paymentDetails, ...request });
-    if (payment.paymentId) {
-      const fact = this.repository.rememberProviderTransaction(payment.provider, payment.paymentId, orderId);
-      if (fact.duplicate && fact.orderId !== orderId) throw conflict('PAYMENT_TRANSACTION_CONFLICT', 'Платёжная транзакция уже связана с другим заказом.');
-    }
-    if (payment.status === 'PAID') {
-      await this.orderDomain.confirmPayment(orderId, { ...context, paymentId: payment.paymentId });
-      flow.paymentId = payment.paymentId; transition(flow, FLOW_STATE.PAYMENT_CONFIRMED, this.clock());
-      await this.emit('PAYMENT_CONFIRMED', flow, { paymentId: payment.paymentId });
-    } else {
-      await this.orderDomain.rejectPayment(orderId, { ...context, paymentStatus: payment.status });
-      await this.once(`release:${orderId}`, () => this.inventory.release(flow.reservationId, { idempotencyKey: `release:${orderId}` }));
-      transition(flow, FLOW_STATE.STOPPED, this.clock()); await this.emit('PAYMENT_FAILED', flow, { paymentStatus: payment.status });
-    }
-    const result = { flow, payment, duplicate: false }; this.repository.rememberPayment(key, result); return result;
+    let flow = await this.required(orderId); const rawKey = context.idempotencyKey || request.callbackId; if (!rawKey) throw invalid('Для callback оплаты требуется idempotency key.');
+    const key = `payment:${rawKey}`; const replay = await this.reserve(flow, key, 'PAYMENT_CALLBACK', context.source || 'SIMULATOR', request.callbackId, request);
+    if (replay) return { flow: await this.required(orderId), duplicate: true, status: replay.status, resultReference: replay.resultReference };
+    if (flow.currentState !== FLOW_STATE.AWAITING_PAYMENT) return this.finishDuplicate(key, flow);
+    const payment = await this.paymentAdapter.pay({ orderId, ...(await this.orderDomain.getPaymentDetails(orderId)), ...request });
+    if (payment.status === 'PAID') { await this.orderDomain.confirmPayment(orderId, { ...context, paymentId: payment.paymentId }); flow = await this.move(flow, FLOW_STATE.PAID, { paymentReference: payment.paymentId, recoveryStatus: 'SAFE_TO_RESUME' }); await this.emit('PAYMENT_CONFIRMED', flow, { paymentId: payment.paymentId }); }
+    else { await this.orderDomain.rejectPayment(orderId, { ...context, paymentStatus: payment.status }); await this.once(flow, `release:${orderId}`, 'INVENTORY_CONSUMPTION_REQUEST', () => this.inventory.release(flow.inventoryReservationReference, { idempotencyKey: `release:${orderId}` })); flow = await this.move(flow, FLOW_STATE.PAYMENT_FAILED, { recoveryStatus: 'NONE', lastErrorCode: payment.status, lastErrorAt: this.clock(), retentionUntil: this.retentionPolicy.forTerminal(this.clock()) }); await this.emit('PAYMENT_FAILED', flow, { paymentStatus: payment.status }); }
+    await this.repository.completeIdempotencyKey(key, payment.paymentId || flow.flowId); await this.refreshMetrics(); return { flow, payment, duplicate: false };
   }
-
-  async authorize(orderId) {
-    const flow = this.required(orderId);
-    if (flow.flowState !== FLOW_STATE.PAYMENT_CONFIRMED) throw conflict('FULFILLMENT_NOT_PAID', 'Разрешение возможно только после подтверждения оплаты.');
-    const now = this.clock(); const token = { tokenId: `fulfillment_${crypto.randomUUID()}`, orderId, machineId: flow.machineId, issuedAt: now, expiresAt: new Date(now.getTime() + this.tokenTtlMs), usedAt: null };
-    this.repository.saveToken(token); transition(flow, FLOW_STATE.FULFILLMENT_AUTHORIZED, now);
-    await this.emit('FULFILLMENT_AUTHORIZED', flow, { tokenId: token.tokenId, expiresAt: token.expiresAt }); return token;
-  }
-
-  async dispense(tokenId, request = {}) {
-    const token = this.repository.findToken(tokenId);
-    if (!token || token.usedAt || token.expiresAt <= this.clock()) throw conflict('FULFILLMENT_TOKEN_INVALID', 'Разрешение недействительно или уже использовано.');
-    if (request.machineId && request.machineId !== token.machineId) throw conflict('FULFILLMENT_MACHINE_MISMATCH', 'Разрешение выдано другому аппарату.');
-    const flow = this.required(token.orderId); token.usedAt = this.clock(); transition(flow, FLOW_STATE.DISPENSING, token.usedAt);
-    await this.emit('DISPENSE_STARTED', flow, { tokenId });
-    const fulfillmentDetails = await this.orderDomain.getFulfillmentDetails(flow.orderId);
-    const result = await this.machineAdapter.dispense({ orderId: flow.orderId, machineId: flow.machineId, ...fulfillmentDetails, ...request });
-    return this.handleMachineResult(flow.orderId, result, { idempotencyKey: result.commandId });
-  }
-
-  async handleMachineResult(orderId, result, context = {}) {
-    const flow = this.required(orderId); const key = `machine:${context.idempotencyKey || result.eventId || `${orderId}:${result.status}`}`;
-    if (this.repository.effects.has(key)) return flow;
-    if (['ACCEPTED', 'DISPENSING'].includes(result.status)) { this.repository.effects.set(key, true); return flow; }
-    if (flow.flowState !== FLOW_STATE.DISPENSING) throw conflict('MACHINE_RESULT_NOT_ALLOWED', 'Результат аппарата не соответствует состоянию процесса.');
-    if (result.status !== 'DISPENSED') {
-      await this.orderDomain.requireRefund(orderId, { paymentId: flow.paymentId, reason: result.status });
-      transition(flow, FLOW_STATE.REFUND_REQUIRED, this.clock());
-      await this.once(`release:${orderId}`, () => this.inventory.release(flow.reservationId, { idempotencyKey: `release:${orderId}` }));
-      await this.emit('DISPENSE_FAILED', flow, { machineStatus: result.status }); await this.emit('REFUND_REQUIRED', flow, { paymentId: flow.paymentId });
-      this.repository.effects.set(key, true); return flow;
-    }
-    await this.complete(flow, result); this.repository.effects.set(key, true); return flow;
-  }
-
-  async complete(flow, result) {
-    await this.emit('DISPENSE_SUCCEEDED', flow, { commandId: result.commandId });
-    await this.once(`inventory:${flow.orderId}`, () => this.inventory.consume(flow.reservationId, { idempotencyKey: `consume:${flow.orderId}` }));
-    await this.emit('INVENTORY_CONSUMED', flow, {});
-    await this.once(`order:${flow.orderId}`, () => this.orderDomain.complete(flow.orderId, { commandId: result.commandId }));
-    transition(flow, FLOW_STATE.COMPLETED, this.clock());
-    await this.once(`customer360:${flow.orderId}`, () => this.customer360?.recordPurchase?.({ orderId: flow.orderId }));
-    await this.once(`crm:${flow.orderId}`, () => this.crm?.recordSale?.({ orderId: flow.orderId }));
-    await this.emit('SALE_COMPLETED', flow, {});
-    await this.once(`loyalty:${flow.orderId}`, () => this.loyalty?.registerPurchase?.({ orderId: flow.orderId }));
-    await this.emit('LOYALTY_UPDATED', flow, {});
-  }
-
-  async once(key, effect) { if (this.repository.effects.has(key)) return this.repository.effects.get(key); const pending = Promise.resolve().then(effect); this.repository.effects.set(key, pending); try { const value = await pending; this.repository.effects.set(key, value ?? true); return value; } catch (error) { this.repository.effects.delete(key); throw error; } }
-  required(id) { const flow = this.repository.findFlow(id); if (!flow) throw Object.assign(new Error('Процесс продажи не найден.'), { code: 'SALE_FLOW_NOT_FOUND', statusCode: 404 }); return flow; }
-  async emit(eventType, flow, payload) { const event = { eventId: `event_${crypto.randomUUID()}`, eventType, eventVersion: 1, occurredAt: this.clock(), aggregateType: 'SALE_FLOW', aggregateId: flow.flowId, actorType: 'SYSTEM', actorId: 'sale-flow-v1', sourceChannel: 'SALE_FLOW', correlationId: flow.correlationId, causationId: flow.lastEventId || null, payload: { orderId: flow.orderId, customerId: flow.customerId, machineId: flow.machineId, organizationId: flow.organizationId, locationId: flow.locationId, ...payload }, metadata: { mode: 'FOUNDATION_ONLY' } }; const published = await this.eventPublisher?.publish(event); flow.lastEventId = event.eventId; return published || event; }
+  async authorize(orderId) { let flow = await this.required(orderId); if (flow.currentState !== FLOW_STATE.PAID) throw conflict('FULFILLMENT_NOT_PAID', 'Разрешение возможно только после подтверждения оплаты.'); const now = this.clock(); const tokenId = `fulfillment_${crypto.randomUUID()}`; flow = await this.move(flow, FLOW_STATE.FULFILLMENT_AUTHORIZED, { fulfillmentAuthorizationReference: tokenId, expiresAt: new Date(now.getTime() + this.tokenTtlMs), recoveryStatus: 'SAFE_TO_RESUME' }); await this.emit('FULFILLMENT_AUTHORIZED', flow, { tokenId, expiresAt: flow.expiresAt }); return { tokenId, orderId, machineId: flow.machineId, issuedAt: now, expiresAt: flow.expiresAt }; }
+  async dispense(tokenId, request = {}) { let flow = await this.repository.getById(request.flowId || ''); if (!flow && request.orderId) flow = await this.repository.getByOrderId(request.orderId); if (!flow) flow = (await this.repository.list()).find((v) => v.fulfillmentAuthorizationReference === tokenId); if (!flow || flow.fulfillmentAuthorizationReference !== tokenId || flow.expiresAt <= this.clock()) throw conflict('FULFILLMENT_TOKEN_INVALID', 'Разрешение недействительно или уже использовано.'); if (request.machineId && request.machineId !== flow.machineId) throw conflict('FULFILLMENT_MACHINE_MISMATCH', 'Разрешение выдано другому аппарату.'); flow = await this.move(flow, FLOW_STATE.DISPENSING, { recoveryStatus: 'NEEDS_RECONCILIATION' }); await this.emit('DISPENSE_STARTED', flow, { tokenId }); const result = await this.machineAdapter.dispense({ orderId: flow.orderId, machineId: flow.machineId, ...(await this.orderDomain.getFulfillmentDetails(flow.orderId)), ...request }); return this.handleMachineResult(flow.orderId, result, { idempotencyKey: result.commandId, source: 'SIMULATOR' }); }
+  async handleMachineResult(orderId, result, context = {}) { let flow = await this.required(orderId); const key = `machine:${context.idempotencyKey || result.eventId || `${orderId}:${result.status}`}`; const replay = await this.reserve(flow, key, 'MACHINE_CALLBACK', context.source || 'SIMULATOR', result.eventId || result.commandId, result); if (replay) return flow; if (['ACCEPTED', 'DISPENSING'].includes(result.status)) { await this.repository.completeIdempotencyKey(key, flow.flowId); return flow; } if (flow.currentState !== FLOW_STATE.DISPENSING) return this.finishDuplicate(key, flow); if (result.status !== 'DISPENSED') { await this.once(flow, `refund:${orderId}`, 'REFUND_REQUIREMENT', () => this.orderDomain.requireRefund(orderId, { paymentId: flow.paymentReference, reason: result.status })); flow = await this.move(flow, FLOW_STATE.REFUND_REQUIRED, { refundRequirementReference: `refund_required:${orderId}`, recoveryStatus: 'NEEDS_RECONCILIATION', lastErrorCode: result.status, lastErrorAt: this.clock() }); await this.once(flow, `release:${orderId}`, 'INVENTORY_CONSUMPTION_REQUEST', () => this.inventory.release(flow.inventoryReservationReference, { idempotencyKey: `release:${orderId}` })); await this.emit('REFUND_REQUIRED', flow, { paymentId: flow.paymentReference }); } else flow = await this.complete(flow, result); await this.repository.completeIdempotencyKey(key, flow.completionOperationId || flow.refundRequirementReference); await this.refreshMetrics(); return flow; }
+  async complete(flow, result) { if (flow.currentState === FLOW_STATE.COMPLETED) return flow; await this.once(flow, `inventory:${flow.orderId}`, 'INVENTORY_CONSUMPTION_REQUEST', () => this.inventory.consume(flow.inventoryReservationReference, { idempotencyKey: `consume:${flow.orderId}` })); await this.once(flow, `order:${flow.orderId}`, 'SALE_COMPLETION', () => this.orderDomain.complete(flow.orderId, { commandId: result.commandId })); flow = await this.move(flow, FLOW_STATE.COMPLETED, { completionOperationId: `completion:${flow.orderId}`, completedAt: this.clock(), recoveryStatus: 'NONE', retentionUntil: this.retentionPolicy.forTerminal(this.clock()) }); await this.once(flow, `customer360:${flow.orderId}`, 'SALE_COMPLETION', () => this.customer360?.recordPurchase?.({ orderId: flow.orderId })); await this.once(flow, `crm:${flow.orderId}`, 'SALE_COMPLETION', () => this.crm?.recordSale?.({ orderId: flow.orderId })); await this.once(flow, `loyalty:${flow.orderId}`, 'LOYALTY_APPLICATION_REQUEST', () => this.loyalty?.registerPurchase?.({ orderId: flow.orderId })); await this.emit('SALE_COMPLETED', flow, {}); return flow; }
+  async move(flow, next, patch = {}) { assertTransition(flow.currentState, next); try { const updated = await this.repository.compareAndSetState(flow.flowId, flow.version, next, { ...patch, updatedAt: this.clock() }); this.metrics?.increment('sale_flow_state_transition_total', 1, { from: flow.currentState, to: next }); return updated; } catch (error) { if (error.code === 'SALE_FLOW_VERSION_CONFLICT') this.metrics?.increment('sale_flow_transition_conflict_total'); throw error; } }
+  async reserve(flow, key, operationType, source, externalEventId, request) { const prior = await this.repository.getIdempotencyKey(key); if (prior) { this.metrics?.increment('sale_flow_duplicate_request_total', 1, { operation_type: operationType }); return prior; } try { await this.repository.saveIdempotencyKey(marker(flow.flowId, key, operationType, source, hash(request), externalEventId)); return null; } catch (error) { if (error.code === 'SALE_FLOW_DUPLICATE' || error.code === 'P2002') return this.repository.getIdempotencyKey(key); throw error; } }
+  async once(flow, key, type, effect) { const replay = await this.reserve(flow, key, type, 'SALE_FLOW', null, { flowId: flow.flowId, type }); if (replay) return replay.resultReference; const value = await effect(); await this.repository.completeIdempotencyKey(key, reference(value) || flow.flowId); return value; }
+  async finishDuplicate(key, flow) { await this.repository.completeIdempotencyKey(key, flow.flowId); return { flow, duplicate: true }; }
+  async required(id) { const flow = await this.repository.getByOrderId(id) || await this.repository.getById(id); if (!flow) throw Object.assign(new Error('Процесс продажи не найден.'), { code: 'SALE_FLOW_NOT_FOUND', statusCode: 404 }); flow.flowState = flow.currentState; return flow; }
+  async recover() { const flows = await this.repository.listRecoverable(); const results = []; for (const flow of flows) { const status = ['DISPENSING', 'FULFILLMENT_FAILED', 'REFUND_REQUIRED'].includes(flow.currentState) ? 'NEEDS_RECONCILIATION' : 'SAFE_TO_RESUME'; const updated = flow.recoveryStatus === status ? flow : await this.repository.compareAndSetState(flow.flowId, flow.version, flow.currentState, { recoveryStatus: status }); results.push(updated); } await this.refreshMetrics(); return results; }
+  async health() { const value = await this.repository.health(); if (value.status !== 'HEALTHY') this.metrics?.increment('sale_flow_repository_error_total'); return value; }
+  async refreshMetrics() { if (!this.metrics) return; const flows = await this.repository.list(); this.metrics.gauge('sale_flow_active', flows.filter((v) => !TERMINAL_STATES.includes(v.currentState)).length); this.metrics.gauge('sale_flow_recoverable', flows.filter((v) => ['SAFE_TO_RESUME', 'NEEDS_RECONCILIATION'].includes(v.recoveryStatus)).length); this.metrics.gauge('sale_flow_reconciliation_required', flows.filter((v) => v.recoveryStatus === 'NEEDS_RECONCILIATION').length); }
+  async emit(eventType, flow, payload) { const event = { eventId: `event_${crypto.randomUUID()}`, eventType, eventVersion: 1, occurredAt: this.clock(), aggregateType: 'SALE_FLOW', aggregateId: flow.flowId, actorType: 'SYSTEM', actorId: 'sale-flow-v1', sourceChannel: 'SALE_FLOW', correlationId: flow.correlationId, causationId: flow.lastProcessedEventId || null, payload: sanitize({ orderId: flow.orderId, customerId: flow.customerId, machineId: flow.machineId, organizationId: flow.organizationId, locationId: flow.locationId, ...payload }), metadata: { persistence: this.repository.persistenceMode } }; return (await this.eventPublisher?.publish(event)) || event; }
 }
-
+class SaleFlowRetentionPolicy { constructor({ terminalRetentionDays = 365 } = {}) { this.terminalRetentionDays = terminalRetentionDays; } forTerminal(now) { return new Date(now.getTime() + this.terminalRetentionDays * 86400000); } canDelete(flow, now = new Date()) { return ['COMPLETED','PAYMENT_FAILED','CANCELLED','EXPIRED'].includes(flow.currentState) && flow.recoveryStatus !== 'MANUAL_REVIEW_REQUIRED' && flow.retentionUntil && flow.retentionUntil <= now; } }
+function marker(flowId, key, operationType, source, requestHash, externalEventId = null) { return { flowId, key, operationType, source, externalEventId: externalEventId || null, requestHash, status: 'STARTED' }; }
+function hash(value) { return crypto.createHash('sha256').update(JSON.stringify(value || {}, Object.keys(value || {}).sort())).digest('hex'); }
+function reference(value) { return value && (value.id || value.operationId || value.reference); }
+function sanitize(value) { const forbidden = /secret|token|credential|card|cvv|pan|password|rtsp/i; return Object.fromEntries(Object.entries(value || {}).filter(([key]) => !forbidden.test(key))); }
 function invalid(message) { return Object.assign(new Error(message), { code: 'VALIDATION_FAILED', statusCode: 400 }); }
 function conflict(code, message) { return Object.assign(new Error(message), { code, statusCode: 409 }); }
-module.exports = { SaleFlowService };
+module.exports = { SaleFlowService, SaleFlowRetentionPolicy };

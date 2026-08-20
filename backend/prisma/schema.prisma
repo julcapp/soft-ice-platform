@@ -1719,6 +1719,95 @@ model Payment {
   clubTopup ClubTopup? @relation(fields: [clubTopupId], references: [id])
 }
 
+enum SaleFlowState {
+  CREATED
+  AWAITING_PAYMENT
+  PAID
+  FULFILLMENT_AUTHORIZED
+  DISPENSING
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+  EXPIRED
+  FULFILLMENT_FAILED
+  REFUND_REQUIRED
+}
+
+enum SaleFlowRecoveryStatus {
+  NONE
+  SAFE_TO_RESUME
+  NEEDS_RECONCILIATION
+  RECOVERING
+  RECOVERED
+  MANUAL_REVIEW_REQUIRED
+}
+
+enum SaleFlowIdempotencyStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+model SaleFlow {
+  id                                String                 @id @default(uuid())
+  flowId                            String                 @unique
+  orderId                           String                 @unique
+  customerId                        String
+  machineId                         String
+  organizationId                    String
+  locationId                        String
+  correlationId                     String                 @unique
+  currentState                      SaleFlowState           @default(CREATED)
+  paymentReference                  String?
+  fulfillmentAuthorizationReference String?
+  inventoryReservationReference     String?
+  loyaltyOperationReference         String?
+  refundRequirementReference        String?
+  completionOperationId             String?                @unique
+  startedAt                         DateTime                @default(now())
+  updatedAt                         DateTime                @updatedAt
+  completedAt                       DateTime?
+  expiresAt                         DateTime?
+  retentionUntil                    DateTime?
+  version                           Int                     @default(0)
+  lastProcessedEventId              String?
+  lastErrorCode                     String?
+  lastErrorAt                       DateTime?
+  recoveryStatus                    SaleFlowRecoveryStatus @default(NONE)
+  metadata                          Json?
+  idempotencyKeys                   SaleFlowIdempotencyKey[]
+
+  @@index([orderId])
+  @@index([correlationId])
+  @@index([currentState])
+  @@index([recoveryStatus])
+  @@index([machineId])
+  @@index([customerId])
+  @@index([organizationId])
+  @@index([updatedAt])
+}
+
+model SaleFlowIdempotencyKey {
+  id              String                       @id @default(uuid())
+  flowId          String
+  key             String                       @unique
+  operationType   String
+  source          String
+  externalEventId String?
+  requestHash     String
+  status          SaleFlowIdempotencyStatus    @default(STARTED)
+  resultReference String?
+  createdAt       DateTime                     @default(now())
+  completedAt     DateTime?
+  expiresAt       DateTime?
+  flow            SaleFlow                     @relation(fields: [flowId], references: [flowId], onDelete: Restrict)
+
+  @@index([flowId])
+  @@index([externalEventId])
+  @@index([operationType])
+  @@index([expiresAt])
+}
+
 model EventRecord {
   id                      String    @id @default(uuid())
   tenantId                String

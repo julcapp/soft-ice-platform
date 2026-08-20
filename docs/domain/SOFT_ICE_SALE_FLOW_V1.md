@@ -118,3 +118,6 @@ Happy path: `CREATED → AWAITING_PAYMENT → PAID → FULFILLMENT_AUTHORIZED �
 - `FOUNDATION_ONLY`: in-memory sale-flow state, idempotency keys, fulfillment authorization, payment linkage, reservation linkage, completion/refund markers; synchronous event publication; simulator adapters.
 - `BLOCKED_EXTERNAL`: production payment/machine adapters; подпись, source authentication, timestamp/nonce и replay protection callbacks; реальный refund; проверка на физическом аппарате.
 - Production readiness требует PostgreSQL repository, блокировок/уникальных ограничений, durable workflow, transactional outbox, защищённых callbacks, reconciliation и испытаний с утверждёнными провайдерами.
+# Durable persistence (Production Runtime v1, этап 1)
+
+Orchestration state и callback markers сохраняются в PostgreSQL через `PrismaSaleFlowRepository`. Канонические состояния: `CREATED`, `AWAITING_PAYMENT`, `PAID`, `FULFILLMENT_AUTHORIZED`, `DISPENSING`, `COMPLETED`, `PAYMENT_FAILED`, `CANCELLED`, `EXPIRED`, `FULFILLMENT_FAILED`, `REFUND_REQUIRED`. Подробные recovery, concurrency, retention и transaction boundaries описаны в `docs/architecture/DURABLE_SALE_FLOW_RUNTIME_V1.md` и ADR-041. Sale Flow не становится владельцем Order, Payment, Inventory, Machine, Customer, CRM или Loyalty data.

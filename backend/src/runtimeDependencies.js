@@ -37,9 +37,13 @@ const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillance
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
 const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
+const { PrismaSaleFlowRepository, SaleFlowService } = require('./modules/sale_flow');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
+  const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
+  const saleFlowService = new SaleFlowService({ repository: saleFlowRepository, metrics });
+  const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
   const auditRepository = new AuditRepository(prisma);
   const customerRepository = new CustomerRepository(prisma);
   const consentRepository = new ConsentRepository(prisma);
@@ -247,6 +251,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   };
 
   return {
+    saleFlowRepository,
+    saleFlowService,
+    saleFlowRecoveryReady,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

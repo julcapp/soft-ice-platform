@@ -227,3 +227,6 @@ Machine Runtime state/session authority and Platform Event Bus Foundation v1 are
 - PostgreSQL sale-flow repository, durable idempotency, durable workflow и transactional outbox: `FOUNDATION_ONLY`.
 - Production payment/machine callbacks, signature/replay protection, реальные refund и physical dispense verification: `BLOCKED_EXTERNAL`.
 - Production readiness: `NOT READY` до устранения перечисленных foundation/external ограничений.
+# Обновление 2026-08-20 — Durable Sale Flow Runtime v1
+
+Sale Flow persistence: `IMPLEMENTED` (PostgreSQL/Prisma, optimistic concurrency, durable idempotency, recovery classification). Production end-to-end: `FOUNDATION_ONLY` до Transactional Outbox, Inventory locking, reconciliation и реальных Payment/Machine adapters.

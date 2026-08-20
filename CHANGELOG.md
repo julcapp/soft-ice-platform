@@ -465,3 +465,9 @@
 - События sale flow дополнены уникальными `eventId`, `causationId` и единым `correlationId`; исправлена последовательность подтверждения выдачи и складского списания.
 - Расширены русскоязычное Admin-представление и regression suite до 21 сценария.
 - Зафиксированы transaction boundaries, partial-commit risks, `FOUNDATION_ONLY`, `BLOCKED_EXTERNAL` и критерии production readiness.
+# 2026-08-20 — Production Runtime v1 / Durable Sale Flow
+
+- добавлены Prisma-модели и migration для Sale Flow и idempotency markers;
+- добавлены PostgreSQL repository, optimistic locking, recovery, retention, health и metrics contracts;
+- callbacks симуляторов переведены на durable deduplication; Admin API показывает русские persistence/recovery статусы;
+- документированы source-of-truth и transaction boundaries; Transactional Outbox и реальные adapters не реализованы.
