@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-064 — Sale Flow Runtime Uses Durable PostgreSQL Orchestration State
+
+**Date:** 2026-08-20
+
+**Status:** Accepted
+
+Sale Flow сохраняет в PostgreSQL только orchestration state и persistent idempotency markers, использует optimistic concurrency и безопасную recovery-классификацию. Owning-domain данные не копируются; междоменная атомарность ждёт Transactional Outbox. Подробности: `docs/architecture/ADR/ADR-041-durable-sale-flow-runtime-v1.md`.
+
 # Decision: DECISION-063 — Sale Flow Orchestrates Existing Domain Owners
 
 **Date:** 2026-08-17

@@ -142,3 +142,6 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 2. Добавить transactional outbox и возобновляемую обработку partial commits без обязательного внешнего broker.
 3. Подключить утверждённые production adapters Payment/Machine с signature verification, timestamp/nonce, replay protection и source authentication.
 4. Выполнить reconciliation, clean migration-chain verification и испытание на физическом аппарате отдельным согласованным этапом.
+# Обновление 2026-08-20
+
+Завершён этап 1 Production Runtime v1: durable Sale Flow persistence. Следующие отдельные этапы: Transactional Outbox, Inventory locking, reconciliation engine, реальные Payment Runtime и Machine Adapter.

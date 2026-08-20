@@ -388,3 +388,13 @@ Automated coverage includes legal/illegal transitions; purchase, test, and maint
 - Русскоязычное Admin-представление orchestration state и domain-ссылок с маркировкой «Тестовый режим».
 
 Service restart остаётся непроверяемым до durable repository (`FOUNDATION_ONLY`). Production callback security и физический аппарат — `BLOCKED_EXTERNAL`.
+# Durable Sale Flow Runtime v1
+
+- создание/чтение по flow, order и correlation ID;
+- optimistic CAS и конкурентный конфликт;
+- `PAID`, `FULFILLMENT_AUTHORIZED`, `DISPENSING`, `COMPLETED`, `REFUND_REQUIRED` после пересоздания repository/service;
+- duplicate payment callback и duplicate `DISPENSED` после restart;
+- различение `STARTED`/`COMPLETED` idempotency marker;
+- recovery: safe resume против reconciliation;
+- terminal completion, retention policy, health и русское Admin-представление;
+- PostgreSQL integration выполняется только с отдельной временной БД; production database запрещена.
