@@ -1,6 +1,6 @@
 # Bot Core — Telegram + MAX
 
-Status: Foundation + Onboarding
+Status: Foundation + onboarding + referral persistence + welcome bonus
 Branch: `feature/bot-core-foundation`
 
 ## Назначение
@@ -29,7 +29,8 @@ Telegram ─┐
 MAX ──────┘             │              │
                         │              ├── Club Account
                         │              ├── Bonus
-                        │              ├── Referral (planned)
+                        │              ├── Referral
+                        │              ├── Welcome Bonus
                         │              ├── Orders
                         │              └── Good Deeds (planned)
                         └── Event Center
@@ -37,131 +38,57 @@ MAX ──────┘             │              │
 
 ## Identity
 
-Один человек должен иметь один внутренний Customer ID и несколько внешних идентичностей:
-
-- phone;
-- telegram;
-- max;
-- другие поддерживаемые каналы в будущем.
-
-Существующий Customer Core уже является источником истины для внешних identity providers. Bot Core не создаёт собственную базу пользователей.
-
-Telegram Customer может быть разрешён через существующий `resolveOrCreateTelegramCustomer`.
-
-Для MAX действует более строгая граница: неподтверждённый `max user_id` не должен автоматически создавать второй Customer. До подключения MAX identity provider такой вход остаётся pending и после подтверждения должен либо привязаться к существующему Customer, либо безопасно создать нового без дублирования профиля.
+Один человек должен иметь один внутренний Customer ID и несколько внешних идентичностей: phone, telegram, max и другие каналы в будущем. Bot Core не создаёт собственную базу пользователей.
 
 ## Deep-link context
 
-Bot Core нормализует `start`/`startapp` контекст в единую модель независимо от канала.
+Поддерживаются `ref_<code>`, `m_<machineId>`, `campaign_<campaignId>`, `partner_<partnerId>` и direct/website/vk/telegram/max. Deep-link фиксирует attribution context, но не является доказательством реферального целевого действия.
 
-Поддерживаемые сценарии foundation:
+## Referral Core
 
-- `ref_<code>` — реферальное приглашение;
-- `m_<machineId>` — QR конкретного аппарата;
-- `campaign_<campaignId>` — маркетинговая кампания;
-- `partner_<partnerId>` — партнёрский источник;
-- direct/website/vk/telegram/max — источник без дополнительного идентификатора.
-
-Deep-link payload не является доказательством реферального целевого действия. Он только фиксирует attribution context.
-
-## Первый вход и onboarding
-
-Текущий flow:
+Реферальная связь закрепляется после разрешения реального Customer. Состояния:
 
 ```text
-/start
-  ↓
-TelegramAdapter / MaxAdapter
-  ↓
-нормализация входящего события
-  ↓
-DeepLinkParser
-  ↓
-BOT_START_RECEIVED
-  ↓
-BotOnboardingService
-  ↓
-контекстное приветствие
-  ↓
-Customer identity resolution
-  ↓
-phone verified?
-  ├── нет → PHONE_VERIFICATION_REQUIRED
-  └── да  → предложение каналов + персональное меню
+invited → registered → qualified → rewarded
 ```
 
-Приветствие зависит от контекста:
+Квалифицирующие действия:
 
-- direct — общее приветствие «У Тимоши»;
-- referral — сообщение о приглашении в Клуб Тимоши;
-- machine QR — приветствие у конкретного аппарата;
-- campaign — сообщение о специальном приглашении.
+- первая оплаченная покупка;
+- квалифицирующее пополнение клубного счёта.
 
-После успешной верификации подписка на Telegram/MAX предлагается добровольно. Бот не пытается принудительно подписывать пользователя. В onboarding предусмотрено действие «Напомнить позже».
+Self-referral запрещён. Повторная квалификация не создаёт повторное право на reward. Отдельная `ReferralQualification` хранит qualifying action и source event, а существующая `Referral` остаётся основной сущностью связи.
 
-Если вход пришёл от конкретного аппарата, кнопка открытия Mini App получает `machine_id` и ведёт в контекст этого аппарата.
+Раздел «Пригласить друга» показывает: приглашено, зарегистрировано, первая покупка, квалифицирующее пополнение, ожидают выполнения условия, rewarded; доступны Telegram, MAX, копирование ссылки и QR.
 
-## Персональное меню после верификации
+## Reward Engine
 
-- `📱 Открыть У Тимоши`;
-- `🎁 Мой клуб`;
-- `👥 Пригласить друга`;
-- `📦 Мой заказ`;
-- `📍 Где купить`;
-- `💬 Помощь`.
+Referral Reward Engine не хранит деньги и не меняет Club Account напрямую. Он оркестрирует начисления через отдельный Bonus Ledger contract с idempotency key на пару `referral + получатель`. Это исключает двойное начисление при повторной доставке события.
 
-Каталог, корзина и конфигуратор продукта остаются в Mini App и не дублируются внутри Bot Core.
+## Welcome Bonus
 
-## Следующие инкременты
+`welcome_bonus` — отдельный промо-баланс и не является:
 
-### Bot Core 1.1 — Identity + onboarding
+- денежным остатком Club Account;
+- обычным BonusAccount.
 
-Foundation реализован:
+Grant хранит `amountGranted`, `amountRemaining`, `issuedAt`, `expiresAt`, status и qualifying event. Базовый срок — 30 дней.
 
-- Telegram identity resolution через Customer Core;
-- контекстные приветствия;
-- состояние необходимости phone verification;
-- добровольное предложение Telegram/MAX каналов после верификации;
-- персональное меню;
-- machine-aware Mini App route;
-- onboarding events.
+Qualifying events, сохраняющие бонус от автоматического сгорания:
 
-Остаётся до production:
+- `referral_qualified` — пользователь привёл квалифицированного реферала;
+- `repeat_club_topup` — пользователь повторно квалифицирующе пополнил клубный счёт.
 
-- MAX verified identity provider;
-- runtime/webhook wiring;
-- реальная проверка подписки, где это разрешает API;
-- журналирование выбора каналов и соответствующих согласий.
+Если qualifying event не наступил до `expiresAt`, grant получает `EXPIRED`, `amountRemaining = 0`, и событие `WELCOME_BONUS_EXPIRED` уходит в Event Center. Денежный баланс и обычные бонусы при этом не затрагиваются.
 
-### Bot Core 1.2 — Referral Core
+## MAX
 
-- персональный referral code;
-- «Пригласить друга»;
-- первая покупка или квалифицирующее пополнение клубного счёта как target action;
-- защита от self-referral и повторного reward;
-- аналитика referral funnel.
+MAX identity разрешается только после подтверждённой верификации. По одному неподтверждённому MAX user_id второй Customer не создаётся.
 
-### Bot Core 1.3 — Welcome Bonus
+## Good Deeds / «Счётчик добра» — следующий крупный контур
 
-- отдельный promo balance;
-- срок действия 30 дней;
-- qualifying events: реферал либо повторное квалифицирующее пополнение;
-- автоматическое истечение по правилам программы.
-
-### Bot Core 1.4 — Good Deeds / «Счётчик добра»
-
-- добровольный вклад;
-- личный вклад благотворителя;
-- «Стать благотворителем»;
-- «Стать партнёром добрых дел»;
-- детские Gift Token;
-- групповая выдача через уполномоченного представителя;
-- VEND SUCCESS как единственный триггер увеличения «Счётчика добра»;
-- фотоотчёт, модерация и публикационные права;
-- «Резерв Тимоши»;
-- отдельный PARTNER_REWARD ответственному представителю после принятия отчёта;
-- полный складской и финансовый учёт подарочных порций через Recipe/Inventory.
+Планируются: добровольный вклад, личный вклад благотворителя, «Стать благотворителем», «Стать партнёром добрых дел», детские Gift Token, групповая выдача, `VEND SUCCESS` как единственный триггер «Счётчика добра», фотоотчёт/модерация, «Резерв Тимоши», PARTNER_REWARD и полный складской/финансовый учёт подарочных порций.
 
 ## Ограничения текущего инкремента
 
-Инкремент не меняет текущий рабочий Telegram bot для ЮKassa и не подключает production webhook. Токены Telegram/MAX и transport-specific HTTP logic добавляются только после интеграции Bot Core с runtime и проверок на тестовом контуре.
+Текущий рабочий Telegram bot для ЮKassa не изменяется. Production webhook/tokens не подключены. Миграция добавляет persistence-таблицы, но `schema.prisma` пока намеренно не расширен моделями `ReferralQualification`/`WelcomeBonusGrant`: репозитории используют фиксированные SQL-запросы. Перед production это следует синхронизировать с Prisma schema и прогнать `prisma validate/migrate` в рабочем окружении.
