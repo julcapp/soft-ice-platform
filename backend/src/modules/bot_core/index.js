@@ -6,6 +6,8 @@ const { TransportRenderer } = require('./TransportRenderer');
 const { TelegramRenderer } = require('./TelegramRenderer');
 const { MaxRenderer } = require('./MaxRenderer');
 const { BotActionRouter } = require('./BotActionRouter');
+const { BotRuntime, extractCallback, isStartUpdate, resolveDestination } = require('./BotRuntime');
+const { BotTransportSender } = require('./BotTransportSender');
 const { parseStartPayload } = require('./DeepLinkParser');
 const { BotOnboardingService } = require('./BotOnboardingService');
 const { BotUserFlowService } = require('./BotUserFlowService');
@@ -36,6 +38,7 @@ module.exports = {
     'referral qualification and reward notifications',
     'transport-specific rendering from shared view models',
     'bot action routing without business logic duplication',
+    'runtime webhook dispatch and transport sending',
   ],
   BotGateway,
   BotAdapter,
@@ -45,6 +48,11 @@ module.exports = {
   TelegramRenderer,
   MaxRenderer,
   BotActionRouter,
+  BotRuntime,
+  BotTransportSender,
+  extractCallback,
+  isStartUpdate,
+  resolveDestination,
   BotOnboardingService,
   BotUserFlowService,
   ONBOARDING_STAGE,
