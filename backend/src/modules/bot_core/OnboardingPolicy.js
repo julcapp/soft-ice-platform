@@ -24,7 +24,7 @@ function buildWelcomeMessage(context = {}) {
     };
   }
 
-  if (context.campaignCode) {
+  if (context.campaignId) {
     return {
       kind: 'campaign',
       title: 'Добро пожаловать в «У Тимоши»!',
