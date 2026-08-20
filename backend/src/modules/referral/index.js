@@ -1,6 +1,7 @@
 const { ReferralService, createReferralCode } = require('./ReferralService');
 const { ReferralRepository } = require('./ReferralRepository');
 const { ReferralRewardEngine } = require('./ReferralRewardEngine');
+const { ReferralEventOrchestrator } = require('./ReferralEventOrchestrator');
 const { REFERRAL_STATUS, QUALIFYING_ACTION, assertReferralParticipants, isQualifyingAction } = require('./ReferralPolicy');
 const { buildReferralSection } = require('./ReferralView');
 
@@ -13,11 +14,13 @@ module.exports = {
     'referral qualification persistence and state machine',
     'self-referral protection',
     'referral reward orchestration',
+    'purchase and club-topup qualification orchestration',
     'referral funnel view model',
   ],
   ReferralService,
   ReferralRepository,
   ReferralRewardEngine,
+  ReferralEventOrchestrator,
   createReferralCode,
   REFERRAL_STATUS,
   QUALIFYING_ACTION,
