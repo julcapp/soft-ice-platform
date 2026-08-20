@@ -42,10 +42,22 @@ class ReferralService {
       return { ...referral, qualified: true, duplicate: true };
     }
 
+    if (this.repository?.recordQualification && referral.id) {
+      const persisted = await this.repository.recordQualification({
+        referralId: referral.id,
+        action,
+        sourceEventId: eventId,
+        occurredAt: new Date(occurredAt),
+      });
+      if (persisted && persisted.action !== action) {
+        return { ...referral, qualified: true, duplicate: true, qualifyingAction: persisted.action };
+      }
+    }
+
     const update = { status: REFERRAL_STATUS.QUALIFIED, qualifyingAction: action, qualifyingEventId: eventId, qualifiedAt: occurredAt };
     const saved = this.repository?.update ? await this.repository.update(referral.id, update) : { ...referral, ...update };
-    await this.publish('REFERRAL_QUALIFIED', saved);
-    return { ...saved, qualified: true };
+    await this.publish('REFERRAL_QUALIFIED', { ...saved, qualifyingAction: action, qualifyingEventId: eventId, qualifiedAt: occurredAt });
+    return { ...saved, qualifyingAction: action, qualifyingEventId: eventId, qualifiedAt: occurredAt, qualified: true };
   }
 
   async markRewarded(referral, reward = {}) {
