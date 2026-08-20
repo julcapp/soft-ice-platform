@@ -41,10 +41,16 @@ class WelcomeBonusService {
     const grant = await this.repository.findActiveByCustomerId(customerId);
     if (!grant || grant.status !== WELCOME_BONUS_STATUS.ACTIVE) return grant;
 
+    const now = this.clock();
+    if (new Date(grant.expiresAt).getTime() <= now.getTime()) {
+      await this.repository.expireDue(now);
+      return null;
+    }
+
     const qualified = await this.repository.qualify(grant.id, {
       action,
       eventId,
-      qualifiedAt: this.clock(),
+      qualifiedAt: now,
     });
     await this.publish('WELCOME_BONUS_QUALIFIED', qualified);
     return qualified;
