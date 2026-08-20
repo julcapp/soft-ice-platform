@@ -20,6 +20,7 @@ const videoSurveillance = require('./video_surveillance');
 const eventCenter = require('./event_center');
 const organization = require('./organization');
 const botCore = require('./bot_core');
+const referral = require('./referral');
 
 const moduleManifests = [
   customer,
@@ -44,6 +45,7 @@ const moduleManifests = [
   eventCenter,
   organization,
   botCore,
+  referral,
 ];
 
 module.exports = {
