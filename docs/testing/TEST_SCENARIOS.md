@@ -398,3 +398,18 @@ Service restart остаётся непроверяемым до durable reposit
 - recovery: safe resume против reconciliation;
 - terminal completion, retention policy, health и русское Admin-представление;
 - PostgreSQL integration выполняется только с отдельной временной БД; production database запрещена.
+# Transactional Outbox v1
+
+- Sale Flow state и outbox event commit атомарно; ошибка любой стороны откатывает транзакцию.
+- `eventId` и `idempotencyKey` уникальны, включая конкурентное создание.
+- Два PostgreSQL worker claim не получают одно событие; `PUBLISHED` не выбирается повторно.
+- Retry имеет deterministic backoff, max attempts переводит в `DEAD_LETTER`, просроченный lease восстанавливается.
+- Tenant не читает события другой организации; platform scope явный.
+- Admin retry разрешён только роли администратора и создаёт audit trail; payload не редактируется.
+- Известные secret fields в payload отклоняются.
+# Transactional Outbox v1 revision defects — 2026-08-20
+
+- Рекурсивная payload validation отклоняет точные sensitive keys в корне, nested objects, arrays и objects внутри arrays без раскрытия значения в ошибке.
+- Case-insensitive validation отклоняет camelCase, uppercase и snake_case варианты sensitive keys.
+- Безопасные бизнес-поля `productTokenCount`, `tokenizedLabel`, `secretaryName`, `authorizationStatus` не блокируются substring matching.
+- Crash window после успешного publisher и до `markPublished()` оставляет событие `PROCESSING`; после истечения lease оно публикуется повторно с тем же `eventId`, подтверждая at-least-once semantics.

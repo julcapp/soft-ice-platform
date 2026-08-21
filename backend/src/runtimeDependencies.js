@@ -38,6 +38,7 @@ const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventInge
 const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 const { PrismaSaleFlowRepository, SaleFlowService } = require('./modules/sale_flow');
+const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -45,6 +46,8 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const saleFlowService = new SaleFlowService({ repository: saleFlowRepository, metrics });
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
   const auditRepository = new AuditRepository(prisma);
+  const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
+  const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const customerRepository = new CustomerRepository(prisma);
   const consentRepository = new ConsentRepository(prisma);
   const segmentationRepository = new SegmentationRepository(prisma);
@@ -254,6 +257,8 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     saleFlowRepository,
     saleFlowService,
     saleFlowRecoveryReady,
+    transactionalOutboxRepository,
+    outboxAdminService,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

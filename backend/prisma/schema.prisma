@@ -1748,6 +1748,14 @@ enum SaleFlowIdempotencyStatus {
   FAILED
 }
 
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  RETRY
+  DEAD_LETTER
+}
+
 model SaleFlow {
   id                                String                 @id @default(uuid())
   flowId                            String                 @unique
@@ -1776,6 +1784,7 @@ model SaleFlow {
   recoveryStatus                    SaleFlowRecoveryStatus @default(NONE)
   metadata                          Json?
   idempotencyKeys                   SaleFlowIdempotencyKey[]
+  outboxEvents                      TransactionalOutboxEvent[]
 
   @@index([orderId])
   @@index([correlationId])
@@ -1785,6 +1794,41 @@ model SaleFlow {
   @@index([customerId])
   @@index([organizationId])
   @@index([updatedAt])
+}
+
+model TransactionalOutboxEvent {
+  id             String            @id @default(uuid())
+  eventId        String            @unique
+  eventType      String
+  eventVersion   Int               @default(1)
+  aggregateType  String
+  aggregateId    String
+  organizationId String
+  machineId      String?
+  saleFlowId     String?
+  payload        Json
+  status         OutboxEventStatus @default(PENDING)
+  attemptCount   Int               @default(0)
+  maxAttempts    Int               @default(5)
+  availableAt    DateTime          @default(now())
+  occurredAt     DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  lockedAt       DateTime?
+  lockedBy       String?
+  publishedAt    DateTime?
+  lastError      String?
+  correlationId  String?
+  causationId    String?
+  idempotencyKey String            @unique
+  saleFlow       SaleFlow?         @relation(fields: [saleFlowId], references: [flowId], onDelete: Restrict)
+
+  @@index([status, availableAt, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([machineId, status, createdAt])
+  @@index([eventType, createdAt])
+  @@index([saleFlowId, createdAt])
+  @@index([lockedAt])
 }
 
 model SaleFlowIdempotencyKey {

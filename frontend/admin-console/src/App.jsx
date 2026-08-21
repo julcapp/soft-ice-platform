@@ -12,6 +12,7 @@ import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
+import { TransactionalOutboxPage } from './TransactionalOutbox';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -76,6 +77,8 @@ export function App({ client = getDashboard }) {
   const eventCenterRoute = route === 'event-center' || route.startsWith('event-center/');
   const giftTransferRoute = route === 'gift-transfers';
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
+  const outboxRoute = route === 'transactional-outbox';
+  if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
   if (eventCenterRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title={route.includes('/') ? 'Событие' : 'Центр событий'} copy="Единая нормализованная история событий платформы." /><EventCenterPage route={route} /></AppShell>;

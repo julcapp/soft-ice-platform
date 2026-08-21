@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-065 — Sale Flow State and Integration Facts Commit Through Transactional Outbox
+
+**Date:** 2026-08-20
+
+**Status:** Accepted
+
+Durable Sale Flow фиксирует поддержанный state transition и outbox envelope в одной PostgreSQL transaction boundary. Конкурентный claim использует `FOR UPDATE SKIP LOCKED`, delivery имеет lease/retry/dead-letter lifecycle, а tenant reads и admin retry ограничены organization scope и RBAC. Подробности: `docs/architecture/ADR/ADR-042-transactional-outbox-v1.md`.
+
 # Decision: DECISION-064 — Sale Flow Runtime Uses Durable PostgreSQL Orchestration State
 
 **Date:** 2026-08-20

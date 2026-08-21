@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { validateEvent } = require('../transactional_outbox/OutboxRepository');
 const RECOVERABLE_STATES = ['AWAITING_PAYMENT', 'PAID', 'FULFILLMENT_AUTHORIZED', 'DISPENSING', 'FULFILLMENT_FAILED', 'REFUND_REQUIRED'];
 class PrismaSaleFlowRepository {
   constructor(prisma) { this.prisma = prisma; this.persistenceMode = 'POSTGRESQL'; }
@@ -13,11 +14,13 @@ class PrismaSaleFlowRepository {
   saveIdempotencyKey(record) { return this.prisma.saleFlowIdempotencyKey.create({ data: record }); }
   getIdempotencyKey(key) { return this.prisma.saleFlowIdempotencyKey.findUnique({ where: { key } }); }
   completeIdempotencyKey(key, resultReference) { return this.prisma.saleFlowIdempotencyKey.update({ where: { key }, data: { status: 'COMPLETED', resultReference: resultReference || null, completedAt: new Date() } }); }
+  createOutboxEvent(event) { validateEvent(event); return this.prisma.transactionalOutboxEvent.create({ data: event }); }
+  transactionWithOutbox(callback) { return this.prisma.$transaction((tx) => callback(new PrismaSaleFlowRepository(tx))); }
   transaction(callback) { return this.prisma.$transaction((tx) => callback(new PrismaSaleFlowRepository(tx))); }
   async health() { try { await this.prisma.$queryRaw`SELECT 1`; await this.prisma.$transaction((tx) => tx.$queryRaw`SELECT 1`); return { status: 'HEALTHY', repository: 'POSTGRESQL', readable: true, writable: true, transactional: true }; } catch { return { status: 'UNAVAILABLE', repository: 'POSTGRESQL', readable: false, writable: false, transactional: false, errorCode: 'SALE_FLOW_REPOSITORY_UNAVAILABLE' }; } }
 }
 class InMemorySaleFlowRepository {
-  constructor(store = null) { this.store = store || { flows: new Map(), keys: new Map() }; this.persistenceMode = 'IN_MEMORY_TEST'; }
+  constructor(store = null) { this.store = store || { flows: new Map(), keys: new Map(), outbox: new Map() }; this.store.outbox ||= new Map(); this.persistenceMode = 'IN_MEMORY_TEST'; }
   async create(data) { if ([...this.store.flows.values()].some((v) => v.orderId === data.orderId || v.flowId === data.flowId || v.correlationId === data.correlationId)) throw unique(); const row = { id: data.id || crypto.randomUUID(), version: data.version || 0, recoveryStatus: data.recoveryStatus || 'NONE', metadata: data.metadata || {}, ...data }; this.store.flows.set(row.flowId, row); return row; }
   async getById(id) { return [...this.store.flows.values()].find((v) => v.id === id || v.flowId === id) || null; }
   async getByOrderId(orderId) { return [...this.store.flows.values()].find((v) => v.orderId === orderId) || null; }
@@ -29,7 +32,9 @@ class InMemorySaleFlowRepository {
   async saveIdempotencyKey(record) { if (this.store.keys.has(record.key)) throw unique(); const row = { id: record.id || crypto.randomUUID(), status: 'STARTED', createdAt: new Date(), ...record }; this.store.keys.set(row.key, row); return row; }
   async getIdempotencyKey(key) { return this.store.keys.get(key) || null; }
   async completeIdempotencyKey(key, resultReference) { const row = this.store.keys.get(key); if (!row) throw notFound(); Object.assign(row, { status: 'COMPLETED', resultReference: resultReference || null, completedAt: new Date() }); return row; }
-  async transaction(callback) { return callback(this); }
+  async createOutboxEvent(event) { validateEvent(event); if ([...this.store.outbox.values()].some((x) => x.eventId === event.eventId || x.idempotencyKey === event.idempotencyKey)) throw unique(); const row={id:crypto.randomUUID(),status:'PENDING',attemptCount:0,createdAt:new Date(),updatedAt:new Date(),...event};this.store.outbox.set(row.eventId,row);return row; }
+  async transaction(callback) { const clone={flows:new Map([...this.store.flows].map(([k,v])=>[k,{...v}])),keys:new Map([...this.store.keys].map(([k,v])=>[k,{...v}])),outbox:new Map([...this.store.outbox].map(([k,v])=>[k,{...v}]))}; const result=await callback(new InMemorySaleFlowRepository(clone)); this.store.flows=clone.flows;this.store.keys=clone.keys;this.store.outbox=clone.outbox;return result; }
+  transactionWithOutbox(callback) { return this.transaction(callback); }
   async health() { return { status: 'HEALTHY', repository: 'IN_MEMORY_TEST', readable: true, writable: true, transactional: true }; }
 }
 function cleanFlow(value) { const copy = { ...value }; delete copy.flowState; delete copy.timestamps; delete copy.createdAt; return copy; }

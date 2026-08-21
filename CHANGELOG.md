@@ -471,3 +471,11 @@
 - добавлены PostgreSQL repository, optimistic locking, recovery, retention, health и metrics contracts;
 - callbacks симуляторов переведены на durable deduplication; Admin API показывает русские persistence/recovery статусы;
 - документированы source-of-truth и transaction boundaries; Transactional Outbox и реальные adapters не реализованы.
+# 2026-08-20 — Transactional Outbox v1
+
+- Исправлена рекурсивная case-insensitive проверка sensitive keys в outbox payload для nested objects/arrays и snake_case без ложной блокировки безопасных бизнес-полей.
+- Зафиксирован и протестирован crash window между успешной публикацией и `markPublished()`: delivery остаётся at-least-once, повтор использует тот же `eventId`, consumers дедуплицируют по `eventId` и применимому `idempotencyKey`.
+
+- Добавлены durable Prisma model/migration, атомарные Sale Flow state+event транзакции, idempotency constraints и совместимый envelope.
+- Добавлены конкурентный worker claim, retry/dead-letter, lease recovery, tenant isolation, secret-field validation и publisher port foundation.
+- Добавлены Admin Console observability, явный audited dead-letter retry, PostgreSQL/unit regression tests и ADR-042.

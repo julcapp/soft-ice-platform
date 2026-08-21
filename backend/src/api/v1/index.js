@@ -26,6 +26,7 @@ const { createEventCenterRouter } = require('./eventCenterRoutes');
 const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./giftTransferRoutes');
 const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
+const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -80,6 +81,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
   if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
+  if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
 
   router.use((req, res, next) => {
     next(

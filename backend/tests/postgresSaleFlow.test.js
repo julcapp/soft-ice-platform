@@ -70,6 +70,7 @@ async function create(f, suffix = `${++sequence}`) {
 
 test.before(async () => {
   if (!hasDatabase) return;
+  await prisma.transactionalOutboxEvent.deleteMany({ where: { saleFlowId: { not: null } } });
   await prisma.saleFlowIdempotencyKey.deleteMany();
   await prisma.saleFlow.deleteMany();
 });
