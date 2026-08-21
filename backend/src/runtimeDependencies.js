@@ -27,7 +27,7 @@ const { AdminDashboardService, DemoAdminDashboardProvider } = require('./modules
 const { MachineTwinProjectionService, MachineTwinRepository, createDemoMachineTwinSources } = require('./modules/machine_digital_twin');
 const { EventBus, EventHandlerRegistry, InMemoryEventStore, InMemoryOutbox, InMemoryDeadLetterStore } = require('./platform/events');
 const { InMemoryMachineRuntimeRepository, MachineRuntimePolicy, MachineRuntimeEventMapper, MachineRuntimeService, MachineRuntimeProjectionAdapter } = require('./modules/machine_runtime');
-const { InventoryRuntime, InventoryService, InventoryEventSubscriber, InMemoryInventoryRepository } = require('./modules/inventory');
+const { InventoryRuntime, InventoryService, InventoryEventSubscriber, InMemoryInventoryRepository, PostgresInventoryReservationService } = require('./modules/inventory');
 const { MaintenanceRuntime, MaintenanceService, InMemoryMaintenanceRepository, MaintenanceProjection } = require('./modules/maintenance');
 const { InMemoryOperatorWorkspaceRepository, OperatorWorkspaceService, OperatorWorkspaceRuntime } = require('./modules/operator_workspace');
 const { CRMRepository, CRMService, CRMRuntime } = require('./modules/crm');
@@ -37,14 +37,13 @@ const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillance
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
 const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
-const { PrismaSaleFlowRepository, SaleFlowService } = require('./modules/sale_flow');
+const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
 const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
   const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
-  const saleFlowService = new SaleFlowService({ repository: saleFlowRepository, metrics });
-  const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
+  const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
   const auditRepository = new AuditRepository(prisma);
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
@@ -74,8 +73,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const eventIngestionService = new EventIngestionService({ repository: eventCenterRepository, normalization: eventNormalizationService, validator: new BasicEventSchemaValidator(), publisher: new InMemoryEventRecordPublisher(), metrics: eventCenterMetrics });
   const eventCenterService = new EventCenterService({ repository: eventCenterRepository, query: new EventQueryService(eventCenterRepository), ingestion: eventIngestionService, retention: new EventRetentionService({ repository: eventCenterRepository, auditRepository }), registry: eventTypeRegistry, auditRepository });
   const eventCenterRuntime = new EventCenterRuntime({ service: eventCenterService });
+  const organizationRepository = new OrganizationRepository(prisma);
   const organizationRuntime = new OrganizationRuntime({
-    service: new OrganizationService({ repository: new OrganizationRepository(prisma), eventPublisher: platformEventBus, auditRepository }),
+    service: new OrganizationService({ repository: organizationRepository, eventPublisher: platformEventBus, auditRepository }),
     eventCenterRuntime,
   });
   platformEventRegistry.register('*', new ExistingEventBusSubscriber(eventIngestionService).subscriber());
@@ -92,9 +92,11 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
       inventoryRepository.appendMovement({ itemId, locationId, movementType: 'RECEIPT', quantity: 10000, delta: 10000, unit: 'base', reason: 'Демонстрационный начальный остаток', sourceType: 'DEMO_SEED', sourceId: machineId, actorType: 'SYSTEM', actorId: 'runtime-bootstrap', correlationId: 'runtime-bootstrap', idempotencyKey: `seed:${machineId}:${itemId}`, occurredAt: new Date(), metadata: { demo: true } });
     }
   }
-  const inventoryRuntime = new InventoryRuntime({ service: new InventoryService({
+  const inMemoryInventoryRuntime = new InventoryRuntime({ service: new InventoryService({
     repository: inventoryRepository, auditRepository, eventPublisher: platformEventBus,
   }) });
+  inMemoryInventoryRuntime.persistenceMode = 'IN_MEMORY_TEST';
+  const inventoryRuntime = config?.environment === 'production' ? unavailableLegacyInventoryRuntime() : inMemoryInventoryRuntime;
   const inventorySubscriber = new InventoryEventSubscriber({ runtime: inventoryRuntime });
   for (const eventType of ['CUP_DISPENSE_COMPLETED', 'PRODUCT_DISPENSE_COMPLETED', 'TOPPING_DISPENSE_COMPLETED', 'MachineOperations.InventoryConsumed']) {
     platformEventRegistry.register(eventType, inventorySubscriber.subscriber());
@@ -164,6 +166,13 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const orderRuntime = new OrderRuntime({
     orderService,
   });
+  const organizationContext = new PostgresOrganizationContext({ organizationRepository, prisma });
+  const paymentAdapter = new BlockedExternalPaymentAdapter();
+  const machineAdapter = new BlockedExternalMachineAdapter();
+  const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
+  const priceCalculator = new ProductEnginePriceCalculator();
+  const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
+  const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
 
   const authCoreService = new AuthCoreService({
     authSessionRepository,
@@ -257,12 +266,18 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     saleFlowRepository,
     saleFlowService,
     saleFlowRecoveryReady,
+    organizationContext,
+    orderDomain,
+    priceCalculator,
+    paymentAdapter,
+    machineAdapter,
     transactionalOutboxRepository,
     outboxAdminService,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,
     inventoryRuntime,
+    inventoryReservationService,
     maintenanceRuntime,
     operatorWorkspaceRuntime,
     crmRuntime,
@@ -284,6 +299,11 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     giftTransferRuntime,
     domainEventPublisher,
   };
+}
+
+function unavailableLegacyInventoryRuntime() {
+  const fail = async () => { throw Object.assign(new Error('Legacy in-memory Inventory отключён в production.'), { code: 'INVENTORY_POSTGRESQL_REQUIRED', statusCode: 503 }); };
+  return new Proxy({ persistenceMode: 'DISABLED_IN_PRODUCTION' }, { get(target, key) { return key in target ? target[key] : fail; } });
 }
 
 module.exports = {

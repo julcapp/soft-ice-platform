@@ -1,0 +1,13 @@
+-- Seed after migrations through 20260820000300.
+INSERT INTO "Machine" ("id","name","machineCode","updatedAt") VALUES ('legacy-machine','Legacy machine','legacy-machine',CURRENT_TIMESTAMP);
+INSERT INTO "Organization" ("id","fullName","shortName","organizationType","updatedAt") VALUES ('legacy-org','Legacy organization','Legacy','LEGAL_ENTITY',CURRENT_TIMESTAMP);
+INSERT INTO "OrganizationMachineAssignment" ("id","organizationId","machineId","ownerOrganizationId","operatorOrganizationId","assignedBy") VALUES ('legacy-assignment','legacy-org','legacy-machine','legacy-org','legacy-org','migration-fixture');
+INSERT INTO "InventoryRuntimeLocation" ("id","code","name","locationType","machineId","updatedAt") VALUES ('legacy-location','legacy-location','Legacy location','MACHINE','legacy-machine',CURRENT_TIMESTAMP);
+INSERT INTO "InventoryRuntimeItem" ("id","sku","name","category","baseUnit","updatedAt") VALUES ('legacy-item-a','legacy-item-a','Legacy item A','INGREDIENT','portion',CURRENT_TIMESTAMP),('legacy-item-b','legacy-item-b','Legacy item B','INGREDIENT','portion',CURRENT_TIMESTAMP);
+INSERT INTO "InventoryRuntimeReservation" ("id","itemId","locationId","quantity","unit","status","purpose","sourceType","sourceId","actorType","actorId","correlationId","idempotencyKey","expiresAt","completedAt","updatedAt") VALUES
+('legacy-active-a','legacy-item-a','legacy-location',1,'portion','ACTIVE','fixture','SALE','active-single','SYSTEM','fixture','corr-active','key-active',CURRENT_TIMESTAMP + INTERVAL '1 hour',NULL,CURRENT_TIMESTAMP),
+('legacy-consumed-a','legacy-item-a','legacy-location',5,'portion','CONSUMED','fixture','SALE','consumed-single','SYSTEM','fixture','corr-consumed','key-consumed',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('legacy-released-a','legacy-item-a','legacy-location',4,'portion','RELEASED','fixture','SALE','released-single','SYSTEM','fixture','corr-released','key-released',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('legacy-expired-b','legacy-item-b','legacy-location',6,'portion','EXPIRED','fixture','SALE','expired-single','SYSTEM','fixture','corr-expired','key-expired',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('legacy-multi-a','legacy-item-a','legacy-location',2,'portion','CONSUMED','fixture','SALE','consumed-multi','SYSTEM','fixture','corr-multi','key-multi-a',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('legacy-multi-b','legacy-item-b','legacy-location',3,'portion','CONSUMED','fixture','SALE','consumed-multi','SYSTEM','fixture','corr-multi','key-multi-b',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);

@@ -1,5 +1,21 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-067 — Sale Commit Uses One PostgreSQL Transaction
+
+**Date:** 2026-08-21
+
+**Status:** Accepted
+
+Создание Order, многопозиционный Inventory reserve/stock, Sale Flow transition и Transactional Outbox используют один Prisma transaction client. Успешное завершение атомарно фиксирует Order completion, Inventory consume/stock, Sale Flow completion и Outbox. Внешние Payment/Machine providers остаются явными `BLOCKED_EXTERNAL` production boundaries и не имитируют успех.
+
+# Decision: DECISION-066 — Inventory Reservation Uses PostgreSQL Row Locking
+
+**Date:** 2026-08-21
+
+**Status:** Accepted
+
+Inventory остаётся владельцем остатков и резервов. Многопозиционный durable reserve блокирует stock rows через `FOR UPDATE`, атомарно меняет active reserved quantity и пишет существующий Transactional Outbox. Consume/release/expire идемпотентны; Sale Flow хранит только ссылку. Подробности: `docs/architecture/ADR/ADR-043-inventory-reservation-locking-v1.md`.
+
 # Decision: DECISION-065 — Sale Flow State and Integration Facts Commit Through Transactional Outbox
 
 **Date:** 2026-08-20

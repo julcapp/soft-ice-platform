@@ -145,3 +145,6 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 # Обновление 2026-08-20
 
 Завершён этап 1 Production Runtime v1: durable Sale Flow persistence. Следующие отдельные этапы: Transactional Outbox, Inventory locking, reconciliation engine, реальные Payment Runtime и Machine Adapter.
+# Обновление 2026-08-21
+
+Inventory Reservation & Locking v1 реализован как production-grade PostgreSQL foundation. Следующие внешние этапы: production scheduler expiration, component-level machine confirmations, ERP и hardware reconciliation.

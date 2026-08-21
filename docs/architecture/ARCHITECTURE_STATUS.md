@@ -230,3 +230,6 @@ Machine Runtime state/session authority and Platform Event Bus Foundation v1 are
 # Обновление 2026-08-20 — Durable Sale Flow Runtime v1
 
 Sale Flow persistence: `IMPLEMENTED` (PostgreSQL/Prisma, optimistic concurrency, durable idempotency, recovery classification). Production end-to-end: `FOUNDATION_ONLY` до Transactional Outbox, Inventory locking, reconciliation и реальных Payment/Machine adapters.
+# Обновление 2026-08-21 — Inventory Reservation & Locking v1
+
+Durable PostgreSQL reservation, row locking, atomic Outbox, idempotent consume/release/expire и Admin observability реализованы. Покомпонентное аппаратное подтверждение, внешний scheduler, ERP и hardware reconciliation остаются `FOUNDATION_ONLY`.

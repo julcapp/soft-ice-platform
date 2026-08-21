@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { validateEvent } = require('../transactional_outbox/OutboxRepository');
 const RECOVERABLE_STATES = ['AWAITING_PAYMENT', 'PAID', 'FULFILLMENT_AUTHORIZED', 'DISPENSING', 'FULFILLMENT_FAILED', 'REFUND_REQUIRED'];
 class PrismaSaleFlowRepository {
-  constructor(prisma) { this.prisma = prisma; this.persistenceMode = 'POSTGRESQL'; }
+  constructor(prisma) { this.prisma = prisma; this.persistenceMode = 'POSTGRESQL'; this.implementationKind = 'PRODUCTION'; }
   create(data) { return this.prisma.saleFlow.create({ data: cleanFlow(data) }); }
   getById(id) { return this.prisma.saleFlow.findFirst({ where: { OR: [{ id }, { flowId: id }] } }); }
   getByOrderId(orderId) { return this.prisma.saleFlow.findUnique({ where: { orderId } }); }

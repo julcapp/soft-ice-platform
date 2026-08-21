@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-21 — устранение критических дефектов Inventory Reservation & Locking v1
+
+- PostgreSQL `InventoryRuntimeStock` закреплён как единственный production source of truth; legacy in-memory runtime оставлен только как test/demo adapter без production fallback.
+- Production Sale Flow подключён к durable Inventory; reserve, Sale Flow persistence и существующий Transactional Outbox используют общий Prisma transaction client.
+- Legacy migration переносит item-состав и значимые поля до удаления колонок и fail-fast останавливается при невосстановимом organizational scope.
+- Добавлены failure injection A/B/C, production wiring, multi-item, пятипрогонный stress, race/restart/idempotency и legacy preservation проверки.
+
 ## 2026-08-17 — устранение блокеров ревизии сквозной продажи
 
 - `sale_flow` освобождён от дублирующих статусов заказа, платежа, склада и лояльности; сохранены только orchestration/recovery state, correlation и ссылки на owning domains.
@@ -479,3 +486,16 @@
 - Добавлены durable Prisma model/migration, атомарные Sale Flow state+event транзакции, idempotency constraints и совместимый envelope.
 - Добавлены конкурентный worker claim, retry/dead-letter, lease recovery, tenant isolation, secret-field validation и publisher port foundation.
 - Добавлены Admin Console observability, явный audited dead-letter retry, PostgreSQL/unit regression tests и ADR-042.
+# 2026-08-21 — Inventory Reservation & Locking v1
+
+- Добавлены durable многопозиционные резервы, PostgreSQL row locking и DB constraints против over-reservation.
+- Reserve/consume/release/expire интегрированы с существующим Transactional Outbox и persistent idempotency.
+- Добавлены учёт тестового расхода, expiration recovery, tenant/machine isolation, русские Admin-резервы и метрики.
+- Добавлены PostgreSQL concurrency/stress tests, ADR-043 и архитектурная спецификация.
+- Production Sale Flow fail-closed composition дополнена PostgreSQL Organization context, authoritative Order Runtime и Product Engine pricing.
+- DB invariant reservation items усилен до `consumed + released <= reserved <= quantity`; добавлены failure/race/multi-item regression tests.
+# 2026-08-21 — Финальная ревизия Inventory Reservation & Locking v1
+
+- Production Sale Flow composition дополнена явными Payment/Machine production boundaries со статусом `BLOCKED_EXTERNAL`, без fake adapters и silent fallback.
+- Order creation и успешное завершение продажи включены в общую PostgreSQL transaction с Inventory, Sale Flow и Transactional Outbox; добавлены rollback-инъекции и multi-item success test.
+- Исправлен перенос terminal legacy reservations: `reserved`, `consumed` и `released` quantities сохраняют исторический факт; добавлены executable migration fixtures и invariant assertions.

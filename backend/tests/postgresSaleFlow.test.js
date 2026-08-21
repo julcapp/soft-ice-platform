@@ -21,6 +21,7 @@ function dependencies(repository, machineOutcome = 'DISPENSED') {
     machineAdapter: new SimulatorMachineAdapter({ outcome: machineOutcome }),
     organizationContext: { resolveByMachine: async () => ({ organizationId: 'org_pg', locationId: 'location_pg' }) },
     inventory: {
+      persistenceMode: 'POSTGRESQL',
       checkAndReserve: async () => ({ available: true, reservationId: 'reservation_pg' }),
       calculatePrice: async () => ({ totalAmount: 190, currency: 'RUB' }),
       consume: async () => { calls.consume += 1; },

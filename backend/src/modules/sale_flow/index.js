@@ -3,4 +3,5 @@ const { PrismaSaleFlowRepository, InMemorySaleFlowRepository } = require('./Sale
 const { PaymentAdapter, SimulatorPaymentAdapter, MachineAdapter, SimulatorMachineAdapter } = require('./SaleFlowAdapters');
 const { FLOW_STATE, TRANSITIONS } = require('./SaleFlowModels');
 const { presentSaleFlow } = require('./SaleFlowAdminPresenter');
-module.exports = { SaleFlowService, SaleFlowRetentionPolicy, PrismaSaleFlowRepository, InMemorySaleFlowRepository, PaymentAdapter, SimulatorPaymentAdapter, MachineAdapter, SimulatorMachineAdapter, FLOW_STATE, TRANSITIONS, presentSaleFlow, status: 'DURABLE_PERSISTENCE_V1' };
+const { PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./ProductionSaleFlowDependencies');
+module.exports = { SaleFlowService, SaleFlowRetentionPolicy, PrismaSaleFlowRepository, InMemorySaleFlowRepository, PaymentAdapter, SimulatorPaymentAdapter, MachineAdapter, SimulatorMachineAdapter, FLOW_STATE, TRANSITIONS, presentSaleFlow, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService, status: 'DURABLE_PERSISTENCE_V1' };

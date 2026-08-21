@@ -413,3 +413,24 @@ Service restart остаётся непроверяемым до durable reposit
 - Case-insensitive validation отклоняет camelCase, uppercase и snake_case варианты sensitive keys.
 - Безопасные бизнес-поля `productTokenCount`, `tokenizedLabel`, `secretaryName`, `authorizationStatus` не блокируются substring matching.
 - Crash window после успешного publisher и до `markPublished()` оставляет событие `PROCESSING`; после истечения lease оно публикуется повторно с тем же `eventId`, подтверждая at-least-once semantics.
+# Inventory Reservation & Locking v1
+
+- Успешный и недостаточный reserve; атомарный rollback при ошибке Outbox.
+- Два конкурентных заказа последней единицы: один `RESERVED`, один `FAILED`.
+- Stress 50×1 при stock=10: 10 успехов, 40 отказов, reserved=10.
+- Stress 50×1 повторяется пять независимых раз; каждый прогон: 10 успехов, 40 отказов, over-reservation=0.
+- Multi-item reserve с недоступной третьей позицией не меняет reserved ни для одной позиции.
+- Concurrent consume, concurrent release, consume vs release и expire vs consume не выполняют двойную модификацию stock.
+- Идемпотентные consume/release, expiration и восстановление после пересоздания service.
+- Tenant и machine isolation; `OPERATOR_TEST`/`MAINTENANCE_TEST` создают `TEST_CONSUMPTION`.
+- Production wiring использует PostgreSQL Inventory; отсутствие durable adapter закрывает Sale Flow ошибкой.
+- Failure injection A/B/C доказывает общий rollback reserve/items/stock, Sale Flow и Outbox.
+- Production composition содержит production Organization/Order/Pricing dependencies; отсутствие каждой отдельно останавливает startup до транзакции.
+- Product Engine пересчитывает серверную цену и игнорирует переданный клиентом итог.
+- PostgreSQL отклоняет quantity=0/negative, отрицательные reserved/consumed/released, over-consume, over-release и combined overflow; invalid item откатывает multi-item transaction.
+- Legacy fixtures single/multi/released/consumed/expired сохраняют item composition; невосстановимый tenant/machine scope останавливает migration.
+# Финальная ревизия Inventory Reservation & Locking v1 — CRITICAL regression
+
+- Production composition требует `organizationContext`, `orderDomain`, `priceCalculator`, `paymentAdapter`, `machineAdapter`, PostgreSQL Inventory и PostgreSQL Transactional Outbox до начала бизнес-транзакции; внешние Payment/Machine границы честно возвращают `BLOCKED_EXTERNAL`.
+- Одна Prisma/PostgreSQL transaction фиксирует Order, multi-item Inventory reservation/stock, Sale Flow и Outbox; инъекции отказа Order, Inventory, Sale Flow и Outbox дают полный rollback.
+- Legacy migration fixtures покрывают `ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`, single-item и multi-item; terminal rows сохраняют `reservedQuantity = quantity`, а невосстановимое ownership приводит к abort всей migration transaction.

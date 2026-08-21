@@ -372,10 +372,27 @@ enum InventoryRuntimeMovementType {
 }
 
 enum InventoryRuntimeReservationStatus {
-  ACTIVE
+  PENDING
+  RESERVED
   RELEASED
   CONSUMED
   EXPIRED
+  FAILED
+}
+
+enum InventoryReservationItemStatus {
+  PENDING
+  RESERVED
+  CONSUMED
+  RELEASED
+  EXPIRED
+  FAILED
+}
+
+enum InventoryOperationType {
+  CUSTOMER_SALE
+  OPERATOR_TEST
+  MAINTENANCE_TEST
 }
 
 enum MaintenancePlanType {
@@ -1057,7 +1074,8 @@ model InventoryRuntimeItem {
   updatedAt DateTime                     @updatedAt
 
   movements    InventoryRuntimeMovement[]
-  reservations InventoryRuntimeReservation[]
+  reservationItems InventoryRuntimeReservationItem[]
+  stocks       InventoryRuntimeStock[]
 }
 
 model InventoryRuntimeLocation {
@@ -1074,6 +1092,7 @@ model InventoryRuntimeLocation {
 
   movements    InventoryRuntimeMovement[]
   reservations InventoryRuntimeReservation[]
+  stocks       InventoryRuntimeStock[]
 
   @@index([locationType, active])
   @@index([machineId])
@@ -1110,29 +1129,76 @@ model InventoryRuntimeMovement {
 
 model InventoryRuntimeReservation {
   id             String                            @id @default(uuid())
-  itemId         String
+  reservationId  String                            @unique
+  saleFlowId     String?
+  orderId        String?
+  machineId      String
+  organizationId String
   locationId     String
-  quantity       Float
-  unit           String
-  status         InventoryRuntimeReservationStatus @default(ACTIVE)
-  purpose        String
-  sourceType     String
-  sourceId       String?
+  status         InventoryRuntimeReservationStatus @default(PENDING)
+  operationType  InventoryOperationType             @default(CUSTOMER_SALE)
   actorType      String
   actorId        String
   correlationId  String
   idempotencyKey String                            @unique
-  expiresAt      DateTime?
-  completedAt    DateTime?
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  releasedAt     DateTime?
+  version        Int                               @default(0)
+  reason         String?
+  metadata       Json?
   createdAt      DateTime                          @default(now())
   updatedAt      DateTime                          @updatedAt
 
-  item     InventoryRuntimeItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
   location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items    InventoryRuntimeReservationItem[]
 
-  @@index([itemId, locationId, status])
-  @@index([sourceType, sourceId])
+  @@index([organizationId, status, createdAt])
+  @@index([machineId, status])
+  @@index([locationId, status])
+  @@index([saleFlowId])
+  @@index([orderId])
   @@index([expiresAt, status])
+}
+
+model InventoryRuntimeReservationItem {
+  id                 String                         @id @default(uuid())
+  reservationId      String
+  inventoryItemId    String
+  ingredientType     String
+  quantity           Float
+  unit               String
+  status             InventoryReservationItemStatus @default(PENDING)
+  reservedQuantity   Float                          @default(0)
+  consumedQuantity   Float                          @default(0)
+  releasedQuantity   Float                          @default(0)
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  reservation        InventoryRuntimeReservation    @relation(fields: [reservationId], references: [reservationId], onDelete: Restrict)
+  inventoryItem      InventoryRuntimeItem            @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([reservationId, inventoryItemId])
+  @@index([inventoryItemId, status])
+}
+
+model InventoryRuntimeStock {
+  id                 String                   @id @default(uuid())
+  organizationId     String
+  machineId          String
+  locationId         String
+  inventoryItemId    String
+  physicalQuantity   Float                    @default(0)
+  activeReservedQuantity Float                @default(0)
+  lowStockThreshold  Float?
+  version            Int                      @default(0)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  location           InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryItem      InventoryRuntimeItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, machineId, locationId, inventoryItemId])
+  @@index([organizationId, locationId])
+  @@index([machineId, inventoryItemId])
 }
 
 model MachineInventory {
