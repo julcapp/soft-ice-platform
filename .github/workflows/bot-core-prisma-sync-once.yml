@@ -1,0 +1,147 @@
+name: Bot Core Prisma Sync Once
+
+on:
+  push:
+    branches:
+      - feature/bot-core-foundation
+    paths:
+      - '.github/workflows/bot-core-prisma-sync-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-prisma:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: postgresql://soft_ice_ci:soft_ice_ci@127.0.0.1:5432/soft_ice_ci?schema=public
+      NODE_ENV: test
+      BOT_WEBHOOKS_ENABLED: 'false'
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/bot-core-foundation
+          fetch-depth: 0
+
+      - name: Patch Prisma schema exactly to migration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('backend/prisma/schema.prisma')
+          text = path.read_text(encoding='utf-8')
+
+          customer_old = "  organizationMemberships OrganizationMember[]\n}"
+          customer_new = "  organizationMemberships OrganizationMember[]\n  welcomeBonusGrants      WelcomeBonusGrant[]\n}"
+          if text.count(customer_old) != 1:
+              raise SystemExit(f'Customer relation marker count={text.count(customer_old)}; refusing unsafe patch')
+          text = text.replace(customer_old, customer_new, 1)
+
+          referral_old = '''  referrer          Customer           @relation("Referrer", fields: [referrerCustomerId], references: [id])
+  referred          Customer?          @relation("Referred", fields: [referredCustomerId], references: [id])
+  bonusTransactions BonusTransaction[]
+}
+
+model PhotoChallenge {'''
+
+          referral_new = '''  referrer          Customer               @relation("Referrer", fields: [referrerCustomerId], references: [id])
+  referred          Customer?              @relation("Referred", fields: [referredCustomerId], references: [id])
+  bonusTransactions BonusTransaction[]
+  qualification     ReferralQualification?
+}
+
+model ReferralQualification {
+  id            String   @id @default(uuid())
+  referralId    String   @unique
+  action        String
+  sourceEventId String?  @unique
+  occurredAt    DateTime
+  createdAt     DateTime @default(now())
+
+  referral Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@index([action, occurredAt])
+}
+
+model WelcomeBonusGrant {
+  id                 String    @id @default(uuid())
+  customerId         String
+  amountGranted      Int
+  amountRemaining    Int
+  status             String    @default("ACTIVE")
+  issuedAt           DateTime  @default(now())
+  expiresAt          DateTime
+  qualifiedAt        DateTime?
+  qualifyingAction   String?
+  qualifyingEventId  String?   @unique
+  convertedAt        DateTime?
+  expiredAt          DateTime?
+  metadata           Json?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@index([expiresAt, status])
+}
+
+model PhotoChallenge {'''
+
+          if text.count(referral_old) != 1:
+              raise SystemExit(f'Referral marker count={text.count(referral_old)}; refusing unsafe patch')
+          text = text.replace(referral_old, referral_new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npm run prisma:validate
+
+      - name: Verify Bot Core Prisma sync audit
+        working-directory: backend
+        run: node scripts/check-bot-core-prisma-sync.js
+
+      - name: Run Bot Core tests
+        working-directory: backend
+        run: >-
+          node --test
+          tests/bot-core.test.js
+          tests/bot-e2e-preview.test.js
+          tests/bot-runtime-deeplink.test.js
+          tests/bot-runtime.test.js
+          tests/bot-transport-rendering.test.js
+          tests/bot-user-flow.test.js
+          tests/bot-webhook-security.test.js
+          tests/referral-core.test.js
+          tests/referral-event-orchestrator.test.js
+          tests/referral-reward-engine.test.js
+          tests/welcome-bonus.test.js
+
+      - name: Commit validated Prisma sync
+        shell: bash
+        run: |
+          if git diff --quiet -- backend/prisma/schema.prisma; then
+            echo 'Schema already synchronized; nothing to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/prisma/schema.prisma
+          git commit -m 'fix: sync Bot Core Prisma models with migration'
+          git push origin HEAD:feature/bot-core-foundation
