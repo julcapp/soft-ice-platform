@@ -8,6 +8,10 @@ on:
     branches:
       - main
     paths:
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'backend/.env.example'
+      - 'backend/scripts/configure-telegram-test-bot.js'
       - 'backend/src/modules/bot_core/**'
       - 'backend/src/modules/referral/**'
       - 'backend/src/modules/welcome_bonus/**'
