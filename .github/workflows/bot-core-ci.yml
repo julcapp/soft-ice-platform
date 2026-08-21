@@ -50,6 +50,9 @@ jobs:
       - name: Validate current Prisma schema
         run: npm run prisma:validate
 
+      - name: Audit Bot Core Prisma model sync
+        run: node scripts/check-bot-core-prisma-sync.js
+
       - name: Run Bot Core tests
         run: >-
           node --test
@@ -64,7 +67,3 @@ jobs:
           tests/referral-event-orchestrator.test.js
           tests/referral-reward-engine.test.js
           tests/welcome-bonus.test.js
-
-      - name: Audit Bot Core Prisma model sync
-        continue-on-error: true
-        run: node scripts/check-bot-core-prisma-sync.js
