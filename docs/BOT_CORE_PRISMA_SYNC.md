@@ -2,7 +2,7 @@
 
 ## Status
 
-`ReferralQualification` and `WelcomeBonusGrant` are now represented in the primary `backend/prisma/schema.prisma` and match migration `20260820164000_referral_reward_welcome_bonus`.
+`ReferralQualification` and `WelcomeBonusGrant` are represented in the primary `backend/prisma/schema.prisma` and match migration `20260820164000_referral_reward_welcome_bonus`.
 
 The schema contains:
 
@@ -22,7 +22,7 @@ The schema contains:
 
 ## Migration ownership
 
-The existing SQL migration remains the source of database DDL for these tables. No replacement migration was generated during schema synchronization, so deployed migration history stays stable.
+The existing SQL migration remains the source of database DDL for these tables. No replacement migration was generated during schema synchronization, so migration history stays stable.
 
 ## Production rule
 
