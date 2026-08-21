@@ -63,6 +63,7 @@ jobs:
           tests/bot-transport-rendering.test.js
           tests/bot-user-flow.test.js
           tests/bot-webhook-security.test.js
+          tests/bot-telegram-client.test.js
           tests/referral-core.test.js
           tests/referral-event-orchestrator.test.js
           tests/referral-reward-engine.test.js
