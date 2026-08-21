@@ -28,12 +28,12 @@ class WelcomeBonusRepository {
     return rows[0] || null;
   }
 
-  async qualify(id, { action, eventId, qualifiedAt }) {
+  async qualify(id, { qualifyingAction, qualifyingEventId, qualifiedAt }) {
     await this.prisma.$executeRawUnsafe(
       `UPDATE "WelcomeBonusGrant"
        SET "status"='QUALIFIED', "qualifiedAt"=$2, "qualifyingAction"=$3, "qualifyingEventId"=$4
        WHERE "id"=$1 AND "status"='ACTIVE'`,
-      id, qualifiedAt, action, eventId,
+      id, qualifiedAt, qualifyingAction, qualifyingEventId,
     );
     return this.findById(id);
   }
