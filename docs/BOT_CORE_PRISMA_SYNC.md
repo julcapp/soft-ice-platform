@@ -1,61 +1,29 @@
-# Bot Core Prisma synchronization
+# Bot Core Prisma sync
 
-Migration `20260820164000_referral_reward_welcome_bonus` creates two durable tables that must also exist in `backend/prisma/schema.prisma` before Bot Core can be merged.
+## Status
 
-Required Prisma models:
+`ReferralQualification` and `WelcomeBonusGrant` are now represented in the primary `backend/prisma/schema.prisma` and match migration `20260820164000_referral_reward_welcome_bonus`.
 
-```prisma
-model ReferralQualification {
-  id            String   @id @default(uuid())
-  referralId    String   @unique
-  action        String
-  sourceEventId String?  @unique
-  occurredAt    DateTime
-  createdAt     DateTime @default(now())
+The schema contains:
 
-  @@index([action, occurredAt])
-}
+- `Customer.welcomeBonusGrants -> WelcomeBonusGrant[]`;
+- `Referral.qualification -> ReferralQualification?`;
+- `ReferralQualification.referralId` as a unique 1:1 foreign key with cascade delete;
+- `ReferralQualification.sourceEventId` as unique;
+- `ReferralQualification(action, occurredAt)` index;
+- `WelcomeBonusGrant.customerId -> Customer.id` with cascade delete;
+- `WelcomeBonusGrant.qualifyingEventId` as unique;
+- `WelcomeBonusGrant(customerId, status)` index;
+- `WelcomeBonusGrant(expiresAt, status)` index.
 
-model WelcomeBonusGrant {
-  id                 String    @id @default(uuid())
-  customerId         String
-  amountGranted      Int
-  amountRemaining    Int
-  status             String    @default("ACTIVE")
-  issuedAt           DateTime  @default(now())
-  expiresAt          DateTime
-  qualifiedAt        DateTime?
-  qualifyingAction   String?
-  qualifyingEventId  String?   @unique
-  convertedAt        DateTime?
-  expiredAt          DateTime?
-  metadata            Json?
+## Guardrail
 
-  @@index([customerId, status])
-  @@index([expiresAt, status])
-}
-```
+`backend/scripts/check-bot-core-prisma-sync.js` verifies that both required models remain present. The Bot Core CI workflow treats this audit as a mandatory step together with `prisma validate` and the Bot/Referral/Welcome Bonus tests.
 
-The SQL migration additionally has foreign keys to `Referral(id)` and `Customer(id)`. Relations may be added to the Prisma models in the final schema patch, but scalar-only models are sufficient to make the storage contract explicit while the repositories still use raw SQL.
+## Migration ownership
 
-## Merge conflict with main
+The existing SQL migration remains the source of database DDL for these tables. No replacement migration was generated during schema synchronization, so deployed migration history stays stable.
 
-`main` is one commit ahead and adds durable `sale_flow`. The shared module registry must contain all four modules after resolution:
+## Production rule
 
-- `sale_flow`
-- `bot_core`
-- `referral`
-- `welcome_bonus`
-
-Do not discard the Sale Flow Prisma models/migrations when rebasing or merging main into this branch.
-
-## Required checks before merge
-
-```bash
-cd backend
-node scripts/check-bot-core-prisma-sync.js
-npm run prisma:validate
-npm test
-```
-
-Bot Core PR stays Draft until all three checks pass and GitHub reports the PR mergeable.
+Do not enable production Telegram/MAX webhook runtime until the Bot Core CI run for the current PR head is green. `BOT_WEBHOOKS_ENABLED=false` remains the default safety boundary.
