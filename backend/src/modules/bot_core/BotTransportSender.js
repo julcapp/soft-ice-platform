@@ -1,7 +1,7 @@
 class BotTransportSender {
-  constructor({ telegramClient = null, maxClient = null } = {}) {
-    this.telegramClient = telegramClient;
-    this.maxClient = maxClient;
+  constructor({ telegramClient = null, maxClient = null, clients = null } = {}) {
+    this.telegramClient = telegramClient || clients?.telegram || null;
+    this.maxClient = maxClient || clients?.max || null;
   }
 
   async send({ channel, destination, rendered }) {
@@ -16,6 +16,11 @@ class BotTransportSender {
       await this.telegramClient.answerCallbackQuery(destination.callbackQueryId).catch(() => null);
     }
     if (typeof this.telegramClient.sendMessage !== 'function') throw new Error('telegramClient.sendMessage is required.');
+
+    if (this.telegramClient.sendMessage.length <= 2) {
+      return this.telegramClient.sendMessage(destination, rendered);
+    }
+
     return this.telegramClient.sendMessage(destination.chatId, rendered.text, { reply_markup: rendered.reply_markup });
   }
 
