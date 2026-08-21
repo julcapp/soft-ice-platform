@@ -48,8 +48,8 @@ class WelcomeBonusService {
     }
 
     const qualified = await this.repository.qualify(grant.id, {
-      action,
-      eventId,
+      qualifyingAction: action,
+      qualifyingEventId: eventId,
       qualifiedAt: now,
     });
     await this.publish('WELCOME_BONUS_QUALIFIED', qualified);
