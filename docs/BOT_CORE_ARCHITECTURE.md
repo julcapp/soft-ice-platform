@@ -1,96 +1,59 @@
-# Bot Core — Telegram + MAX
+# Bot Core architecture
 
-Status: Foundation + onboarding + referral persistence + welcome bonus
-Branch: `feature/bot-core-foundation`
+## Purpose
 
-## Назначение
+Bot Core provides one transport-neutral runtime for Telegram and MAX without duplicating business logic or the Mini App. Channel adapters normalize inbound updates; shared services resolve the customer, apply onboarding/referral logic, prepare transport-neutral views, and channel renderers convert those views into Telegram/MAX payloads.
 
-Bot Core — единое серверное ядро коммуникационных сценариев «У Тимоши» для Telegram и MAX.
+## Main components
 
-Бот не является копией Mini App. Его роль:
+- `BotAdapter` — normalized inbound contract.
+- `TelegramAdapter`, `MaxAdapter` — channel-specific normalization.
+- `DeepLinkParser` — start/deep-link attribution parsing.
+- `BotGateway` — customer identity resolution boundary.
+- `BotOnboardingService` — onboarding and identity linking flow.
+- `OnboardingPolicy` — onboarding rules.
+- `BotUserFlowService` — shared user flow actions.
+- `BotClubView` — transport-neutral club/referral view models.
+- `BotActionRouter` — callback/action routing.
+- `TelegramRenderer`, `MaxRenderer` — transport payload rendering.
+- `BotTransportSender` — preview-safe outbound boundary.
+- `BotRuntime` — inbound update -> normalize -> resolve -> route -> render -> send.
+- `createBotRuntimeComposition` — runtime composition root.
 
-- первый вход и приветствие;
-- идентификация пользователя и привязка канала к единому Customer;
-- обработка QR/deep links и источника привлечения;
-- быстрый доступ к Mini App;
-- персональные уведомления;
-- «Мой клуб»;
-- «Пригласить друга»;
-- информация о заказе;
-- «Счётчик добра» и переходы в Good Deeds Core.
+## Referral and welcome bonus
 
-## Архитектурное правило
+Referral processing is isolated in `modules/referral` and consists of referral policy, repository, service, event orchestrator and reward engine. Welcome bonus processing is isolated in `modules/welcome_bonus` with a separate grant lifecycle and promo balance semantics.
 
-Telegram и MAX являются транспортными адаптерами. Бизнес-правила не должны находиться внутри Telegram/Max handlers.
+The database side is synchronized in Prisma:
 
-```text
-Telegram ─┐
-          ├── Bot Core / Gateway ── Customer Core
-MAX ──────┘             │              │
-                        │              ├── Club Account
-                        │              ├── Bonus
-                        │              ├── Referral
-                        │              ├── Welcome Bonus
-                        │              ├── Orders
-                        │              └── Good Deeds (planned)
-                        └── Event Center
-```
+- `ReferralQualification` is a one-to-one qualification record for `Referral`;
+- `WelcomeBonusGrant` belongs to `Customer`;
+- both models mirror migration `20260820164000_referral_reward_welcome_bonus` including unique keys, indexes and cascade relations.
 
-## Identity
+## Webhooks and security
 
-Один человек должен иметь один внутренний Customer ID и несколько внешних идентичностей: phone, telegram, max и другие каналы в будущем. Bot Core не создаёт собственную базу пользователей.
+Telegram and MAX webhooks use separate handlers but share Bot Runtime. Telegram checks `X-Telegram-Bot-Api-Secret-Token`; MAX checks `X-Max-Bot-Api-Secret`. Tokens and webhook secrets are environment-only and are not stored in the repository.
 
-## Deep-link context
+`BOT_WEBHOOKS_ENABLED=false` is the default production safety boundary. Existing Telegram/YooKassa production behavior is not replaced until the Bot Core rollout is explicitly enabled.
 
-Поддерживаются `ref_<code>`, `m_<machineId>`, `campaign_<campaignId>`, `partner_<partnerId>` и direct/website/vk/telegram/max. Deep-link фиксирует attribution context, но не является доказательством реферального целевого действия.
+## CI readiness gate
 
-## Referral Core
+Bot Core CI is mandatory before production enablement and runs:
 
-Реферальная связь закрепляется после разрешения реального Customer. Состояния:
+1. dependency installation;
+2. `prisma validate` against the current primary schema;
+3. `check-bot-core-prisma-sync.js` as a hard guardrail;
+4. Bot Core, transport, webhook, referral and welcome-bonus test suites.
 
-```text
-invited → registered → qualified → rewarded
-```
+The PR remains Draft until this CI is green for the current head.
 
-Квалифицирующие действия:
+## Production rollout sequence
 
-- первая оплаченная покупка;
-- квалифицирующее пополнение клубного счёта.
-
-Self-referral запрещён. Повторная квалификация не создаёт повторное право на reward. Отдельная `ReferralQualification` хранит qualifying action и source event, а существующая `Referral` остаётся основной сущностью связи.
-
-Раздел «Пригласить друга» показывает: приглашено, зарегистрировано, первая покупка, квалифицирующее пополнение, ожидают выполнения условия, rewarded; доступны Telegram, MAX, копирование ссылки и QR.
-
-## Reward Engine
-
-Referral Reward Engine не хранит деньги и не меняет Club Account напрямую. Он оркестрирует начисления через отдельный Bonus Ledger contract с idempotency key на пару `referral + получатель`. Это исключает двойное начисление при повторной доставке события.
-
-## Welcome Bonus
-
-`welcome_bonus` — отдельный промо-баланс и не является:
-
-- денежным остатком Club Account;
-- обычным BonusAccount.
-
-Grant хранит `amountGranted`, `amountRemaining`, `issuedAt`, `expiresAt`, status и qualifying event. Базовый срок — 30 дней.
-
-Qualifying events, сохраняющие бонус от автоматического сгорания:
-
-- `referral_qualified` — пользователь привёл квалифицированного реферала;
-- `repeat_club_topup` — пользователь повторно квалифицирующе пополнил клубный счёт.
-
-После qualifying event grant переводится из `ACTIVE` в `QUALIFIED` и больше не участвует в автоматическом 30-дневном expire job. Следующим продуктовым решением можно выбрать: оставить его отдельным квалифицированным промо-балансом до использования либо конвертировать в обычные бонусы; текущий foundation не смешивает эти два баланса автоматически.
-
-Если qualifying event не наступил до `expiresAt`, grant получает `EXPIRED`, `amountRemaining = 0`, и событие `WELCOME_BONUS_EXPIRED` уходит в Event Center. Денежный баланс и обычные бонусы при этом не затрагиваются.
-
-## MAX
-
-MAX identity разрешается только после подтверждённой верификации. По одному неподтверждённому MAX user_id второй Customer не создаётся.
-
-## Good Deeds / «Счётчик добра» — следующий крупный контур
-
-Планируются: добровольный вклад, личный вклад благотворителя, «Стать благотворителем», «Стать партнёром добрых дел», детские Gift Token, групповая выдача, `VEND SUCCESS` как единственный триггер «Счётчика добра», фотоотчёт/модерация, «Резерв Тимоши», PARTNER_REWARD и полный складской/финансовый учёт подарочных порций.
-
-## Ограничения текущего инкремента
-
-Текущий рабочий Telegram bot для ЮKassa не изменяется. Production webhook/tokens не подключены. Миграция добавляет persistence-таблицы, но `schema.prisma` пока намеренно не расширен моделями `ReferralQualification`/`WelcomeBonusGrant`: репозитории используют фиксированные SQL-запросы. Перед production это следует синхронизировать с Prisma schema и прогнать `prisma validate/migrate` в рабочем окружении.
+1. Keep PR Draft while validating schema and tests.
+2. Confirm CI green on the exact PR head.
+3. Prepare isolated Telegram test-bot token and webhook secret in environment only.
+4. Enable Bot Core only in the test environment.
+5. Exercise `/start`, identity/onboarding, `Мой клуб`, referral deep link and reward qualification end-to-end.
+6. Test duplicate events/idempotency and invalid webhook secrets.
+7. Only after the test bot passes, plan a separate production rollout for Telegram.
+8. Add MAX real client/webhook after the common runtime is stable; business logic remains shared.
