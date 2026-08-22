@@ -5,23 +5,16 @@ const adminHeaders = {
 };
 
 async function requestPath(path, options = {}) {
-  const response = await fetch(`/api/v1/admin/photo-verification${path}`, {
-    ...options,
-    headers: { ...adminHeaders, ...options.headers },
-  });
+  const response = await fetch(`/api/v1/admin/photo-verification${path}`, { ...options, headers: { ...adminHeaders, ...options.headers } });
   const body = await response.json();
-  if (!response.ok) {
-    const error = new Error(body?.error?.message || 'Не удалось выполнить запрос проверки фотографий.');
-    error.status = response.status;
-    error.code = body?.error?.code;
-    throw error;
-  }
+  if (!response.ok) { const error = new Error(body?.error?.message || 'Не удалось выполнить запрос проверки фотографий.'); error.status = response.status; error.code = body?.error?.code; throw error; }
   return body.data;
 }
 
 const request = (options = {}) => requestPath('/settings', options);
 export const getPhotoVerificationSettings = ({ signal } = {}) => request({ signal });
 export const updatePhotoVerificationSettings = (patch, { signal } = {}) => request({ signal, method: 'PATCH', body: JSON.stringify(patch) });
+export const getPhotoVerificationReadiness = ({ signal } = {}) => requestPath('/readiness', { signal });
 export const getPhotoVerificationMetrics = ({ signal, period = '7d' } = {}) => requestPath(`/metrics?period=${encodeURIComponent(period)}`, { signal });
 export const evaluatePhotoAiRecommendations = ({ signal, period = '7d' } = {}) => requestPath('/recommendations/evaluate', { signal, method: 'POST', body: JSON.stringify({ period }) });
 export const getPhotoAiRecommendationHistory = ({ signal, period = '7d', limit = 100 } = {}) => requestPath(`/recommendations/history?period=${encodeURIComponent(period)}&limit=${encodeURIComponent(limit)}`, { signal });
@@ -39,14 +32,7 @@ export const getPhotoOperationalIssues = ({ signal, limit = 100 } = {}) => reque
 export const retryPhotoOperationalIssue = (photoChallengeId, { signal } = {}) => requestPath(`/operations/${encodeURIComponent(photoChallengeId)}/retry`, { signal, method: 'POST', body: '{}' });
 
 export async function getPhotoReviewPreview(photoChallengeId, { signal } = {}) {
-  const response = await fetch(`/api/v1/admin/photo-verification/reviews/${encodeURIComponent(photoChallengeId)}/preview`, {
-    signal,
-    headers: { 'X-Admin-Role': adminHeaders['X-Admin-Role'], 'X-Admin-Subject': 'photo-verification-preview' },
-  });
-  if (!response.ok) {
-    const error = new Error('Не удалось загрузить превью фотографии.');
-    error.status = response.status;
-    throw error;
-  }
+  const response = await fetch(`/api/v1/admin/photo-verification/reviews/${encodeURIComponent(photoChallengeId)}/preview`, { signal, headers: { 'X-Admin-Role': adminHeaders['X-Admin-Role'], 'X-Admin-Subject': 'photo-verification-preview' } });
+  if (!response.ok) { const error = new Error('Не удалось загрузить превью фотографии.'); error.status = response.status; throw error; }
   return response.blob();
 }
