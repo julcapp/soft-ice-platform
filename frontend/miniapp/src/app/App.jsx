@@ -24,8 +24,8 @@ export function App() {
   if (appMode === 'operator') return <OperatorWorkspacePage />;
   if (appMode === 'terminal') return <SalesTerminalPage />;
   if (appMode === 'gifts') return <MyGifts gifts={[]} api={GiftTransferApi} />;
-  if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => setScreen('camera')} />;
-  if (appMode === 'camera') return <PhotoCameraScreen onBack={() => window.history.back()} onSubmitted={() => setScreen('photos')} />;
+  if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => { window.location.search = '?mode=camera'; }} />;
+  if (appMode === 'camera') return <PhotoCameraScreen onBack={() => { window.location.search = '?mode=photos'; }} onSubmitted={() => { window.location.search = '?mode=photos'; }} />;
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
   if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
