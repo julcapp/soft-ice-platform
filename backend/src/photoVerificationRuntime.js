@@ -8,6 +8,17 @@ const {
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
   PhotoPublicationReadModel,
+  ImageFingerprintService,
+  SharpImageDecoder,
+  MetadataAnalyzer,
+  DuplicateDetector,
+  PhotoTechnicalAnalyzer,
+  OpenAIVisionProvider,
+  TelegramPhotoPublisher,
+  VkPhotoPublisher,
+  MaxPhotoPublisher,
+  PhotoPublishingOrchestrator,
+  PHOTO_PUBLISHING_TARGETS,
 } = require('./modules/photo_verification');
 
 function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
@@ -16,18 +27,57 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   const db = prisma || getPrismaClient();
   const repository = dependencies.photoVerificationRepository || new PrismaPhotoVerificationRepository(db);
   const submissionRepository = dependencies.photoSubmissionRepository || new PrismaPhotoSubmissionRepository(db);
+  const storage = dependencies.photoStorage || new LocalPhotoStorageAdapter();
   const notifier = dependencies.photoNotifier || new CrmPhotoNotifier({ crmRuntime: dependencies.crmRuntime, logger });
   const customerWorkflow = dependencies.photoCustomerWorkflow || new PhotoCustomerWorkflow({ repository, notifier });
+  const imageDecoder = dependencies.photoImageDecoder || new SharpImageDecoder();
+  const fingerprintService = dependencies.photoFingerprintService || new ImageFingerprintService({ imageDecoder });
+  const technicalAnalyzer = dependencies.photoTechnicalAnalyzer || new PhotoTechnicalAnalyzer({
+    metadataAnalyzer: new MetadataAnalyzer(),
+    fingerprintService,
+    duplicateDetector: new DuplicateDetector({ repository }),
+    repository,
+  });
+
+  const targets = {
+    ...PHOTO_PUBLISHING_TARGETS,
+    MAX: Object.freeze({
+      ...PHOTO_PUBLISHING_TARGETS.MAX,
+      targetId: process.env.MAX_CHANNEL_CHAT_ID || PHOTO_PUBLISHING_TARGETS.MAX.targetId,
+    }),
+  };
+  const publishers = dependencies.photoPublishers || {
+    VK: new VkPhotoPublisher(),
+    TELEGRAM: new TelegramPhotoPublisher(),
+    MAX: new MaxPhotoPublisher(),
+  };
+  const visionProvider = dependencies.photoVisionProvider || (
+    process.env.OPENAI_API_KEY && process.env.PHOTO_VISION_MODEL
+      ? new OpenAIVisionProvider({ mediaLoader: (storageKey) => storage.get(storageKey) })
+      : null
+  );
 
   dependencies.photoVerificationRepository = repository;
   dependencies.photoSubmissionRepository = submissionRepository;
+  dependencies.photoStorage = storage;
   dependencies.photoNotifier = notifier;
   dependencies.photoCustomerWorkflow = customerWorkflow;
+  dependencies.photoImageDecoder = imageDecoder;
+  dependencies.photoFingerprintService = fingerprintService;
+  dependencies.photoTechnicalAnalyzer = technicalAnalyzer;
+  dependencies.photoVisionProvider = visionProvider;
+  dependencies.photoPublishers = publishers;
+  dependencies.photoPublishingTargets = targets;
+  dependencies.photoPublishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({
+    publishers,
+    repository,
+    targets,
+  });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
   dependencies.photoSubmissionIntakeService = dependencies.photoSubmissionIntakeService || new PhotoSubmissionIntakeService({
     repository: submissionRepository,
-    storage: dependencies.photoStorage || new LocalPhotoStorageAdapter(),
+    storage,
     customerWorkflow,
   });
 
