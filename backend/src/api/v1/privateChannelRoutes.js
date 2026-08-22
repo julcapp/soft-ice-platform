@@ -3,7 +3,7 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const { ApiError } = require('../../platform/errors/ApiError');
 
-function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter }) {
+function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -17,6 +17,7 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
       plan: { code: plan.code, name: plan.name, priceRub: Number(plan.priceRub), billingPeriodDays: Number(plan.billingPeriodDays), isActive: Boolean(plan.isActive) },
       subscription,
       paymentProvider: { provider: 'YOOKASSA', configured: Boolean(privateChannelPaymentAdapter?.isConfigured?.()) },
+      accessProvider: { provider: 'TELEGRAM_BOT_API', configured: Boolean(privateChannelAccessService?.isConfigured?.()) },
       recurringConsentVersion: 'private-channel-recurring-v1',
     });
   }));
@@ -53,14 +54,13 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     const paymentId = incoming.object?.id;
     if (!paymentId) return res.sendStatus(200);
 
-    // Do not trust webhook payload alone. Re-read the payment from YooKassa before changing access/billing state.
     const payment = await privateChannelPaymentAdapter.getPayment(paymentId);
     if (payment.status !== 'succeeded' || payment.paid !== true) return res.sendStatus(200);
     const subscriptionId = payment.metadata?.private_channel_subscription_id;
     if (!subscriptionId) return res.sendStatus(200);
     const amountRub = Number(payment.amount?.value || 0);
     const paymentMethodRef = payment.payment_method?.saved === true ? payment.payment_method?.id || null : null;
-    await privateChannelBillingService.recordPayment({
+    const recorded = await privateChannelBillingService.recordPayment({
       subscriptionId,
       provider: 'YOOKASSA',
       providerPaymentId: payment.id,
@@ -68,6 +68,20 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
       amountRub,
       idempotencyKey: `yookassa:${payment.id}:succeeded`,
     });
+
+    if (privateChannelAccessService && recorded.periodEnd) {
+      try {
+        await privateChannelAccessService.grantForPaidPeriod({
+          subscriptionId,
+          customerId: payment.metadata?.customer_id || recorded.customerId,
+          validFrom: recorded.periodStart,
+          validUntil: recorded.periodEnd,
+        });
+      } catch (error) {
+        // Billing is authoritative. Access delivery is independently recoverable and must not make YooKassa retry a successful payment forever.
+        console.error('Private channel access grant failed after successful payment', { subscriptionId, paymentId, code: error.code || error.message });
+      }
+    }
     return res.sendStatus(200);
   }));
 
