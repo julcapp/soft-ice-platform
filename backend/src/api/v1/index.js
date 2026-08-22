@@ -2,6 +2,8 @@ const express = require('express');
 
 const { ApiError } = require('../../platform/errors/ApiError');
 const { attachCorrelationId, sendError } = require('../../platform/http/apiResponse');
+const { getPrismaClient } = require('../../common/database');
+const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -31,6 +33,7 @@ const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = re
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma: getPrismaClient() });
 
   router.use(attachCorrelationId);
 
@@ -64,7 +67,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
   }
   router.use('/telegram', createTelegramRouter(dependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
   router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
   router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
