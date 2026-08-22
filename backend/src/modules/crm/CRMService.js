@@ -1,6 +1,8 @@
 const { randomUUID } = require('crypto');
 const { ApiError } = require('../../platform/errors/ApiError');
 
+const DIRECT_CHANNELS = new Set(['TELEGRAM', 'VK', 'MAX']);
+
 class CRMService {
   constructor({ repository, clubAccountRuntime, segmentationRuntime, auditRepository, eventPublisher, clock = () => new Date() }) {
     this.repository = repository;
@@ -88,11 +90,18 @@ class CRMService {
     if (card.profile?.communicationStatus === 'BLOCKED') {
       throw new ApiError({ statusCode: 422, code: 'CRM_COMMUNICATION_BLOCKED', message: 'Уведомления для клиента запрещены.', source: 'runtime' });
     }
+    const channel = String(request.channel || card.profile?.preferredChannel || 'TELEGRAM').toUpperCase();
+    if (DIRECT_CHANNELS.has(channel)) {
+      const subscription = await this.repository.findActiveSubscription(customerId, channel);
+      if (!subscription) {
+        throw new ApiError({ statusCode: 422, code: 'CRM_CHANNEL_NOT_ACTIVE', message: 'Нельзя отправить сообщение: выбранный канал не подтверждён как активный.', source: 'runtime' });
+      }
+    }
     const delivery = await this.repository.createNotification({
       id: request.id || randomUUID(),
       customerId,
       campaignId: request.campaignId || null,
-      channel: request.channel || card.profile?.preferredChannel || 'TELEGRAM',
+      channel,
       subject: request.subject || null,
       body: request.body,
       status: 'QUEUED',
@@ -100,7 +109,7 @@ class CRMService {
       correlationId: context.correlationId || null,
       createdBy: context.actorId,
     });
-    await this.audit('CRM.NotificationQueued', delivery.id, context, { customer_id: customerId });
+    await this.audit('CRM.NotificationQueued', delivery.id, context, { customer_id: customerId, channel });
     return delivery;
   }
 
@@ -115,31 +124,47 @@ class CRMService {
 }
 
 function toCustomerSummary(customer) {
+  const activeChannels = [...new Set((customer.channelSubscriptions || []).filter((item) => item.isSubscribed).map((item) => String(item.channelType).toUpperCase()))];
   return {
     id: customer.id,
     name: customer.name || 'Без имени',
     phone: customer.phone,
     email: customer.email,
     status: customer.status,
+    clubActive: Boolean(customer.clubAccount?.clubActive),
     clubBalanceRub: Number(customer.clubAccount?.availableBalanceRub || 0),
     bonusBalance: Number(customer.bonusAccount?.balanceBonus || 0),
+    purchasesCount: Number(customer._count?.orders || 0),
+    referralsCount: Number(customer._count?.referralsMade || 0),
+    activeChannels,
     segments: customer.segmentAssignments.map(({ segment }) => ({ id: segment.id, code: segment.code, name: segment.name })),
     lastPurchaseAt: customer.orders[0]?.createdAt || null,
+    createdAt: customer.createdAt,
   };
 }
 
 function toCustomerCard(customer) {
   return {
-    ...toCustomerSummary(customer),
+    ...toCustomerSummary({ ...customer, _count: { orders: customer.orders?.length || 0, referralsMade: customer.referralsMade?.length || 0 } }),
     birthday: customer.birthday,
+    telegramId: customer.telegramId,
+    telegramUsername: customer.telegramUsername,
+    vkProfile: customer.vkProfile,
     createdAt: customer.createdAt,
     profile: customer.crmProfile,
+    identities: customer.identities || [],
+    externalProfiles: customer.externalProfiles || [],
+    channelSubscriptions: customer.channelSubscriptions || [],
     loyalty: {
       clubAccount: customer.clubAccount && {
         id: customer.clubAccount.id,
         status: customer.clubAccount.status,
+        clubActive: customer.clubAccount.clubActive,
+        activatedAt: customer.clubAccount.activatedAt,
         currency: customer.clubAccount.currency,
         availableBalanceRub: customer.clubAccount.availableBalanceRub,
+        reservedBalanceRub: customer.clubAccount.reservedBalanceRub,
+        lastTopupAt: customer.clubAccount.lastTopupAt,
       },
       bonusAccount: customer.bonusAccount,
     },
