@@ -73,3 +73,10 @@ test('OpenAI provider sends image and parses strict verification JSON', async ()
   assert.match(requestBody.input[0].content[1].image_url, /^data:image\/jpeg;base64,/);
   assert.equal(requestBody.text.format.type, 'json_schema');
 });
+
+test('production adapters fail closed when credentials are absent', async () => {
+  await assert.rejects(() => new TelegramPhotoPublisher({ botToken: '', fetchImpl: async () => null }).publish({ targetId: '@ice_robo_club', media: Buffer.from('x') }), { code: 'TELEGRAM_BOT_TOKEN_NOT_CONFIGURED' });
+  await assert.rejects(() => new VkPhotoPublisher({ accessToken: '', fetchImpl: async () => null }).publish({ targetId: 'club239119350', media: Buffer.from('x') }), { code: 'VK_ACCESS_TOKEN_NOT_CONFIGURED' });
+  await assert.rejects(() => new MaxPhotoPublisher({ accessToken: '', fetchImpl: async () => null }).publish({ targetId: '123', media: Buffer.from('x') }), { code: 'MAX_BOT_TOKEN_NOT_CONFIGURED' });
+  await assert.rejects(() => new OpenAIVisionProvider({ apiKey: '', model: 'vision-model', mediaLoader: async () => null }).analyze({ storageKey: 'x' }), { code: 'OPENAI_API_KEY_NOT_CONFIGURED' });
+});
