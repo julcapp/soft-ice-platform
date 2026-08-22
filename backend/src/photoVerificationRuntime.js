@@ -2,33 +2,14 @@ const { getPrismaClient } = require('./common/database');
 const { BonusRewardEngine } = require('./modules/bonus');
 const { PhotoCaptureVisualVerifier } = require('./modules/photo_verification/PhotoCaptureVisualVerifier');
 const {
-  PrismaPhotoVerificationRepository,
-  PrismaPhotoSubmissionRepository,
-  LocalPhotoStorageAdapter,
-  PhotoSubmissionIntakeService,
-  PhotoCaptureChallengeService,
-  PhotoCustomerWorkflow,
-  CrmPhotoNotifier,
-  PhotoVerificationAdminService,
-  PhotoManualReviewService,
-  PhotoVerificationMetricsService,
-  PhotoAiRecommendationJournalService,
-  PhotoAiRecommendationApplicationService,
-  PhotoPublicationReadModel,
-  PhotoRewardPolicy,
-  ImageFingerprintService,
-  SharpImageDecoder,
-  MetadataAnalyzer,
-  DuplicateDetector,
-  PhotoTechnicalAnalyzer,
-  PhotoModerationLifecycle,
-  PhotoModerationOrchestrator,
-  OpenAIVisionProvider,
-  TelegramPhotoPublisher,
-  VkPhotoPublisher,
-  MaxPhotoPublisher,
-  PhotoPublishingOrchestrator,
-  PHOTO_PUBLISHING_TARGETS,
+  PrismaPhotoVerificationRepository, PrismaPhotoSubmissionRepository, LocalPhotoStorageAdapter,
+  PhotoSubmissionIntakeService, PhotoCaptureChallengeService, PhotoCustomerWorkflow, CrmPhotoNotifier,
+  PhotoVerificationAdminService, PhotoManualReviewService, PhotoVerificationMetricsService,
+  PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PhotoAiRecommendationRollbackService,
+  PhotoPublicationReadModel, PhotoRewardPolicy, ImageFingerprintService, SharpImageDecoder, MetadataAnalyzer,
+  DuplicateDetector, PhotoTechnicalAnalyzer, PhotoModerationLifecycle, PhotoModerationOrchestrator,
+  OpenAIVisionProvider, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher,
+  PhotoPublishingOrchestrator, PHOTO_PUBLISHING_TARGETS,
 } = require('./modules/photo_verification');
 
 function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
@@ -67,6 +48,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoAiRecommendationJournalService = dependencies.photoAiRecommendationJournalService || new PhotoAiRecommendationJournalService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService });
   dependencies.photoAiRecommendationApplicationService = dependencies.photoAiRecommendationApplicationService || new PhotoAiRecommendationApplicationService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService, journalService: dependencies.photoAiRecommendationJournalService, adminService: dependencies.photoVerificationAdminService });
+  dependencies.photoAiRecommendationRollbackService = dependencies.photoAiRecommendationRollbackService || new PhotoAiRecommendationRollbackService({ prisma: db, adminService: dependencies.photoVerificationAdminService });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
   dependencies.photoSubmissionIntakeService = dependencies.photoSubmissionIntakeService || new PhotoSubmissionIntakeService({ repository: submissionRepository, storage, customerWorkflow, captureChallengeService });
   return dependencies;
