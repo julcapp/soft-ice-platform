@@ -6,6 +6,7 @@ const { getPrismaClient } = require('../../common/database');
 const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
 const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
+const { YooKassaPrivateChannelPaymentAdapter } = require('../../modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
@@ -33,15 +34,17 @@ const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('./photoVerificationRoutes');
+const { createPrivateChannelRouter } = require('./privateChannelRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
   const prisma = getPrismaClient();
   const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
+  const privateChannelPaymentAdapter = dependencies.privateChannelPaymentAdapter || new YooKassaPrivateChannelPaymentAdapter();
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, customerProfileCommunicationService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, customerProfileCommunicationService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
@@ -53,6 +56,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
   router.use('/club-account', createClubAccountRouter(runtimeDependencies));
   router.use('/club-accounts', createClubAccountRouter(runtimeDependencies));
+  router.use('/private-channel', createPrivateChannelRouter(runtimeDependencies));
   router.use('/machines', createMachineRouter(runtimeDependencies));
   router.use('/machine-operations', createMachineOperationsRouter(runtimeDependencies));
   router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
