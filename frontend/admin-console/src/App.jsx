@@ -8,6 +8,7 @@ import { InventoryPage } from './Inventory';
 import { MaintenancePage } from './Maintenance';
 import { CRMPage } from './CRM';
 import { Customer360Page } from './Customer360';
+import { UsersPage } from './Users';
 import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
@@ -32,6 +33,10 @@ export function Dashboard({ data }) {
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
       <div><strong>Бизнес-статистика</strong><p style={{ margin: '6px 0 0' }}>Пользователи, клуб, рефералы, подписки, продажи и незабранные заказы.</p></div>
       <a className="text-button" href="#business-analytics">Открыть бизнес-дашборд</a>
+    </section>
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div><strong>Пользователи</strong><p style={{ margin: '6px 0 0' }}>Единая таблица пользователей и глубокие карточки Customer 360°.</p></div>
+      <a className="text-button" href="#users">Открыть пользователей</a>
     </section>
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
       <div><strong>Проверка и публикация фотографий</strong><p style={{ margin: '6px 0 0' }}>AI-модерация, антидубли и публикации VK / Telegram / MAX.</p></div>
@@ -84,6 +89,7 @@ export function App({ client = getDashboard }) {
   const eventRoute = route.startsWith('platform-events') || route === 'dead-letter';
   const inventoryRoute = route === 'inventory';
   const maintenanceRoute = route === 'maintenance';
+  const usersRoute = route === 'users' || route.startsWith('users/');
   const crmRoute = route === 'crm' || route.startsWith('crm/');
   const customer360Route = route.startsWith('customer-360/');
   const eventCenterRoute = route === 'event-center' || route.startsWith('event-center/');
@@ -93,6 +99,7 @@ export function App({ client = getDashboard }) {
   const photoVerificationRoute = route === 'photo-verification';
   const businessAnalyticsRoute = route === 'business-analytics';
   if (businessAnalyticsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Бизнес" title="Бизнес-статистика" copy="Пользователи, Клуб Тимоши, рефералы, подписки, продажи, пополнения и предоплаченные заказы." /><BusinessDashboardPage /></AppShell>;
+  if (usersRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title={route.includes('/') ? 'Карточка пользователя' : 'Пользователи'} copy="Единый реестр пользователей: идентификация, клуб, деньги, бонусы, покупки, рефералы, каналы и история." editable={route.includes('/')} /><UsersPage route={route} /></AppShell>;
   if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><PhotoVerificationMetricsPage /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
