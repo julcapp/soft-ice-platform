@@ -11,6 +11,7 @@ const settings = {
   metadataChecksEnabled: true,
   challengeCodeEnabled: false,
   publicationRequiredForReward: true,
+  rewardBonusUnits: null,
 };
 
 describe('PhotoVerificationSettingsPage', () => {
@@ -19,9 +20,10 @@ describe('PhotoVerificationSettingsPage', () => {
     expect(html).toContain('Загрузка панели управления');
   });
 
-  it('documents the expected settings contract', () => {
+  it('documents reward units as intentionally unconfigured by default', () => {
     expect(settings.mode).toBe('manual_only');
     expect(settings.enabled).toBe(false);
     expect(settings.publicationRequiredForReward).toBe(true);
+    expect(settings.rewardBonusUnits).toBeNull();
   });
 });
