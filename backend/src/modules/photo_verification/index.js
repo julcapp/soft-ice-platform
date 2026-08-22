@@ -10,6 +10,7 @@ const { ImageFingerprintService } = require('./ImageFingerprintService');
 const { DuplicateDetector } = require('./DuplicateDetector');
 const { PhotoTechnicalAnalyzer } = require('./PhotoTechnicalAnalyzer');
 const { PhotoCustomerWorkflow } = require('./PhotoCustomerWorkflow');
+const { CrmPhotoNotifier } = require('./CrmPhotoNotifier');
 const { PhotoVerificationAdminService } = require('./PhotoVerificationAdminService');
 const { PhotoPublicationReadModel } = require('./PhotoPublicationReadModel');
 const {
@@ -47,6 +48,7 @@ module.exports = {
     'admin-controlled photo verification settings',
     'customer photo publication read model',
     'camera photo intake and source storage boundary',
+    'CRM-backed customer photo notifications',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -60,6 +62,7 @@ module.exports = {
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
   PhotoCustomerWorkflow,
+  CrmPhotoNotifier,
   PhotoVerificationAdminService,
   PhotoPublicationReadModel,
   PhotoPublishingOrchestrator,
