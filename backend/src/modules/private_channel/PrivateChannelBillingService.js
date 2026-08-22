@@ -8,26 +8,32 @@ class PrivateChannelBillingService {
     this.clock = clock;
   }
 
-  async subscribe(customerId, request = {}) {
-    const planCode = String(request.planCode || 'PRIVATE_TELEGRAM_MONTHLY');
-    const plans = await this.prisma.$queryRawUnsafe('SELECT * FROM "PrivateChannelPlan" WHERE "code" = $1 LIMIT 1', planCode);
-    const plan = plans[0];
-    if (!plan || !plan.isActive) throw validation('PRIVATE_CHANNEL_PLAN_NOT_ACTIVE', 'Тариф приватного канала пока не активирован.');
+  async getPlan(planCode = 'PRIVATE_TELEGRAM_MONTHLY') {
+    const rows = await this.prisma.$queryRawUnsafe('SELECT * FROM "PrivateChannelPlan" WHERE "code" = $1 LIMIT 1', String(planCode));
+    const plan = rows[0];
+    if (!plan) throw new ApiError({ statusCode: 404, code: 'PRIVATE_CHANNEL_PLAN_NOT_FOUND', message: 'Тариф не найден.' });
+    return plan;
+  }
 
-    const recurringEnabled = request.recurringEnabled === true;
-    const consentVersion = request.recurringConsentVersion ? String(request.recurringConsentVersion) : null;
-    const paymentMethodRef = request.providerPaymentMethodRef ? String(request.providerPaymentMethodRef) : null;
-    if (recurringEnabled && (!consentVersion || !paymentMethodRef)) {
-      throw validation('PRIVATE_CHANNEL_RECURRING_CONSENT_REQUIRED', 'Для рекуррентных платежей требуется явное согласие и сохранённый идентификатор способа оплаты у провайдера.');
-    }
+  async getCustomerSubscription(customerId) {
+    const rows = await this.prisma.$queryRawUnsafe('SELECT s.*, p."code" AS "planCode", p."name" AS "planName", p."priceRub", p."billingPeriodDays", p."isActive" AS "planIsActive" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."customerId"=$1 ORDER BY s."createdAt" DESC LIMIT 1', customerId);
+    return rows[0] || null;
+  }
+
+  async subscribe(customerId, request = {}) {
+    const plan = await this.getPlan(request.planCode);
+    if (!plan.isActive) throw validation('PRIVATE_CHANNEL_PLAN_NOT_ACTIVE', 'Тариф приватного канала пока не активирован.');
+    const recurringRequested = request.recurringEnabled === true;
+    const consentVersion = recurringRequested ? String(request.recurringConsentVersion || '') : null;
+    if (recurringRequested && !consentVersion) throw validation('PRIVATE_CHANNEL_RECURRING_CONSENT_REQUIRED', 'Для автопродления требуется явное согласие пользователя.');
 
     const id = randomUUID();
-    const consentAt = recurringEnabled ? this.clock() : null;
+    const consentAt = recurringRequested ? this.clock() : null;
     await this.prisma.$executeRawUnsafe(
-      'INSERT INTO "PrivateChannelSubscription" ("id","customerId","planId","status","recurringEnabled","recurringConsentAt","recurringConsentVersion","providerPaymentMethodRef","updatedAt") VALUES ($1,$2,$3,\'PENDING\',$4,$5,$6,$7,CURRENT_TIMESTAMP)',
-      id, customerId, plan.id, recurringEnabled, consentAt, consentVersion, paymentMethodRef,
+      'INSERT INTO "PrivateChannelSubscription" ("id","customerId","planId","status","recurringEnabled","recurringConsentAt","recurringConsentVersion","providerPaymentMethodRef","updatedAt") VALUES ($1,$2,$3,\'PENDING\',FALSE,$4,$5,NULL,CURRENT_TIMESTAMP)',
+      id, customerId, plan.id, consentAt, consentVersion,
     );
-    return { id, customerId, planCode: plan.code, status: 'PENDING', recurringEnabled, recurringConsentAt: consentAt };
+    return { id, customerId, planCode: plan.code, status: 'PENDING', recurringRequested, recurringEnabled: false, recurringConsentAt: consentAt, recurringConsentVersion: consentVersion };
   }
 
   async recordPayment(request = {}) {
@@ -48,12 +54,14 @@ class PrivateChannelBillingService {
     const kind = subscription.status === 'ACTIVE' ? 'RENEWAL' : 'INITIAL';
     const amountRub = Number(request.amountRub ?? subscription.priceRub);
     if (!(amountRub > 0)) throw validation('PRIVATE_CHANNEL_PAYMENT_AMOUNT_INVALID', 'Сумма платежа должна быть положительной.');
+    const paymentMethodRef = request.providerPaymentMethodRef ? String(request.providerPaymentMethodRef) : null;
+    const recurringEnabled = Boolean(subscription.recurringConsentAt && subscription.recurringConsentVersion && paymentMethodRef);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe('INSERT INTO "PrivateChannelPayment" ("id","subscriptionId","customerId","provider","providerPaymentId","paymentKind","amountRub","status","periodStart","periodEnd","idempotencyKey","paidAt") VALUES ($1,$2,$3,$4,$5,$6,$7,\'PAID\',$8,$9,$10,$11)', paymentId, subscriptionId, subscription.customerId, String(request.provider || 'YOOKASSA'), request.providerPaymentId || null, kind, amountRub, periodStart, periodEnd, idempotencyKey, paidAt);
-      await tx.$executeRawUnsafe('UPDATE "PrivateChannelSubscription" SET "status"=\'ACTIVE\', "currentPeriodStart"=$2, "currentPeriodEnd"=$3, "cancelAtPeriodEnd"=FALSE, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=$1', subscriptionId, periodStart, periodEnd);
+      await tx.$executeRawUnsafe('UPDATE "PrivateChannelSubscription" SET "status"=\'ACTIVE\', "currentPeriodStart"=$2, "currentPeriodEnd"=$3, "providerPaymentMethodRef"=COALESCE($4,"providerPaymentMethodRef"), "recurringEnabled"=$5, "cancelAtPeriodEnd"=FALSE, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=$1', subscriptionId, periodStart, periodEnd, paymentMethodRef, recurringEnabled);
     });
-    return { id: paymentId, subscriptionId, paymentKind: kind, amountRub, status: 'PAID', periodStart, periodEnd, paidAt };
+    return { id: paymentId, subscriptionId, paymentKind: kind, amountRub, status: 'PAID', periodStart, periodEnd, paidAt, recurringEnabled, providerPaymentMethodRef: paymentMethodRef };
   }
 
   async cancel(customerId, subscriptionId, { atPeriodEnd = true } = {}) {
@@ -76,13 +84,7 @@ class PrivateChannelBillingService {
       this.prisma.$queryRawUnsafe('SELECT COUNT(*)::int AS count, COALESCE(SUM("amountRub"),0)::float8 AS revenue FROM "PrivateChannelPayment" WHERE "status"=\'PAID\' AND "paidAt">=$1 AND "paidAt"<$2', from, toExclusive),
       this.prisma.$queryRawUnsafe('SELECT COALESCE(SUM(p."priceRub"),0)::float8 AS forecast FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."status"=\'ACTIVE\' AND s."recurringEnabled"=TRUE AND s."cancelAtPeriodEnd"=FALSE AND s."currentPeriodEnd">=$1 AND s."currentPeriodEnd"<$2', now, forecastTo),
     ]);
-    return {
-      subscribers: Number(subscriberRows[0]?.count || 0),
-      paidPaymentsInPeriod: Number(paymentRows[0]?.count || 0),
-      paidAmountRubInPeriod: Number(paymentRows[0]?.revenue || 0),
-      forecastNext30DaysRub: Number(forecastRows[0]?.forecast || 0),
-      status: 'READY',
-    };
+    return { subscribers: Number(subscriberRows[0]?.count || 0), paidPaymentsInPeriod: Number(paymentRows[0]?.count || 0), paidAmountRubInPeriod: Number(paymentRows[0]?.revenue || 0), forecastNext30DaysRub: Number(forecastRows[0]?.forecast || 0), status: 'READY' };
   }
 }
 
