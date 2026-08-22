@@ -16,7 +16,7 @@ class PhotoVerificationMetricsService {
     const range = resolvePeriod(period, this.clock());
     const { startAt, endAt } = range;
 
-    const [decisionRows, channelRows, trendRows, qualityRows, reasonRows, manualQueue, operationalIssues] = await Promise.all([
+    const [decisionRows, channelRows, trendRows, qualityRows, reasonRows, settingsRows, manualQueue, operationalIssues] = await Promise.all([
       this.prisma.$queryRaw`
         WITH latest AS (
           SELECT DISTINCT ON (v."photoChallengeId")
@@ -110,12 +110,19 @@ class PhotoVerificationMetricsService {
         ORDER BY "count" DESC, "reasonCode" ASC
         LIMIT 10
       `,
+      this.prisma.$queryRaw`
+        SELECT "mode", "approvalThreshold", "rejectionThreshold", "maxFraudScore", "challengeCodeEnabled"
+        FROM "PhotoVerificationSettings"
+        WHERE "scopeKey" = 'default'
+        LIMIT 1
+      `,
       this.manualReviewService.list(securityContext, { limit: 100 }),
       this.manualReviewService.listOperationalIssues(securityContext, { limit: 200 }),
     ]);
 
     const decisions = decisionRows[0] || {};
     const quality = qualityRows[0] || {};
+    const settings = settingsRows[0] || {};
     const issueCounts = operationalIssues.reduce((acc, item) => {
       acc[item.issueType] = (acc[item.issueType] || 0) + 1;
       return acc;
@@ -124,6 +131,18 @@ class PhotoVerificationMetricsService {
     const percent = (value, base = totalDecided) => base ? Math.round((Number(value || 0) / Number(base)) * 1000) / 10 : 0;
     const comparable = Number(quality.comparable || 0);
     const disagreements = Number(quality.disagreements || 0);
+    const qualitySummary = {
+      reviewedByHuman: Number(quality.reviewedByHuman || 0),
+      comparable,
+      agreements: Number(quality.agreements || 0),
+      disagreements,
+      agreementPercent: percent(quality.agreements, comparable),
+      disagreementPercent: percent(disagreements, comparable),
+      aiApproveHumanReject: Number(quality.aiApproveHumanReject || 0),
+      aiRejectHumanApprove: Number(quality.aiRejectHumanApprove || 0),
+      aiEscalated: Number(quality.aiEscalated || 0),
+      escalationReasons: reasonRows.map((row) => ({ reasonCode: row.reasonCode, count: Number(row.count || 0) })),
+    };
 
     return {
       generatedAt: this.clock().toISOString(),
@@ -148,18 +167,8 @@ class PhotoVerificationMetricsService {
         manualPercent: percent(decisions.manualReview),
         averageModerationSeconds: decisions.averageModerationSeconds == null ? null : Math.round(Number(decisions.averageModerationSeconds)),
       },
-      quality: {
-        reviewedByHuman: Number(quality.reviewedByHuman || 0),
-        comparable,
-        agreements: Number(quality.agreements || 0),
-        disagreements,
-        agreementPercent: percent(quality.agreements, comparable),
-        disagreementPercent: percent(disagreements, comparable),
-        aiApproveHumanReject: Number(quality.aiApproveHumanReject || 0),
-        aiRejectHumanApprove: Number(quality.aiRejectHumanApprove || 0),
-        aiEscalated: Number(quality.aiEscalated || 0),
-        escalationReasons: reasonRows.map((row) => ({ reasonCode: row.reasonCode, count: Number(row.count || 0) })),
-      },
+      quality: qualitySummary,
+      recommendations: buildAdvisoryRecommendations({ quality: qualitySummary, settings }),
       channels: channelRows.map((row) => {
         const total = Number(row.total || 0);
         const published = Number(row.published || 0);
@@ -183,6 +192,79 @@ class PhotoVerificationMetricsService {
   }
 }
 
+function buildAdvisoryRecommendations({ quality, settings = {} }) {
+  const recommendations = [];
+  const add = (id, severity, title, description, suggestedAction, evidence = {}) => recommendations.push({
+    id, severity, title, description, suggestedAction, evidence, advisoryOnly: true,
+  });
+
+  if (quality.comparable < 5) {
+    add(
+      'collect_more_human_reviews', 'info', 'Недостаточно контрольной выборки',
+      'Сравнимых решений AI и модератора пока мало для уверенной настройки порогов.',
+      'Накопить не менее 5–10 контрольных решений человека перед изменением thresholds.',
+      { comparable: quality.comparable },
+    );
+  } else {
+    if (quality.comparable >= 10 && quality.disagreementPercent >= 20) {
+      add(
+        'high_disagreement_review_mode', 'high', 'Высокое расхождение AI и модераторов',
+        `Расхождение составляет ${quality.disagreementPercent}% на ${quality.comparable} сравнимых решениях.`,
+        settings.mode === 'manual_only'
+          ? 'Сохранить manual_only и разобрать причины расхождений перед возвратом ai_assisted.'
+          : 'Рассмотреть временный manual_only и провести разбор thresholds / prompt / rules.',
+        { disagreementPercent: quality.disagreementPercent, comparable: quality.comparable, currentMode: settings.mode || null },
+      );
+    }
+
+    const falseApproveRate = quality.comparable ? (quality.aiApproveHumanReject / quality.comparable) * 100 : 0;
+    if (quality.aiApproveHumanReject >= 3 || falseApproveRate >= 10) {
+      const current = Number(settings.approvalThreshold);
+      const suggested = Number.isFinite(current) ? Math.min(0.99, Math.round((current + 0.03) * 100) / 100) : null;
+      add(
+        'review_auto_approve_threshold', 'high', 'Проверить порог auto-approve',
+        `За период найдено ${quality.aiApproveHumanReject} случаев AI approve → human reject.`,
+        suggested
+          ? `Рассмотреть повышение approvalThreshold с ${current} до ~${suggested}; применить только после ручного решения администратора.`
+          : 'Проверить approvalThreshold, prompt и правила auto-approve; изменение выполнять только вручную.',
+        { count: quality.aiApproveHumanReject, currentApprovalThreshold: Number.isFinite(current) ? current : null, suggestedApprovalThreshold: suggested },
+      );
+    }
+
+    const falseRejectRate = quality.comparable ? (quality.aiRejectHumanApprove / quality.comparable) * 100 : 0;
+    if (quality.aiRejectHumanApprove >= 3 || falseRejectRate >= 10) {
+      add(
+        'review_auto_reject_policy', 'medium', 'Проверить политику auto-reject',
+        `За период найдено ${quality.aiRejectHumanApprove} случаев AI reject → human approve.`,
+        'Проверить rejectionThreshold, prompt и причины отклонения; не ослаблять фильтр автоматически.',
+        { count: quality.aiRejectHumanApprove, currentRejectionThreshold: settings.rejectionThreshold == null ? null : Number(settings.rejectionThreshold) },
+      );
+    }
+  }
+
+  const visualReasons = quality.escalationReasons.filter((row) => /capture|code|fresh|timosh|тимош/i.test(row.reasonCode));
+  const visualCount = visualReasons.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  if (visualCount >= 3) {
+    add(
+      'review_visual_freshness', 'medium', 'Проверить visual freshness / Код Тимоши',
+      `Причины, связанные с capture/code/freshness, дали ${visualCount} ручных эскалаций.`,
+      'Проверить качество штампа, OCR Кода Тимоши и правила visual freshness. Не менять защиту автоматически.',
+      { count: visualCount, reasons: visualReasons.slice(0, 5), challengeCodeEnabled: Boolean(settings.challengeCodeEnabled) },
+    );
+  }
+
+  if (!recommendations.length) {
+    add(
+      'quality_stable_no_action', 'info', 'Критичных сигналов для перенастройки нет',
+      'Текущая контрольная выборка не показывает порогов, требующих немедленного вмешательства.',
+      'Продолжать наблюдение и принимать изменения только после накопления достаточной контрольной выборки.',
+      { comparable: quality.comparable, disagreementPercent: quality.disagreementPercent },
+    );
+  }
+
+  return recommendations;
+}
+
 function resolvePeriod(period, now = new Date()) {
   const key = Object.values(PERIODS).includes(period) ? period : PERIODS.DAYS_7;
   const endAt = new Date(now);
@@ -196,4 +278,4 @@ function resolvePeriod(period, now = new Date()) {
   return { key, startAt, endAt };
 }
 
-module.exports = { PhotoVerificationMetricsService, PERIODS, resolvePeriod };
+module.exports = { PhotoVerificationMetricsService, PERIODS, resolvePeriod, buildAdvisoryRecommendations };
