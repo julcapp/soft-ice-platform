@@ -1,4 +1,5 @@
 const { getPrismaClient } = require('./common/database');
+const { BonusRewardEngine } = require('./modules/bonus');
 const {
   PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository,
@@ -15,7 +16,6 @@ const {
   PhotoTechnicalAnalyzer,
   PhotoModerationLifecycle,
   PhotoModerationOrchestrator,
-  BlockedPhotoRewardEngine,
   OpenAIVisionProvider,
   TelegramPhotoPublisher,
   VkPhotoPublisher,
@@ -72,7 +72,13 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
     repository,
     targets,
   });
-  const rewardEngine = dependencies.photoRewardEngine || new BlockedPhotoRewardEngine();
+  const rewardPolicy = dependencies.photoRewardPolicy || null;
+  const rewardEngine = dependencies.photoRewardEngine || new BonusRewardEngine({
+    prisma: db,
+    resolveBonusUnits: rewardPolicy?.resolveBonusUnits
+      ? (context) => rewardPolicy.resolveBonusUnits(context)
+      : null,
+  });
 
   dependencies.photoVerificationRepository = repository;
   dependencies.photoSubmissionRepository = submissionRepository;
