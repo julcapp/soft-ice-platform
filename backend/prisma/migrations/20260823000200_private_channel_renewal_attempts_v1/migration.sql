@@ -7,10 +7,13 @@ CREATE TABLE "PrivateChannelRenewalAttempt" (
   "provider" TEXT NOT NULL DEFAULT 'YOOKASSA',
   "providerPaymentId" TEXT,
   "status" TEXT NOT NULL DEFAULT 'PENDING',
-  "idempotencyKey" TEXT NOT NULL UNIQUE,
+  "attemptCount" INTEGER NOT NULL DEFAULT 0 CHECK ("attemptCount" >= 0),
+  "idempotencyKey" TEXT UNIQUE,
   "failureCode" TEXT,
   "failureMessage" TEXT,
-  "attemptedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "attemptedAt" TIMESTAMP(3),
+  "nextRetryAt" TIMESTAMP(3),
+  "graceUntil" TIMESTAMP(3),
   "resolvedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -19,3 +22,5 @@ CREATE TABLE "PrivateChannelRenewalAttempt" (
 
 CREATE INDEX "PrivateChannelRenewalAttempt_status_period_idx"
   ON "PrivateChannelRenewalAttempt"("status", "periodEnd");
+CREATE INDEX "PrivateChannelRenewalAttempt_retry_idx"
+  ON "PrivateChannelRenewalAttempt"("status", "nextRetryAt");
