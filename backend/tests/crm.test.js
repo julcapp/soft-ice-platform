@@ -2,19 +2,21 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { CRMService } = require('../src/modules/crm');
 
-function fixture({ activeChannels = ['TELEGRAM'] } = {}) {
+function fixture({ activeChannels = ['TELEGRAM'], referrals = [] } = {}) {
   const customer = {
     id: 'customer-1', name: 'Анна', phone: '+79990000000', email: null, status: 'active',
     birthday: null, createdAt: new Date('2026-01-01'), crmProfile: null,
     clubAccount: { id: 'club-1', status: 'active', currency: 'RUB', availableBalanceRub: 500, transactions: [] },
     bonusAccount: { balanceBonus: 40 }, bonusTransactions: [], orders: [],
-    referralsMade: [], referredBy: [], segmentAssignments: [], notificationDeliveries: [],
+    referralsMade: referrals, referredBy: [], segmentAssignments: [], notificationDeliveries: [],
     channelSubscriptions: activeChannels.map((channelType) => ({ id: `sub-${channelType}`, channelType, isSubscribed: true })),
     externalProfiles: [], identities: [],
   };
+  const referredCustomers = [{ id: 'customer-2', name: 'Иван', phone: '+79991112233', email: null, status: 'active' }];
   const notifications = [];
   const repository = {
     findCustomer: async (id) => id === customer.id ? customer : null,
+    findCustomersByIds: async (ids) => referredCustomers.filter((item) => ids.includes(item.id)),
     listCustomers: async () => [customer],
     dashboard: async () => ({ customers: 1, activeCustomers: 1, campaigns: 0, queuedNotifications: 0, purchases: 0, revenueRub: 0, bonusLiability: 40 }),
     listCampaigns: async () => [],
@@ -35,6 +37,14 @@ test('CRM формирует сводку и карточку клиента и�
   assert.equal(card.loyalty.clubAccount.availableBalanceRub, 500);
   assert.equal(card.loyalty.bonusAccount.balanceBonus, 40);
   assert.deepEqual(card.activeChannels, ['TELEGRAM']);
+});
+
+test('CRM карточка показывает кто является зарегистрированным рефералом', async () => {
+  const { service } = fixture({ referrals: [{ id: 'ref-1', referredCustomerId: 'customer-2', referralCode: 'ANNA1', status: 'registered', firstPurchaseAt: new Date('2026-08-20T10:00:00Z'), createdAt: new Date('2026-08-19T10:00:00Z') }] });
+  const card = await service.getCustomerCard('customer-1');
+  assert.equal(card.referrals.invited.length, 1);
+  assert.equal(card.referrals.invited[0].referredCustomer.name, 'Иван');
+  assert.equal(card.referrals.invited[0].referredCustomer.phone, '+79991112233');
 });
 
 test('CRM ставит русскоязычное уведомление в очередь только для активного канала', async () => {
