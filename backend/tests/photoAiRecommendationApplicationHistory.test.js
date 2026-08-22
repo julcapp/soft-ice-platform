@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { PhotoAiRecommendationApplicationHistoryService } = require('../src/modules/photo_verification/PhotoAiRecommendationApplicationHistoryService');
 
-const admin = { role: 'ADMIN', subject: 'ops-admin' };
+const admin = { roles: ['ADMIN'], subject: 'ops-admin' };
 
 function prismaWith({ applications = [], rollbackEventsByPreparation = {} }) {
   let call = 0;
@@ -10,7 +10,7 @@ function prismaWith({ applications = [], rollbackEventsByPreparation = {} }) {
     async $queryRaw() {
       call += 1;
       if (call === 1) return applications;
-      const application = applications[Math.floor((call - 2) / 1)];
+      const application = applications[call - 2];
       const preparationId = application?.metadata?.preparationId;
       return rollbackEventsByPreparation[preparationId] || [];
     },
