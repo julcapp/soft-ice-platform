@@ -5,6 +5,7 @@ const { attachCorrelationId, sendError } = require('../../platform/http/apiRespo
 const { getPrismaClient } = require('../../common/database');
 const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
+const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -35,12 +36,12 @@ const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = re
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
   const prisma = getPrismaClient();
-  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma });
+  const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
-  const runtimeDependencies = { ...dependencies, referralEngagementService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService };
 
   router.use(attachCorrelationId);
-
   router.get('/', (req, res) => {
     res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
