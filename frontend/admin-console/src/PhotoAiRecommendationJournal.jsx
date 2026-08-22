@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ErrorState, Skeleton, StatusBadge } from './components';
 import {
+  applyPhotoAiRecommendationChange,
   decidePhotoAiRecommendation,
   evaluatePhotoAiRecommendations,
   getPhotoAiRecommendationHistory,
   markPhotoAiRecommendationViewed,
+  preparePhotoAiRecommendationChange,
 } from './api/photoVerificationClient';
 
 function status(severity) { return severity === 'high' ? 'CRITICAL' : severity === 'medium' ? 'WARNING' : 'ACTIVE'; }
@@ -15,6 +17,8 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
   const [state, setState] = useState({ status: 'loading', data: null, history: [] });
   const [comment, setComment] = useState({});
   const [busy, setBusy] = useState(null);
+  const [prepared, setPrepared] = useState({});
+  const [notice, setNotice] = useState('');
 
   async function reload(signal) {
     const [data, history] = await Promise.all([
@@ -27,6 +31,7 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
   useEffect(() => {
     const controller = new AbortController();
     setState((current) => ({ ...current, status: 'loading' }));
+    setPrepared({});
     reload(controller.signal).catch((error) => { if (error.name !== 'AbortError') setState({ status: 'error', data: null, history: [] }); });
     return () => controller.abort();
   }, [period]);
@@ -38,10 +43,35 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
   }
 
   async function decide(item, decision) {
-    setBusy(item.recommendationKey);
+    setBusy(item.recommendationKey); setNotice('');
     try {
       await decidePhotoAiRecommendation(item.recommendationKey, { decision, comment: comment[item.recommendationKey] || '' });
+      setPrepared((current) => { const next = { ...current }; delete next[item.recommendationKey]; return next; });
       await reload();
+    } finally { setBusy(null); }
+  }
+
+  async function prepare(item) {
+    setBusy(item.recommendationKey); setNotice('');
+    try {
+      const result = await preparePhotoAiRecommendationChange(item.recommendationKey);
+      setPrepared((current) => ({ ...current, [item.recommendationKey]: result }));
+    } catch (error) {
+      setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_NO_SAFE_PATCH' ? 'Для этой рекомендации нет безопасного автоматизированного diff. Изменение нужно выполнить вручную после анализа.' : 'Не удалось подготовить изменение.');
+    } finally { setBusy(null); }
+  }
+
+  async function apply(item) {
+    const plan = prepared[item.recommendationKey];
+    if (!plan) return;
+    setBusy(item.recommendationKey); setNotice('');
+    try {
+      await applyPhotoAiRecommendationChange(plan.preparationId);
+      setNotice('Изменение применено после второго подтверждения.');
+      setPrepared((current) => { const next = { ...current }; delete next[item.recommendationKey]; return next; });
+      await reload();
+    } catch (error) {
+      setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_SETTINGS_CHANGED' ? 'Настройки изменились после подготовки diff. Подготовьте изменение заново.' : 'Не удалось применить изменение.');
     } finally { setBusy(null); }
   }
 
@@ -51,31 +81,37 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
 
   return <section className="card" style={{ marginTop: 16 }} aria-label="Журнал рекомендаций AI">
     <div className="card-heading">
-      <div><h2>Журнал рекомендаций AI</h2><p style={{ margin: '6px 0 0' }}>Появление, просмотр и решение администратора. Принятие рекомендации не изменяет настройки автоматически.</p></div>
+      <div><h2>Журнал рекомендаций AI</h2><p style={{ margin: '6px 0 0' }}>Принятие рекомендации само по себе настройки не меняет. Применение требует отдельного просмотра diff и второго подтверждения.</p></div>
       <StatusBadge status={recommendations.some((item) => item.severity === 'high' && !item.journal?.decision) ? 'WARNING' : 'ACTIVE'} />
     </div>
+    {notice && <p role="status"><strong>{notice}</strong></p>}
 
     <div style={{ display: 'grid', gap: 12 }}>
-      {recommendations.map((item) => <article className="card" key={item.recommendationKey} onMouseEnter={() => viewed(item)}>
-        <div className="card-heading"><strong>{item.title}</strong><StatusBadge status={status(item.severity)} /></div>
-        <p>{item.description}</p>
-        <p><strong>Рекомендуемое действие:</strong> {item.suggestedAction}</p>
-        <p><strong>Статус:</strong> {decisionLabel(item.journal?.decision)}{item.journal?.viewedAt ? ' · просмотрена' : ' · новая'}</p>
-        {item.journal?.decidedAt && <small>Решение: {new Date(item.journal.decidedAt).toLocaleString('ru-RU')} · {item.journal.decidedBy || 'admin'}</small>}
-        <textarea
-          value={comment[item.recommendationKey] || ''}
-          onChange={(event) => setComment((current) => ({ ...current, [item.recommendationKey]: event.target.value }))}
-          placeholder="Комментарий к решению (необязательно)"
-          rows={2}
-          style={{ width: '100%', marginTop: 10 }}
-        />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-          <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'accept')}>Принять</button>
-          <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'defer')}>Отложить</button>
-          <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'reject')}>Отклонить</button>
-        </div>
-        <small style={{ display: 'block', marginTop: 8 }}>Любое решение остаётся advisory: settingsApplied=false.</small>
-      </article>)}
+      {recommendations.map((item) => {
+        const plan = prepared[item.recommendationKey];
+        return <article className="card" key={item.recommendationKey} onMouseEnter={() => viewed(item)}>
+          <div className="card-heading"><strong>{item.title}</strong><StatusBadge status={status(item.severity)} /></div>
+          <p>{item.description}</p>
+          <p><strong>Рекомендуемое действие:</strong> {item.suggestedAction}</p>
+          <p><strong>Статус:</strong> {decisionLabel(item.journal?.decision)}{item.journal?.viewedAt ? ' · просмотрена' : ' · новая'}</p>
+          <textarea value={comment[item.recommendationKey] || ''} onChange={(event) => setComment((current) => ({ ...current, [item.recommendationKey]: event.target.value }))} placeholder="Комментарий к решению (необязательно)" rows={2} style={{ width: '100%', marginTop: 10 }} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'accept')}>Принять</button>
+            <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'defer')}>Отложить</button>
+            <button type="button" disabled={busy === item.recommendationKey} onClick={() => decide(item, 'reject')}>Отклонить</button>
+            {item.journal?.decision === 'accept' && !plan && <button type="button" disabled={busy === item.recommendationKey} onClick={() => prepare(item)}>Подготовить изменение</button>}
+          </div>
+          {plan && <div className="card" style={{ marginTop: 12 }} aria-label="Подготовленное изменение">
+            <strong>Изменение подготовлено — ещё не применено</strong>
+            <table style={{ width: '100%', marginTop: 8 }}><thead><tr><th align="left">Поле</th><th align="left">До</th><th align="left">После</th></tr></thead><tbody>
+              {Object.keys(plan.patch || {}).map((key) => <tr key={key}><td>{key}</td><td>{String(plan.before?.[key])}</td><td>{String(plan.after?.[key])}</td></tr>)}
+            </tbody></table>
+            <p><small>Перед применением backend повторно проверит, что исходные настройки не изменились.</small></p>
+            <button type="button" disabled={busy === item.recommendationKey} onClick={() => apply(item)}>Применить это изменение</button>
+          </div>}
+          <small style={{ display: 'block', marginTop: 8 }}>Этап «Принять» остаётся advisory. Реальное изменение возможно только через подготовленный diff и отдельное подтверждение.</small>
+        </article>;
+      })}
       {!recommendations.length && <p>Активных рекомендаций за выбранный период нет.</p>}
     </div>
 
@@ -84,10 +120,7 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
       {!state.history.length && <p>Событий журнала пока нет.</p>}
       {!!state.history.length && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr><th align="left">Время</th><th align="left">Рекомендация</th><th align="left">Событие</th><th align="left">Решение</th><th align="left">Администратор</th></tr></thead>
-        <tbody>{state.history.map((row) => <tr key={row.id}>
-          <td>{new Date(row.occurredAt).toLocaleString('ru-RU')}</td>
-          <td>{row.recommendationKey}</td><td>{actionLabel(row.action)}</td><td>{row.decision || '—'}</td><td>{row.actorId || '—'}</td>
-        </tr>)}</tbody>
+        <tbody>{state.history.map((row) => <tr key={row.id}><td>{new Date(row.occurredAt).toLocaleString('ru-RU')}</td><td>{row.recommendationKey}</td><td>{actionLabel(row.action)}</td><td>{row.decision || '—'}</td><td>{row.actorId || '—'}</td></tr>)}</tbody>
       </table></div>}
     </div>
   </section>;
