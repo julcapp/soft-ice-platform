@@ -13,6 +13,7 @@ import { PhotoCameraScreen } from '../photo-verification/PhotoCameraScreen.jsx';
 import { ProfileCenter } from '../profile/ProfileCenter.jsx';
 import { ReferralCenter } from '../profile/ReferralCenter.jsx';
 import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
+import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
 
 export function App() {
   const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
@@ -28,12 +29,14 @@ export function App() {
   if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => { window.location.search = '?mode=camera'; }} />;
   if (appMode === 'camera') return <PhotoCameraScreen onBack={() => { window.location.search = '?mode=photos'; }} onSubmitted={() => { window.location.search = '?mode=photos'; }} />;
   if (appMode === 'verify-email') return <VerifyEmailScreen />;
+  if (appMode === 'private-channel') return <PrivateChannelScreen onBack={() => { window.location.href = '/'; }} />;
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
   if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
   if (screen === 'camera') return <PhotoCameraScreen onBack={() => setScreen('home')} onSubmitted={() => setScreen('photos')} />;
   if (screen === 'profile') return <ProfileCenter onBack={() => setScreen('home')} />;
   if (screen === 'referral') return <ReferralCenter onBack={() => setScreen('home')} />;
+  if (screen === 'private-channel') return <PrivateChannelScreen onBack={() => setScreen('home')} />;
 
-  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} onProfile={() => setScreen('profile')} onReferral={() => setScreen('referral')} />;
+  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} onProfile={() => setScreen('profile')} onReferral={() => setScreen('referral')} onPrivateChannel={() => setScreen('private-channel')} />;
 }
