@@ -8,15 +8,19 @@
 
 Approved customer photos must be distributed to the project's public channels and their publication state must remain auditable independently per channel.
 
-The confirmed public targets are:
+The confirmed public targets are VK `club239119350`, Telegram `@ice_robo_club`, and MAX `https://max.ru/channel_soft_icecream`. The technical MAX `chat_id` remains a deployment configuration value and must not be inferred from the public URL.
 
-- VK — `club239119350`, `https://vk.com/club239119350`;
-- Telegram — `@ice_robo_club`, `https://t.me/ice_robo_club`;
-- MAX — `https://max.ru/channel_soft_icecream`, while its API `chat_id` is supplied separately through `MAX_CHANNEL_CHAT_ID`.
+Photo Verification may approve automatically in AI-assisted mode or route a submission to a manual moderation queue. A manual moderator decision must not bypass the same publishing, reward, and retention boundaries used by the automated workflow.
 
 ## Decision
 
 Introduce `PhotoPublishingOrchestrator` as a channel-neutral publishing coordinator.
+
+Required targets for the «У Тимоши» UGC workflow are:
+
+- VK — `club239119350`;
+- Telegram — `@ice_robo_club`;
+- MAX — required, API target configured separately through `MAX_CHANNEL_CHAT_ID`.
 
 Each channel receives an independent publish attempt with a stable idempotency key based on `photoChallengeId + channel`.
 
@@ -26,10 +30,29 @@ Supported publication states include:
 
 - `pending`;
 - `published`;
+- `confirmed`;
 - `failed`;
 - `not_configured`.
 
-The batch reports both `anyPublished` and `allRequiredPublished`. The complete UGC publication workflow reaches confirmed publication only when all currently required targets have successfully published. Partial success is retained and failed/unconfigured channels can be retried independently.
+Both `published` and `confirmed` are durable positive publication evidence for the customer read model. Completion is evaluated against `requiredChannels` from Photo Verification settings rather than a hard-coded channel count.
+
+## Manual moderation boundary
+
+`PhotoManualReviewService` owns administrator decisions for submissions routed to `manual_review`.
+
+The administrator can:
+
+- approve;
+- send to additional review;
+- reject.
+
+Additional-review and rejection decisions require a reason. Every decision is stored as a separate manual verification result and an audit event carrying the administrator actor ID, action, decision, reason and correlation ID.
+
+Manual approval does not directly publish, credit bonus units, or delete source media. It resumes the same deterministic sequence:
+
+`manual approval → required publication → Reward Engine → customer reward notification → retention/deletion`.
+
+If required publication is incomplete, the reward is blocked. If reward units are not configured, the reward remains pending and source media is retained. Repeated reward processing uses the same `photo-reward:<photoChallengeId>` idempotency boundary.
 
 ## Persistence
 
@@ -40,68 +63,31 @@ The batch reports both `anyPublished` and `allRequiredPublished`. The complete U
 - `lastAttemptAt`;
 - `idempotencyKey`;
 - unique `(photoChallengeId, channel)`;
-- external publication ID;
-- publication URL;
-- published/confirmed timestamps;
+- external publication ID and URL;
+- published and confirmed timestamps;
 - failure diagnostics.
+
+Manual moderation remains append-only in `PhotoVerificationResult` and `PhotoVerificationEvent`; the prior AI/technical evidence is retained for audit.
 
 ## Failure behavior
 
-- A successful publication in one channel is retained if another channel fails.
-- A missing target or publisher is `not_configured`, never simulated as success.
-- A failed required channel prevents `allRequiredPublished=true` but does not undo other successful channels.
-- Retry increments attempt state for that channel while preserving its logical identity.
-
-## MAX chat_id resolution
-
-The public MAX URL is not used as an API identifier. The helper command:
-
-```bash
-npm run max:resolve-chat-id
-```
-
-reads MAX Bot API updates and prints discovered `chat_id` values. The bot must be added by an administrator to the public channel. The resolved value is stored only as the runtime secret/configuration value `MAX_CHANNEL_CHAT_ID`.
-
-## Guarded integration smoke-test
-
-The first real three-channel publication is executed through:
-
-```bash
-npm run photo:publish-smoke
-```
-
-The command is fail-closed and refuses to publish unless `PHOTO_PUBLISH_SMOKE_CONFIRM=YES` is explicitly set. It also requires:
-
-- `PHOTO_PUBLISH_SMOKE_IMAGE` — absolute path to the test image;
-- `TELEGRAM_BOT_TOKEN`;
-- `VK_ACCESS_TOKEN`;
-- `MAX_BOT_TOKEN`;
-- `MAX_CHANNEL_CHAT_ID`.
-
-Optional `PHOTO_PUBLISH_SMOKE_CAPTION` controls the test caption.
-
-Example on a trusted staging/production host:
-
-```bash
-PHOTO_PUBLISH_SMOKE_CONFIRM=YES \
-PHOTO_PUBLISH_SMOKE_IMAGE=/absolute/path/test-photo.jpg \
-PHOTO_PUBLISH_SMOKE_CAPTION='Тест публикации Photo Verification — У Тимоши' \
-npm run photo:publish-smoke
-```
-
-The same image is submitted to VK, Telegram and MAX in parallel. The result of every channel is printed independently. Partial success is reported as partial failure; it is never promoted to full success.
+- A successful VK publication is retained if Telegram or MAX fails.
+- A missing required target or publisher is `not_configured`, never simulated as success.
+- A failed required channel prevents the complete-publication condition but does not undo successful channels.
+- Manual rejection/additional review never starts publishing.
+- Manual approval with publishing disabled stops at `publication_pending`.
+- Publication success without configured reward units stops at `reward_pending` and retains the source file.
 
 ## Reward and retention boundary
 
-The publishing orchestrator never grants bonuses and never deletes source media.
+The publishing and manual-moderation services never write bonus balances directly. Rewarding is delegated to `BonusRewardEngine`, which is idempotent and settings-backed.
 
-Reward eligibility and source-file deletion depend on confirmed publication. For the current three-required-channel policy, the complete publication condition is `allRequiredPublished=true`.
+Source deletion is permitted only after complete required publication and successful reward. Deletion evidence is recorded after the storage adapter confirms deletion.
 
 ## Consequences
 
-- all three public UGC targets are explicit;
-- MAX API identity remains separate from its public URL;
-- channel outages are isolated;
-- publication audit and customer-cabinet status can show channel-level progress;
-- integration publishing cannot be triggered accidentally by the smoke-test script;
-- SaaS extraction remains possible because targets and publishers are injected configuration/adapters.
+- Manual and AI-assisted approvals obey the same business boundary.
+- Moderator identity and reason are auditable without overwriting AI evidence.
+- Channel outages are isolated.
+- Publication audit and customer-cabinet status can show channel-level progress.
+- The design remains extractable to a future multi-tenant photo-verification service.
