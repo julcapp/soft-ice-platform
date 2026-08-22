@@ -6,6 +6,7 @@ const { getPrismaClient } = require('../../common/database');
 const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
 const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
+const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -39,7 +40,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService };
+  const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, customerProfileCommunicationService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
