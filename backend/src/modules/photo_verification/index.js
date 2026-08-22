@@ -1,6 +1,7 @@
 const { PhotoVerificationAgent } = require('./PhotoVerificationAgent');
 const { MockVisionProvider } = require('./MockVisionProvider');
 const { PrismaPhotoVerificationRepository } = require('./PrismaPhotoVerificationRepository');
+const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const {
   PHOTO_VERIFICATION_MODES,
   PHOTO_VERIFICATION_DECISIONS,
@@ -21,6 +22,7 @@ module.exports = {
   PhotoVerificationAgent,
   MockVisionProvider,
   PrismaPhotoVerificationRepository,
+  PhotoModerationLifecycle,
   PHOTO_VERIFICATION_MODES,
   PHOTO_VERIFICATION_DECISIONS,
   PHOTO_SUBMISSION_STATUSES,
