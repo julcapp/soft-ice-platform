@@ -22,6 +22,7 @@ async function requestPath(path, options = {}) {
 const request = (options = {}) => requestPath('/settings', options);
 export const getPhotoVerificationSettings = ({ signal } = {}) => request({ signal });
 export const updatePhotoVerificationSettings = (patch, { signal } = {}) => request({ signal, method: 'PATCH', body: JSON.stringify(patch) });
+export const getPhotoVerificationMetrics = ({ signal } = {}) => requestPath('/metrics', { signal });
 export const getPhotoReviewQueue = ({ signal, limit = 50 } = {}) => requestPath(`/reviews?limit=${encodeURIComponent(limit)}`, { signal });
 export const getPhotoReviewItem = (photoChallengeId, { signal } = {}) => requestPath(`/reviews/${encodeURIComponent(photoChallengeId)}`, { signal });
 export const submitPhotoReviewDecision = (photoChallengeId, decision, { signal } = {}) => requestPath(`/reviews/${encodeURIComponent(photoChallengeId)}/decision`, {
