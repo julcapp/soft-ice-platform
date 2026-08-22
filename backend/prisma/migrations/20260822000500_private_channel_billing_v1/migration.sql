@@ -27,7 +27,7 @@ CREATE TABLE "PrivateChannelSubscription" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "private_channel_recurring_consent_check" CHECK (
-    "recurringEnabled" = FALSE OR ("recurringConsentAt" IS NOT NULL AND "recurringConsentVersion" IS NOT NULL)
+    "recurringEnabled" = FALSE OR ("recurringConsentAt" IS NOT NULL AND "recurringConsentVersion" IS NOT NULL AND "providerPaymentMethodRef" IS NOT NULL)
   )
 );
 
@@ -53,3 +53,16 @@ CREATE TABLE "PrivateChannelPayment" (
 
 CREATE INDEX "PrivateChannelPayment_subscription_created_idx" ON "PrivateChannelPayment"("subscriptionId", "createdAt");
 CREATE INDEX "PrivateChannelPayment_paid_at_idx" ON "PrivateChannelPayment"("paidAt");
+
+INSERT INTO "PrivateChannelPlan" (
+  "id", "code", "name", "channelType", "targetExternalId", "priceRub", "billingPeriodDays", "isActive"
+) VALUES (
+  'private_telegram_monthly_v1',
+  'PRIVATE_TELEGRAM_MONTHLY',
+  'Приватный канал — 30 дней',
+  'TELEGRAM',
+  'https://t.me/+-zM7xM2VUCI5ODZi',
+  99.00,
+  30,
+  FALSE
+) ON CONFLICT ("code") DO NOTHING;
