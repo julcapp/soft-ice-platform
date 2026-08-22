@@ -9,6 +9,7 @@
     "prisma:validate": "prisma validate",
     "test": "node --test tests/*.test.js",
     "max:resolve-chat-id": "node scripts/resolve-max-chat-id.js",
+    "photo:publish-smoke": "node scripts/photo-publish-smoke.js",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },
