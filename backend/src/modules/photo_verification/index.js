@@ -1,6 +1,9 @@
 const { PhotoVerificationAgent } = require('./PhotoVerificationAgent');
 const { MockVisionProvider } = require('./MockVisionProvider');
 const { PrismaPhotoVerificationRepository } = require('./PrismaPhotoVerificationRepository');
+const { PrismaPhotoSubmissionRepository } = require('./PrismaPhotoSubmissionRepository');
+const { LocalPhotoStorageAdapter } = require('./LocalPhotoStorageAdapter');
+const { PhotoSubmissionIntakeService } = require('./PhotoSubmissionIntakeService');
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
 const { ImageFingerprintService } = require('./ImageFingerprintService');
@@ -43,10 +46,14 @@ module.exports = {
     'paid subscription channel configuration boundary',
     'admin-controlled photo verification settings',
     'customer photo publication read model',
+    'camera photo intake and source storage boundary',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
   PrismaPhotoVerificationRepository,
+  PrismaPhotoSubmissionRepository,
+  LocalPhotoStorageAdapter,
+  PhotoSubmissionIntakeService,
   PhotoModerationLifecycle,
   MetadataAnalyzer,
   ImageFingerprintService,
