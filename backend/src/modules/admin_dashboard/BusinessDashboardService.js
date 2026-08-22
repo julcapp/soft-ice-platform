@@ -4,10 +4,11 @@ const ADMIN_ROLES = new Set(['PLATFORM_OWNER', 'ADMIN']);
 const CHANNELS = ['VK', 'TELEGRAM', 'MAX'];
 
 class BusinessDashboardService {
-  constructor({ prisma, privateChannelBillingService = null, clock = () => new Date() }) {
+  constructor({ prisma, privateChannelBillingService = null, paymentOperationsService = null, clock = () => new Date() }) {
     if (!prisma) throw new Error('prisma is required');
     this.prisma = prisma;
     this.privateChannelBillingService = privateChannelBillingService;
+    this.paymentOperationsService = paymentOperationsService;
     this.clock = clock;
   }
 
@@ -25,9 +26,8 @@ class BusinessDashboardService {
       this.prisma.customerChannelSubscription.findMany({ where: { isSubscribed: true }, select: { channelType: true, targetType: true, targetExternalId: true, customerId: true, subscribedAt: true } }),
       this.prisma.auditEvent.findMany({ where: { eventType: 'Referral.LinkAction', occurredAt: { gte: range.from, lt: range.toExclusive } }, select: { subjectId: true, action: true, metadata: true, occurredAt: true } }),
     ]);
-    const privateChannel = this.privateChannelBillingService
-      ? await this.privateChannelBillingService.stats({ from: range.from, toExclusive: range.toExclusive })
-      : { subscribers: null, paidPaymentsInPeriod: null, paidAmountRubInPeriod: null, forecastNext30DaysRub: null, status: 'BLOCKED', reason: 'PRIVATE_CHANNEL_BILLING_SOURCE_NOT_WIRED' };
+    const privateChannel = this.privateChannelBillingService ? await this.privateChannelBillingService.stats({ from: range.from, toExclusive: range.toExclusive }) : { subscribers: null, paidPaymentsInPeriod: null, paidAmountRubInPeriod: null, forecastNext30DaysRub: null, status: 'BLOCKED', reason: 'PRIVATE_CHANNEL_BILLING_SOURCE_NOT_WIRED' };
+    const financialDocuments = this.paymentOperationsService ? await this.paymentOperationsService.stats({ from: range.from, toExclusive: range.toExclusive }) : { refundsSucceeded: null, refundedAmountRub: null, receiptsCreated: null, status: 'BLOCKED' };
 
     const paidOrders = orders.filter((order) => order.paidAt);
     const completedOrders = paidOrders.filter((order) => order.status === 'COMPLETED');
@@ -65,9 +65,11 @@ class BusinessDashboardService {
         awaitingPickupAmountRub: sum(awaitingPickup, (item) => item.amountPaidRub ?? item.amount),
         byDay: salesByDay,
       },
+      financialDocuments,
       privateChannel,
       sourceReadiness: {
         users: 'READY', club: 'READY', referralsAccepted: 'READY', referralShares: 'READY', publicChannels: 'READY', sales: 'READY', awaitingPickup: 'READY',
+        receiptsAndRefunds: this.paymentOperationsService ? 'READY' : 'BLOCKED',
         privateChannelBilling: privateChannel.status === 'READY' ? 'READY' : 'BLOCKED',
       },
     };
@@ -95,27 +97,10 @@ function buildReferralActionStats(events) {
   }
   return { actions, destinations };
 }
-function buildChannelStats(subscriptions) {
-  const result = {};
-  for (const channel of CHANNELS) {
-    const rows = subscriptions.filter((item) => String(item.channelType).toUpperCase() === channel && !isPrivateTarget(item));
-    result[channel] = { subscribed: new Set(rows.map((row) => row.customerId)).size };
-  }
-  return result;
-}
+function buildChannelStats(subscriptions) { const result = {}; for (const channel of CHANNELS) { const rows = subscriptions.filter((item) => String(item.channelType).toUpperCase() === channel && !isPrivateTarget(item)); result[channel] = { subscribed: new Set(rows.map((row) => row.customerId)).size }; } return result; }
 function isPrivateTarget(item) { const targetType = String(item.targetType || '').toUpperCase(); return targetType.includes('PRIVATE') || targetType.includes('PAID'); }
-function buildDailySeries(range, orders) {
-  const days = new Map();
-  for (let cursor = new Date(range.from); cursor < range.toExclusive; cursor.setUTCDate(cursor.getUTCDate() + 1)) days.set(isoDay(cursor), { date: isoDay(cursor), purchases: 0, revenueRub: 0 });
-  for (const order of orders) { const row = days.get(isoDay(order.paidAt)); if (!row) continue; row.purchases += 1; row.revenueRub += Number(order.amountPaidRub ?? order.amount ?? 0); }
-  return [...days.values()].map((row) => ({ ...row, revenueRub: round(row.revenueRub, 2) }));
-}
-function resolveRange(query, now) {
-  const fallbackTo = startUtcDay(now); const toInclusive = query.to ? parseDay(query.to, 'to') : fallbackTo; const from = query.from ? parseDay(query.from, 'from') : addDays(toInclusive, -29);
-  if (from > toInclusive) throw validation('BUSINESS_DASHBOARD_PERIOD_INVALID', '`from` must not be after `to`.');
-  const days = Math.floor((toInclusive - from) / 86400000) + 1; if (days > 366) throw validation('BUSINESS_DASHBOARD_PERIOD_TOO_LARGE', 'Maximum reporting period is 366 days.');
-  return { from, toInclusive, toExclusive: addDays(toInclusive, 1), days };
-}
+function buildDailySeries(range, orders) { const days = new Map(); for (let cursor = new Date(range.from); cursor < range.toExclusive; cursor.setUTCDate(cursor.getUTCDate() + 1)) days.set(isoDay(cursor), { date: isoDay(cursor), purchases: 0, revenueRub: 0 }); for (const order of orders) { const row = days.get(isoDay(order.paidAt)); if (!row) continue; row.purchases += 1; row.revenueRub += Number(order.amountPaidRub ?? order.amount ?? 0); } return [...days.values()].map((row) => ({ ...row, revenueRub: round(row.revenueRub, 2) })); }
+function resolveRange(query, now) { const fallbackTo = startUtcDay(now); const toInclusive = query.to ? parseDay(query.to, 'to') : fallbackTo; const from = query.from ? parseDay(query.from, 'from') : addDays(toInclusive, -29); if (from > toInclusive) throw validation('BUSINESS_DASHBOARD_PERIOD_INVALID', '`from` must not be after `to`.'); const days = Math.floor((toInclusive - from) / 86400000) + 1; if (days > 366) throw validation('BUSINESS_DASHBOARD_PERIOD_TOO_LARGE', 'Maximum reporting period is 366 days.'); return { from, toInclusive, toExclusive: addDays(toInclusive, 1), days }; }
 function parseDay(value, field) { if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) throw validation('BUSINESS_DASHBOARD_DATE_INVALID', `Invalid ${field} date.`); const date = new Date(`${value}T00:00:00.000Z`); if (Number.isNaN(date.getTime())) throw validation('BUSINESS_DASHBOARD_DATE_INVALID', `Invalid ${field} date.`); return date; }
 function startUtcDay(value) { const date = new Date(value); return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); }
 function addDays(value, days) { const date = new Date(value); date.setUTCDate(date.getUTCDate() + days); return date; }
