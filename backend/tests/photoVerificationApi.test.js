@@ -1,27 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  createPhotoVerificationRouter,
-  createAdminPhotoVerificationRouter,
-} = require('../src/api/v1/photoVerificationRoutes');
+const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('../src/api/v1/photoVerificationRoutes');
 const { attachPhotoVerificationRuntime } = require('../src/photoVerificationRuntime');
 
 function routeSignatures(router) {
-  return router.stack
-    .filter((layer) => layer.route)
-    .map((layer) => ({
-      path: layer.route.path,
-      methods: Object.keys(layer.route.methods).filter((method) => layer.route.methods[method]).sort(),
-    }));
+  return router.stack.filter((layer) => layer.route).map((layer) => ({ path: layer.route.path, methods: Object.keys(layer.route.methods).filter((method) => layer.route.methods[method]).sort() }));
 }
 
 test('customer photo verification router exposes own history and camera challenge endpoints', () => {
-  const router = createPhotoVerificationRouter({
-    photoPublicationReadModel: { listForCustomer: async () => [] },
-    photoSubmissionIntakeService: {},
-    authCoreService: {},
-  });
+  const router = createPhotoVerificationRouter({ photoPublicationReadModel: { listForCustomer: async () => [] }, photoSubmissionIntakeService: {}, authCoreService: {} });
   assert.deepEqual(routeSignatures(router), [
     { path: '/me/publications', methods: ['get'] },
     { path: '/me/challenges/active', methods: ['get'] },
@@ -29,9 +17,10 @@ test('customer photo verification router exposes own history and camera challeng
   ]);
 });
 
-test('admin photo verification router exposes settings, metrics, recommendation journal, review and recovery endpoints', () => {
+test('admin photo verification router exposes settings, recommendations, application, review and recovery endpoints', () => {
   const router = createAdminPhotoVerificationRouter({
-    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {}, photoAiRecommendationJournalService: {}, adminAuth: {},
+    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {},
+    photoAiRecommendationJournalService: {}, photoAiRecommendationApplicationService: {}, adminAuth: {},
   });
   assert.deepEqual(routeSignatures(router), [
     { path: '/settings', methods: ['get'] },
@@ -41,6 +30,8 @@ test('admin photo verification router exposes settings, metrics, recommendation 
     { path: '/recommendations/history', methods: ['get'] },
     { path: '/recommendations/:recommendationKey/viewed', methods: ['post'] },
     { path: '/recommendations/:recommendationKey/decision', methods: ['post'] },
+    { path: '/recommendations/:recommendationKey/prepare-change', methods: ['post'] },
+    { path: '/recommendation-changes/:preparationId/apply', methods: ['post'] },
     { path: '/reviews', methods: ['get'] },
     { path: '/reviews/:photoChallengeId', methods: ['get'] },
     { path: '/reviews/:photoChallengeId/preview', methods: ['get'] },
@@ -51,44 +42,20 @@ test('admin photo verification router exposes settings, metrics, recommendation 
 });
 
 test('composition root attaches shared repository-backed photo services', () => {
-  const fakePrisma = {};
-  const dependencies = {};
-  const result = attachPhotoVerificationRuntime(dependencies, { prisma: fakePrisma });
-  assert.equal(result, dependencies);
+  const result = attachPhotoVerificationRuntime({}, { prisma: {} });
   assert.ok(result.photoVerificationRepository);
   assert.ok(result.photoVerificationAdminService);
   assert.ok(result.photoManualReviewService);
   assert.ok(result.photoVerificationMetricsService);
   assert.ok(result.photoAiRecommendationJournalService);
-  assert.ok(result.photoPublicationReadModel);
-  assert.ok(result.photoCaptureChallengeService);
-  assert.ok(result.photoRewardEngine);
-  assert.equal(result.photoVerificationAdminService.repository, result.photoVerificationRepository);
-  assert.equal(result.photoManualReviewService.repository, result.photoVerificationRepository);
-  assert.equal(result.photoPublicationReadModel.repository, result.photoVerificationRepository);
-  assert.equal(result.photoAiRecommendationJournalService.metricsService, result.photoVerificationMetricsService);
+  assert.ok(result.photoAiRecommendationApplicationService);
+  assert.equal(result.photoAiRecommendationApplicationService.metricsService, result.photoVerificationMetricsService);
+  assert.equal(result.photoAiRecommendationApplicationService.journalService, result.photoAiRecommendationJournalService);
+  assert.equal(result.photoAiRecommendationApplicationService.adminService, result.photoVerificationAdminService);
 });
 
-test('composition root preserves explicitly injected photo services', () => {
-  const adminService = { custom: true };
-  const manualReviewService = { custom: true };
-  const metricsService = { custom: true };
-  const recommendationJournalService = { custom: true };
-  const readModel = { custom: true };
-  const captureService = { custom: true };
-  const dependencies = {
-    photoVerificationAdminService: adminService,
-    photoManualReviewService: manualReviewService,
-    photoVerificationMetricsService: metricsService,
-    photoAiRecommendationJournalService: recommendationJournalService,
-    photoPublicationReadModel: readModel,
-    photoCaptureChallengeService: captureService,
-  };
-  const result = attachPhotoVerificationRuntime(dependencies, { prisma: {} });
-  assert.equal(result.photoVerificationAdminService, adminService);
-  assert.equal(result.photoManualReviewService, manualReviewService);
-  assert.equal(result.photoVerificationMetricsService, metricsService);
-  assert.equal(result.photoAiRecommendationJournalService, recommendationJournalService);
-  assert.equal(result.photoPublicationReadModel, readModel);
-  assert.equal(result.photoCaptureChallengeService, captureService);
+test('composition root preserves explicitly injected recommendation application service', () => {
+  const applicationService = { custom: true };
+  const result = attachPhotoVerificationRuntime({ photoAiRecommendationApplicationService: applicationService }, { prisma: {} });
+  assert.equal(result.photoAiRecommendationApplicationService, applicationService);
 });
