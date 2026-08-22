@@ -17,15 +17,16 @@ test('customer photo verification router exposes own history and camera challeng
   ]);
 });
 
-test('admin photo verification router exposes settings, recommendation history/application/rollback, review and recovery endpoints', () => {
+test('admin photo verification router exposes settings, readiness, metrics, recommendation history/application/rollback, review and recovery endpoints', () => {
   const router = createAdminPhotoVerificationRouter({
-    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {},
+    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {}, photoVerificationReadinessService: {},
     photoAiRecommendationJournalService: {}, photoAiRecommendationApplicationService: {}, photoAiRecommendationRollbackService: {},
     photoAiRecommendationApplicationHistoryService: {}, adminAuth: {},
   });
   assert.deepEqual(routeSignatures(router), [
     { path: '/settings', methods: ['get'] },
     { path: '/settings', methods: ['patch'] },
+    { path: '/readiness', methods: ['get'] },
     { path: '/metrics', methods: ['get'] },
     { path: '/recommendations/evaluate', methods: ['post'] },
     { path: '/recommendations/history', methods: ['get'] },
@@ -51,6 +52,7 @@ test('composition root attaches shared repository-backed photo services', () => 
   assert.ok(result.photoVerificationAdminService);
   assert.ok(result.photoManualReviewService);
   assert.ok(result.photoVerificationMetricsService);
+  assert.ok(result.photoVerificationReadinessService);
   assert.ok(result.photoAiRecommendationJournalService);
   assert.ok(result.photoAiRecommendationApplicationService);
   assert.ok(result.photoAiRecommendationRollbackService);
