@@ -12,7 +12,7 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   return router;
 }
 
-function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, photoAiRecommendationJournalService, photoAiRecommendationApplicationService, adminAuth = {} }) {
+function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, photoAiRecommendationJournalService, photoAiRecommendationApplicationService, photoAiRecommendationRollbackService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
   router.get('/settings', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationAdminService.getSettings(req.securityContext, req.query.scope || 'default'))));
@@ -25,6 +25,8 @@ function createAdminPhotoVerificationRouter({ photoVerificationAdminService, pho
   router.post('/recommendations/:recommendationKey/decision', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.decide(req.securityContext, req.params.recommendationKey, { decision: req.body?.decision, comment: req.body?.comment, deferUntil: req.body?.deferUntil, correlationId: req.correlationId }))));
   router.post('/recommendations/:recommendationKey/prepare-change', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationApplicationService.prepare(req.securityContext, req.params.recommendationKey, { correlationId: req.correlationId }))));
   router.post('/recommendation-changes/:preparationId/apply', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationApplicationService.apply(req.securityContext, req.params.preparationId, { correlationId: req.correlationId }))));
+  router.post('/recommendation-changes/:preparationId/prepare-rollback', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationRollbackService.prepare(req.securityContext, req.params.preparationId, { correlationId: req.correlationId }))));
+  router.post('/recommendation-rollbacks/:rollbackId/apply', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationRollbackService.apply(req.securityContext, req.params.rollbackId, { correlationId: req.correlationId }))));
 
   router.get('/reviews', asyncHandler(async (req, res) => sendData(res, req, await photoManualReviewService.list(req.securityContext, { limit: req.query.limit }))));
   router.get('/reviews/:photoChallengeId', asyncHandler(async (req, res) => sendData(res, req, await photoManualReviewService.get(req.securityContext, req.params.photoChallengeId))));
