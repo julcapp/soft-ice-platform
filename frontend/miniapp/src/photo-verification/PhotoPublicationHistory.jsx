@@ -22,7 +22,7 @@ function ChannelStatus({ name, publication }) {
   </div>;
 }
 
-export function PhotoPublicationHistory({ client = getMyPhotoPublications, onBack }) {
+export function PhotoPublicationHistory({ client = getMyPhotoPublications, onBack, onCamera }) {
   const [state, setState] = useState({ status: 'loading', rows: [] });
 
   useEffect(() => {
@@ -40,7 +40,10 @@ export function PhotoPublicationHistory({ client = getMyPhotoPublications, onBac
       <p className="eyebrow">Личный кабинет</p>
       <h2>Мои фотографии</h2>
       <p>Здесь сохраняется история модерации и публикаций даже после удаления исходного файла.</p>
-      {onBack && <button className="button secondary" type="button" onClick={onBack}>← Назад</button>}
+      <div className="photo-camera-actions">
+        {onBack && <button className="button secondary" type="button" onClick={onBack}>← Назад</button>}
+        {onCamera && <button className="button primary" type="button" onClick={onCamera}>Сделать фото</button>}
+      </div>
     </section>
 
     {state.status === 'loading' && <section className="hero-card"><p>Загружаем историю…</p></section>}
