@@ -1,5 +1,6 @@
 const { PhotoVerificationAgent } = require('./PhotoVerificationAgent');
 const { MockVisionProvider } = require('./MockVisionProvider');
+const { OpenAIVisionProvider } = require('./OpenAIVisionProvider');
 const { PrismaPhotoVerificationRepository } = require('./PrismaPhotoVerificationRepository');
 const { PrismaPhotoSubmissionRepository } = require('./PrismaPhotoSubmissionRepository');
 const { LocalPhotoStorageAdapter } = require('./LocalPhotoStorageAdapter');
@@ -7,12 +8,16 @@ const { PhotoSubmissionIntakeService } = require('./PhotoSubmissionIntakeService
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
 const { ImageFingerprintService } = require('./ImageFingerprintService');
+const { SharpImageDecoder } = require('./SharpImageDecoder');
 const { DuplicateDetector } = require('./DuplicateDetector');
 const { PhotoTechnicalAnalyzer } = require('./PhotoTechnicalAnalyzer');
 const { PhotoCustomerWorkflow } = require('./PhotoCustomerWorkflow');
 const { CrmPhotoNotifier } = require('./CrmPhotoNotifier');
 const { PhotoVerificationAdminService } = require('./PhotoVerificationAdminService');
 const { PhotoPublicationReadModel } = require('./PhotoPublicationReadModel');
+const { TelegramPhotoPublisher } = require('./TelegramPhotoPublisher');
+const { VkPhotoPublisher } = require('./VkPhotoPublisher');
+const { MaxPhotoPublisher } = require('./MaxPhotoPublisher');
 const {
   PHOTO_PUBLISHING_TARGETS,
   PHOTO_PAID_SUBSCRIPTION_CHANNELS,
@@ -49,9 +54,13 @@ module.exports = {
     'customer photo publication read model',
     'camera photo intake and source storage boundary',
     'CRM-backed customer photo notifications',
+    'production image decoding boundary',
+    'production publishing adapters',
+    'production multimodal AI provider boundary',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
+  OpenAIVisionProvider,
   PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository,
   LocalPhotoStorageAdapter,
@@ -59,12 +68,16 @@ module.exports = {
   PhotoModerationLifecycle,
   MetadataAnalyzer,
   ImageFingerprintService,
+  SharpImageDecoder,
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
   PhotoCustomerWorkflow,
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
   PhotoPublicationReadModel,
+  TelegramPhotoPublisher,
+  VkPhotoPublisher,
+  MaxPhotoPublisher,
   PhotoPublishingOrchestrator,
   PUBLICATION_STATUSES,
   PHOTO_PUBLISHING_TARGETS,
