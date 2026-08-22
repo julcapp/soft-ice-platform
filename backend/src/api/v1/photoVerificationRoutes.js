@@ -12,11 +12,12 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   return router;
 }
 
-function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, photoAiRecommendationJournalService, photoAiRecommendationApplicationService, photoAiRecommendationRollbackService, photoAiRecommendationApplicationHistoryService, adminAuth = {} }) {
+function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, photoVerificationReadinessService, photoAiRecommendationJournalService, photoAiRecommendationApplicationService, photoAiRecommendationRollbackService, photoAiRecommendationApplicationHistoryService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
   router.get('/settings', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationAdminService.getSettings(req.securityContext, req.query.scope || 'default'))));
   router.patch('/settings', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationAdminService.updateSettings(req.securityContext, req.body || {}, req.query.scope || 'default'))));
+  router.get('/readiness', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationReadinessService.getStatus(req.securityContext, { scopeKey: req.query.scope || 'default' }))));
   router.get('/metrics', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationMetricsService.getSnapshot(req.securityContext, { period: req.query.period }))));
   router.post('/recommendations/evaluate', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.evaluate(req.securityContext, { period: req.body?.period || req.query.period || '7d', correlationId: req.correlationId }))));
   router.get('/recommendations/history', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.history(req.securityContext, { period: req.query.period || '7d', limit: req.query.limit }))));
