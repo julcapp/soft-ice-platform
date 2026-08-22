@@ -6,6 +6,7 @@ const {
   PhotoSubmissionIntakeService, PhotoCaptureChallengeService, PhotoCustomerWorkflow, CrmPhotoNotifier,
   PhotoVerificationAdminService, PhotoManualReviewService, PhotoVerificationMetricsService,
   PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PhotoAiRecommendationRollbackService,
+  PhotoAiRecommendationApplicationHistoryService,
   PhotoPublicationReadModel, PhotoRewardPolicy, ImageFingerprintService, SharpImageDecoder, MetadataAnalyzer,
   DuplicateDetector, PhotoTechnicalAnalyzer, PhotoModerationLifecycle, PhotoModerationOrchestrator,
   OpenAIVisionProvider, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher,
@@ -49,6 +50,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoAiRecommendationJournalService = dependencies.photoAiRecommendationJournalService || new PhotoAiRecommendationJournalService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService });
   dependencies.photoAiRecommendationApplicationService = dependencies.photoAiRecommendationApplicationService || new PhotoAiRecommendationApplicationService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService, journalService: dependencies.photoAiRecommendationJournalService, adminService: dependencies.photoVerificationAdminService });
   dependencies.photoAiRecommendationRollbackService = dependencies.photoAiRecommendationRollbackService || new PhotoAiRecommendationRollbackService({ prisma: db, adminService: dependencies.photoVerificationAdminService });
+  dependencies.photoAiRecommendationApplicationHistoryService = dependencies.photoAiRecommendationApplicationHistoryService || new PhotoAiRecommendationApplicationHistoryService({ prisma: db, adminService: dependencies.photoVerificationAdminService });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
   dependencies.photoSubmissionIntakeService = dependencies.photoSubmissionIntakeService || new PhotoSubmissionIntakeService({ repository: submissionRepository, storage, customerWorkflow, captureChallengeService });
   return dependencies;
