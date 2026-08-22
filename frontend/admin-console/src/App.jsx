@@ -13,6 +13,7 @@ import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
+import { PhotoVerificationSettingsPage } from './PhotoVerificationSettings';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -25,6 +26,10 @@ export function Dashboard({ data }) {
   if (isEmpty) return <EmptyState />;
   return <div className="dashboard">
     <FreshnessIndicator freshness={data.freshness} />
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div><strong>Проверка и публикация фотографий</strong><p style={{ margin: '6px 0 0' }}>AI-модерация, антидубли и публикации VK / Telegram / MAX.</p></div>
+      <a className="text-button" href="#photo-verification">Открыть настройки</a>
+    </section>
     <AlertPanel alerts={critical} />
     <section className="statistics" aria-label="Статистика за сегодня">
       <StatisticCard label="Выручка за сегодня" value={money(s.revenueToday.value, s.revenueToday.currency)} detail="Демонстрационная оценка валовой выручки" />
@@ -78,6 +83,8 @@ export function App({ client = getDashboard }) {
   const giftTransferRoute = route === 'gift-transfers';
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
+  const photoVerificationRoute = route === 'photo-verification';
+  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Управление AI-модерацией, антидублями и публикациями VK / Telegram / MAX." editable /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
@@ -87,4 +94,4 @@ export function App({ client = getDashboard }) {
   const page = twinRoute ? <><ReadHeader group="Автоматы" title="Цифровой двойник автомата" copy="Достоверные проекции автоматов только для чтения." /><MachineTwinsPage route={route} /></> : runtimeRoute ? <><ReadHeader group="Автоматы" title={route.includes('/') ? 'Состояние автомата' : 'Контур управления автоматами'} copy="Основное состояние выполнения операций. Дистанционное управление недоступно." /><RuntimeMonitorPage route={route} /></> : eventRoute ? <><ReadHeader group="Платформа" title={route === 'dead-letter' ? 'Хранилище событий' : 'Журнал событий'} copy="Неизменяемые нормализованные факты и диагностика доставки." /><EventStreamPage route={route} /></> : inventoryRoute ? <><ReadHeader group="Операционная работа" title="Складской учёт" copy="Расчётные остатки, резервы и неизменяемый журнал движений." /><InventoryPage /></> : maintenanceRoute ? <><ReadHeader group="Операционная работа" title="Техническое обслуживание" copy="Плановое и корректирующее обслуживание, согласования, подтверждения и показатели." /><MaintenancePage /></> : <><PageHeader />{state.status === 'loading' && <Skeleton />}{state.status === 'unavailable' && <ErrorState />}{state.status === 'denied' && <PermissionGate allowed={false} />}{state.status === 'ready' && <PermissionGate allowed={state.data.permissionScope?.access === 'READ_ONLY'}><Dashboard data={state.data} /></PermissionGate>}</>;
   return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}>{page}</AppShell>;
 }
-function ReadHeader({ group, title, copy }) { return <div className="page-header"><div><p>{group}</p><h1>{title}</h1><span>{copy}</span></div><StatusBadge status="READ_ONLY" /></div>; }
+function ReadHeader({ group, title, copy, editable = false }) { return <div className="page-header"><div><p>{group}</p><h1>{title}</h1><span>{copy}</span></div><StatusBadge status={editable ? 'ACTIVE' : 'READ_ONLY'} /></div>; }
