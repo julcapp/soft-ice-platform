@@ -8,6 +8,7 @@ const { DuplicateDetector } = require('./DuplicateDetector');
 const { PhotoTechnicalAnalyzer } = require('./PhotoTechnicalAnalyzer');
 const { PhotoCustomerWorkflow } = require('./PhotoCustomerWorkflow');
 const { PHOTO_PUBLISHING_TARGETS } = require('./publishingTargets');
+const { PhotoPublishingOrchestrator, PUBLICATION_STATUSES } = require('./PhotoPublishingOrchestrator');
 const {
   USER_PHOTO_STATUSES,
   USER_PHOTO_MESSAGES,
@@ -33,6 +34,7 @@ module.exports = {
     'photo fingerprinting and duplicate detection',
     'customer-facing photo moderation status',
     'photo publishing target configuration',
+    'multi-channel photo publishing orchestration',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -43,6 +45,8 @@ module.exports = {
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
   PhotoCustomerWorkflow,
+  PhotoPublishingOrchestrator,
+  PUBLICATION_STATUSES,
   PHOTO_PUBLISHING_TARGETS,
   USER_PHOTO_STATUSES,
   USER_PHOTO_MESSAGES,
