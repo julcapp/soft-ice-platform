@@ -15,8 +15,10 @@ class PrivateChannelBillingService {
     return plan;
   }
 
-  async getCustomerSubscription(customerId) {
-    const rows = await this.prisma.$queryRawUnsafe('SELECT s.*, p."code" AS "planCode", p."name" AS "planName", p."priceRub", p."billingPeriodDays", p."isActive" AS "planIsActive" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."customerId"=$1 ORDER BY s."createdAt" DESC LIMIT 1', customerId);
+  async getCustomerSubscription(customerId, planCode = null) {
+    const rows = planCode
+      ? await this.prisma.$queryRawUnsafe('SELECT s.*, p."code" AS "planCode", p."name" AS "planName", p."priceRub", p."billingPeriodDays", p."isActive" AS "planIsActive" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."customerId"=$1 AND p."code"=$2 ORDER BY s."createdAt" DESC LIMIT 1', customerId, String(planCode))
+      : await this.prisma.$queryRawUnsafe('SELECT s.*, p."code" AS "planCode", p."name" AS "planName", p."priceRub", p."billingPeriodDays", p."isActive" AS "planIsActive" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."customerId"=$1 ORDER BY s."createdAt" DESC LIMIT 1', customerId);
     return rows[0] || null;
   }
 
@@ -40,12 +42,12 @@ class PrivateChannelBillingService {
     const subscriptionId = String(request.subscriptionId || '');
     const idempotencyKey = String(request.idempotencyKey || '');
     if (!subscriptionId || !idempotencyKey) throw validation('PRIVATE_CHANNEL_PAYMENT_INVALID', 'Нужны subscriptionId и idempotencyKey.');
-    const rows = await this.prisma.$queryRawUnsafe('SELECT s.*, p."priceRub", p."billingPeriodDays" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."id"=$1 LIMIT 1', subscriptionId);
+    const rows = await this.prisma.$queryRawUnsafe('SELECT s.*, p."code" AS "planCode", p."priceRub", p."billingPeriodDays" FROM "PrivateChannelSubscription" s JOIN "PrivateChannelPlan" p ON p."id"=s."planId" WHERE s."id"=$1 LIMIT 1', subscriptionId);
     const subscription = rows[0];
     if (!subscription) throw new ApiError({ statusCode: 404, code: 'PRIVATE_CHANNEL_SUBSCRIPTION_NOT_FOUND', message: 'Подписка не найдена.' });
 
     const existing = await this.prisma.$queryRawUnsafe('SELECT * FROM "PrivateChannelPayment" WHERE "idempotencyKey"=$1 LIMIT 1', idempotencyKey);
-    if (existing[0]) return { ...existing[0], idempotentReplay: true };
+    if (existing[0]) return { ...existing[0], customerId: subscription.customerId, planCode: subscription.planCode, idempotentReplay: true };
 
     const paidAt = this.clock();
     const periodStart = subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) > paidAt ? new Date(subscription.currentPeriodEnd) : paidAt;
@@ -61,7 +63,7 @@ class PrivateChannelBillingService {
       await tx.$executeRawUnsafe('INSERT INTO "PrivateChannelPayment" ("id","subscriptionId","customerId","provider","providerPaymentId","paymentKind","amountRub","status","periodStart","periodEnd","idempotencyKey","paidAt") VALUES ($1,$2,$3,$4,$5,$6,$7,\'PAID\',$8,$9,$10,$11)', paymentId, subscriptionId, subscription.customerId, String(request.provider || 'YOOKASSA'), request.providerPaymentId || null, kind, amountRub, periodStart, periodEnd, idempotencyKey, paidAt);
       await tx.$executeRawUnsafe('UPDATE "PrivateChannelSubscription" SET "status"=\'ACTIVE\', "currentPeriodStart"=$2, "currentPeriodEnd"=$3, "providerPaymentMethodRef"=COALESCE($4,"providerPaymentMethodRef"), "recurringEnabled"=$5, "cancelAtPeriodEnd"=FALSE, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=$1', subscriptionId, periodStart, periodEnd, paymentMethodRef, recurringEnabled);
     });
-    return { id: paymentId, subscriptionId, paymentKind: kind, amountRub, status: 'PAID', periodStart, periodEnd, paidAt, recurringEnabled, providerPaymentMethodRef: paymentMethodRef };
+    return { id: paymentId, subscriptionId, customerId: subscription.customerId, planCode: subscription.planCode, paymentKind: kind, amountRub, status: 'PAID', periodStart, periodEnd, paidAt, recurringEnabled, providerPaymentMethodRef: paymentMethodRef };
   }
 
   async cancel(customerId, subscriptionId, { atPeriodEnd = true } = {}) {
