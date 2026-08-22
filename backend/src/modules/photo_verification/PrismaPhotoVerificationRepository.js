@@ -42,6 +42,57 @@ class PrismaPhotoVerificationRepository {
     return rowId;
   }
 
+  async issueCaptureChallenge({ photoChallengeId, customerId, tokenHash, issuedAt, expiresAt, correlationId }) {
+    const eventId = id();
+    await this.recordEvent({
+      id: eventId,
+      photoChallengeId,
+      eventType: 'capture_challenge_issued',
+      eventSource: 'photo_capture_challenge_service',
+      correlationId,
+      payload: {
+        customerId,
+        tokenHash,
+        issuedAt: issuedAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+      },
+    });
+    return eventId;
+  }
+
+  async findActiveCaptureChallenge({ photoChallengeId, customerId, now = new Date() }) {
+    const rows = await this.prisma.$queryRaw`
+      SELECT
+        issued."id",
+        issued."payload"->>'tokenHash' AS "tokenHash",
+        (issued."payload"->>'expiresAt')::timestamptz AS "expiresAt"
+      FROM "PhotoVerificationEvent" issued
+      WHERE issued."photoChallengeId" = ${photoChallengeId}
+        AND issued."eventType" = 'capture_challenge_issued'
+        AND issued."payload"->>'customerId' = ${customerId}
+        AND (issued."payload"->>'expiresAt')::timestamptz > ${now}
+        AND NOT EXISTS (
+          SELECT 1 FROM "PhotoVerificationEvent" consumed
+          WHERE consumed."photoChallengeId" = issued."photoChallengeId"
+            AND consumed."eventType" = 'capture_challenge_consumed'
+            AND consumed."payload"->>'issuedEventId' = issued."id"
+        )
+      ORDER BY issued."createdAt" DESC
+      LIMIT 1
+    `;
+    return rows[0] || null;
+  }
+
+  async consumeCaptureChallenge({ photoChallengeId, customerId, issuedEventId, correlationId }) {
+    return this.recordEvent({
+      photoChallengeId,
+      eventType: 'capture_challenge_consumed',
+      eventSource: 'photo_capture_challenge_service',
+      correlationId,
+      payload: { customerId, issuedEventId, consumedAt: new Date().toISOString() },
+    });
+  }
+
   async upsertFingerprint(input) {
     const rowId = input.id || id();
     await this.prisma.$executeRaw`
