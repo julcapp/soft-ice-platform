@@ -20,11 +20,15 @@ export async function getActivePhotoChallenge({ signal } = {}) {
   return parse(response, 'Не удалось получить активное фотозадание.');
 }
 
-export async function submitChallengePhoto(photoChallengeId, blob, { signal } = {}) {
+export async function submitChallengePhoto(photoChallengeId, blob, { signal, captureCode } = {}) {
   const response = await fetch(`/api/v1/photo-verification/me/challenges/${encodeURIComponent(photoChallengeId)}/photo`, {
     method: 'POST',
     signal,
-    headers: { ...authHeaders(), 'Content-Type': blob.type || 'image/jpeg' },
+    headers: {
+      ...authHeaders(),
+      'Content-Type': blob.type || 'image/jpeg',
+      'X-Photo-Capture-Code': captureCode || '',
+    },
     body: blob,
   });
   return parse(response, 'Не удалось отправить фотографию на проверку.');
