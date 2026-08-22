@@ -4,6 +4,7 @@ import { getPhotoVerificationMetrics } from './api/photoVerificationClient';
 
 const PERIODS = [['today', 'Сегодня'], ['7d', '7 дней'], ['30d', '30 дней']];
 function duration(seconds) { if (seconds == null) return '—'; if (seconds < 60) return `${seconds} сек`; if (seconds < 3600) return `${Math.round(seconds / 60)} мин`; return `${Math.round((seconds / 3600) * 10) / 10} ч`; }
+function recommendationStatus(severity) { return severity === 'high' ? 'CRITICAL' : severity === 'medium' ? 'WARNING' : 'ACTIVE'; }
 
 export function PhotoVerificationMetricsPage({ loadMetrics = getPhotoVerificationMetrics }) {
   const [period, setPeriod] = useState('7d');
@@ -18,7 +19,7 @@ export function PhotoVerificationMetricsPage({ loadMetrics = getPhotoVerificatio
   if (state.status === 'loading' && !state.data) return <Skeleton />;
   if (state.status === 'error') return <ErrorState />;
 
-  const { totals, decisions, quality = {}, channels, trend = [] } = state.data;
+  const { totals, decisions, quality = {}, recommendations = [], channels, trend = [] } = state.data;
   return <section className="card" aria-label="Метрики проверки фотографий">
     <div className="card-heading"><div><h2>Операционные метрики</h2><p style={{ margin: '6px 0 0' }}>Нагрузка, качество модерации и надёжность публикаций. {rangeLabel}</p></div><StatusBadge status={(totals.publicationIncomplete + totals.rewardPending) > 0 ? 'PENDING' : 'ACTIVE'} /></div>
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }} aria-label="Период метрик">{PERIODS.map(([value, label]) => <button key={value} type="button" className="text-button" aria-pressed={period === value} disabled={state.status === 'loading'} onClick={() => setPeriod(value)}>{label}</button>)}</div>
@@ -45,6 +46,18 @@ export function PhotoVerificationMetricsPage({ loadMetrics = getPhotoVerificatio
         <StatisticCard label="AI сам отправил на ручную" value={quality.aiEscalated || 0} />
       </div>
       {!!quality.escalationReasons?.length && <div style={{ marginTop: 12 }}><strong>Частые причины ручной проверки</strong><ol>{quality.escalationReasons.map((item) => <li key={item.reasonCode}>{item.reasonCode}: <strong>{item.count}</strong></li>)}</ol></div>}
+    </div>
+
+    <div className="card" style={{ marginTop: 16 }} aria-label="Рекомендации по настройке AI">
+      <div className="card-heading"><div><strong>Рекомендации по настройке AI</strong><p style={{ margin: '6px 0 0' }}>Только рекомендации. Настройки автоматически не изменяются.</p></div><StatusBadge status={recommendations.some((item) => item.severity === 'high') ? 'WARNING' : 'ACTIVE'} /></div>
+      <div style={{ display: 'grid', gap: 12 }}>
+        {recommendations.map((item) => <article className="card" key={item.id}>
+          <div className="card-heading"><strong>{item.title}</strong><StatusBadge status={recommendationStatus(item.severity)} /></div>
+          <p>{item.description}</p>
+          <p><strong>Рекомендуемое действие:</strong> {item.suggestedAction}</p>
+          <small>Изменение требует решения администратора; автоматического применения нет.</small>
+        </article>)}
+      </div>
     </div>
 
     <div className="tables" style={{ marginTop: 16 }}>{channels.map((channel) => <div className="card" key={channel.channel}><div className="card-heading"><strong>{channel.channel}</strong><StatusBadge status={channel.failed ? 'WARNING' : 'ACTIVE'} /></div><p>Опубликовано: <strong>{channel.published}</strong> / {channel.total} · Успех: <strong>{channel.successPercent}%</strong></p><p>Ошибки: <strong>{channel.failed}</strong> · Ожидает: <strong>{channel.pending}</strong> · Не настроено: <strong>{channel.notConfigured}</strong></p></div>)}</div>
