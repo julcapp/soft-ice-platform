@@ -5,6 +5,7 @@ const { PrismaPhotoVerificationRepository } = require('./PrismaPhotoVerification
 const { PrismaPhotoSubmissionRepository } = require('./PrismaPhotoSubmissionRepository');
 const { LocalPhotoStorageAdapter } = require('./LocalPhotoStorageAdapter');
 const { PhotoSubmissionIntakeService } = require('./PhotoSubmissionIntakeService');
+const { PhotoCaptureChallengeService } = require('./PhotoCaptureChallengeService');
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const { PhotoModerationOrchestrator } = require('./PhotoModerationOrchestrator');
 const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
@@ -55,6 +56,7 @@ module.exports = {
     'admin-controlled photo verification settings',
     'customer photo publication read model',
     'camera photo intake and source storage boundary',
+    'one-time camera capture challenge',
     'CRM-backed customer photo notifications',
     'production image decoding boundary',
     'production publishing adapters',
@@ -69,6 +71,7 @@ module.exports = {
   PrismaPhotoSubmissionRepository,
   LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService,
+  PhotoCaptureChallengeService,
   PhotoModerationLifecycle,
   PhotoModerationOrchestrator,
   BlockedPhotoRewardEngine,
