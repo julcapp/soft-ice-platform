@@ -57,13 +57,14 @@ class PrivateChannelBillingService {
     const amountRub = Number(request.amountRub ?? subscription.priceRub);
     if (!(amountRub > 0)) throw validation('PRIVATE_CHANNEL_PAYMENT_AMOUNT_INVALID', 'Сумма платежа должна быть положительной.');
     const paymentMethodRef = request.providerPaymentMethodRef ? String(request.providerPaymentMethodRef) : null;
+    const paymentMethodType = request.paymentMethodType ? String(request.paymentMethodType).toUpperCase() : null;
     const recurringEnabled = Boolean(subscription.recurringConsentAt && subscription.recurringConsentVersion && paymentMethodRef);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('INSERT INTO "PrivateChannelPayment" ("id","subscriptionId","customerId","provider","providerPaymentId","paymentKind","amountRub","status","periodStart","periodEnd","idempotencyKey","paidAt") VALUES ($1,$2,$3,$4,$5,$6,$7,\'PAID\',$8,$9,$10,$11)', paymentId, subscriptionId, subscription.customerId, String(request.provider || 'YOOKASSA'), request.providerPaymentId || null, kind, amountRub, periodStart, periodEnd, idempotencyKey, paidAt);
+      await tx.$executeRawUnsafe('INSERT INTO "PrivateChannelPayment" ("id","subscriptionId","customerId","provider","providerPaymentId","paymentKind","paymentMethodType","amountRub","status","periodStart","periodEnd","idempotencyKey","paidAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,\'PAID\',$9,$10,$11,$12)', paymentId, subscriptionId, subscription.customerId, String(request.provider || 'YOOKASSA'), request.providerPaymentId || null, kind, paymentMethodType, amountRub, periodStart, periodEnd, idempotencyKey, paidAt);
       await tx.$executeRawUnsafe('UPDATE "PrivateChannelSubscription" SET "status"=\'ACTIVE\', "currentPeriodStart"=$2, "currentPeriodEnd"=$3, "providerPaymentMethodRef"=COALESCE($4,"providerPaymentMethodRef"), "recurringEnabled"=$5, "cancelAtPeriodEnd"=FALSE, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=$1', subscriptionId, periodStart, periodEnd, paymentMethodRef, recurringEnabled);
     });
-    return { id: paymentId, subscriptionId, customerId: subscription.customerId, planCode: subscription.planCode, paymentKind: kind, amountRub, status: 'PAID', periodStart, periodEnd, paidAt, recurringEnabled, providerPaymentMethodRef: paymentMethodRef };
+    return { id: paymentId, subscriptionId, customerId: subscription.customerId, planCode: subscription.planCode, paymentKind: kind, paymentMethodType, amountRub, status: 'PAID', periodStart, periodEnd, paidAt, recurringEnabled, providerPaymentMethodRef: paymentMethodRef };
   }
 
   async cancel(customerId, subscriptionId, { atPeriodEnd = true } = {}) {
