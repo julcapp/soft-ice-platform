@@ -16,7 +16,7 @@ const PHOTO_PUBLISHING_TARGETS = Object.freeze({
   MAX: Object.freeze({
     channel: 'MAX',
     targetId: null,
-    publicUrl: null,
+    publicUrl: 'https://max.ru/channel_soft_icecream',
     required: true,
     purpose: 'public_ugc',
   }),
