@@ -13,6 +13,7 @@ class PhotoModerationOrchestrator {
     moderationLifecycle,
     publishingOrchestrator,
     rewardEngine,
+    captureVisualVerifier = null,
     visionProvider = null,
     logger = null,
   }) {
@@ -27,6 +28,7 @@ class PhotoModerationOrchestrator {
       moderationLifecycle,
       publishingOrchestrator,
       rewardEngine,
+      captureVisualVerifier,
       visionProvider,
       logger,
     });
@@ -84,13 +86,51 @@ class PhotoModerationOrchestrator {
         challengeId: photoChallengeId,
         customerId,
         storageKey,
-        rules: { requiredChannels: settings.requiredChannels || [] },
+        rules: {
+          requiredChannels: settings.requiredChannels || [],
+          captureCodeVisualCheckRequired: Boolean(settings.challengeCodeEnabled),
+        },
         metadata: technical.metadataResult,
         antifraud: technical.duplicateResult,
       });
     } catch (error) {
       this.logger?.warn?.('photo_verification.vision.failed', { photoChallengeId, code: error.code || 'VISION_FAILED' });
       return this.#manual({ photoChallengeId, customerId, correlationId, reasonCode: error.code || 'vision_failed', technical });
+    }
+
+    if (settings.challengeCodeEnabled) {
+      if (!this.captureVisualVerifier?.verify) {
+        result = forceManualReview(result, 'capture_code_visual_verifier_not_configured', {
+          captureCodeMatches: false,
+        });
+      } else {
+        const visualCheck = await this.captureVisualVerifier.verify({
+          photoChallengeId,
+          customerId,
+          detectedCaptureCode: result.checks?.detectedCaptureCode || null,
+        });
+        result = {
+          ...result,
+          checks: {
+            ...(result.checks || {}),
+            captureCodeMatches: Boolean(visualCheck.matches),
+          },
+        };
+        await this.repository.recordEvent({
+          photoChallengeId,
+          eventType: 'capture_code_visual_checked',
+          eventSource: 'photo_moderation_orchestrator',
+          correlationId,
+          payload: {
+            visible: Boolean(result.checks.captureCodeVisible),
+            matches: Boolean(visualCheck.matches),
+            reasonCode: visualCheck.reasonCode || null,
+          },
+        });
+        if (!visualCheck.matches) {
+          result = forceManualReview(result, visualCheck.reasonCode || 'capture_code_visual_check_failed');
+        }
+      }
     }
 
     await this.moderationLifecycle.recordModerationResult({ photoChallengeId, result, correlationId });
@@ -200,4 +240,13 @@ class PhotoModerationOrchestrator {
   }
 }
 
-module.exports = { PhotoModerationOrchestrator };
+function forceManualReview(result, reasonCode, extraChecks = {}) {
+  return {
+    ...result,
+    decision: PHOTO_VERIFICATION_DECISIONS.MANUAL_REVIEW,
+    reasonCode,
+    checks: { ...(result.checks || {}), ...extraChecks },
+  };
+}
+
+module.exports = { PhotoModerationOrchestrator, forceManualReview };
