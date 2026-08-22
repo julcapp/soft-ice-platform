@@ -52,6 +52,8 @@ export function PhotoVerificationSettingsPage({ getSettings = getPhotoVerificati
     }
   };
 
+  const rewardValue = data.rewardBonusUnits == null ? '' : String(data.rewardBonusUnits);
+
   return <div className="dashboard">
     <section className="card">
       <div className="card-heading">
@@ -75,10 +77,29 @@ export function PhotoVerificationSettingsPage({ getSettings = getPhotoVerificati
     </section>
 
     <section className="card">
+      <div className="card-heading"><h2>Награда за фотозадание</h2><StatusBadge status={rewardValue ? 'ACTIVE' : 'INACTIVE'} /></div>
+      <label style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
+        <strong>Бонусные единицы</strong>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={rewardValue}
+          placeholder="Не задано"
+          onChange={(event) => patch('rewardBonusUnits', event.target.value === '' ? null : Number(event.target.value))}
+          style={{ padding: 10, width: '100%' }}
+        />
+      </label>
+      <p style={{ marginBottom: 0 }}>Пустое значение означает: награда не начисляется. Значение применяется только после подтверждённой публикации во всех обязательных каналах.</p>
+      <small>Бонусные единицы не являются рублями. Конкретное количество пока не утверждено и по умолчанию не задано.</small>
+    </section>
+
+    <section className="card">
       <div className="card-heading"><h2>Публичные каналы</h2><span>UGC-публикация</span></div>
       <p>VK: <strong>club239119350</strong></p>
       <p>Telegram: <strong>@ice_robo_club</strong></p>
-      <p>MAX: <strong>ожидает target ID</strong></p>
+      <p>MAX: <strong>https://max.ru/channel_soft_icecream</strong> — API target ID будет задан отдельно</p>
       <small>Приватный Telegram-канал 99 ₽/мес не входит в публичный UGC-контур.</small>
     </section>
 
