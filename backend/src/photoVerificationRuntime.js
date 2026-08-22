@@ -12,6 +12,7 @@ const {
   PhotoVerificationAdminService,
   PhotoManualReviewService,
   PhotoVerificationMetricsService,
+  PhotoAiRecommendationJournalService,
   PhotoPublicationReadModel,
   PhotoRewardPolicy,
   ImageFingerprintService,
@@ -115,6 +116,9 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   });
   dependencies.photoVerificationMetricsService = dependencies.photoVerificationMetricsService || new PhotoVerificationMetricsService({
     prisma: db, manualReviewService: dependencies.photoManualReviewService,
+  });
+  dependencies.photoAiRecommendationJournalService = dependencies.photoAiRecommendationJournalService || new PhotoAiRecommendationJournalService({
+    prisma: db, metricsService: dependencies.photoVerificationMetricsService,
   });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
