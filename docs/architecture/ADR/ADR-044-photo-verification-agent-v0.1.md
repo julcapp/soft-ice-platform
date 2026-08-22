@@ -13,12 +13,14 @@ The AI decision must not directly publish content or grant loyalty bonuses. Bonu
 User-facing lifecycle requirements are:
 
 1. a submitted photo is reported as being under moderation;
-2. verification combines technical checks, metadata, anti-fraud signals and AI vision;
-3. uncertain or risky cases can go to manual review;
-4. an approved photo is published through a separate publishing boundary;
-5. the user is notified after confirmed publication;
-6. only after confirmed publication may the Reward Engine grant the configured bonus;
-7. after confirmed publication the source photo may be deleted from platform object storage according to retention policy, while an auditable database trail remains.
+2. exact duplicates are detected before paid Vision analysis and the user is told the photo was already uploaded;
+3. near-duplicates are routed to additional review without exposing fraud scores or technical anti-fraud details to the user;
+4. verification combines technical checks, metadata, anti-fraud signals and AI vision where required;
+5. after moderation the user sees an understandable result: approved, additional review or rejected;
+6. an approved photo is published through a separate publishing boundary;
+7. after confirmed publication the user is notified and the personal cabinet retains publication channel, publication time and URL when available;
+8. only after confirmed publication may the Reward Engine grant the configured bonus;
+9. after confirmed publication the source photo may be deleted from platform object storage according to retention policy, while an auditable database trail remains.
 
 ## Decision
 
@@ -32,12 +34,28 @@ V0.1 introduces:
 - a Photo Verification Agent decision engine;
 - normalized decisions: `approved`, `rejected`, `manual_review`;
 - normalized photo lifecycle status constants including moderation, publication, reward and source-file deletion stages;
+- customer-facing statuses and messages that do not expose internal fraud scores, hashes or provider diagnostics;
+- a duplicate pre-Vision gate: exact duplicate stops the expensive Vision path, near-duplicate routes to additional/manual review;
 - configurable approval/rejection confidence thresholds and maximum accepted fraud score;
 - durable PostgreSQL persistence migration for verification results, moderation events, fingerprints, publication evidence and source-file deletion evidence;
 - a Prisma-backed persistence adapter using parameterized raw queries until the generated Prisma model layer is synchronized in a later schema-maintenance increment;
 - a lifecycle service enforcing the rule that source media cannot be marked deleted before confirmed publication.
 
 Risk handling is fail-safe: high fraud score and unsafe-content signals route to `manual_review`; they do not produce business side effects.
+
+## Customer visibility
+
+The personal cabinet/read model must preserve the understandable workflow even after source media is deleted:
+
+- `moderation` — photo received and under review;
+- `duplicate` — exact previously uploaded photo, repeated submission not accepted for a new reward path;
+- `additional_review` — similar/uncertain case needs additional review;
+- `approved` — moderation completed successfully, publication is being prepared;
+- `rejected` — moderation failed with a short user-safe reason code/message;
+- `published` — publication confirmed, with channel, timestamp and URL where available;
+- `rewarded` — reward posting confirmed by Reward Engine.
+
+The user-facing API must not expose raw `fraudScore`, hash values, detailed duplicate thresholds, internal model prompts or security heuristics.
 
 ## Domain boundaries
 
@@ -52,6 +70,8 @@ It MUST NOT:
 - treat an AI response as proof of publication.
 
 `PhotoModerationLifecycle` records moderation/publication/deletion facts but does not execute channel publication, reward posting or object-storage deletion itself.
+
+`PhotoCustomerWorkflow` records customer-facing lifecycle events and invokes a replaceable notification boundary. It does not own Telegram/MAX/VK delivery implementation.
 
 Future `Publishing Service`, notification delivery and `Reward Engine` remain separate responsibilities.
 
@@ -89,6 +109,8 @@ Source media must not be deleted merely because a publish command was sent. Dele
 
 After deletion, the database retains the audit trail needed to establish what submission was moderated, when moderation occurred, where and when it was published, relevant hashes/metadata, and when the source object was deleted.
 
+The personal cabinet uses the retained workflow/publication evidence rather than depending on the source binary remaining available.
+
 ## Reward boundary
 
 A confirmed AI moderation result is not reward eligibility by itself.
@@ -101,9 +123,11 @@ No provider name, brand name, reward amount or channel is hard-coded into the ve
 
 ## Consequences
 
-- AI remains advisory and replaceable.
-- Business side effects remain auditable and independently controlled.
-- Administration can disable or downgrade AI verification without stopping the platform.
-- The platform can minimize retained photo binaries after publication.
-- Publication/deletion facts remain queryable after the binary object is gone.
-- Future external tenants can reuse the verification core without inheriting «У Тимоши» business rules.
+- duplicate checks can reduce paid Vision requests;
+- customer status remains understandable without disclosing anti-fraud internals;
+- AI remains advisory and replaceable;
+- business side effects remain auditable and independently controlled;
+- administration can disable or downgrade AI verification without stopping the platform;
+- the platform can minimize retained photo binaries after publication;
+- publication/deletion facts remain queryable after the binary object is gone;
+- future external tenants can reuse the verification core without inheriting «У Тимоши» business rules.
