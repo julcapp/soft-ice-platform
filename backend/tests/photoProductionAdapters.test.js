@@ -34,12 +34,13 @@ test('Telegram publisher uploads photo and returns public post URL', async () =>
   assert.equal(result.publicationUrl, 'https://t.me/ice_robo_club/42');
 });
 
-test('MAX publisher follows upload then message flow', async () => {
+test('MAX publisher follows upload then message flow and uses millisecond timestamp', async () => {
   const calls = [];
-  const responses = [jsonResponse({ url: 'https://upload.example/image' }), jsonResponse({ token: 'image-token' }), jsonResponse({ message: { body: { mid: 'm1' }, url: 'https://max.ru/post/m1', timestamp: 1 } })];
+  const responses = [jsonResponse({ url: 'https://upload.example/image' }), jsonResponse({ token: 'image-token' }), jsonResponse({ message: { body: { mid: 'm1' }, url: 'https://max.ru/post/m1', timestamp: 1000 } })];
   const publisher = new MaxPhotoPublisher({ accessToken: 'secret', fetchImpl: async (url, options) => { calls.push({ url, options }); return responses.shift(); } });
   const result = await publisher.publish({ targetId: '123', media: Buffer.from('photo'), caption: 'test' });
   assert.equal(result.externalPublicationId, 'm1');
+  assert.equal(result.publishedAt.toISOString(), '1970-01-01T00:00:01.000Z');
   assert.equal(calls.length, 3);
   assert.match(calls[0].url, /uploads\?type=image/);
   assert.match(calls[2].url, /messages\?chat_id=123/);
