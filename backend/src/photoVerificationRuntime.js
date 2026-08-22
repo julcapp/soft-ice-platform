@@ -1,12 +1,12 @@
 const { getPrismaClient } = require('./common/database');
 const { BonusRewardEngine } = require('./modules/bonus');
+const { PhotoCaptureVisualVerifier } = require('./modules/photo_verification/PhotoCaptureVisualVerifier');
 const {
   PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository,
   LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService,
   PhotoCaptureChallengeService,
-  PhotoCaptureVisualVerifier,
   PhotoCustomerWorkflow,
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
