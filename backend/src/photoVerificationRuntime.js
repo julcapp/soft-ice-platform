@@ -10,6 +10,7 @@ const {
   PhotoCustomerWorkflow,
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
+  PhotoManualReviewService,
   PhotoPublicationReadModel,
   PhotoRewardPolicy,
   ImageFingerprintService,
@@ -79,11 +80,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
       : null
   );
 
-  const publishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({
-    publishers,
-    repository,
-    targets,
-  });
+  const publishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({ publishers, repository, targets });
   const rewardPolicy = dependencies.photoRewardPolicy || new PhotoRewardPolicy({ repository });
   const rewardEngine = dependencies.photoRewardEngine || new BonusRewardEngine({
     prisma: db,
@@ -109,24 +106,16 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoRewardPolicy = rewardPolicy;
   dependencies.photoRewardEngine = rewardEngine;
   dependencies.photoModerationOrchestrator = dependencies.photoModerationOrchestrator || new PhotoModerationOrchestrator({
-    repository,
-    storage,
-    technicalAnalyzer,
-    customerWorkflow,
-    moderationLifecycle,
-    publishingOrchestrator,
-    rewardEngine,
-    captureVisualVerifier,
-    visionProvider,
-    logger,
+    repository, storage, technicalAnalyzer, customerWorkflow, moderationLifecycle, publishingOrchestrator,
+    rewardEngine, captureVisualVerifier, visionProvider, logger,
+  });
+  dependencies.photoManualReviewService = dependencies.photoManualReviewService || new PhotoManualReviewService({
+    repository, storage, customerWorkflow, publishingOrchestrator, rewardEngine, moderationLifecycle,
   });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
   dependencies.photoSubmissionIntakeService = dependencies.photoSubmissionIntakeService || new PhotoSubmissionIntakeService({
-    repository: submissionRepository,
-    storage,
-    customerWorkflow,
-    captureChallengeService,
+    repository: submissionRepository, storage, customerWorkflow, captureChallengeService,
   });
 
   return dependencies;
