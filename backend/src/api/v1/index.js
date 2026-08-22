@@ -4,6 +4,7 @@ const { ApiError } = require('../../platform/errors/ApiError');
 const { attachCorrelationId, sendError } = require('../../platform/http/apiResponse');
 const { getPrismaClient } = require('../../common/database');
 const { BusinessDashboardService } = require('../../modules/admin_dashboard');
+const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -33,84 +34,59 @@ const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = re
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
-  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma: getPrismaClient() });
+  const prisma = getPrismaClient();
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma });
+  const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
+  const runtimeDependencies = { ...dependencies, referralEngagementService };
 
   router.use(attachCorrelationId);
 
   router.get('/', (req, res) => {
-    res.json({
-      data: {
-        type: 'api_version',
-        id: 'v1',
-        attributes: {
-          status: 'online',
-        },
-      },
-      meta: {
-        api_version: 'v1',
-        correlation_id: req.correlationId,
-      },
-    });
+    res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
 
-  router.use('/auth', createAuthRouter(dependencies));
-  router.use('/customers', createCustomerRouter(dependencies));
-  router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
-  router.use('/club-account', createClubAccountRouter(dependencies));
-  router.use('/club-accounts', createClubAccountRouter(dependencies));
-  router.use('/machines', createMachineRouter(dependencies));
-  router.use('/machine-operations', createMachineOperationsRouter(dependencies));
-  router.use('/machine', createMachineGatewayRouter(dependencies));
-  router.use('/orders', createOrderRouter(dependencies));
-  if (dependencies.giftTransferRuntime) {
-    router.use('/me', createGiftTransferRouter(dependencies));
-    router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
+  router.use('/auth', createAuthRouter(runtimeDependencies));
+  router.use('/customers', createCustomerRouter(runtimeDependencies));
+  router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
+  router.use('/club-account', createClubAccountRouter(runtimeDependencies));
+  router.use('/club-accounts', createClubAccountRouter(runtimeDependencies));
+  router.use('/machines', createMachineRouter(runtimeDependencies));
+  router.use('/machine-operations', createMachineOperationsRouter(runtimeDependencies));
+  router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
+  router.use('/orders', createOrderRouter(runtimeDependencies));
+  if (runtimeDependencies.giftTransferRuntime) {
+    router.use('/me', createGiftTransferRouter(runtimeDependencies));
+    router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
-  router.use('/telegram', createTelegramRouter(dependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
-  router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
-  router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
-  router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
-  router.use('/inventory', createInventoryRouter(dependencies));
-  router.use('/admin/inventory', createInventoryRouter(dependencies));
-  router.use('/maintenance', createMaintenanceRouter(dependencies));
-  router.use('/admin/maintenance', createMaintenanceRouter(dependencies));
-  router.use('/operator-workspace', createOperatorWorkspaceRouter(dependencies));
-  router.use('/admin/crm', createCRMRouter(dependencies));
-  router.use('/customer-360', createCustomer360Router(dependencies));
-  router.use('/admin/customer-360', createAdminCustomer360Router(dependencies));
-  router.use('/admin/customers', createExternalChannelRouter(dependencies));
-  router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
-  router.use('/admin', createVideoSurveillanceRouter(dependencies));
-  if (dependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(dependencies));
-  if (dependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(dependencies));
-  if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
-  if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
-  if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
-  if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
+  router.use('/telegram', createTelegramRouter(runtimeDependencies));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
+  router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
+  router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
+  router.use('/admin/platform-events', createPlatformEventRouter(runtimeDependencies));
+  router.use('/inventory', createInventoryRouter(runtimeDependencies));
+  router.use('/admin/inventory', createInventoryRouter(runtimeDependencies));
+  router.use('/maintenance', createMaintenanceRouter(runtimeDependencies));
+  router.use('/admin/maintenance', createMaintenanceRouter(runtimeDependencies));
+  router.use('/operator-workspace', createOperatorWorkspaceRouter(runtimeDependencies));
+  router.use('/admin/crm', createCRMRouter(runtimeDependencies));
+  router.use('/customer-360', createCustomer360Router(runtimeDependencies));
+  router.use('/admin/customer-360', createAdminCustomer360Router(runtimeDependencies));
+  router.use('/admin/customers', createExternalChannelRouter(runtimeDependencies));
+  router.use('/admin/machines', createMachineConnectivityRouter(runtimeDependencies));
+  router.use('/admin', createVideoSurveillanceRouter(runtimeDependencies));
+  if (runtimeDependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(runtimeDependencies));
+  if (runtimeDependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(runtimeDependencies));
+  if (runtimeDependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(runtimeDependencies));
+  if (runtimeDependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(runtimeDependencies));
+  if (runtimeDependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(runtimeDependencies));
+  if (runtimeDependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(runtimeDependencies));
 
-  router.use((req, res, next) => {
-    next(
-      new ApiError({
-        statusCode: 404,
-        code: 'RESOURCE_NOT_FOUND',
-        message: 'API route was not found.',
-      }),
-    );
-  });
-
+  router.use((req, res, next) => next(new ApiError({ statusCode: 404, code: 'RESOURCE_NOT_FOUND', message: 'API route was not found.' })));
   router.use((error, req, res, next) => {
-    if (res.headersSent) {
-      next(error);
-      return;
-    }
-
+    if (res.headersSent) { next(error); return; }
     sendError(res, req, error, logger);
   });
-
   return router;
 }
 
-module.exports = {
-  createApiV1Router,
-};
+module.exports = { createApiV1Router };
