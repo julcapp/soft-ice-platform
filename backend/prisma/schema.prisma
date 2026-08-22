@@ -1674,7 +1674,7 @@ model NotificationDeliveryAttempt {
   failedAt            DateTime?
   failureCode         String?
   correlationId       String
-  metadata            Json?
+  metadata             Json?
 
   @@unique([notificationId, channel])
   @@index([recipientCustomerId])
@@ -1851,6 +1851,7 @@ model PhotoVerificationSettings {
   duplicateChecksEnabled Boolean  @default(true)
   metadataChecksEnabled  Boolean  @default(true)
   challengeCodeEnabled   Boolean  @default(false)
+  rewardBonusUnits       Int?
   retentionPolicy        String   @default("delete_after_publication")
   provider               String?
   model                  String?
