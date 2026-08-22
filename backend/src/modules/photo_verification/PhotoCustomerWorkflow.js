@@ -56,6 +56,16 @@ class PhotoCustomerWorkflow {
     return status;
   }
 
+  async recordRewarded({ photoChallengeId, customerId, amountBonus, balanceAfterBonus, transactionId, correlationId }) {
+    const status = publicStatus(USER_PHOTO_STATUSES.REWARDED, {
+      amountBonus: Number(amountBonus),
+      balanceAfterBonus: Number.isFinite(Number(balanceAfterBonus)) ? Number(balanceAfterBonus) : null,
+      transactionId: transactionId || null,
+    });
+    await this._recordAndNotify({ photoChallengeId, customerId, correlationId, eventType: 'customer_photo_rewarded', status });
+    return status;
+  }
+
   async _recordAndNotify({ photoChallengeId, customerId, correlationId, eventType, status }) {
     await this.repository.recordEvent({
       photoChallengeId,
