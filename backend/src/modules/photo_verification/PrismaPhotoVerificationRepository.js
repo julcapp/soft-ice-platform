@@ -175,6 +175,7 @@ class PrismaPhotoVerificationRepository {
       duplicateChecksEnabled: input.duplicateChecksEnabled ?? current?.duplicateChecksEnabled ?? true,
       metadataChecksEnabled: input.metadataChecksEnabled ?? current?.metadataChecksEnabled ?? true,
       challengeCodeEnabled: input.challengeCodeEnabled ?? current?.challengeCodeEnabled ?? false,
+      rewardBonusUnits: Object.hasOwn(input, 'rewardBonusUnits') ? input.rewardBonusUnits : (current?.rewardBonusUnits ?? null),
       retentionPolicy: input.retentionPolicy ?? current?.retentionPolicy ?? 'delete_after_publication',
       provider: input.provider ?? current?.provider ?? null,
       model: input.model ?? current?.model ?? null,
@@ -184,12 +185,12 @@ class PrismaPhotoVerificationRepository {
       INSERT INTO "PhotoVerificationSettings" (
         "scopeKey", "enabled", "mode", "publishingEnabled", "requiredChannels",
         "approvalThreshold", "rejectionThreshold", "maxFraudScore",
-        "duplicateChecksEnabled", "metadataChecksEnabled", "challengeCodeEnabled",
+        "duplicateChecksEnabled", "metadataChecksEnabled", "challengeCodeEnabled", "rewardBonusUnits",
         "retentionPolicy", "provider", "model", "updatedBy"
       ) VALUES (
         ${next.scopeKey}, ${next.enabled}, ${next.mode}, ${next.publishingEnabled}, ${JSON.stringify(next.requiredChannels)}::jsonb,
         ${next.approvalThreshold}, ${next.rejectionThreshold}, ${next.maxFraudScore},
-        ${next.duplicateChecksEnabled}, ${next.metadataChecksEnabled}, ${next.challengeCodeEnabled},
+        ${next.duplicateChecksEnabled}, ${next.metadataChecksEnabled}, ${next.challengeCodeEnabled}, ${next.rewardBonusUnits},
         ${next.retentionPolicy}, ${next.provider}, ${next.model}, ${next.updatedBy}
       )
       ON CONFLICT ("scopeKey") DO UPDATE SET
@@ -198,6 +199,7 @@ class PrismaPhotoVerificationRepository {
         "approvalThreshold" = EXCLUDED."approvalThreshold", "rejectionThreshold" = EXCLUDED."rejectionThreshold",
         "maxFraudScore" = EXCLUDED."maxFraudScore", "duplicateChecksEnabled" = EXCLUDED."duplicateChecksEnabled",
         "metadataChecksEnabled" = EXCLUDED."metadataChecksEnabled", "challengeCodeEnabled" = EXCLUDED."challengeCodeEnabled",
+        "rewardBonusUnits" = EXCLUDED."rewardBonusUnits",
         "retentionPolicy" = EXCLUDED."retentionPolicy", "provider" = EXCLUDED."provider",
         "model" = EXCLUDED."model", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = CURRENT_TIMESTAMP
     `;
