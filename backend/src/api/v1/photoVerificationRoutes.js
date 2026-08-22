@@ -13,15 +13,11 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   }));
 
   router.get('/me/challenges/active', asyncHandler(async (req, res) => {
-    const challenge = await photoSubmissionIntakeService.getActiveChallenge(
-      req.securityContext.customer_id,
-      { correlationId: req.correlationId },
-    );
+    const challenge = await photoSubmissionIntakeService.getActiveChallenge(req.securityContext.customer_id, { correlationId: req.correlationId });
     return sendData(res, req, challenge);
   }));
 
-  router.post(
-    '/me/challenges/:photoChallengeId/photo',
+  router.post('/me/challenges/:photoChallengeId/photo',
     express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }),
     asyncHandler(async (req, res) => {
       const result = await photoSubmissionIntakeService.submit({
@@ -39,7 +35,7 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   return router;
 }
 
-function createAdminPhotoVerificationRouter({ photoVerificationAdminService, adminAuth = {} }) {
+function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
 
@@ -51,6 +47,33 @@ function createAdminPhotoVerificationRouter({ photoVerificationAdminService, adm
   router.patch('/settings', asyncHandler(async (req, res) => {
     const scopeKey = req.query.scope || 'default';
     return sendData(res, req, await photoVerificationAdminService.updateSettings(req.securityContext, req.body || {}, scopeKey));
+  }));
+
+  router.get('/reviews', asyncHandler(async (req, res) => {
+    const rows = await photoManualReviewService.list(req.securityContext, { limit: req.query.limit });
+    return sendData(res, req, rows);
+  }));
+
+  router.get('/reviews/:photoChallengeId', asyncHandler(async (req, res) => {
+    return sendData(res, req, await photoManualReviewService.get(req.securityContext, req.params.photoChallengeId));
+  }));
+
+  router.get('/reviews/:photoChallengeId/preview', asyncHandler(async (req, res) => {
+    const preview = await photoManualReviewService.getPreview(req.securityContext, req.params.photoChallengeId);
+    const lower = String(preview.storageKey || '').toLowerCase();
+    const contentType = lower.endsWith('.png') ? 'image/png' : lower.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+    res.set('Cache-Control', 'private, no-store');
+    res.type(contentType);
+    return res.send(preview.buffer);
+  }));
+
+  router.post('/reviews/:photoChallengeId/decision', asyncHandler(async (req, res) => {
+    const result = await photoManualReviewService.decide(req.securityContext, req.params.photoChallengeId, {
+      action: req.body?.action,
+      reason: req.body?.reason,
+      correlationId: req.correlationId,
+    });
+    return sendData(res, req, result);
   }));
 
   return router;
