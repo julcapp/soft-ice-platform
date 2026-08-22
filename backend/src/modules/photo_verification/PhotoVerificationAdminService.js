@@ -11,6 +11,23 @@ function assertAdmin(securityContext) {
   }
 }
 
+function validateRewardBonusUnits(patch) {
+  if (!Object.hasOwn(patch, 'rewardBonusUnits')) return;
+  const value = patch.rewardBonusUnits;
+  if (value === null || value === '') {
+    patch.rewardBonusUnits = null;
+    return;
+  }
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    const error = new Error('Photo reward bonus units must be a positive integer or null');
+    error.code = 'PHOTO_REWARD_BONUS_UNITS_INVALID';
+    error.statusCode = 400;
+    throw error;
+  }
+  patch.rewardBonusUnits = normalized;
+}
+
 class PhotoVerificationAdminService {
   constructor({ repository }) {
     if (!repository) throw new Error('repository is required');
@@ -24,10 +41,12 @@ class PhotoVerificationAdminService {
 
   async updateSettings(securityContext, patch, scopeKey = 'default') {
     assertAdmin(securityContext);
-    if (patch.mode && !ALLOWED_MODES.has(patch.mode)) throw new Error('Unsupported photo verification mode');
+    const normalizedPatch = { ...patch };
+    if (normalizedPatch.mode && !ALLOWED_MODES.has(normalizedPatch.mode)) throw new Error('Unsupported photo verification mode');
+    validateRewardBonusUnits(normalizedPatch);
     const actorId = securityContext?.userId || securityContext?.actorId || null;
-    return this.repository.upsertSettings({ scopeKey, ...patch, updatedBy: actorId });
+    return this.repository.upsertSettings({ scopeKey, ...normalizedPatch, updatedBy: actorId });
   }
 }
 
-module.exports = { PhotoVerificationAdminService, ADMIN_ROLES };
+module.exports = { PhotoVerificationAdminService, ADMIN_ROLES, validateRewardBonusUnits };
