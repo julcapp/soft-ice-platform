@@ -36,12 +36,12 @@ class MaxPhotoPublisher {
     });
     const result = await readJsonResponse(messageResponse, 'MAX_PUBLISH_FAILED');
     const message = result.message;
-    const messageId = message?.body?.mid || message?.mid || message?.id || message?.message_id;
+    const messageId = message?.body?.mid;
     if (!messageId) throw configuredError('MAX_PUBLISH_NOT_CONFIRMED');
     return {
       externalPublicationId: String(messageId),
       publicationUrl: message.url || null,
-      publishedAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date(),
+      publishedAt: message.timestamp ? new Date(Number(message.timestamp)) : new Date(),
       confirmedAt: new Date(),
     };
   }
