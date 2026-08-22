@@ -5,7 +5,7 @@ const { PhotoVerificationMetricsService, resolvePeriod } = require('../src/modul
 const admin = { roles: ['ADMIN'], userId: 'admin-1' };
 const fixedNow = new Date('2026-08-22T15:00:00.000Z');
 
-test('metrics snapshot combines period moderation, recovery, trends and channel counters', async () => {
+test('metrics snapshot combines period moderation, recovery, quality, trends and channel counters', async () => {
   let query = 0;
   const prisma = {
     async $queryRaw() {
@@ -15,7 +15,9 @@ test('metrics snapshot combines period moderation, recovery, trends and channel 
         { channel: 'VK', total: 10n, published: 9n, failed: 1n, pending: 0n, notConfigured: 0n },
         { channel: 'MAX', total: 10n, published: 8n, failed: 0n, pending: 1n, notConfigured: 1n },
       ];
-      return [{ day: new Date('2026-08-22T00:00:00Z'), autoApproved: 3n, autoRejected: 1n, manual: 2n }];
+      if (query === 3) return [{ day: new Date('2026-08-22T00:00:00Z'), autoApproved: 3n, autoRejected: 1n, manual: 2n }];
+      if (query === 4) return [{ reviewedByHuman: 8n, comparable: 6n, agreements: 4n, disagreements: 2n, aiApproveHumanReject: 1n, aiRejectHumanApprove: 1n, aiEscalated: 2n }];
+      return [{ reasonCode: 'capture_code_mismatch', count: 3n }, { reasonCode: 'duplicate_suspected', count: 2n }];
     },
   };
   const manualReviewService = {
@@ -40,6 +42,13 @@ test('metrics snapshot combines period moderation, recovery, trends and channel 
   assert.equal(result.channels[0].published, 9);
   assert.equal(result.channels[0].successPercent, 90);
   assert.equal(result.trend[0].autoApproved, 3);
+  assert.equal(result.quality.reviewedByHuman, 8);
+  assert.equal(result.quality.agreementPercent, 66.7);
+  assert.equal(result.quality.disagreementPercent, 33.3);
+  assert.equal(result.quality.aiApproveHumanReject, 1);
+  assert.equal(result.quality.aiRejectHumanApprove, 1);
+  assert.equal(result.quality.escalationReasons[0].reasonCode, 'capture_code_mismatch');
+  assert.equal(result.quality.escalationReasons[0].count, 3);
 });
 
 test('period resolver supports today, 7d, 30d and safe fallback', () => {
