@@ -70,9 +70,16 @@ export function PhotoModerationQueuePage({
     setNotice('');
     try {
       const result = await submitDecision(selected.photoChallengeId, { action, reason: reason.trim() || undefined });
-      setNotice(result.stage === 'completed' ? 'Решение сохранено, публикация и награда завершены.' : 'Решение сохранено.');
+      const message = result.stage === 'completed'
+        ? 'Решение сохранено, публикация и награда завершены.'
+        : result.stage === 'reward_pending'
+          ? 'Решение сохранено. Публикация завершена, награда ожидает настройки.'
+          : result.stage === 'publication_incomplete'
+            ? 'Решение сохранено. Публикация завершена не во всех обязательных каналах.'
+            : 'Решение сохранено.';
       setReason('');
       await refresh();
+      setNotice(message);
     } catch (error) {
       setNotice(error.message || 'Не удалось сохранить решение.');
     } finally {
@@ -89,6 +96,7 @@ export function PhotoModerationQueuePage({
         <div><h2>Очередь ручной модерации</h2><p style={{ margin: '6px 0 0' }}>Фото, которым требуется решение администратора.</p></div>
         <StatusBadge status={state.rows.length ? 'PENDING' : 'CLEAR'} />
       </div>
+      {notice && <p role="status">{notice}</p>}
       {!state.rows.length && <p>Очередь пуста.</p>}
       {!!state.rows.length && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 0.8fr) minmax(320px, 1.4fr)', gap: 18 }}>
         <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
@@ -136,7 +144,6 @@ export function PhotoModerationQueuePage({
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {ACTIONS.map(([value, label]) => <button key={value} className="text-button" type="button" disabled={saving} onClick={() => act(value)}>{label}</button>)}
           </div>
-          {notice && <p role="status">{notice}</p>}
         </article>}
       </div>}
     </section>
