@@ -11,6 +11,7 @@ const {
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
   PhotoManualReviewService,
+  PhotoVerificationMetricsService,
   PhotoPublicationReadModel,
   PhotoRewardPolicy,
   ImageFingerprintService,
@@ -111,6 +112,9 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   });
   dependencies.photoManualReviewService = dependencies.photoManualReviewService || new PhotoManualReviewService({
     repository, storage, customerWorkflow, publishingOrchestrator, rewardEngine, moderationLifecycle,
+  });
+  dependencies.photoVerificationMetricsService = dependencies.photoVerificationMetricsService || new PhotoVerificationMetricsService({
+    prisma: db, manualReviewService: dependencies.photoManualReviewService,
   });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
