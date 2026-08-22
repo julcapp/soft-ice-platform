@@ -27,6 +27,7 @@ const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./g
 const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
+const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('./photoVerificationRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -78,6 +79,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/customers', createExternalChannelRouter(dependencies));
   router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
   router.use('/admin', createVideoSurveillanceRouter(dependencies));
+  if (dependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(dependencies));
+  if (dependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(dependencies));
   if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
   if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
