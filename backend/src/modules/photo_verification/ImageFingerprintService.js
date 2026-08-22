@@ -26,13 +26,34 @@ function dHashFromLuminance(matrix) {
   return bitsToHex(bits);
 }
 
-function aHashFromLuminance(matrix) {
-  if (!Array.isArray(matrix) || matrix.length !== 8 || matrix.some((row) => !Array.isArray(row) || row.length !== 8)) {
-    throw new Error('aHash requires an 8x8 luminance matrix');
+function pHashFromLuminance(matrix) {
+  const size = 32;
+  if (!Array.isArray(matrix) || matrix.length !== size || matrix.some((row) => !Array.isArray(row) || row.length !== size)) {
+    throw new Error('pHash requires a 32x32 luminance matrix');
   }
-  const values = matrix.flat();
-  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return bitsToHex(values.map((value) => value >= average ? 1 : 0));
+
+  const lowFrequency = [];
+  for (let v = 0; v < 8; v += 1) {
+    for (let u = 0; u < 8; u += 1) {
+      let sum = 0;
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          sum += matrix[y][x]
+            * Math.cos(((2 * x + 1) * u * Math.PI) / (2 * size))
+            * Math.cos(((2 * y + 1) * v * Math.PI) / (2 * size));
+        }
+      }
+      const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+      const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+      lowFrequency.push((2 / size) * cu * cv * sum);
+    }
+  }
+
+  const comparisonValues = lowFrequency.slice(1);
+  const sorted = [...comparisonValues].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const bits = lowFrequency.map((value, index) => index === 0 ? 0 : (value >= median ? 1 : 0));
+  return bitsToHex(bits);
 }
 
 function hexToBits(value) {
@@ -59,11 +80,11 @@ class ImageFingerprintService {
     const result = { sha256: sha256(buffer), pHash: null, dHash: null, perceptualAvailable: false };
     if (!this.imageDecoder) return result;
 
-    const [matrix8x8, matrix8x9] = await Promise.all([
-      this.imageDecoder.toLuminanceMatrix(buffer, { width: 8, height: 8 }),
+    const [matrix32x32, matrix8x9] = await Promise.all([
+      this.imageDecoder.toLuminanceMatrix(buffer, { width: 32, height: 32 }),
       this.imageDecoder.toLuminanceMatrix(buffer, { width: 9, height: 8 }),
     ]);
-    result.pHash = aHashFromLuminance(matrix8x8);
+    result.pHash = pHashFromLuminance(matrix32x32);
     result.dHash = dHashFromLuminance(matrix8x9);
     result.perceptualAvailable = true;
     return result;
@@ -73,7 +94,7 @@ class ImageFingerprintService {
 module.exports = {
   ImageFingerprintService,
   sha256,
-  aHashFromLuminance,
+  pHashFromLuminance,
   dHashFromLuminance,
   hammingDistance,
 };
