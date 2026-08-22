@@ -51,32 +51,51 @@ class PrivateChannelAccessService {
     );
   }
 
+  async expireSubscriptionAccess({ subscriptionId, channelType }) {
+    const normalizedChannel = String(channelType || 'TELEGRAM').toUpperCase();
+    const now = this.clock();
+    const rows = await this.prisma.$queryRawUnsafe(
+      'SELECT * FROM "PrivateChannelAccessGrant" WHERE "subscriptionId"=$1 AND "channelType"=$2 AND "status"=\'ACTIVE\' ORDER BY "createdAt" DESC',
+      subscriptionId, normalizedChannel,
+    );
+    const adapter = this.adapters[normalizedChannel];
+    const results = [];
+    for (const row of rows) {
+      let inviteRevoked = false;
+      let providerError = null;
+      if (adapter?.revokeAccess && row.inviteLink) {
+        try {
+          const outcome = await adapter.revokeAccess(row.inviteLink);
+          inviteRevoked = Boolean(outcome?.revoked);
+        } catch (error) {
+          providerError = error.code || error.message;
+        }
+      }
+      // Revoking an invite link does not prove that an already joined subscriber
+      // was removed. Until a verified provider identity/removal flow exists, keep
+      // the evidence conservative and mark the grant EXPIRED rather than REMOVED.
+      const reason = providerError
+        ? `PROVIDER_EXPIRY_FAILED:${providerError}`
+        : inviteRevoked
+          ? 'INVITE_REVOKED_MEMBERSHIP_REMOVAL_NOT_CONFIRMED'
+          : 'MEMBERSHIP_REMOVAL_NOT_CONFIRMED';
+      await this.prisma.$executeRawUnsafe(
+        'UPDATE "PrivateChannelAccessGrant" SET "status"=\'EXPIRED\', "revokedAt"=$2, "failureReason"=$3, "updatedAt"=$2 WHERE "id"=$1',
+        row.id, now, reason.slice(0, 500),
+      );
+      results.push({ id: row.id, channelType: normalizedChannel, expired: true, inviteRevoked, membershipRemovalConfirmed: false, providerError });
+    }
+    return { subscriptionId, channelType: normalizedChannel, results };
+  }
+
   async revokeExpired() {
     const now = this.clock();
     const rows = await this.prisma.$queryRawUnsafe(
-      'SELECT * FROM "PrivateChannelAccessGrant" WHERE "status"=\'ACTIVE\' AND "validUntil" <= $1 ORDER BY "validUntil" ASC LIMIT 100',
+      'SELECT DISTINCT "subscriptionId","channelType" FROM "PrivateChannelAccessGrant" WHERE "status"=\'ACTIVE\' AND "validUntil" <= $1 ORDER BY "subscriptionId" LIMIT 100',
       now,
     );
     const results = [];
-    for (const row of rows) {
-      const adapter = this.adapters[String(row.channelType).toUpperCase()];
-      if (!adapter) { results.push({ id: row.id, revoked: false, error: 'ACCESS_ADAPTER_NOT_CONFIGURED' }); continue; }
-      try {
-        // Telegram can revoke the invite link itself. MAX requires a known MAX user id
-        // to remove an already joined subscriber; until identity binding exists we only
-        // expire our own grant and keep an operational follow-up marker.
-        if (String(row.channelType).toUpperCase() === 'MAX') {
-          await this.prisma.$executeRawUnsafe('UPDATE "PrivateChannelAccessGrant" SET "status"=\'EXPIRED\', "updatedAt"=$2 WHERE "id"=$1', row.id, now);
-          results.push({ id: row.id, revoked: false, expired: true, requiresProviderIdentity: true });
-          continue;
-        }
-        await adapter.revokeAccess(row.inviteLink);
-        await this.prisma.$executeRawUnsafe('UPDATE "PrivateChannelAccessGrant" SET "status"=\'REVOKED\', "revokedAt"=$2, "updatedAt"=$2 WHERE "id"=$1', row.id, now);
-        results.push({ id: row.id, revoked: true });
-      } catch (error) {
-        results.push({ id: row.id, revoked: false, error: error.code || error.message });
-      }
-    }
+    for (const row of rows) results.push(await this.expireSubscriptionAccess(row));
     return results;
   }
 
