@@ -11,6 +11,7 @@ const {
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
   PhotoPublicationReadModel,
+  PhotoRewardPolicy,
   ImageFingerprintService,
   SharpImageDecoder,
   MetadataAnalyzer,
@@ -83,12 +84,10 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
     repository,
     targets,
   });
-  const rewardPolicy = dependencies.photoRewardPolicy || null;
+  const rewardPolicy = dependencies.photoRewardPolicy || new PhotoRewardPolicy({ repository });
   const rewardEngine = dependencies.photoRewardEngine || new BonusRewardEngine({
     prisma: db,
-    resolveBonusUnits: rewardPolicy?.resolveBonusUnits
-      ? (context) => rewardPolicy.resolveBonusUnits(context)
-      : null,
+    resolveBonusUnits: (context) => rewardPolicy.resolveBonusUnits(context),
   });
 
   dependencies.photoVerificationRepository = repository;
@@ -107,6 +106,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoPublishers = publishers;
   dependencies.photoPublishingTargets = targets;
   dependencies.photoPublishingOrchestrator = publishingOrchestrator;
+  dependencies.photoRewardPolicy = rewardPolicy;
   dependencies.photoRewardEngine = rewardEngine;
   dependencies.photoModerationOrchestrator = dependencies.photoModerationOrchestrator || new PhotoModerationOrchestrator({
     repository,
