@@ -9,6 +9,7 @@ import { SalesTerminalPage } from '../terminal/SalesTerminalPage.jsx';
 import { MyGifts } from '../gift-transfer/GiftTransferScreens.jsx';
 import { GiftTransferApi } from '../gift-transfer/GiftTransferApi.js';
 import { PhotoPublicationHistory } from '../photo-verification/PhotoPublicationHistory.jsx';
+import { PhotoCameraScreen } from '../photo-verification/PhotoCameraScreen.jsx';
 
 export function App() {
   const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
@@ -23,10 +24,12 @@ export function App() {
   if (appMode === 'operator') return <OperatorWorkspacePage />;
   if (appMode === 'terminal') return <SalesTerminalPage />;
   if (appMode === 'gifts') return <MyGifts gifts={[]} api={GiftTransferApi} />;
-  if (appMode === 'photos') return <PhotoPublicationHistory />;
+  if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => setScreen('camera')} />;
+  if (appMode === 'camera') return <PhotoCameraScreen onBack={() => window.history.back()} onSubmitted={() => setScreen('photos')} />;
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
-  if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} />;
+  if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
+  if (screen === 'camera') return <PhotoCameraScreen onBack={() => setScreen('home')} onSubmitted={() => setScreen('photos')} />;
 
-  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} />;
+  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} />;
 }
