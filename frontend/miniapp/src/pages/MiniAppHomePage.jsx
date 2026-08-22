@@ -5,22 +5,10 @@ import { ConsentPanel } from '../consent/ConsentPanel.jsx';
 import { ActionCard } from '../components/molecules/ActionCard/ActionCard.jsx';
 import { trackEvent } from '../analytics/trackEvent.js';
 
-export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera }) {
-  function openProduct() {
-    trackEvent('ProductOpened', { product_id: 'soft_ice_cup' });
-    onBuy();
-  }
-
-  function openPhotos() {
-    trackEvent('PhotoPublicationHistoryOpened');
-    onPhotos?.();
-  }
-
-  function openCamera() {
-    trackEvent('PhotoCameraOpened');
-    onCamera?.();
-  }
-
+export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera, onProfile, onReferral }) {
+  function openProduct() { trackEvent('ProductOpened', { product_id: 'soft_ice_cup' }); onBuy(); }
+  function openPhotos() { trackEvent('PhotoPublicationHistoryOpened'); onPhotos?.(); }
+  function openCamera() { trackEvent('PhotoCameraOpened'); onCamera?.(); }
   return (
     <main className="app-shell">
       <AppHeader />
@@ -31,9 +19,11 @@ export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera }
       </section>
       <section className="card-grid" aria-label="Главные действия">
         <ActionCard icon="🍦" title="Купить мороженое" description="Вкус дня, сироп и топпинг на выбор" badge="130 ₽" onClick={openProduct} />
+        <ActionCard icon="🔔" title="Личный кабинет" description="Профиль, дата рождения, email и непрочитанные уведомления" onClick={onProfile} />
+        <ActionCard icon="🤝" title="Пригласить друга" description="Скопировать или отправить персональную реферальную ссылку" onClick={onReferral} />
         <ActionCard icon="📸" title="Выполнить фотозадание" description="Откроем камеру и отправим фото на модерацию" onClick={openCamera} />
         <ActionCard icon="📷" title="Мои фотографии" description="Модерация и публикации в VK, Telegram и MAX" onClick={openPhotos} />
-        <ActionCard icon="🎁" title="Клуб Тимоши" description="Скидка 20%, бонусы и специальные предложения" badge="300 ₽" onClick={() => trackEvent('ClubOfferShown')} />
+        <ActionCard icon="🎁" title="Клуб Тимоши" description="Участие в клубе, бонусы и специальные предложения" onClick={() => trackEvent('ClubOfferShown')} />
         <ActionCard icon="⭐" title="Бонусы" description="Копите и используйте бонусы в следующих покупках" onClick={() => trackEvent('BonusSectionOpened')} />
         <ActionCard icon="📍" title="Где купить" description="Найдите ближайший автомат или точку продаж" onClick={() => trackEvent('LocationSectionOpened')} />
       </section>
