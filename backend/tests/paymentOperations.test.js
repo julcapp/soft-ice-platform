@@ -12,7 +12,7 @@ function fixture({ alreadyReturned = 0, existingRefund = null, providerStatus = 
       if (sql.includes('COALESCE(SUM("amountRub"')) return [{ total: alreadyReturned }];
       if (sql.includes('WHERE "idempotencyKey"')) return existingRefund ? [existingRefund] : [];
       if (sql.includes('FROM "PaymentReceipt"')) return [];
-      if (sql.includes('WHERE "providerRefundId"')) return [{ id: 'r1', customerId: 'c1', sourceType: 'PRIVATE_CHANNEL', sourcePaymentId: 'pp1', subscriptionId: 's1', provider: 'YOOKASSA', amountRub: 40 }];
+      if (sql.includes('WHERE "providerRefundId"')) return [{ id: 'r1', customerId: 'c1', paymentSourceType: 'PRIVATE_CHANNEL', paymentSourceId: 'pp1', subscriptionId: 's1', provider: 'YOOKASSA', amountRub: 40 }];
       return [];
     },
     $executeRawUnsafe: async (...args) => { executed.push(args); return 1; },
@@ -55,4 +55,5 @@ test('authoritative refund webhook marks tracked refund succeeded', async () => 
   assert.equal(result.handled, true);
   assert.equal(result.status, 'SUCCEEDED');
   assert.equal(f.executed.some((args) => String(args[0]).includes("SET \"status\"='SUCCEEDED'")), true);
+  assert.equal(f.notifications.some((item) => item.type === 'PAYMENT_REFUND_SUCCEEDED'), true);
 });
