@@ -4,12 +4,11 @@ const { PhotoCaptureVisualVerifier } = require('./modules/photo_verification/Pho
 const {
   PrismaPhotoVerificationRepository, PrismaPhotoSubmissionRepository, LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService, PhotoCaptureChallengeService, PhotoCustomerWorkflow, CrmPhotoNotifier,
-  PhotoVerificationAdminService, PhotoManualReviewService, PhotoVerificationMetricsService,
+  PhotoVerificationAdminService, PhotoManualReviewService, PhotoVerificationMetricsService, PhotoVerificationReadinessService,
   PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PhotoAiRecommendationRollbackService,
-  PhotoAiRecommendationApplicationHistoryService,
-  PhotoPublicationReadModel, PhotoRewardPolicy, ImageFingerprintService, SharpImageDecoder, MetadataAnalyzer,
-  DuplicateDetector, PhotoTechnicalAnalyzer, PhotoModerationLifecycle, PhotoModerationOrchestrator,
-  OpenAIVisionProvider, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher,
+  PhotoAiRecommendationApplicationHistoryService, PhotoPublicationReadModel, PhotoRewardPolicy, ImageFingerprintService,
+  SharpImageDecoder, MetadataAnalyzer, DuplicateDetector, PhotoTechnicalAnalyzer, PhotoModerationLifecycle,
+  PhotoModerationOrchestrator, OpenAIVisionProvider, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher,
   PhotoPublishingOrchestrator, PHOTO_PUBLISHING_TARGETS,
 } = require('./modules/photo_verification');
 
@@ -46,6 +45,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoModerationOrchestrator = dependencies.photoModerationOrchestrator || new PhotoModerationOrchestrator({ repository, storage, technicalAnalyzer, customerWorkflow, moderationLifecycle, publishingOrchestrator, rewardEngine, captureVisualVerifier, visionProvider, logger });
   dependencies.photoManualReviewService = dependencies.photoManualReviewService || new PhotoManualReviewService({ repository, storage, customerWorkflow, publishingOrchestrator, rewardEngine, moderationLifecycle });
   dependencies.photoVerificationMetricsService = dependencies.photoVerificationMetricsService || new PhotoVerificationMetricsService({ prisma: db, manualReviewService: dependencies.photoManualReviewService });
+  dependencies.photoVerificationReadinessService = dependencies.photoVerificationReadinessService || new PhotoVerificationReadinessService({ repository, prisma: db });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoAiRecommendationJournalService = dependencies.photoAiRecommendationJournalService || new PhotoAiRecommendationJournalService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService });
   dependencies.photoAiRecommendationApplicationService = dependencies.photoAiRecommendationApplicationService || new PhotoAiRecommendationApplicationService({ prisma: db, metricsService: dependencies.photoVerificationMetricsService, journalService: dependencies.photoAiRecommendationJournalService, adminService: dependencies.photoVerificationAdminService });
@@ -62,5 +62,4 @@ function mimeTypeFromStorageKey(storageKey) {
   if (normalized.endsWith('.webp')) return 'image/webp';
   return 'image/jpeg';
 }
-
 module.exports = { attachPhotoVerificationRuntime, mimeTypeFromStorageKey };
