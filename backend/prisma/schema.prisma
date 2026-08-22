@@ -87,31 +87,29 @@ model Customer {
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  clubAccount                 ClubAccount?
-  identities                  CustomerIdentity[]
-  authSessions                AuthSession[]
-  bonusAccount                BonusAccount?
-  orders                      Order[]
-  consents                    CustomerConsent[]
-  bonusTransactions           BonusTransaction[]
-  referralsMade               Referral[]                       @relation("Referrer")
-  referredBy                  Referral[]                       @relation("Referred")
-  photoChallenges             PhotoChallenge[]
-  birthdayRewards             BirthdayReward[]
-  payments                    Payment[]
-  segmentAssignments          CustomerSegment[]
-  crmProfile                  CrmCustomerProfile?
-  notificationDeliveries      CrmNotificationDelivery[]
-  customerPreferences         CustomerPreference[]
-  promotionParticipations     CustomerPromotionParticipation[]
-  gameActivities              CustomerGameActivity[]
-  aiProfile                   CustomerAiProfile?
-  timelineEvents              CustomerTimelineEvent[]
-  externalProfiles            CustomerExternalProfile[]
-  channelSubscriptions        CustomerChannelSubscription[]
-  organizationMemberships     OrganizationMember[]
-  privateChannelSubscriptions PrivateChannelSubscription[]
-  privateChannelPayments      PrivateChannelPayment[]
+  clubAccount             ClubAccount?
+  identities              CustomerIdentity[]
+  authSessions            AuthSession[]
+  bonusAccount            BonusAccount?
+  orders                  Order[]
+  consents                CustomerConsent[]
+  bonusTransactions       BonusTransaction[]
+  referralsMade           Referral[]                       @relation("Referrer")
+  referredBy              Referral[]                       @relation("Referred")
+  photoChallenges         PhotoChallenge[]
+  birthdayRewards         BirthdayReward[]
+  payments                Payment[]
+  segmentAssignments      CustomerSegment[]
+  crmProfile              CrmCustomerProfile?
+  notificationDeliveries  CrmNotificationDelivery[]
+  customerPreferences     CustomerPreference[]
+  promotionParticipations CustomerPromotionParticipation[]
+  gameActivities          CustomerGameActivity[]
+  aiProfile               CustomerAiProfile?
+  timelineEvents          CustomerTimelineEvent[]
+  externalProfiles        CustomerExternalProfile[]
+  channelSubscriptions    CustomerChannelSubscription[]
+  organizationMemberships OrganizationMember[]
 }
 
 model CustomerPreference {
@@ -141,12 +139,12 @@ model CustomerPromotionParticipation {
   metadata      Json?
   joinedAt      DateTime  @default(now())
   completedAt   DateTime?
-  updatedAt     DateTime  @updatedAt
+  expiresAt     DateTime?
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  @@index([customerId, joinedAt])
-  @@index([promotionCode, status])
+  @@unique([customerId, promotionCode])
+  @@index([customerId, status, joinedAt])
 }
 
 model CustomerGameActivity {
@@ -154,8 +152,10 @@ model CustomerGameActivity {
   customerId   String
   gameCode     String
   activityType String
-  status       String
+  status       String   @default("STARTED")
   score        Int?
+  rewardType   String?
+  rewardValue  Int?
   metadata     Json?
   occurredAt   DateTime @default(now())
 
@@ -166,16 +166,16 @@ model CustomerGameActivity {
 }
 
 model CustomerAiProfile {
-  id              String   @id @default(uuid())
-  customerId      String   @unique
-  schemaVersion   Int      @default(1)
-  status          String   @default("FOUNDATION_ONLY")
+  id              String    @id @default(uuid())
+  customerId      String    @unique
+  schemaVersion   Int       @default(1)
+  status          String    @default("FOUNDATION_ONLY")
   featureSnapshot Json?
   summary         Json?
   modelReference  String?
   calculatedAt    DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
@@ -192,818 +192,64 @@ model CustomerTimelineEvent {
   sourceEntityId   String?
   correlationId    String?
   metadata         Json?
-  occurredAt       DateTime @default(now())
-  createdAt        DateTime @default(now())
+  occurredAt       DateTime
+  recordedAt       DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  @@unique([customerId, sourceDomain, sourceEntityType, sourceEntityId, eventType])
   @@index([customerId, occurredAt])
-  @@index([eventType, occurredAt])
-  @@index([correlationId])
+  @@index([category, occurredAt])
 }
 
 model CustomerExternalProfile {
-  id             String   @id @default(uuid())
-  customerId     String
-  channelType    String
-  externalUserId String?
-  username       String?
-  displayName    String?
-  profileUrl     String?
-  source         String
-  isVerified     Boolean  @default(false)
-  verifiedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(uuid())
+  customerId         String
+  channelType        String
+  externalUserId     String?
+  username           String?
+  profileUrl         String?
+  displayName        String?
+  avatarUrl          String?
+  isVerified         Boolean   @default(false)
+  verifiedAt         DateTime?
+  verificationMethod String
+  source             String
+  lastCheckedAt      DateTime?
+  status             String
+  consentId          String?
+  metadata           Json?
+  actorId            String?
+  auditReason        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, channelType])
-  @@index([channelType, externalUserId])
 }
 
 model CustomerChannelSubscription {
-  id               String    @id @default(uuid())
-  customerId       String
-  channelType      String
-  targetType       String
-  targetExternalId String?
-  targetName       String?
-  isSubscribed     Boolean   @default(false)
-  subscribedAt     DateTime?
-  unsubscribedAt   DateTime?
-  lastCheckedAt    DateTime?
-  source           String
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@index([customerId, channelType, isSubscribed])
-  @@index([channelType, targetExternalId])
-}
-
-model PrivateChannelPlan {
-  id                String   @id
-  code              String   @unique
-  name              String
-  channelType       String
-  targetExternalId  String?
-  priceRub          Decimal  @db.Decimal(12, 2)
-  billingPeriodDays Int
-  isActive          Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  subscriptions PrivateChannelSubscription[]
-}
-
-model PrivateChannelSubscription {
-  id                         String    @id @default(uuid())
-  customerId                 String
-  planId                     String
-  status                     String    @default("PENDING")
-  currentPeriodStart         DateTime?
-  currentPeriodEnd           DateTime?
-  recurringEnabled           Boolean   @default(false)
-  recurringConsentAt         DateTime?
-  recurringConsentVersion    String?
-  providerPaymentMethodRef   String?
-  cancelAtPeriodEnd          Boolean   @default(false)
-  cancelledAt                DateTime?
-  createdAt                  DateTime  @default(now())
-  updatedAt                  DateTime  @updatedAt
-
-  customer Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  plan     PrivateChannelPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
-  payments PrivateChannelPayment[]
-
-  @@index([customerId, status])
-  @@index([currentPeriodEnd])
-}
-
-model PrivateChannelPayment {
-  id                String    @id @default(uuid())
-  subscriptionId    String
-  customerId        String
-  provider          String
-  providerPaymentId String?
-  paymentKind       String
-  amountRub         Decimal   @db.Decimal(12, 2)
-  status            String
-  periodStart       DateTime?
-  periodEnd         DateTime?
-  idempotencyKey    String?   @unique
-  paidAt            DateTime?
-  failedAt          DateTime?
-  createdAt         DateTime  @default(now())
-
-  subscription PrivateChannelSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
-  customer     Customer                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
-
-  @@index([subscriptionId, createdAt])
-  @@index([paidAt])
-}
-
-model ClubAccount {
-  id                   String    @id @default(uuid())
-  customerId           String    @unique
-  status               String    @default("active")
-  clubActive           Boolean   @default(false)
-  activatedAt          DateTime?
-  currency             String    @default("RUB")
-  availableBalanceRub  Float     @default(0)
-  reservedBalanceRub   Float     @default(0)
-  totalTopupRub        Float     @default(0)
-  totalSpentRub        Float     @default(0)
-  lastTopupAt          DateTime?
-  lastPurchaseAt       DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  customer     Customer                 @relation(fields: [customerId], references: [id])
-  transactions ClubAccountTransaction[]
-  topups        ClubTopup[]
-}
-
-model ClubAccountTransaction {
-  id             String   @id @default(uuid())
-  clubAccountId  String
-  customerId     String
-  transactionType String
-  direction      String
-  amountRub      Float
-  balanceAfterRub Float
-  reason         String
-  referenceType  String?
-  referenceId    String?
-  status         String   @default("posted")
-  idempotencyKey String?
-  correlationId  String?
-  postedAt       DateTime @default(now())
-  createdAt      DateTime @default(now())
-
-  clubAccount ClubAccount @relation(fields: [clubAccountId], references: [id])
-
-  @@unique([clubAccountId, idempotencyKey])
-  @@index([customerId, postedAt])
-  @@index([clubAccountId, postedAt])
-}
-
-model ClubTopup {
-  id              String    @id @default(uuid())
-  clubAccountId   String
-  customerId      String
-  amountRub       Float
-  paymentProvider String
-  paymentStatus   String    @default("pending")
-  paymentId       String?
-  channel         String
-  createdAt       DateTime  @default(now())
-  paidAt          DateTime?
-
-  clubAccount ClubAccount @relation(fields: [clubAccountId], references: [id])
-  payment     Payment?
-}
-
-model BonusAccount {
-  id           String   @id @default(uuid())
-  customerId   String   @unique
-  balanceBonus Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  customer Customer @relation(fields: [customerId], references: [id])
-}
-
-model BonusTransaction {
-  id                  String   @id @default(uuid())
-  customerId          String
-  orderId             String?
-  referralId          String?
-  type                String
-  direction           String   @default("credit")
-  amountBonus         Int
-  source              String
-  reason              String?
-  referenceEntityType String?
-  referenceEntityId   String?
-  balanceAfterBonus   Int?
-  comment             String?
-  createdAt           DateTime @default(now())
-  postedAt            DateTime @default(now())
-
-  customer Customer  @relation(fields: [customerId], references: [id])
-  order    Order?    @relation(fields: [orderId], references: [id])
-  referral Referral? @relation(fields: [referralId], references: [id])
-}
-
-model Machine {
-  id          String        @id @default(uuid())
-  machineCode String        @unique
-  name        String
-  location    String?
-  status      MachineStatus @default(OFFLINE)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  orders                       Order[]
-  inventory                    MachineInventory[]
-  dispenseRequests             DispenseRequest[]
-  maintenanceTasks             MaintenanceTask[]
-  serviceLogs                  ServiceLog[]
-  testRuns                     TestRun[]
-  inventoryMovements           InventoryMovement[]
-  settings                     MachineSetting[]
-  simCard                      MachineSimCard?
-  mobilePlan                   MachineMobilePlan?
-  connectivitySnapshots        MachineConnectivitySnapshot[]
-  connectivityEvents           MachineConnectivityEvent[]
-  organizationAssignments      OrganizationMachineAssignment[]
-  organizationResponsibilities OrganizationResponsibility[]
-}
-
-model Organization {
-  id                   String             @id @default(uuid())
-  fullName             String
-  shortName            String
-  organizationType     String
-  inn                  String?
-  kpp                  String?
-  ogrn                  String?
-  taxMode               String?
-  legalAddress          String?
-  actualAddress         String?
-  email                 String?
-  phone                 String?
-  website               String?
-  status                OrganizationStatus @default(ACTIVE)
-  parentOrganizationId  String?
-  settings              Json?
-  createdBy             String?
-  updatedBy             String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-
-  parent            Organization?                @relation("OrganizationHierarchy", fields: [parentOrganizationId], references: [id], onDelete: Restrict)
-  children          Organization[]               @relation("OrganizationHierarchy")
-  units             OrganizationUnit[]
-  members           OrganizationMember[]
-  roles             OrganizationRole[]
-  locations         OrganizationLocation[]
-  machineAssignments OrganizationMachineAssignment[]
-  responsibilities  OrganizationResponsibility[]
-  auditEvents       OrganizationAuditEvent[]
-
-  @@index([status])
-  @@index([parentOrganizationId])
-}
-
-model OrganizationUnit {
-  id             String   @id @default(uuid())
-  organizationId String
-  parentUnitId   String?
-  code           String
-  name           String
-  unitType       String?
-  status         String   @default("ACTIVE")
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  parent       OrganizationUnit?   @relation("OrganizationUnitHierarchy", fields: [parentUnitId], references: [id], onDelete: Restrict)
-  children     OrganizationUnit[]  @relation("OrganizationUnitHierarchy")
-  members      OrganizationMember[]
-  locations    OrganizationLocation[]
-  responsibilities OrganizationResponsibility[]
-
-  @@unique([organizationId, code])
-  @@unique([id, organizationId])
-  @@index([organizationId, status])
-  @@index([parentUnitId])
-}
-
-model OrganizationMember {
-  id             String                   @id @default(uuid())
-  organizationId String
-  customerId     String?
-  unitId         String?
-  displayName    String
-  email          String?
-  phone          String?
-  positionTitle  String?
-  memberType     String
-  status         OrganizationMemberStatus @default(ACTIVE)
-  externalRef    String?
-  metadata       Json?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  unit         OrganizationUnit? @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  roleAssignments OrganizationRoleAssignment[]
-  responsibilities OrganizationResponsibility[]
-
-  @@unique([id, organizationId])
-  @@index([organizationId, status])
-  @@index([customerId])
-  @@index([unitId])
-}
-
-model OrganizationRole {
-  id             String               @id @default(uuid())
-  organizationId String
-  code           String
-  name           String
-  roleType       OrganizationRoleType
-  permissions    Json
-  isSystem       Boolean              @default(false)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  assignments  OrganizationRoleAssignment[]
-
-  @@unique([organizationId, code])
-  @@unique([id, organizationId])
-  @@index([organizationId, roleType])
-}
-
-model OrganizationRoleAssignment {
-  id             String    @id @default(uuid())
-  organizationId String
-  memberId       String
-  roleId         String
-  assignedBy     String?
-  assignedAt     DateTime  @default(now())
-  revokedAt      DateTime?
-
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  member       OrganizationMember  @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  role         OrganizationRole    @relation(fields: [roleId, organizationId], references: [id, organizationId], onDelete: Restrict)
-
-  @@index([organizationId, revokedAt])
-  @@index([memberId, revokedAt])
-  @@index([roleId, revokedAt])
-}
-
-model OrganizationLocation {
-  id             String                     @id @default(uuid())
-  organizationId String
-  unitId         String?
-  code           String
-  name           String
-  locationType   String
-  address        String?
-  latitude       Decimal?                   @db.Decimal(9, 6)
-  longitude      Decimal?                   @db.Decimal(9, 6)
-  status         OrganizationLocationStatus @default(ACTIVE)
-  metadata       Json?
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  unit         OrganizationUnit?  @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  machineAssignments OrganizationMachineAssignment[]
-  responsibilities OrganizationResponsibility[]
-
-  @@unique([organizationId, code])
-  @@unique([id, organizationId])
-  @@index([organizationId, status])
-  @@index([unitId])
-}
-
-model OrganizationMachineAssignment {
-  id             String    @id @default(uuid())
-  organizationId String
-  machineId      String
-  locationId     String?
-  assignedBy     String?
-  assignedAt     DateTime  @default(now())
-  unassignedAt   DateTime?
-
-  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  machine      Machine               @relation(fields: [machineId], references: [id], onDelete: Restrict)
-  location     OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
-
-  @@index([organizationId, unassignedAt])
-  @@index([machineId, unassignedAt])
-  @@index([locationId, unassignedAt])
-}
-
-model OrganizationResponsibility {
-  id             String                          @id @default(uuid())
-  organizationId String
-  memberId       String
-  scope          OrganizationResponsibilityScope
-  unitId         String?
-  locationId     String?
-  machineId      String?
-  assignedBy     String?
-  assignedAt     DateTime                        @default(now())
-  revokedAt      DateTime?
-
-  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  member       OrganizationMember    @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  unit         OrganizationUnit?     @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  location     OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  machine      Machine?              @relation(fields: [machineId], references: [id], onDelete: Restrict)
-
-  @@index([organizationId, scope, revokedAt])
-  @@index([memberId, revokedAt])
-  @@index([machineId, revokedAt])
-}
-
-model OrganizationAuditEvent {
-  id             String   @id @default(uuid())
-  organizationId String
-  eventType      String
-  actorId        String?
-  targetType     String
-  targetId       String
-  correlationId  String?
-  metadata       Json?
-  occurredAt     DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-
-  @@index([organizationId, occurredAt])
-  @@index([correlationId])
-}
-
-model Operator {
-  id        String         @id @default(uuid())
-  name      String
-  phone     String?        @unique
-  role      OperatorRole   @default(OPERATOR)
-  status    OperatorStatus @default(ACTIVE)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  assignments         OperatorMachineAssignment[]
-  maintenanceTasks    MaintenanceTask[]
-  serviceLogs         ServiceLog[]
-  testRuns            TestRun[]
-  workspaceAssignments OperatorWorkspaceAssignment[]
-  workspaceActions    OperatorWorkspaceAction[]
-  maintenanceSessions MaintenanceSession[]
-}
-
-model OperatorMachineAssignment {
-  id         String   @id @default(uuid())
-  operatorId String
-  machineId  String
-  assignedAt DateTime @default(now())
-  revokedAt  DateTime?
-
-  operator Operator @relation(fields: [operatorId], references: [id])
-  machine  Machine  @relation(fields: [machineId], references: [id])
-
-  @@unique([operatorId, machineId])
-}
-
-model MaintenanceTask {
-  id             String                @id @default(uuid())
-  machineId      String
-  assignedToId   String?
-  taskType       String
-  description    String?
-  dueAt          DateTime?
-  status         MaintenanceTaskStatus @default(OPEN)
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-
-  machine    Machine   @relation(fields: [machineId], references: [id])
-  assignedTo Operator? @relation(fields: [assignedToId], references: [id])
-}
-
-model ServiceLog {
-  id              String           @id @default(uuid())
-  machineId       String
-  operatorId      String
-  maintenanceTaskId String?
-  status          ServiceLogStatus @default(DRAFT)
-  notes           String?
-  submittedAt     DateTime?
-  approvedAt      DateTime?
-  rejectedAt      DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  machine         Machine          @relation(fields: [machineId], references: [id])
-  operator        Operator         @relation(fields: [operatorId], references: [id])
-  maintenanceTask MaintenanceTask? @relation(fields: [maintenanceTaskId], references: [id])
-}
-
-model TestRun {
-  id           String        @id @default(uuid())
-  machineId    String
-  operatorId   String
-  testType     String
-  status       TestRunStatus
-  details      Json?
-  createdAt    DateTime      @default(now())
-
-  machine  Machine  @relation(fields: [machineId], references: [id])
-  operator Operator @relation(fields: [operatorId], references: [id])
-}
-
-model MachineInventory {
-  id        String            @id @default(uuid())
-  machineId String
-  itemType  InventoryItemType
-  itemCode  String
-  quantity  Float             @default(0)
-  unit      String
-  updatedAt DateTime          @updatedAt
-
-  machine Machine @relation(fields: [machineId], references: [id])
-
-  @@unique([machineId, itemType, itemCode])
-}
-
-model InventoryMovement {
-  id           String                @id @default(uuid())
-  machineId    String
-  movementType InventoryMovementType
-  itemType     InventoryItemType
-  itemCode     String
-  quantity     Float
-  unit         String
-  sourceType   String
-  sourceId     String?
-  notes        String?
-  createdAt    DateTime              @default(now())
-
-  machine Machine @relation(fields: [machineId], references: [id])
-
-  @@index([machineId, createdAt])
-}
-
-model MachineSetting {
-  id        String   @id @default(uuid())
-  machineId String
-  key       String
-  value     Json
-  updatedAt DateTime @updatedAt
-
-  machine Machine @relation(fields: [machineId], references: [id])
-
-  @@unique([machineId, key])
-}
-
-model Product {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  name        String
-  description String?
-  basePrice   Float
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  orders Order[]
-}
-
-model Order {
-  id                     String      @id @default(uuid())
-  customerId             String
-  machineId              String?
-  productId              String?
-  status                 OrderStatus @default(CREATED)
-  amount                 Float
-  amountPaidRub          Float?
-  bonusEarned            Int         @default(0)
-  bonusRedeemed          Int         @default(0)
-  selectedTopping        String?
-  selectedAdditive       String?
-  tasteCode              String?
-  paymentProvider        String?
-  paymentMethod          String?
-  paymentId              String?
-  prepaid                Boolean     @default(false)
-  expiresAt              DateTime?
-  activePickupCodeHash   String?
-  pickupCodeExpiresAt    DateTime?
-  pickupCodeIssuedAt     DateTime?
-  pickedUpAt             DateTime?
-  cancelReason           String?
-  createdAt              DateTime    @default(now())
-  updatedAt              DateTime    @updatedAt
-  paidAt                 DateTime?
-
-  customer Customer @relation(fields: [customerId], references: [id])
-  machine  Machine? @relation(fields: [machineId], references: [id])
-  product  Product? @relation(fields: [productId], references: [id])
-  payment  Payment?
-  dispenseRequest DispenseRequest?
-  bonusTransactions BonusTransaction[]
-
-  @@index([customerId, createdAt])
-  @@index([machineId, createdAt])
-  @@index([status, expiresAt])
-}
-
-model Payment {
-  id              String    @id @default(uuid())
-  customerId      String
-  orderId         String?   @unique
-  clubTopupId     String?   @unique
-  provider        String
-  method          String
-  status          String
-  amountRub       Float
-  currency        String    @default("RUB")
-  providerPaymentId String?
-  providerPaymentMethodRef String?
-  description     String?
-  idempotencyKey  String?   @unique
-  createdAt       DateTime  @default(now())
-  confirmedAt     DateTime?
-  cancelledAt     DateTime?
-
-  customer  Customer   @relation(fields: [customerId], references: [id])
-  order     Order?      @relation(fields: [orderId], references: [id])
-  clubTopup ClubTopup?  @relation(fields: [clubTopupId], references: [id])
-
-  @@index([customerId, createdAt])
-  @@index([status, createdAt])
-}
-
-model Referral {
   id                 String    @id @default(uuid())
-  referrerCustomerId String
-  referredCustomerId String?   @unique
-  referralCode       String
-  status             String    @default("registered")
-  firstPurchaseAt    DateTime?
+  customerId         String
+  channelType        String
+  targetType         String
+  targetExternalId   String?
+  targetName         String?
+  isSubscribed       Boolean   @default(false)
+  subscribedAt       DateTime?
+  unsubscribedAt     DateTime?
+  lastCheckedAt      DateTime?
+  source             String
+  verificationStatus String
+  consentId          String?
+  metadata           Json?
+  actorId            String?
+  auditReason        String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  referrer Customer  @relation("Referrer", fields: [referrerCustomerId], references: [id])
-  referred Customer? @relation("Referred", fields: [referredCustomerId], references: [id])
-  bonusTransactions BonusTransaction[]
-
-  @@index([referrerCustomerId, createdAt])
-  @@index([referralCode])
-}
-
-model BirthdayReward {
-  id         String   @id @default(uuid())
-  customerId String
-  year       Int
-  issuedAt   DateTime @default(now())
-  usedAt     DateTime?
-
-  customer Customer @relation(fields: [customerId], references: [id])
-
-  @@unique([customerId, year])
-}
-
-model PhotoChallenge {
-  id                   String    @id @default(uuid())
-  customerId           String
-  challengeCodeHash    String?
-  challengeCodeExpiresAt DateTime?
-  challengeCodeIssuedAt DateTime?
-  challengeCodeConsumedAt DateTime?
-  status               String    @default("issued")
-  bonusAmount          Int       @default(30)
-  sourceStorageKey     String?
-  sourceMimeType       String?
-  sourceSizeBytes      Int?
-  submittedAt          DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  customer          Customer                 @relation(fields: [customerId], references: [id])
-  verifications     PhotoVerificationRecord[]
-  fingerprints      PhotoFingerprint[]
-  publications      PhotoPublication[]
-  sourceFile        PhotoSourceFile?
-  moderationEvents  PhotoModerationEvent[]
-
-  @@index([customerId, status])
-  @@index([status, createdAt])
-}
-
-model PhotoVerificationRecord {
-  id                String   @id @default(uuid())
-  photoChallengeId  String
-  provider          String
-  modelVersion      String?
-  decision          String
-  confidence        Float
-  reasons           Json?
-  evidence          Json?
-  fraudScore        Float?
-  createdAt         DateTime @default(now())
-
-  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
-
-  @@index([photoChallengeId, createdAt])
-  @@index([decision, createdAt])
-}
-
-model PhotoFingerprint {
-  id               String   @id @default(uuid())
-  photoChallengeId String
-  sha256           String
-  perceptualHash   String?
-  differenceHash   String?
-  metadata         Json?
-  createdAt        DateTime @default(now())
-
-  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
-
-  @@unique([photoChallengeId])
-  @@index([sha256])
-  @@index([perceptualHash])
-  @@index([differenceHash])
-}
-
-model PhotoPublication {
-  id                    String    @id @default(uuid())
-  photoChallengeId      String
-  channel               String
-  targetId              String
-  status                String    @default("pending")
-  externalPublicationId String?
-  publicationUrl        String?
-  attemptCount          Int       @default(0)
-  lastAttemptAt         DateTime?
-  publishedAt           DateTime?
-  confirmedAt           DateTime?
-  errorCode             String?
-  errorMessage          String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
-
-  @@unique([photoChallengeId, channel])
-  @@index([channel, status])
-  @@index([status, createdAt])
-}
-
-model PhotoSourceFile {
-  id                    String    @id @default(uuid())
-  photoChallengeId      String    @unique
-  storageKey            String
-  mimeType              String?
-  sizeBytes             Int?
-  deletionStatus        String    @default("pending")
-  sourceFileDeleted     Boolean   @default(false)
-  sourceFileDeletedAt   DateTime?
-  sourceFileDeleteReason String?
-  deletionErrorCode     String?
-  deletionErrorMessage  String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
-}
-
-model PhotoModerationEvent {
-  id               String   @id @default(uuid())
-  photoChallengeId String
-  eventType        String
-  decision         String?
-  reasonCode       String?
-  eventSource      String
-  actorId          String?
-  correlationId    String?
-  details          Json?
-  createdAt        DateTime @default(now())
-
-  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
-
-  @@index([photoChallengeId, createdAt])
-  @@index([eventType, createdAt])
-}
-
-model PhotoVerificationSettings {
-  id                        String   @id @default(uuid())
-  scopeKey                  String   @unique @default("default")
-  enabled                   Boolean  @default(false)
-  mode                      String   @default("manual_only")
-  publishingEnabled         Boolean  @default(false)
-  requiredChannels          Json     @default("[\"VK\",\"TELEGRAM\",\"MAX\"]")
-  approvalThreshold         Float    @default(0.9)
-  manualReviewThreshold     Float    @default(0.65)
-  fraudReviewThreshold      Float    @default(0.5)
-  duplicateCheckEnabled     Boolean  @default(true)
-  metadataCheckEnabled      Boolean  @default(true)
-  challengeCodeEnabled      Boolean  @default(false)
-  retentionPolicy           String   @default("delete_after_publication")
-  provider                  String?
-  model                     String?
-  rewardBonusUnits          Int?
-  updatedBy                 String?
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  @@index([customerId, channelType])
 }
 
 model CrmCustomerProfile {
@@ -1011,48 +257,50 @@ model CrmCustomerProfile {
   customerId          String   @unique
   managerId           String?
   serviceNote         String?
-  preferredChannel    String?
+  preferredChannel    String   @default("TELEGRAM")
   communicationStatus String   @default("ALLOWED")
+  updatedBy           String
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
-  updatedBy           String?
 
   customer Customer @relation(fields: [customerId], references: [id])
 }
 
 model CrmCampaign {
-  id              String   @id @default(uuid())
-  code            String   @unique
+  id              String    @id @default(uuid())
+  code            String    @unique
   name            String
   description     String?
-  status          String   @default("DRAFT")
+  status          String    @default("DRAFT")
   segmentId       String?
   channel         String
   messageTemplate String
   startsAt        DateTime?
   endsAt          DateTime?
   createdBy       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  notifications CrmNotificationDelivery[]
+  deliveries CrmNotificationDelivery[]
+
+  @@index([status, startsAt])
+  @@index([segmentId])
 }
 
 model CrmNotificationDelivery {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   customerId     String
   campaignId     String?
   channel        String
   subject        String?
   body           String
-  status         String   @default("QUEUED")
-  providerMessageId String?
-  errorCode      String?
-  errorMessage   String?
-  idempotencyKey String?  @unique
+  status         String    @default("QUEUED")
+  providerId     String?
+  failureReason  String?
+  idempotencyKey String?   @unique
   correlationId  String?
   createdBy      String
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
   sentAt         DateTime?
 
   customer Customer     @relation(fields: [customerId], references: [id])
@@ -1185,20 +433,20 @@ model Segment {
   description String?
   type        SegmentType
   status      SegmentStatus @default(ACTIVE)
-  createdBy   String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   rules       SegmentRule[]
   assignments CustomerSegment[]
+
+  @@index([status, type])
 }
 
 model SegmentRule {
   id        String   @id @default(uuid())
   segmentId String
-  metric    String
-  operator  String
-  value     Json
+  ruleType  String
+  criteria  Json
   priority  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1300,29 +548,367 @@ model AuditEvent {
 
   @@index([subjectType, subjectId])
   @@index([correlationId])
-  @@index([eventType, occurredAt])
 }
 
-model EventRecord {
-  id           String    @id @default(uuid())
-  eventId      String    @unique
-  eventType    String
-  schemaVersion Int
-  aggregateType String
-  aggregateId   String
-  actorType     String?
-  actorId       String?
-  sourceChannel String
-  correlationId String?
-  causationId   String?
-  payload       Json
-  metadata      Json?
-  occurredAt    DateTime
-  createdAt     DateTime  @default(now())
+model DocumentVersion {
+  id            String   @id @default(uuid())
+  documentType  String
+  version       String
+  title         String
+  filePath      String
+  effectiveFrom DateTime
+  createdAt     DateTime @default(now())
 
-  @@index([aggregateType, aggregateId, occurredAt])
-  @@index([eventType, occurredAt])
-  @@index([correlationId])
+  consents CustomerConsent[]
+
+  @@unique([documentType, version])
+}
+
+enum ConsentType {
+  PERSONAL_DATA
+  MARKETING
+  ADVERTISING
+  PARTNER_OFFERS
+  PHOTO_USAGE
+}
+
+enum ConsentSourceChannel {
+  TELEGRAM
+  MINI_APP
+  MACHINE
+  WEBSITE
+}
+
+model CustomerConsent {
+  id            String               @id @default(uuid())
+  customerId    String
+  documentId    String
+  consentType   ConsentType
+  isGranted     Boolean              @default(true)
+  consentedAt   DateTime             @default(now())
+  revokedAt     DateTime?
+  sourceChannel ConsentSourceChannel
+  ipAddress     String?
+  decisionId    String
+  correlationId String?
+
+  customer Customer        @relation(fields: [customerId], references: [id])
+  document DocumentVersion @relation(fields: [documentId], references: [id])
+
+  @@unique([customerId, decisionId])
+  @@index([customerId, consentType, consentedAt])
+}
+
+model ClubAccount {
+  id                  String    @id @default(uuid())
+  customerId          String    @unique
+  status              String    @default("active")
+  currency            String    @default("RUB")
+  balanceRub          Float     @default(0)
+  availableBalanceRub Float     @default(0)
+  reservedBalanceRub  Float     @default(0)
+  clubActive          Boolean   @default(false)
+  activatedAt         DateTime?
+  lastTopupAt         DateTime?
+  lastTransactionId   String?
+  projectionVersion   Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  customer     Customer                 @relation(fields: [customerId], references: [id])
+  topups       ClubTopup[]
+  transactions ClubAccountTransaction[]
+}
+
+model ClubAccountTransaction {
+  id                       String   @id @default(uuid())
+  clubAccountId            String
+  customerId               String
+  transactionType          String
+  direction                String
+  amountRub                Float
+  currency                 String   @default("RUB")
+  availableDeltaRub        Float
+  reservedDeltaRub         Float    @default(0)
+  availableBalanceAfterRub Float
+  reservedBalanceAfterRub  Float
+  balanceAfterRub          Float
+  status                   String   @default("posted")
+  reason                   String
+  referenceEntityType      String?
+  referenceEntityId        String?
+  sourceDomain             String?
+  sourceId                 String?
+  idempotencyKey           String?
+  actorType                String   @default("customer")
+  actorId                  String?
+  correlationId            String?
+  createdAt                DateTime @default(now())
+  postedAt                 DateTime @default(now())
+
+  clubAccount ClubAccount @relation(fields: [clubAccountId], references: [id])
+
+  @@unique([clubAccountId, idempotencyKey])
+  @@index([customerId, postedAt])
+  @@index([clubAccountId, postedAt])
+}
+
+model ClubTopup {
+  id              String    @id @default(uuid())
+  clubAccountId   String
+  customerId      String
+  amountRub       Float
+  paymentProvider String
+  paymentStatus   String    @default("pending")
+  paymentId       String?
+  channel         String
+  createdAt       DateTime  @default(now())
+  paidAt          DateTime?
+
+  clubAccount ClubAccount @relation(fields: [clubAccountId], references: [id])
+  payment     Payment?
+}
+
+model BonusAccount {
+  id           String   @id @default(uuid())
+  customerId   String   @unique
+  balanceBonus Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model BonusTransaction {
+  id                  String   @id @default(uuid())
+  customerId          String
+  orderId             String?
+  referralId          String?
+  type                String
+  direction           String   @default("credit")
+  amountBonus         Int
+  source              String
+  reason              String?
+  referenceEntityType String?
+  referenceEntityId   String?
+  balanceAfterBonus   Int?
+  comment             String?
+  createdAt           DateTime @default(now())
+  postedAt            DateTime @default(now())
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  order    Order?    @relation(fields: [orderId], references: [id])
+  referral Referral? @relation(fields: [referralId], references: [id])
+}
+
+model Machine {
+  id          String        @id @default(uuid())
+  machineCode String        @unique
+  name        String
+  location    String?
+  status      MachineStatus @default(OFFLINE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  orders                       Order[]
+  inventory                    MachineInventory[]
+  dispenseRequests             DispenseRequest[]
+  maintenanceTasks             MaintenanceTask[]
+  serviceLogs                  ServiceLog[]
+  testRuns                     TestRun[]
+  inventoryMovements           InventoryMovement[]
+  settings                     MachineSetting[]
+  simCard                      MachineSimCard?
+  mobilePlan                   MachineMobilePlan?
+  connectivitySnapshots        MachineConnectivitySnapshot[]
+  connectivityEvents           MachineConnectivityEvent[]
+  organizationAssignments      OrganizationMachineAssignment[]
+  organizationResponsibilities OrganizationResponsibility[]
+}
+
+model Organization {
+  id                   String             @id @default(uuid())
+  fullName             String
+  shortName            String
+  organizationType     String
+  inn                  String?
+  kpp                  String?
+  ogrn                 String?
+  legalAddress         String?
+  actualAddress        String?
+  phone                String?
+  email                 String?
+  website               String?
+  status                OrganizationStatus @default(ACTIVE)
+  foundedAt             DateTime?
+  cooperationStartedAt  DateTime?
+  note                  String?
+  archivedAt            DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  units              OrganizationUnit[]
+  members            OrganizationMember[]
+  locations          OrganizationLocation[]
+  machineAssignments OrganizationMachineAssignment[]
+  responsibilities   OrganizationResponsibility[]
+  roleAssignments    OrganizationRoleAssignment[]
+  ownedMachines      OrganizationMachineAssignment[] @relation("OrganizationMachineOwner")
+  operatedMachines   OrganizationMachineAssignment[] @relation("OrganizationMachineOperator")
+
+  @@unique([inn, kpp])
+  @@index([status, shortName])
+  @@index([createdAt])
+}
+
+model OrganizationUnit {
+  id             String    @id @default(uuid())
+  organizationId String
+  parentId       String?
+  name           String
+  code           String
+  description    String?
+  status         String    @default("ACTIVE")
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization     Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent           OrganizationUnit?            @relation("OrganizationUnitHierarchy", fields: [parentId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  children         OrganizationUnit[]           @relation("OrganizationUnitHierarchy")
+  members          OrganizationMember[]
+  locations        OrganizationLocation[]
+  responsibilities OrganizationResponsibility[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId, parentId, status])
+}
+
+model OrganizationMember {
+  id                  String                   @id @default(uuid())
+  organizationId      String
+  unitId              String?
+  platformUserId      String?
+  fullName            String
+  position            String
+  phone               String?
+  email                String?
+  status               OrganizationMemberStatus @default(ACTIVE)
+  employmentStartedAt DateTime?
+  employmentEndedAt   DateTime?
+  responsibilityZone  String?
+  archivedAt           DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  organization         Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unit                 OrganizationUnit?               @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  platformUser         Customer?                       @relation(fields: [platformUserId], references: [id], onDelete: SetNull)
+  roleAssignments      OrganizationRoleAssignment[]
+  responsibilities     OrganizationResponsibility[]
+  responsibleLocations OrganizationLocation[]          @relation("OrganizationLocationResponsible")
+  machineAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineResponsible")
+  serviceAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineService")
+
+  @@unique([organizationId, platformUserId])
+  @@unique([id, organizationId])
+  @@index([organizationId, unitId, status])
+  @@index([platformUserId])
+}
+
+model OrganizationRoleAssignment {
+  id             String               @id @default(uuid())
+  organizationId String
+  memberId       String
+  role           OrganizationRoleType
+  grantedBy      String
+  grantedAt      DateTime             @default(now())
+  revokedAt      DateTime?
+  note           String?
+
+  member       OrganizationMember @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, memberId, role, revokedAt])
+  @@index([organizationId, role, revokedAt])
+}
+
+model OrganizationLocation {
+  id                  String                     @id @default(uuid())
+  organizationId      String
+  responsibleUnitId   String?
+  responsibleMemberId String?
+  name                String
+  address             String
+  latitude            Decimal?                   @db.Decimal(9, 6)
+  longitude           Decimal?                   @db.Decimal(9, 6)
+  openingHours        Json?
+  status              OrganizationLocationStatus @default(ACTIVE)
+  archivedAt          DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  organization       Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  responsibleUnit    OrganizationUnit?               @relation(fields: [responsibleUnitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  responsibleMember  OrganizationMember?             @relation("OrganizationLocationResponsible", fields: [responsibleMemberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  machineAssignments OrganizationMachineAssignment[]
+  responsibilities   OrganizationResponsibility[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, latitude, longitude])
+}
+
+model OrganizationMachineAssignment {
+  id                     String    @id @default(uuid())
+  organizationId         String
+  machineId              String
+  locationId             String?
+  ownerOrganizationId    String
+  operatorOrganizationId String
+  responsibleMemberId    String?
+  serviceSpecialistId    String?
+  assignedAt             DateTime  @default(now())
+  unassignedAt           DateTime?
+  assignedBy             String
+  note                   String?
+
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerOrganization    Organization          @relation("OrganizationMachineOwner", fields: [ownerOrganizationId], references: [id], onDelete: Restrict)
+  operatorOrganization Organization          @relation("OrganizationMachineOperator", fields: [operatorOrganizationId], references: [id], onDelete: Restrict)
+  machine              Machine               @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  location             OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  responsibleMember    OrganizationMember?   @relation("OrganizationMachineResponsible", fields: [responsibleMemberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  serviceSpecialist    OrganizationMember?   @relation("OrganizationMachineService", fields: [serviceSpecialistId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, unassignedAt])
+  @@index([machineId, unassignedAt])
+  @@index([locationId, unassignedAt])
+}
+
+model OrganizationResponsibility {
+  id             String                          @id @default(uuid())
+  organizationId String
+  memberId       String
+  scope          OrganizationResponsibilityScope
+  unitId         String?
+  locationId     String?
+  machineId      String?
+  description    String?
+  assignedBy     String
+  assignedAt     DateTime                        @default(now())
+  revokedAt      DateTime?
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member       OrganizationMember    @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  unit         OrganizationUnit?     @relation(fields: [unitId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  location     OrganizationLocation? @relation(fields: [locationId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  machine      Machine?              @relation(fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, scope, revokedAt])
+  @@index([memberId, revokedAt])
+  @@index([machineId, revokedAt])
 }
 
 model MachineSimCard {
@@ -1423,472 +1009,1197 @@ model VideoRecordingSessionV1 {
   id          String    @id
   machineId   String
   cameraId    String
-  triggerType String
-  triggerId   String?
   status      String
+  triggerType String
+  payload     Json
   startedAt   DateTime
-  plannedStopAt DateTime
-  stoppedAt   DateTime?
-  storageKey  String?
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  endedAt     DateTime?
 
-  @@index([machineId, status])
-  @@index([cameraId, startedAt])
+  @@index([cameraId, status, startedAt])
 }
 
-model VideoArchiveItemV1 {
-  id          String    @id
-  sessionId   String    @unique
-  machineId   String
-  cameraId    String
-  storageKey  String
-  sizeBytes   BigInt?
-  durationSec Int?
-  recordedFrom DateTime
-  recordedTo  DateTime
-  expiresAt   DateTime
-  legalHold   Boolean   @default(false)
-  legalHoldReason String?
-  legalHoldBy String?
-  legalHoldAt DateTime?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model VideoFragmentV1 {
+  id                 String   @id
+  machineId          String
+  cameraId           String
+  recordingSessionId String
+  triggerType        String
+  payload             Json
+  retentionUntil     DateTime
+  legalHold          Boolean  @default(false)
+  createdAt          DateTime @default(now())
 
-  @@index([machineId, recordedFrom])
-  @@index([expiresAt, legalHold, deletedAt])
+  @@index([machineId, createdAt])
+  @@index([retentionUntil, legalHold])
 }
 
 model VideoIncidentV1 {
-  id          String   @id
-  machineId   String
-  cameraId    String?
-  sensorId    String?
-  eventType   String
-  severity    String
-  source      String
-  description String?
-  metadata    Json?
-  occurredAt  DateTime
-  createdAt   DateTime @default(now())
-
-  @@index([machineId, occurredAt])
-  @@index([severity, occurredAt])
-}
-
-model VideoHealthSnapshotV1 {
-  id          String   @id
-  machineId   String
-  cameraId    String
-  status      String
-  reasonCode  String?
-  details     Json?
-  checkedAt   DateTime
-
-  @@index([cameraId, checkedAt])
-}
-
-model VideoAuditEventV1 {
-  id            String   @id
-  machineId     String?
-  cameraId      String?
-  archiveItemId String?
-  action        String
-  actorId       String
-  actorRole     String
-  details       Json?
-  occurredAt    DateTime @default(now())
-
-  @@index([actorId, occurredAt])
-  @@index([archiveItemId, occurredAt])
-}
-
-model RuntimeMachine {
-  id               String   @id
-  displayName      String
-  status           String
-  currentSessionId String?
-  lastTransitionAt DateTime
-  lastHeartbeatAt  DateTime?
-  lastTelemetryAt  DateTime?
-  version          Int      @default(0)
-  metadata         Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  sessions     RuntimeSession[]
-  transitions  RuntimeTransition[]
-  snapshots    RuntimeSnapshot[]
-}
-
-model RuntimeSession {
-  id                String   @id
-  machineId         String
-  sessionType       String
-  status            String
-  orderId           String?
-  operatorId        String?
-  maintenanceTaskId String?
-  startedAt         DateTime
-  completedAt       DateTime?
-  failedAt          DateTime?
-  failureCode       String?
-  metadata          Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  machine RuntimeMachine @relation(fields: [machineId], references: [id])
-
-  @@index([machineId, status])
-}
-
-model RuntimeTransition {
-  id              String   @id
-  machineId       String
-  sessionId       String?
-  fromState       String
-  toState         String
-  eventType       String
-  source          String
-  actorType       String?
-  actorId         String?
-  correlationId   String?
-  payload         Json?
-  occurredAt      DateTime
-  createdAt       DateTime @default(now())
-
-  machine RuntimeMachine @relation(fields: [machineId], references: [id])
-
-  @@index([machineId, occurredAt])
-  @@index([sessionId, occurredAt])
-  @@index([correlationId])
-}
-
-model RuntimeSnapshot {
-  id        String   @id
+  id        String    @id
   machineId String
+  type      String
+  severity  String
   status    String
   payload   Json
-  createdAt DateTime @default(now())
+  openedAt  DateTime
+  closedAt  DateTime?
 
-  machine RuntimeMachine @relation(fields: [machineId], references: [id])
-
-  @@index([machineId, createdAt])
+  @@index([machineId, status, openedAt])
 }
 
-model TransactionalOutbox {
-  id             String    @id @default(uuid())
-  eventId        String    @unique
-  eventType      String
-  eventVersion   Int
-  aggregateType  String
-  aggregateId    String
-  organizationId String?
-  sourceDomain   String
-  sourceEntityId String?
-  idempotencyKey String?   @unique
-  correlationId  String?
-  causationId    String?
-  payload        Json
-  metadata       Json?
-  status         String    @default("PENDING")
-  attempts       Int       @default(0)
-  maxAttempts    Int       @default(8)
-  nextAttemptAt  DateTime  @default(now())
-  processingBy   String?
-  processingAt   DateTime?
-  leaseExpiresAt DateTime?
-  publishedAt    DateTime?
-  lastErrorCode  String?
-  lastErrorMessage String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+model VideoAccessAuditV1 {
+  id         String   @id
+  action     String
+  actorId    String
+  machineId  String?
+  cameraId   String?
+  fragmentId String?
+  incidentId String?
+  outcome    String
+  payload    Json
+  occurredAt DateTime @default(now())
 
-  @@index([status, nextAttemptAt])
-  @@index([aggregateType, aggregateId, createdAt])
-  @@index([organizationId, status, createdAt])
+  @@index([machineId, occurredAt])
+  @@index([actorId, occurredAt])
 }
 
-model RuntimeRepositoryHealth {
-  id                String   @id
-  backend           String
-  lastReadCheckAt   DateTime?
-  lastWriteCheckAt  DateTime?
-  lastTxCheckAt     DateTime?
-  lastReadOk        Boolean  @default(false)
-  lastWriteOk       Boolean  @default(false)
-  lastTxOk          Boolean  @default(false)
-  details           Json?
-  updatedAt         DateTime @updatedAt
+model InventoryRuntimeItem {
+  id               String                       @id @default(uuid())
+  sku              String                       @unique
+  name             String
+  category         InventoryRuntimeItemCategory
+  baseUnit         String
+  active           Boolean                      @default(true)
+  metadata         Json?
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  movements        InventoryRuntimeMovement[]
+  reservationItems InventoryRuntimeReservationItem[]
+  stocks           InventoryRuntimeStock[]
 }
 
-model InventoryLocation {
-  id             String                       @id
-  organizationId String
-  machineId      String?
-  locationType   InventoryRuntimeLocationType
-  name           String
-  isActive       Boolean                      @default(true)
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
+model InventoryRuntimeLocation {
+  id           String                       @id @default(uuid())
+  code         String                       @unique
+  name         String
+  locationType InventoryRuntimeLocationType
+  machineId    String?
+  warehouseId  String?
+  active       Boolean                      @default(true)
+  metadata     Json?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
 
-  stockItems    InventoryStockItem[]
-  movements     InventoryRuntimeMovement[]
-  reservations  InventoryReservation[]
+  movements    InventoryRuntimeMovement[]
+  reservations InventoryRuntimeReservation[]
+  stocks       InventoryRuntimeStock[]
 
-  @@index([organizationId, locationType])
+  @@index([locationType, active])
   @@index([machineId])
-}
-
-model InventoryStockItem {
-  id             String                       @id
-  locationId     String
-  sku            String
-  name           String
-  category       InventoryRuntimeItemCategory
-  unit           String
-  quantity       Int                          @default(0)
-  reserved       Int                          @default(0)
-  minimumLevel   Int                          @default(0)
-  isActive       Boolean                      @default(true)
-  version        Int                          @default(0)
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
-
-  location      InventoryLocation             @relation(fields: [locationId], references: [id])
-  reservationItems InventoryReservationItem[]
-
-  @@unique([locationId, sku])
-  @@index([locationId, category])
+  @@index([warehouseId])
 }
 
 model InventoryRuntimeMovement {
-  id             String                       @id
-  organizationId String
+  id             String                       @id @default(uuid())
+  itemId         String
   locationId     String
-  stockItemId    String?
-  sku            String
   movementType   InventoryRuntimeMovementType
-  quantity       Int
+  quantity       Float
+  delta          Float
   unit           String
-  operationType  InventoryOperationType
-  operationId    String
-  operatorId     String?
-  maintenanceSessionId String?
-  reason         String?
+  reason         String
+  sourceType     String
+  sourceId       String?
+  sourceEventId  String?                      @unique
+  actorType      String
+  actorId        String
+  correlationId  String
+  idempotencyKey String                       @unique
   occurredAt     DateTime
-  createdAt      DateTime                     @default(now())
+  recordedAt     DateTime                     @default(now())
+  metadata       Json?
 
-  location InventoryLocation @relation(fields: [locationId], references: [id])
+  item     InventoryRuntimeItem     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
-  @@index([organizationId, occurredAt])
-  @@index([locationId, occurredAt])
-  @@index([operationType, operationId])
+  @@index([itemId, locationId, occurredAt])
+  @@index([sourceType, sourceId])
+  @@index([correlationId])
 }
 
-model InventoryReservation {
-  id             String                            @id
+model InventoryRuntimeReservation {
+  id             String                            @id @default(uuid())
+  reservationId  String                            @unique
+  saleFlowId     String?
+  orderId        String?
+  machineId      String
   organizationId String
   locationId     String
-  machineId      String?
-  operationType  InventoryOperationType
-  operationId    String
   status         InventoryRuntimeReservationStatus @default(PENDING)
-  expiresAt      DateTime?
+  operationType  InventoryOperationType            @default(CUSTOMER_SALE)
+  actorType      String
+  actorId        String
+  correlationId  String
+  idempotencyKey String                            @unique
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  releasedAt     DateTime?
+  version        Int                               @default(0)
+  reason         String?
+  metadata       Json?
   createdAt      DateTime                          @default(now())
   updatedAt      DateTime                          @updatedAt
 
-  location InventoryLocation @relation(fields: [locationId], references: [id])
-  items    InventoryReservationItem[]
+  location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items    InventoryRuntimeReservationItem[]
 
-  @@unique([operationType, operationId])
-  @@index([organizationId, status, expiresAt])
-  @@index([locationId, status])
-}
-
-model InventoryReservationItem {
-  id            String                         @id
-  reservationId String
-  stockItemId   String
-  quantity      Int
-  status        InventoryReservationItemStatus @default(PENDING)
-  createdAt     DateTime                       @default(now())
-  updatedAt     DateTime                       @updatedAt
-
-  reservation InventoryReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  stockItem   InventoryStockItem    @relation(fields: [stockItemId], references: [id])
-
-  @@unique([reservationId, stockItemId])
-  @@index([stockItemId, status])
-}
-
-model MaintenancePlan {
-  id                  String              @id
-  organizationId      String
-  name                String
-  planType            MaintenancePlanType
-  version             Int                 @default(1)
-  isActive            Boolean             @default(true)
-  requiresApproval    Boolean             @default(true)
-  requiresBeforePhoto Boolean             @default(true)
-  requiresAfterPhoto  Boolean             @default(true)
-  checklist           Json
-  requiredTests       Json
-  requiredMaterials   Json?
-  createdBy           String
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-
-  sessions MaintenanceSession[]
-
-  @@index([organizationId, isActive])
-}
-
-model MaintenanceSession {
-  id                    String                   @id
-  organizationId        String
-  planId                String
-  machineId             String
-  operatorId            String
-  status                MaintenanceSessionStatus @default(OPEN)
-  startedAt             DateTime?
-  submittedAt           DateTime?
-  approvedAt            DateTime?
-  rejectedAt            DateTime?
-  approvedBy            String?
-  rejectionReason       String?
-  version               Int                      @default(0)
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
-
-  plan       MaintenancePlan        @relation(fields: [planId], references: [id])
-  operator   Operator               @relation(fields: [operatorId], references: [id])
-  checks     MaintenanceCheck[]
-  tests      MaintenanceTest[]
-  evidence   MaintenanceEvidence[]
-  materials  MaintenanceMaterialUsage[]
-
-  @@index([organizationId, status])
+  @@index([organizationId, status, createdAt])
   @@index([machineId, status])
-  @@index([operatorId, status])
+  @@index([locationId, status])
+  @@index([saleFlowId])
+  @@index([orderId])
+  @@index([expiresAt, status])
 }
 
-model MaintenanceCheck {
-  id          String                 @id
-  sessionId   String
-  code        String
-  label       String
-  status      MaintenanceCheckStatus @default(PENDING)
-  note        String?
-  completedAt DateTime?
+model InventoryRuntimeReservationItem {
+  id                   String                         @id @default(uuid())
+  reservationId        String
+  inventoryItemId      String
+  ingredientType       String
+  quantity             Float
+  unit                 String
+  status               InventoryReservationItemStatus @default(PENDING)
+  reservedQuantity     Float                          @default(0)
+  consumedQuantity     Float                          @default(0)
+  releasedQuantity     Float                          @default(0)
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+  reservation          InventoryRuntimeReservation    @relation(fields: [reservationId], references: [reservationId], onDelete: Restrict)
+  inventoryItem        InventoryRuntimeItem           @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
-  session MaintenanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, code])
+  @@unique([reservationId, inventoryItemId])
+  @@index([inventoryItemId, status])
 }
 
-model MaintenanceTest {
-  id          String    @id
-  sessionId   String
-  testType    String
-  status      String
-  details     Json?
-  completedAt DateTime?
+model InventoryRuntimeStock {
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  machineId              String
+  locationId             String
+  inventoryItemId        String
+  physicalQuantity       Float                    @default(0)
+  activeReservedQuantity Float                    @default(0)
+  lowStockThreshold      Float?
+  version                Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  location               InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryItem          InventoryRuntimeItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
-  session MaintenanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, testType])
+  @@unique([organizationId, machineId, locationId, inventoryItemId])
+  @@index([organizationId, locationId])
+  @@index([machineId, inventoryItemId])
 }
 
-model MaintenanceEvidence {
-  id          String   @id
-  sessionId   String
-  evidenceType String
-  storageKey  String
-  contentType String
-  sizeBytes   Int
-  capturedAt  DateTime
-  createdAt   DateTime @default(now())
+model MachineInventory {
+  id           String   @id @default(uuid())
+  machineId    String
+  itemType     String
+  itemName     String
+  capacity     Int?
+  quantityLeft Int?
+  updatedAt    DateTime @updatedAt
 
-  session MaintenanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId, evidenceType])
+  machine Machine @relation(fields: [machineId], references: [id])
 }
 
-model MaintenanceMaterialUsage {
-  id          String   @id
-  sessionId   String
-  sku         String
-  quantity    Int
-  movementId  String
-  createdAt   DateTime @default(now())
+model Operator {
+  id              String         @id @default(uuid())
+  displayName     String
+  externalSubject String?        @unique
+  role            OperatorRole   @default(OPERATOR)
+  status          OperatorStatus @default(ACTIVE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  session MaintenanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
+  permissions         OperatorPermission[]
+  maintenanceTasks    MaintenanceTask[]      @relation("MaintenanceTaskAssignee")
+  completedTasks      MaintenanceTask[]      @relation("MaintenanceTaskCompleter")
+  serviceLogs         ServiceLog[]
+  approvedServiceLogs ServiceLog[]           @relation("ServiceLogApprover")
+  testRuns            TestRun[]
+  inventoryMovements  InventoryMovement[]
+  photoEvidence       PhotoEvidence[]
+  checklistVersions   MaintenanceChecklist[]
+  machineSettings     MachineSetting[]
 }
 
-model SaleFlowProcess {
-  id                String   @id
-  organizationId    String
-  orderId           String   @unique
-  customerId        String
+model OperatorPermission {
+  id         String   @id @default(uuid())
+  operatorId String
+  permission String
+  grantedAt  DateTime @default(now())
+  grantedBy  String?
+
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@unique([operatorId, permission])
+  @@index([permission])
+}
+
+model MaintenanceChecklist {
+  id             String   @id @default(uuid())
+  code           String
+  name           String
+  version        Int
+  items          Json
+  active         Boolean  @default(true)
+  configuredById String
+  createdAt      DateTime @default(now())
+
+  configuredBy Operator          @relation(fields: [configuredById], references: [id])
+  tasks        MaintenanceTask[]
+
+  @@unique([code, version])
+  @@index([code, active])
+}
+
+model MaintenanceTask {
+  id               String                @id @default(uuid())
+  machineId        String
+  checklistId      String
+  assignedToId     String
+  completedById    String?
+  status           MaintenanceTaskStatus @default(OPEN)
+  checklistResults Json?
+  notes            String?
+  dueAt            DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  machine       Machine              @relation(fields: [machineId], references: [id])
+  checklist     MaintenanceChecklist @relation(fields: [checklistId], references: [id])
+  assignedTo    Operator             @relation("MaintenanceTaskAssignee", fields: [assignedToId], references: [id])
+  completedBy   Operator?            @relation("MaintenanceTaskCompleter", fields: [completedById], references: [id])
+  serviceLogs   ServiceLog[]
+  photoEvidence PhotoEvidence[]
+
+  @@index([assignedToId, status, dueAt])
+  @@index([machineId, status])
+}
+
+model ServiceLog {
+  id                String           @id @default(uuid())
   machineId         String
-  state             String
-  paymentId         String?
-  reservationId     String?
-  dispenseRequestId String?
-  refundRequired    Boolean  @default(false)
-  recoveryStatus    String   @default("NONE")
-  lastErrorCode     String?
-  lastErrorMessage  String?
-  version           Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  maintenanceTaskId String?
+  operatorId        String
+  status            ServiceLogStatus @default(DRAFT)
+  summary           String
+  workPerformed     Json
+  submittedAt       DateTime?
+  approvedById      String?
+  approvedAt        DateTime?
+  approvalNote      String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  transitions SaleFlowTransition[]
-  idempotency SaleFlowIdempotency[]
+  machine         Machine          @relation(fields: [machineId], references: [id])
+  maintenanceTask MaintenanceTask? @relation(fields: [maintenanceTaskId], references: [id])
+  operator        Operator         @relation(fields: [operatorId], references: [id])
+  approvedBy      Operator?        @relation("ServiceLogApprover", fields: [approvedById], references: [id])
+  photoEvidence   PhotoEvidence[]
 
-  @@index([organizationId, state])
+  @@index([machineId, createdAt])
+  @@index([status, submittedAt])
+}
+
+model TestRun {
+  id          String        @id @default(uuid())
+  machineId   String
+  operatorId  String
+  status      TestRunStatus
+  notes       String?
+  results     Json?
+  performedAt DateTime      @default(now())
+
+  machine            Machine             @relation(fields: [machineId], references: [id])
+  operator           Operator            @relation(fields: [operatorId], references: [id])
+  inventoryMovements InventoryMovement[]
+  photoEvidence      PhotoEvidence[]
+
+  @@index([machineId, performedAt])
+  @@index([operatorId, performedAt])
+}
+
+model InventoryMovement {
+  id             String                @id @default(uuid())
+  machineId      String
+  operatorId     String
+  testRunId      String?
+  movementType   InventoryMovementType
+  itemType       InventoryItemType
+  itemReference  String?
+  quantity       Float
+  unit           String
+  reason         String
+  idempotencyKey String?
+  occurredAt     DateTime              @default(now())
+
+  machine  Machine  @relation(fields: [machineId], references: [id])
+  operator Operator @relation(fields: [operatorId], references: [id])
+  testRun  TestRun? @relation(fields: [testRunId], references: [id])
+
+  @@unique([machineId, idempotencyKey])
+  @@index([machineId, occurredAt])
+  @@index([testRunId])
+}
+
+model PhotoEvidence {
+  id                String   @id @default(uuid())
+  operatorId        String
+  maintenanceTaskId String?
+  serviceLogId      String?
+  testRunId         String?
+  storageKey        String   @unique
+  contentType       String
+  checksumSha256    String
+  capturedAt        DateTime
+  uploadedAt        DateTime @default(now())
+  metadata          Json?
+
+  operator        Operator         @relation(fields: [operatorId], references: [id])
+  maintenanceTask MaintenanceTask? @relation(fields: [maintenanceTaskId], references: [id])
+  serviceLog      ServiceLog?      @relation(fields: [serviceLogId], references: [id])
+  testRun         TestRun?         @relation(fields: [testRunId], references: [id])
+
+  @@index([maintenanceTaskId])
+  @@index([serviceLogId])
+  @@index([testRunId])
+}
+
+model MachineSetting {
+  id          String   @id @default(uuid())
+  machineId   String
+  key         String
+  value       Json
+  updatedById String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  machine   Machine  @relation(fields: [machineId], references: [id])
+  updatedBy Operator @relation(fields: [updatedById], references: [id])
+
+  @@unique([machineId, key])
+}
+
+model MaintenancePlanV1 {
+  id                  String                 @id @default(uuid())
+  code                String
+  name                String
+  type                MaintenancePlanType
+  version             Int
+  machineIds          Json
+  intervalDays        Int?
+  checklistTemplate   Json
+  requiredPhotoCount  Int                    @default(0)
+  requireTestDispense Boolean                @default(true)
+  active              Boolean                @default(true)
+  createdBy           String
+  createdAt           DateTime               @default(now())
+  sessions            MaintenanceSessionV1[]
+
+  @@unique([code, version])
+  @@index([active, type])
+}
+
+model MaintenanceSessionV1 {
+  id                  String                    @id @default(uuid())
+  machineId           String
+  machineCode         String
+  planId              String?
+  type                MaintenancePlanType
+  status              MaintenanceSessionStatus @default(OPEN)
+  operatorId          String
+  issue               String?
+  summary             String?
+  runtimeSessionId    String?
+  requiredPhotoCount  Int                       @default(0)
+  requireTestDispense Boolean                   @default(true)
+  startedAt           DateTime
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  approvedBy          String?
+  approvalNote        String?
+  rejectedAt          DateTime?
+  rejectedBy          String?
+  rejectionReason     String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  plan                MaintenancePlanV1?        @relation(fields: [planId], references: [id])
+  checklistItems      MaintenanceChecklistResultV1[]
+  photos              MaintenancePhotoEvidenceV1[]
+  replacements        MaintenanceConsumableReplacementV1[]
+  testDispenses       MaintenanceTestDispenseV1[]
+  auditHistory        MaintenanceAuditEntryV1[]
+
+  @@index([machineId, status, startedAt])
+  @@index([operatorId, status])
+  @@index([status, submittedAt])
+}
+
+model MaintenanceChecklistResultV1 {
+  id               String                 @id @default(uuid())
+  sessionId        String
+  itemCode         String
+  label            String
+  required         Boolean                @default(true)
+  evidenceRequired Boolean                @default(false)
+  status           MaintenanceCheckStatus @default(PENDING)
+  note             String?
+  completedAt      DateTime?
+  completedBy      String?
+  session          MaintenanceSessionV1   @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, itemCode])
+}
+
+model MaintenancePhotoEvidenceV1 {
+  id             String               @id @default(uuid())
+  sessionId      String
+  storageKey     String               @unique
+  contentType    String
+  checksumSha256 String
+  capturedAt     DateTime
+  attachedAt     DateTime             @default(now())
+  operatorId     String
+  session        MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, capturedAt])
+}
+
+model MaintenanceConsumableReplacementV1 {
+  id                  String               @id @default(uuid())
+  sessionId           String
+  itemId              String
+  locationId          String
+  quantity            Float
+  reason              String
+  lotReference        String?
+  inventoryMovementId String?
+  replacedAt          DateTime             @default(now())
+  session             MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, replacedAt])
+  @@index([inventoryMovementId])
+}
+
+model MaintenanceTestDispenseV1 {
+  id                String               @id @default(uuid())
+  sessionId         String
+  status            TestRunStatus
+  dispenseReference String
+  notes             String?
+  performedAt       DateTime             @default(now())
+  session           MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, performedAt])
+}
+
+model MaintenanceAuditEntryV1 {
+  id             String               @id @default(uuid())
+  sessionId      String
+  eventId        String               @unique
+  eventType      String
+  actorId        String
+  actorRoles     Json
+  correlationId  String
+  idempotencyKey String
+  payload        Json
+  occurredAt     DateTime             @default(now())
+  session        MaintenanceSessionV1 @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, occurredAt])
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  customerId String
+  status     OrderStatus @default(CREATED)
+  amount     Float
+  currency   String      @default("RUB")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  machineId            String?
+  flavor               String?
+  syrup                String?
+  topping              String?
+  basePriceRub         Float?
+  clubDiscountRub      Float     @default(0)
+  promoDiscountRub     Float     @default(0)
+  bonusSpent           Int       @default(0)
+  amountPaidRub        Float?
+  bonusEarned          Int       @default(0)
+  paymentMethod        String?
+  paymentStatus        String    @default("pending")
+  paidAt               DateTime?
+  expiresAt            DateTime?
+  activePickupCodeHash String?
+  cancelledToBalanceAt DateTime?
+
+  customer          Customer           @relation(fields: [customerId], references: [id])
+  machine           Machine?           @relation(fields: [machineId], references: [id])
+  dispenseRequest   DispenseRequest?
+  bonusTransactions BonusTransaction[]
+  photoChallenge    PhotoChallenge?
+  birthdayReward    BirthdayReward?
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+}
+
+model GiftTransfer {
+  id                       String           @id @default(uuid())
+  originalOrderId          String
+  senderCustomerId         String
+  recipientCustomerId      String?
+  recipientPhoneNormalized String
+  status                   String
+  referralId               String?
+  invitationTokenHash      String
+  expiresAt                DateTime
+  createdAt                DateTime         @default(now())
+  acceptedAt               DateTime?
+  redeemedAt               DateTime?
+  expiredAt                DateTime?
+  cancelledAt              DateTime?
+  transferredBy            String
+  correlationId            String
+  metadata                 Json?
+  invitations              GiftInvitation[]
+  claims                   GiftRecipientClaim[]
+  redemptions              GiftRedemption[]
+  referralLinks            GiftReferralLink[]
+
+  @@unique([originalOrderId])
+  @@index([senderCustomerId])
+  @@index([recipientCustomerId])
+  @@index([recipientPhoneNormalized])
+  @@index([status, expiresAt])
+  @@index([correlationId])
+  @@index([referralId])
+}
+
+model GiftInvitation {
+  id                       String       @id @default(uuid())
+  giftTransferId           String
+  recipientPhoneNormalized String
+  tokenHash                String       @unique
+  expiresAt                DateTime
+  status                   String
+  createdAt                DateTime     @default(now())
+  acceptedAt               DateTime?
+  metadata                 Json?
+  giftTransfer             GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@index([recipientPhoneNormalized, status])
+  @@index([expiresAt])
+}
+
+model GiftRecipientClaim {
+  id                      String       @id @default(uuid())
+  giftTransferId          String
+  recipientCustomerId     String
+  verifiedPhoneNormalized String
+  claimedAt               DateTime     @default(now())
+  correlationId           String
+  metadata                Json?
+  giftTransfer            GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@unique([giftTransferId])
+  @@index([recipientCustomerId])
+  @@index([correlationId])
+}
+
+model GiftRedemption {
+  id                  String       @id @default(uuid())
+  giftTransferId      String
+  recipientCustomerId String
+  authorizationHash   String       @unique
+  status              String
+  issuedAt            DateTime     @default(now())
+  expiresAt           DateTime
+  usedAt              DateTime?
+  correlationId       String
+  metadata            Json?
+  giftTransfer        GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@index([giftTransferId, status])
+  @@index([recipientCustomerId])
+  @@index([expiresAt])
+  @@index([correlationId])
+}
+
+model GiftReferralLink {
+  id                 String       @id @default(uuid())
+  giftTransferId     String
+  referralId         String?
+  referralSource     String       @default("GIFT_TRANSFER")
+  stage              String
+  referrerCustomerId String
+  referredCustomerId String?
+  firstOwnPurchaseAt DateTime?
+  createdAt          DateTime     @default(now())
+  metadata           Json?
+  giftTransfer       GiftTransfer @relation(fields: [giftTransferId], references: [id])
+
+  @@unique([giftTransferId])
+  @@index([referralId])
+  @@index([referrerCustomerId])
+  @@index([referredCustomerId])
+}
+
+model NotificationDeliveryAttempt {
+  id                  String    @id @default(uuid())
+  notificationId      String
+  recipientCustomerId String?
+  channel             String
+  providerMessageId   String?
+  status              String
+  attemptedAt         DateTime  @default(now())
+  deliveredAt         DateTime?
+  openedAt            DateTime?
+  failedAt            DateTime?
+  failureCode         String?
+  correlationId       String
+  metadata             Json?
+
+  @@unique([notificationId, channel])
+  @@index([recipientCustomerId])
+  @@index([status, attemptedAt])
+  @@index([correlationId])
+}
+
+model DispenseRequest {
+  id             String               @id @default(uuid())
+  orderId        String               @unique
+  machineId      String
+  state          DispenseRequestState @default(REQUESTED)
+  commandId      String               @unique
+  commandType    String               @default("DispenseCommand")
+  commandPayload Json
+  failureReason  String?
+  requestedAt    DateTime             @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  machine Machine @relation(fields: [machineId], references: [id])
+
   @@index([machineId, state])
   @@index([state, createdAt])
 }
 
-model SaleFlowTransition {
-  id            String   @id
-  processId     String
-  fromState     String
-  toState       String
-  eventType     String
-  source        String
-  actorType     String?
-  actorId       String?
-  correlationId String?
-  causationId   String?
-  metadata      Json?
-  occurredAt    DateTime
-  createdAt     DateTime @default(now())
+model Referral {
+  id                 String    @id @default(uuid())
+  referrerCustomerId String
+  referredCustomerId String?   @unique
+  referralCode       String
+  status             String    @default("registered")
+  firstPurchaseAt    DateTime?
+  referrerBonusPaid  Boolean   @default(false)
+  referredBonusPaid  Boolean   @default(false)
+  milestoneBonusPaid Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 
-  process SaleFlowProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  referrer          Customer           @relation("Referrer", fields: [referrerCustomerId], references: [id])
+  referred          Customer?          @relation("Referred", fields: [referredCustomerId], references: [id])
+  bonusTransactions BonusTransaction[]
+}
 
-  @@index([processId, occurredAt])
+model PhotoChallenge {
+  id            String    @id @default(uuid())
+  customerId    String
+  orderId       String    @unique
+  photoFilePath String?
+  platform      String?
+  postUrl       String?
+  deadlineAt    DateTime
+  status        String    @default("waiting")
+  moderatorId   String?
+  bonusAmount   Int       @default(30)
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  customer            Customer                  @relation(fields: [customerId], references: [id])
+  order               Order                     @relation(fields: [orderId], references: [id])
+  verificationResults PhotoVerificationResult[]
+  verificationEvents  PhotoVerificationEvent[]
+  fingerprint         PhotoFingerprint?
+  publications        PhotoPublication[]
+  sourceDeletion      PhotoSourceDeletion?
+}
+
+model PhotoVerificationResult {
+  id                String   @id @default(uuid())
+  photoChallengeId  String
+  provider          String?
+  model             String?
+  decision          String
+  confidence        Float?
+  fraudScore        Float?
+  reasonCode        String?
+  checks            Json     @default("{}")
+  aiResponse        Json?
+  metadataResult    Json?
+  antifraudResult   Json?
+  promptVersion     String?
+  rulesVersion      String?
+  agentVersion      String   @default("0.1")
+  processedAt       DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([photoChallengeId, processedAt])
+}
+
+model PhotoVerificationEvent {
+  id               String   @id @default(uuid())
+  photoChallengeId String
+  eventType        String
+  eventSource      String
+  payload          Json     @default("{}")
+  actorId          String?
+  correlationId    String?
+  createdAt        DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([photoChallengeId, createdAt])
   @@index([correlationId])
 }
 
-model SaleFlowIdempotency {
-  id              String   @id
-  processId       String
-  operation       String
-  idempotencyKey  String
-  semanticHash    String
-  status          String
+model PhotoFingerprint {
+  id               String   @id @default(uuid())
+  photoChallengeId String   @unique
+  sha256           String
+  pHash            String?
+  dHash            String?
+  createdAt        DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([sha256])
+  @@index([pHash])
+}
+
+model PhotoPublication {
+  id                    String    @id @default(uuid())
+  photoChallengeId      String
+  channel               String
+  targetId              String?
+  status                String    @default("pending")
+  externalPublicationId String?
+  publicationUrl        String?
+  publishedAt           DateTime?
+  confirmedAt           DateTime?
+  errorCode             String?
+  errorMessage          String?
+  attemptCount          Int       @default(0)
+  lastAttemptAt         DateTime?
+  idempotencyKey        String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@unique([photoChallengeId, channel])
+  @@unique([channel, externalPublicationId])
+  @@index([photoChallengeId, status])
+  @@index([status, lastAttemptAt])
+}
+
+model PhotoSourceDeletion {
+  id               String    @id @default(uuid())
+  photoChallengeId String    @unique
+  storageKey       String
+  status           String    @default("pending")
+  deleteReason     String    @default("publication_confirmed")
+  requestedAt      DateTime?
+  deletedAt        DateTime?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+}
+
+model PhotoVerificationSettings {
+  scopeKey               String   @id
+  enabled                Boolean  @default(false)
+  mode                   String   @default("manual_only")
+  publishingEnabled      Boolean  @default(false)
+  requiredChannels       Json     @default("[\"VK\",\"TELEGRAM\",\"MAX\"]")
+  approvalThreshold      Float    @default(0.9)
+  rejectionThreshold     Float    @default(0.65)
+  maxFraudScore          Float    @default(0.5)
+  duplicateChecksEnabled Boolean  @default(true)
+  metadataChecksEnabled  Boolean  @default(true)
+  challengeCodeEnabled   Boolean  @default(false)
+  rewardBonusUnits       Int?
+  retentionPolicy        String   @default("delete_after_publication")
+  provider               String?
+  model                  String?
+  updatedBy              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now())
+}
+
+model BirthdayReward {
+  id         String    @id @default(uuid())
+  customerId String
+  year       Int
+  status     String    @default("available")
+  issuedAt   DateTime  @default(now())
+  expiresAt  DateTime
+  redeemedAt DateTime?
+  orderId    String?   @unique
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@unique([customerId, year])
+}
+
+model Payment {
+  id          String  @id @default(uuid())
+  customerId  String?
+  clubTopupId String? @unique
+
+  amountRub Float
+  currency  String @default("RUB")
+
+  provider          String  @default("yookassa")
+  providerPaymentId String? @unique
+  providerStatus    String?
+
+  status      String  @default("pending")
+  description String?
+
+  confirmationUrl String?
+  returnUrl       String?
+
+  metadata Json?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime?
+  canceledAt  DateTime?
+
+  customer  Customer?  @relation(fields: [customerId], references: [id])
+  clubTopup ClubTopup? @relation(fields: [clubTopupId], references: [id])
+}
+
+enum SaleFlowState {
+  CREATED
+  AWAITING_PAYMENT
+  PAID
+  FULFILLMENT_AUTHORIZED
+  DISPENSING
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+  EXPIRED
+  FULFILLMENT_FAILED
+  REFUND_REQUIRED
+}
+
+enum SaleFlowRecoveryStatus {
+  NONE
+  SAFE_TO_RESUME
+  NEEDS_RECONCILIATION
+  RECOVERING
+  RECOVERED
+  MANUAL_REVIEW_REQUIRED
+}
+
+enum SaleFlowIdempotencyStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  RETRY
+  DEAD_LETTER
+}
+
+model SaleFlow {
+  id                                 String                 @id @default(uuid())
+  flowId                             String                 @unique
+  orderId                            String                 @unique
+  customerId                         String
+  machineId                          String
+  organizationId                     String
+  locationId                         String
+  correlationId                      String                 @unique
+  currentState                       SaleFlowState          @default(CREATED)
+  paymentReference                   String?
+  fulfillmentAuthorizationReference String?
+  inventoryReservationReference      String?
+  loyaltyOperationReference          String?
+  refundRequirementReference         String?
+  completionOperationId              String?                @unique
+  startedAt                          DateTime                @default(now())
+  updatedAt                          DateTime                @updatedAt
+  completedAt                        DateTime?
+  expiresAt                          DateTime?
+  retentionUntil                     DateTime?
+  version                            Int                     @default(0)
+  lastProcessedEventId               String?
+  lastErrorCode                      String?
+  lastErrorAt                        DateTime?
+  recoveryStatus                     SaleFlowRecoveryStatus @default(NONE)
+  metadata                           Json?
+  idempotencyKeys                    SaleFlowIdempotencyKey[]
+  outboxEvents                       TransactionalOutboxEvent[]
+
+  @@index([orderId])
+  @@index([correlationId])
+  @@index([currentState])
+  @@index([recoveryStatus])
+  @@index([machineId])
+  @@index([customerId])
+  @@index([organizationId])
+  @@index([updatedAt])
+}
+
+model TransactionalOutboxEvent {
+  id             String            @id @default(uuid())
+  eventId        String            @unique
+  eventType      String
+  eventVersion   Int               @default(1)
+  aggregateType  String
+  aggregateId    String
+  organizationId String
+  machineId      String?
+  saleFlowId     String?
+  payload        Json
+  status         OutboxEventStatus @default(PENDING)
+  attemptCount   Int               @default(0)
+  maxAttempts    Int               @default(5)
+  availableAt    DateTime          @default(now())
+  occurredAt     DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  lockedAt       DateTime?
+  lockedBy       String?
+  publishedAt    DateTime?
+  lastError      String?
+  correlationId  String?
+  causationId    String?
+  idempotencyKey String            @unique
+  saleFlow       SaleFlow?         @relation(fields: [saleFlowId], references: [flowId], onDelete: Restrict)
+
+  @@index([status, availableAt, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([machineId, status, createdAt])
+  @@index([eventType, createdAt])
+  @@index([saleFlowId, createdAt])
+  @@index([lockedAt])
+}
+
+model SaleFlowIdempotencyKey {
+  id              String                    @id @default(uuid())
+  flowId          String
+  key             String                    @unique
+  operationType   String
+  source          String
+  externalEventId String?
+  requestHash     String
+  status          SaleFlowIdempotencyStatus @default(STARTED)
   resultReference String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime                  @default(now())
+  completedAt     DateTime?
+  expiresAt       DateTime?
+  flow            SaleFlow                  @relation(fields: [flowId], references: [flowId], onDelete: Restrict)
+
+  @@index([flowId])
+  @@index([externalEventId])
+  @@index([operationType])
+  @@index([expiresAt])
+}
+
+model EventRecord {
+  id                      String   @id @default(uuid())
+  tenantId                String
+  organizationId          String?
+  eventId                 String   @unique
+  eventCode               String
+  eventVersion            Int
+  category                String
+  severity                String
+  sourceDomain            String
+  sourceService           String?
+  sourceEventId           String?
+  subjectType             String
+  subjectId               String
+  subjectDisplayName      String?
+  actorType               String?
+  actorId                  String?
+  actorDisplayName        String?
+  machineId               String?
+  customerId              String?
+  orderId                 String?
+  paymentId               String?
+  maintenanceRequestId    String?
+  inventoryOperationId    String?
+  cameraId                String?
+  videoIncidentId         String?
+  correlationId           String?
+  causationId             String?
+  traceId                 String?
+  title                   String
+  summary                 String
+  occurredAt              DateTime
+  receivedAt              DateTime
+  recordedAt              DateTime
+  acknowledgementRequired Boolean  @default(false)
+  payload                 Json
+  metadata                Json?
+  retentionUntil          DateTime?
+  retentionReason         String?
+  legalHold               Boolean  @default(false)
+  createdAt               DateTime @default(now())
+
+  @@unique([sourceDomain, sourceEventId, eventCode, eventVersion])
+  @@index([tenantId, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@index([eventCode, occurredAt])
+  @@index([category, severity, occurredAt])
+  @@index([subjectType, subjectId, occurredAt])
+  @@index([machineId, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([correlationId])
+  @@index([retentionUntil])
+  @@index([legalHold])
+}
+
+model EventTypeDefinition {
+  id                      String  @id
+  eventCode               String
+  version                 Int
+  titleTemplate           String
+  summaryTemplate         String
+  category                String
+  defaultSeverity         String
+  subjectType             String
+  acknowledgementRequired Boolean @default(false)
+  retentionDays           Int
+  enabled                 Boolean @default(true)
+  emissionStatus          String
+  schemaReference         String?
+  sourceDomain            String
+  documentationReference  String?
+  metadata                Json?
+
+  @@unique([eventCode, version])
+}
+
+model EventRelation {
+  id                String @id @default(uuid())
+  eventRecordId     String
+  relationType      String
+  targetType        String
+  targetId          String
+  targetDisplayName String?
+  metadata          Json?
+
+  @@index([eventRecordId, relationType])
+  @@index([targetType, targetId])
+}
+
+model EventEvidenceReference {
+  id               String    @id @default(uuid())
+  eventRecordId    String
+  evidenceType     String
+  sourceType       String
+  sourceId         String
+  storageReference String?
+  title            String
+  description      String?
+  checksum         String?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+  legalHold        Boolean   @default(false)
+  metadata         Json?
+
+  @@index([eventRecordId, createdAt])
+}
+
+model EventProcessingState {
+  id              String   @id @default(uuid())
+  eventRecordId   String   @unique
+  status          String
+  seenAt          DateTime?
   updatedAt       DateTime @updatedAt
+  updatedBy       String
+  legalHold       Boolean  @default(false)
+  legalHoldReason String?
 
-  process SaleFlowProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  @@index([status])
+}
 
-  @@unique([processId, operation, idempotencyKey])
+model EventAcknowledgement {
+  id             String   @id @default(uuid())
+  eventRecordId  String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+  comment        String?
+  resolutionCode String?
+  metadata       Json?
+
+  @@index([eventRecordId, acknowledgedAt])
+}
+
+model EventComment {
+  id            String    @id @default(uuid())
+  eventRecordId String
+  authorId      String
+  body          String
+  createdAt     DateTime  @default(now())
+  editedAt      DateTime?
+  deletedAt     DateTime?
+
+  @@index([eventRecordId, createdAt])
+}
+
+model EventTag {
+  id            String   @id @default(uuid())
+  eventRecordId String
+  value         String
+  authorId      String
+  createdAt     DateTime @default(now())
+
+  @@unique([eventRecordId, value])
+}
+
+model EventDeletionAudit {
+  id              String   @id @default(uuid())
+  eventId         String
+  retentionReason String
+  deletionResult  String
+  deletionAuditId String?
+  deletedAt       DateTime @default(now())
+  metadata        Json?
+
+  @@index([eventId, deletedAt])
 }
