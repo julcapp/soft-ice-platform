@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getActivePhotoChallenge, submitChallengePhoto } from './PhotoPublicationApi.js';
+import './photoCamera.css';
 
 export function PhotoCameraScreen({ onBack, onSubmitted }) {
   const videoRef = useRef(null);
@@ -18,8 +19,12 @@ export function PhotoCameraScreen({ onBack, onSubmitted }) {
 
   useEffect(() => {
     if (state.status !== 'ready' || previewUrl) return undefined;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setState((current) => ({ ...current, cameraUnavailable: true }));
+      return undefined;
+    }
     let cancelled = false;
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
       .then((stream) => {
         if (cancelled) return stream.getTracks().forEach((track) => track.stop());
         streamRef.current = stream;
