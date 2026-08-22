@@ -143,12 +143,26 @@ class PhotoModerationOrchestrator {
       eventType: reward.granted ? 'photo_reward_granted' : 'photo_reward_pending',
       eventSource: 'photo_reward_engine',
       correlationId,
-      payload: { granted: Boolean(reward.granted), reasonCode: reward.reasonCode || null },
+      payload: {
+        granted: Boolean(reward.granted),
+        reasonCode: reward.reasonCode || null,
+        transactionId: reward.transactionId || null,
+        amountBonus: reward.amountBonus ?? null,
+      },
     });
 
     if (!reward.granted) {
       return { stage: 'reward_pending', result, publication, reward, technical };
     }
+
+    const rewardStatus = await this.customerWorkflow.recordRewarded({
+      photoChallengeId,
+      customerId,
+      amountBonus: reward.amountBonus,
+      balanceAfterBonus: reward.balanceAfterBonus,
+      transactionId: reward.transactionId,
+      correlationId,
+    });
 
     if (settings.retentionPolicy === 'delete_after_publication') {
       await this.storage.delete(storageKey);
@@ -160,7 +174,7 @@ class PhotoModerationOrchestrator {
       });
     }
 
-    return { stage: 'completed', result, publication, reward, technical };
+    return { stage: 'completed', result, publication, reward, rewardStatus, technical };
   }
 
   async #manual({ photoChallengeId, customerId, correlationId, reasonCode, technical = null }) {
