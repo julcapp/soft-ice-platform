@@ -8,7 +8,7 @@ const CHANNELS = {
   MAX: { planCode: 'PRIVATE_MAX_MONTHLY', provider: 'MAX_BOT_API' },
 };
 
-function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService }) {
+function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -16,15 +16,17 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     const customerId = req.securityContext.subject_id;
     const channelType = normalizeChannel(req.query.channel || 'TELEGRAM');
     const channel = CHANNELS[channelType];
-    const [plan, subscription, access] = await Promise.all([
+    const [plan, subscription, access, renewalRecovery] = await Promise.all([
       privateChannelBillingService.getPlan(channel.planCode),
       privateChannelBillingService.getCustomerSubscription(customerId, channel.planCode),
       privateChannelAccessService?.listCustomerAccess?.(customerId) || [],
+      privateChannelRecoveryService?.getCustomerRecovery?.(customerId, channel.planCode) || null,
     ]);
     sendData(res, req, {
       channelType,
       plan: { code: plan.code, name: plan.name, priceRub: Number(plan.priceRub), billingPeriodDays: Number(plan.billingPeriodDays), isActive: Boolean(plan.isActive) },
       subscription,
+      renewalRecovery,
       access: (access || []).filter((row) => String(row.channelType).toUpperCase() === channelType),
       paymentProvider: { provider: 'YOOKASSA', configured: Boolean(privateChannelPaymentAdapter?.isConfigured?.()) },
       accessProvider: { provider: channel.provider, configured: Boolean(privateChannelAccessService?.isConfigured?.(channelType)) },
