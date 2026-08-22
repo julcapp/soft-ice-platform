@@ -6,6 +6,12 @@ const { MetadataAnalyzer } = require('./MetadataAnalyzer');
 const { ImageFingerprintService } = require('./ImageFingerprintService');
 const { DuplicateDetector } = require('./DuplicateDetector');
 const { PhotoTechnicalAnalyzer } = require('./PhotoTechnicalAnalyzer');
+const { PhotoCustomerWorkflow } = require('./PhotoCustomerWorkflow');
+const {
+  USER_PHOTO_STATUSES,
+  USER_PHOTO_MESSAGES,
+  publicStatus,
+} = require('./UserPhotoStatus');
 const {
   PHOTO_VERIFICATION_MODES,
   PHOTO_VERIFICATION_DECISIONS,
@@ -24,6 +30,7 @@ module.exports = {
     'source photo deletion evidence',
     'photo metadata analysis',
     'photo fingerprinting and duplicate detection',
+    'customer-facing photo moderation status',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -33,6 +40,10 @@ module.exports = {
   ImageFingerprintService,
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
+  PhotoCustomerWorkflow,
+  USER_PHOTO_STATUSES,
+  USER_PHOTO_MESSAGES,
+  publicStatus,
   PHOTO_VERIFICATION_MODES,
   PHOTO_VERIFICATION_DECISIONS,
   PHOTO_SUBMISSION_STATUSES,
