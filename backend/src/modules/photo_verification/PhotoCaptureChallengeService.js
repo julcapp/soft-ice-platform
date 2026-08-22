@@ -12,16 +12,6 @@ class PhotoCaptureChallengeService {
 
   async issue({ photoChallengeId, customerId, correlationId = null }) {
     this.#assertConfigured();
-    const existing = await this.repository.findActiveCaptureChallenge({ photoChallengeId, customerId, now: this.clock() });
-    if (existing) {
-      return {
-        required: true,
-        code: null,
-        expiresAt: existing.expiresAt,
-        alreadyIssued: true,
-      };
-    }
-
     const code = `ТИМОША-${String(this.randomInt(0, 1000000)).padStart(6, '0')}`;
     const issuedAt = this.clock();
     const expiresAt = new Date(issuedAt.getTime() + this.ttlSeconds * 1000);
@@ -34,7 +24,7 @@ class PhotoCaptureChallengeService {
       expiresAt,
       correlationId,
     });
-    return { required: true, code, expiresAt, alreadyIssued: false };
+    return { required: true, code, expiresAt };
   }
 
   async verify({ photoChallengeId, customerId, code }) {
