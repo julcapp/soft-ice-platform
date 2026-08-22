@@ -30,7 +30,11 @@ class CRMService {
   async getCustomerCard(customerId) {
     const customer = await this.repository.findCustomer(customerId);
     if (!customer) throw notFound('Клиент не найден.');
-    return toCustomerCard(customer);
+    const referredIds = (customer.referralsMade || []).map((item) => item.referredCustomerId).filter(Boolean);
+    const referredCustomers = referredIds.length && this.repository.findCustomersByIds
+      ? await this.repository.findCustomersByIds(referredIds)
+      : [];
+    return toCustomerCard(customer, referredCustomers);
   }
 
   async updateCustomerCard(customerId, request, context) {
@@ -137,13 +141,18 @@ function toCustomerSummary(customer) {
     purchasesCount: Number(customer._count?.orders || 0),
     referralsCount: Number(customer._count?.referralsMade || 0),
     activeChannels,
-    segments: customer.segmentAssignments.map(({ segment }) => ({ id: segment.id, code: segment.code, name: segment.name })),
-    lastPurchaseAt: customer.orders[0]?.createdAt || null,
+    segments: (customer.segmentAssignments || []).map(({ segment }) => ({ id: segment.id, code: segment.code, name: segment.name })),
+    lastPurchaseAt: customer.orders?.[0]?.createdAt || null,
     createdAt: customer.createdAt,
   };
 }
 
-function toCustomerCard(customer) {
+function toCustomerCard(customer, referredCustomers = []) {
+  const referredById = new Map(referredCustomers.map((item) => [item.id, item]));
+  const invited = (customer.referralsMade || []).map((referral) => ({
+    ...referral,
+    referredCustomer: referral.referredCustomerId ? referredById.get(referral.referredCustomerId) || null : null,
+  }));
   return {
     ...toCustomerSummary({ ...customer, _count: { orders: customer.orders?.length || 0, referralsMade: customer.referralsMade?.length || 0 } }),
     birthday: customer.birthday,
@@ -171,7 +180,7 @@ function toCustomerCard(customer) {
     operations: customer.clubAccount?.transactions || [],
     purchases: customer.orders || [],
     accruals: customer.bonusTransactions || [],
-    referrals: { invited: customer.referralsMade || [], source: customer.referredBy?.[0] || null },
+    referrals: { invited, source: customer.referredBy?.[0] || null },
     notifications: customer.notificationDeliveries || [],
   };
 }
