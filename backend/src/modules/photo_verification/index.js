@@ -7,6 +7,8 @@ const { ImageFingerprintService } = require('./ImageFingerprintService');
 const { DuplicateDetector } = require('./DuplicateDetector');
 const { PhotoTechnicalAnalyzer } = require('./PhotoTechnicalAnalyzer');
 const { PhotoCustomerWorkflow } = require('./PhotoCustomerWorkflow');
+const { PhotoVerificationAdminService } = require('./PhotoVerificationAdminService');
+const { PhotoPublicationReadModel } = require('./PhotoPublicationReadModel');
 const {
   PHOTO_PUBLISHING_TARGETS,
   PHOTO_PAID_SUBSCRIPTION_CHANNELS,
@@ -39,6 +41,8 @@ module.exports = {
     'photo publishing target configuration',
     'multi-channel photo publishing orchestration',
     'paid subscription channel configuration boundary',
+    'admin-controlled photo verification settings',
+    'customer photo publication read model',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -49,6 +53,8 @@ module.exports = {
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
   PhotoCustomerWorkflow,
+  PhotoVerificationAdminService,
+  PhotoPublicationReadModel,
   PhotoPublishingOrchestrator,
   PUBLICATION_STATUSES,
   PHOTO_PUBLISHING_TARGETS,
