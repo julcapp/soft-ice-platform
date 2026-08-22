@@ -63,8 +63,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Enable pnpm
-        run: corepack enable
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.4 --activate
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
@@ -92,8 +94,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Enable pnpm
-        run: corepack enable
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.4 --activate
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
