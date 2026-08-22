@@ -13,8 +13,12 @@ class PhotoVerificationReadinessService {
     const settings = await this.repository.getSettings(scopeKey);
     const checks = [];
 
-    let databaseReady = true;
-    try { await this.prisma?.$queryRaw`SELECT 1`; } catch (_) { databaseReady = false; }
+    let databaseReady = Boolean(this.prisma && typeof this.prisma.$queryRaw === 'function');
+    try {
+      if (databaseReady) await this.prisma.$queryRaw`SELECT 1`;
+    } catch (_) {
+      databaseReady = false;
+    }
     checks.push(check('database', 'База данных', databaseReady, true, databaseReady ? 'PostgreSQL доступен.' : 'PostgreSQL недоступен.'));
 
     const captureSecret = Boolean(this.env.PHOTO_CAPTURE_CHALLENGE_SECRET);
