@@ -47,7 +47,6 @@ function createCustomerRouter({ authCoreService, customerRuntime, consentRuntime
 
   router.post('/me/email-verifications', authenticateCustomer, asyncHandler(async (req, res) => {
     const result = await customerProfileCommunicationService.requestEmailVerification(req.securityContext.subject_id, req.body?.email);
-    // Token is returned by the domain service for the delivery adapter. The HTTP API never exposes it to the customer client.
     sendData(res, req, { email: result.email, expiresAt: result.expiresAt, deliveryStatus: 'QUEUED' }, 202);
   }));
 
@@ -64,6 +63,11 @@ function createCustomerRouter({ authCoreService, customerRuntime, consentRuntime
   router.post('/me/notifications/:notificationId/read', authenticateCustomer, asyncHandler(async (req, res) => {
     const result = await customerProfileCommunicationService.markNotificationRead(req.securityContext.subject_id, req.params.notificationId);
     sendData(res, req, result);
+  }));
+
+  router.get('/me/referral-link', authenticateCustomer, asyncHandler(async (req, res) => {
+    if (!referralEngagementService) return sendData(res, req, { status: 'UNAVAILABLE' }, 503);
+    sendData(res, req, await referralEngagementService.getOrCreateLink(req.securityContext.subject_id));
   }));
 
   router.post('/me/referral-link-actions', authenticateCustomer, asyncHandler(async (req, res) => {
