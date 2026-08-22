@@ -1,0 +1,98 @@
+const crypto = require('node:crypto');
+
+function id() {
+  return crypto.randomUUID();
+}
+
+class PrismaPhotoVerificationRepository {
+  constructor(prisma) {
+    if (!prisma) throw new Error('Prisma client is required');
+    this.prisma = prisma;
+  }
+
+  async recordVerification(input) {
+    const rowId = input.id || id();
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoVerificationResult" (
+        "id", "photoChallengeId", "provider", "model", "decision",
+        "confidence", "fraudScore", "reasonCode", "checks", "aiResponse",
+        "metadataResult", "antifraudResult", "promptVersion", "rulesVersion", "agentVersion"
+      ) VALUES (
+        ${rowId}, ${input.photoChallengeId}, ${input.provider || null}, ${input.model || null}, ${input.decision},
+        ${input.confidence ?? null}, ${input.fraudScore ?? null}, ${input.reasonCode || null},
+        ${JSON.stringify(input.checks || {})}::jsonb, ${input.aiResponse ? JSON.stringify(input.aiResponse) : null}::jsonb,
+        ${input.metadataResult ? JSON.stringify(input.metadataResult) : null}::jsonb,
+        ${input.antifraudResult ? JSON.stringify(input.antifraudResult) : null}::jsonb,
+        ${input.promptVersion || null}, ${input.rulesVersion || null}, ${input.agentVersion || '0.1'}
+      )
+    `;
+    return rowId;
+  }
+
+  async recordEvent(input) {
+    const rowId = input.id || id();
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoVerificationEvent" (
+        "id", "photoChallengeId", "eventType", "eventSource", "payload", "actorId", "correlationId"
+      ) VALUES (
+        ${rowId}, ${input.photoChallengeId}, ${input.eventType}, ${input.eventSource},
+        ${JSON.stringify(input.payload || {})}::jsonb, ${input.actorId || null}, ${input.correlationId || null}
+      )
+    `;
+    return rowId;
+  }
+
+  async upsertFingerprint(input) {
+    const rowId = input.id || id();
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoFingerprint" ("id", "photoChallengeId", "sha256", "pHash", "dHash")
+      VALUES (${rowId}, ${input.photoChallengeId}, ${input.sha256}, ${input.pHash || null}, ${input.dHash || null})
+      ON CONFLICT ("photoChallengeId") DO UPDATE SET
+        "sha256" = EXCLUDED."sha256",
+        "pHash" = EXCLUDED."pHash",
+        "dHash" = EXCLUDED."dHash"
+    `;
+    return rowId;
+  }
+
+  async recordPublication(input) {
+    const rowId = input.id || id();
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoPublication" (
+        "id", "photoChallengeId", "channel", "status", "externalPublicationId",
+        "publicationUrl", "publishedAt", "confirmedAt", "errorCode", "errorMessage"
+      ) VALUES (
+        ${rowId}, ${input.photoChallengeId}, ${input.channel}, ${input.status || 'pending'},
+        ${input.externalPublicationId || null}, ${input.publicationUrl || null},
+        ${input.publishedAt || null}, ${input.confirmedAt || null},
+        ${input.errorCode || null}, ${input.errorMessage || null}
+      )
+    `;
+    return rowId;
+  }
+
+  async markSourceDeletion(input) {
+    const rowId = input.id || id();
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoSourceDeletion" (
+        "id", "photoChallengeId", "storageKey", "status", "deleteReason",
+        "requestedAt", "deletedAt", "errorMessage"
+      ) VALUES (
+        ${rowId}, ${input.photoChallengeId}, ${input.storageKey}, ${input.status || 'pending'},
+        ${input.deleteReason || 'publication_confirmed'}, ${input.requestedAt || null},
+        ${input.deletedAt || null}, ${input.errorMessage || null}
+      )
+      ON CONFLICT ("photoChallengeId") DO UPDATE SET
+        "storageKey" = EXCLUDED."storageKey",
+        "status" = EXCLUDED."status",
+        "deleteReason" = EXCLUDED."deleteReason",
+        "requestedAt" = EXCLUDED."requestedAt",
+        "deletedAt" = EXCLUDED."deletedAt",
+        "errorMessage" = EXCLUDED."errorMessage",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `;
+    return rowId;
+  }
+}
+
+module.exports = { PrismaPhotoVerificationRepository };
