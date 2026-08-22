@@ -32,9 +32,17 @@ class PrismaPhotoSubmissionRepository {
     const changed = await this.prisma.$executeRaw`
       UPDATE "PhotoChallenge"
       SET "photoFilePath" = ${storageKey}, "platform" = 'MINI_APP', "status" = 'moderation'
-      WHERE "id" = ${photoChallengeId} AND "customerId" = ${customerId}
+      WHERE "id" = ${photoChallengeId}
+        AND "customerId" = ${customerId}
+        AND "photoFilePath" IS NULL
+        AND "status" IN ('waiting', 'resubmit')
     `;
-    if (!changed) throw new Error('Photo challenge source file was not attached');
+    if (!changed) {
+      const error = new Error('Photo challenge already has a submitted source file');
+      error.code = 'PHOTO_CHALLENGE_ALREADY_SUBMITTED';
+      error.statusCode = 409;
+      throw error;
+    }
     return storageKey;
   }
 }
