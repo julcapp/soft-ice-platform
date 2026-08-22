@@ -18,7 +18,7 @@ function createApp(options = {}) {
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
-  if (!options.dependencies) attachPhotoVerificationRuntime(dependencies);
+  if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
   app.use(express.json());
