@@ -27,6 +27,8 @@ export const evaluatePhotoAiRecommendations = ({ signal, period = '7d' } = {}) =
 export const getPhotoAiRecommendationHistory = ({ signal, period = '7d', limit = 100 } = {}) => requestPath(`/recommendations/history?period=${encodeURIComponent(period)}&limit=${encodeURIComponent(limit)}`, { signal });
 export const markPhotoAiRecommendationViewed = (recommendationKey, { signal } = {}) => requestPath(`/recommendations/${encodeURIComponent(recommendationKey)}/viewed`, { signal, method: 'POST', body: '{}' });
 export const decidePhotoAiRecommendation = (recommendationKey, decision, { signal } = {}) => requestPath(`/recommendations/${encodeURIComponent(recommendationKey)}/decision`, { signal, method: 'POST', body: JSON.stringify(decision) });
+export const preparePhotoAiRecommendationChange = (recommendationKey, { signal } = {}) => requestPath(`/recommendations/${encodeURIComponent(recommendationKey)}/prepare-change`, { signal, method: 'POST', body: '{}' });
+export const applyPhotoAiRecommendationChange = (preparationId, { signal } = {}) => requestPath(`/recommendation-changes/${encodeURIComponent(preparationId)}/apply`, { signal, method: 'POST', body: '{}' });
 export const getPhotoReviewQueue = ({ signal, limit = 50 } = {}) => requestPath(`/reviews?limit=${encodeURIComponent(limit)}`, { signal });
 export const getPhotoReviewItem = (photoChallengeId, { signal } = {}) => requestPath(`/reviews/${encodeURIComponent(photoChallengeId)}`, { signal });
 export const submitPhotoReviewDecision = (photoChallengeId, decision, { signal } = {}) => requestPath(`/reviews/${encodeURIComponent(photoChallengeId)}/decision`, {
