@@ -42,6 +42,47 @@ class PrismaPhotoVerificationRepository {
     return rowId;
   }
 
+  async claimManualDecision({ photoChallengeId, action, reason = '', actorId, correlationId = null }) {
+    const key = String(photoChallengeId);
+    const semanticHash = crypto.createHash('sha256').update(JSON.stringify({ action, reason: String(reason || '').trim() })).digest('hex');
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const inserted = await tx.$queryRaw`
+        INSERT INTO "IdempotencyRecord" (
+          "id", "scope", "key", "actorContext", "semanticHash", "status", "correlationId", "firstSeenAt", "lastSeenAt"
+        ) VALUES (
+          ${id()}, 'PHOTO_MANUAL_DECISION', ${key},
+          ${JSON.stringify({ photoChallengeId, actorId, action })}::jsonb,
+          ${semanticHash}, 'processing', ${correlationId}, ${now}, ${now}
+        )
+        ON CONFLICT ("scope", "key") DO NOTHING
+        RETURNING "id"
+      `;
+      if (inserted.length) return { claimed: true, idempotentReplay: false, semanticHash };
+
+      const rows = await tx.$queryRaw`
+        SELECT "semanticHash", "status", "actorContext", "resultReference"
+        FROM "IdempotencyRecord"
+        WHERE "scope" = 'PHOTO_MANUAL_DECISION' AND "key" = ${key}
+        LIMIT 1
+      `;
+      const existing = rows[0] || null;
+      if (existing?.semanticHash === semanticHash) {
+        return { claimed: false, idempotentReplay: true, processing: existing.status !== 'completed', existing };
+      }
+      return { claimed: false, conflict: true, existing };
+    });
+  }
+
+  async completeManualDecision({ photoChallengeId, action, actorId = null }) {
+    await this.prisma.$executeRaw`
+      UPDATE "IdempotencyRecord"
+      SET "status" = 'completed', "resultReference" = ${action}, "lastSeenAt" = CURRENT_TIMESTAMP,
+          "actorContext" = COALESCE("actorContext", '{}'::jsonb) || ${JSON.stringify({ completedBy: actorId })}::jsonb
+      WHERE "scope" = 'PHOTO_MANUAL_DECISION' AND "key" = ${String(photoChallengeId)}
+    `;
+  }
+
   async listManualReviewQueue({ limit = 50 } = {}) {
     return this.prisma.$queryRaw`
       SELECT
@@ -59,8 +100,43 @@ class PrismaPhotoVerificationRepository {
       ) vr ON TRUE
       WHERE pc."photoFilePath" IS NOT NULL
         AND COALESCE(vr."decision", 'manual_review') = 'manual_review'
+        AND NOT EXISTS (
+          SELECT 1 FROM "IdempotencyRecord" ir
+          WHERE ir."scope" = 'PHOTO_MANUAL_DECISION' AND ir."key" = pc."id" AND ir."status" = 'completed'
+        )
       ORDER BY COALESCE(vr."processedAt", pc."createdAt") ASC
       LIMIT ${Math.min(Math.max(Number(limit) || 50, 1), 100)}
+    `;
+  }
+
+  async listManualOperationalCandidates({ limit = 100 } = {}) {
+    return this.prisma.$queryRaw`
+      SELECT
+        pc."id" AS "photoChallengeId", pc."customerId", pc."photoFilePath" AS "storageKey", pc."createdAt",
+        c."name" AS "customerName", c."phone" AS "customerPhone",
+        vr."processedAt" AS "approvedAt",
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'channel', pp."channel", 'status', pp."status", 'publicationUrl', pp."publicationUrl",
+          'errorCode', pp."errorCode", 'errorMessage', pp."errorMessage", 'attemptCount', pp."attemptCount", 'lastAttemptAt', pp."lastAttemptAt"
+        )) FROM "PhotoPublication" pp WHERE pp."photoChallengeId" = pc."id"), '[]'::jsonb) AS publications,
+        reward."eventType" AS "rewardEventType", reward."payload" AS "rewardPayload",
+        deletion."status" AS "sourceDeletionStatus"
+      FROM "PhotoChallenge" pc
+      JOIN "Customer" c ON c."id" = pc."customerId"
+      JOIN LATERAL (
+        SELECT * FROM "PhotoVerificationResult" v
+        WHERE v."photoChallengeId" = pc."id" AND v."provider" = 'manual'
+        ORDER BY v."processedAt" DESC LIMIT 1
+      ) vr ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT e."eventType", e."payload" FROM "PhotoVerificationEvent" e
+        WHERE e."photoChallengeId" = pc."id" AND e."eventType" IN ('photo_reward_pending', 'photo_reward_granted')
+        ORDER BY e."createdAt" DESC LIMIT 1
+      ) reward ON TRUE
+      LEFT JOIN "PhotoSourceDeletion" deletion ON deletion."photoChallengeId" = pc."id"
+      WHERE vr."decision" = 'approved' AND pc."photoFilePath" IS NOT NULL
+      ORDER BY vr."processedAt" ASC
+      LIMIT ${Math.min(Math.max(Number(limit) || 100, 1), 200)}
     `;
   }
 
@@ -85,6 +161,16 @@ class PrismaPhotoVerificationRepository {
     return rows[0] || null;
   }
 
+  async getPublicationAttempt(photoChallengeId, channel) {
+    const rows = await this.prisma.$queryRaw`
+      SELECT "channel", "status", "externalPublicationId", "publicationUrl", "publishedAt", "confirmedAt", "attemptCount", "lastAttemptAt"
+      FROM "PhotoPublication"
+      WHERE "photoChallengeId" = ${photoChallengeId} AND "channel" = ${channel}
+      LIMIT 1
+    `;
+    return rows[0] || null;
+  }
+
   async issueCaptureChallenge({ photoChallengeId, customerId, tokenHash, issuedAt, expiresAt, correlationId }) {
     const eventId = id();
     await this.recordEvent({
@@ -93,20 +179,14 @@ class PrismaPhotoVerificationRepository {
       eventType: 'capture_challenge_issued',
       eventSource: 'photo_capture_challenge_service',
       correlationId,
-      payload: {
-        customerId,
-        tokenHash,
-        issuedAt: issuedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      },
+      payload: { customerId, tokenHash, issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString() },
     });
     return eventId;
   }
 
   async findActiveCaptureChallenge({ photoChallengeId, customerId, now = new Date() }) {
     const rows = await this.prisma.$queryRaw`
-      SELECT issued."id", issued."payload"->>'tokenHash' AS "tokenHash",
-        (issued."payload"->>'expiresAt')::timestamptz AS "expiresAt"
+      SELECT issued."id", issued."payload"->>'tokenHash' AS "tokenHash", (issued."payload"->>'expiresAt')::timestamptz AS "expiresAt"
       FROM "PhotoVerificationEvent" issued
       WHERE issued."photoChallengeId" = ${photoChallengeId}
         AND issued."eventType" = 'capture_challenge_issued'
