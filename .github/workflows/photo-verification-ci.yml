@@ -1,0 +1,47 @@
+name: Photo Verification CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/miniapp/**'
+      - 'frontend/admin-console/**'
+      - '.github/workflows/photo-verification-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  backend-photo-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install sharp runtime for validation
+        run: npm install --no-save --package-lock=false sharp@0.35.3
+
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://photo_ci:photo_ci@localhost:5432/photo_ci?schema=public
+        run: npm run prisma:validate
+
+      - name: Run backend tests
+        env:
+          NODE_ENV: test
+          PHOTO_CAPTURE_CHALLENGE_SECRET: ci-only-photo-capture-secret
+        run: npm test
