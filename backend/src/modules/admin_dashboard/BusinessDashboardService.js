@@ -4,16 +4,16 @@ const ADMIN_ROLES = new Set(['PLATFORM_OWNER', 'ADMIN']);
 const CHANNELS = ['VK', 'TELEGRAM', 'MAX'];
 
 class BusinessDashboardService {
-  constructor({ prisma, clock = () => new Date() }) {
+  constructor({ prisma, privateChannelBillingService = null, clock = () => new Date() }) {
     if (!prisma) throw new Error('prisma is required');
     this.prisma = prisma;
+    this.privateChannelBillingService = privateChannelBillingService;
     this.clock = clock;
   }
 
   async getDashboard(securityContext, query = {}) {
     assertAdmin(securityContext);
     const range = resolveRange(query, this.clock());
-
     const [totalUsers, newUsers, clubMembers, newClubMembers, paidTopups, orders, referrals, subscriptions, referralActions] = await Promise.all([
       this.prisma.customer.count(),
       this.prisma.customer.count({ where: { createdAt: { gte: range.from, lt: range.toExclusive } } }),
@@ -23,11 +23,11 @@ class BusinessDashboardService {
       this.prisma.order.findMany({ where: { paidAt: { gte: range.from, lt: range.toExclusive } }, select: { id: true, customerId: true, status: true, amount: true, amountPaidRub: true, paidAt: true, activePickupCodeHash: true } }),
       this.prisma.referral.findMany({ select: { referrerCustomerId: true, referredCustomerId: true, status: true, firstPurchaseAt: true, referralCode: true } }),
       this.prisma.customerChannelSubscription.findMany({ where: { isSubscribed: true }, select: { channelType: true, targetType: true, targetExternalId: true, customerId: true, subscribedAt: true } }),
-      this.prisma.auditEvent.findMany({
-        where: { eventType: 'Referral.LinkAction', occurredAt: { gte: range.from, lt: range.toExclusive } },
-        select: { subjectId: true, action: true, metadata: true, occurredAt: true },
-      }),
+      this.prisma.auditEvent.findMany({ where: { eventType: 'Referral.LinkAction', occurredAt: { gte: range.from, lt: range.toExclusive } }, select: { subjectId: true, action: true, metadata: true, occurredAt: true } }),
     ]);
+    const privateChannel = this.privateChannelBillingService
+      ? await this.privateChannelBillingService.stats({ from: range.from, toExclusive: range.toExclusive })
+      : { subscribers: null, paidPaymentsInPeriod: null, paidAmountRubInPeriod: null, forecastNext30DaysRub: null, status: 'BLOCKED', reason: 'PRIVATE_CHANNEL_BILLING_SOURCE_NOT_WIRED' };
 
     const paidOrders = orders.filter((order) => order.paidAt);
     const completedOrders = paidOrders.filter((order) => order.status === 'COMPLETED');
@@ -65,13 +65,10 @@ class BusinessDashboardService {
         awaitingPickupAmountRub: sum(awaitingPickup, (item) => item.amountPaidRub ?? item.amount),
         byDay: salesByDay,
       },
-      privateChannel: {
-        subscribers: null, paidAmountRubInPeriod: null, forecastNext30DaysRub: null,
-        status: 'BLOCKED', reason: 'PRIVATE_CHANNEL_BILLING_SOURCE_NOT_IMPLEMENTED',
-      },
+      privateChannel,
       sourceReadiness: {
-        users: 'READY', club: 'READY', referralsAccepted: 'READY', referralShares: 'READY',
-        publicChannels: 'READY', sales: 'READY', awaitingPickup: 'READY', privateChannelBilling: 'BLOCKED',
+        users: 'READY', club: 'READY', referralsAccepted: 'READY', referralShares: 'READY', publicChannels: 'READY', sales: 'READY', awaitingPickup: 'READY',
+        privateChannelBilling: privateChannel.status === 'READY' ? 'READY' : 'BLOCKED',
       },
     };
   }
