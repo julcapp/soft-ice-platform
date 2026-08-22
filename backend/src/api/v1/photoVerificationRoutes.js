@@ -31,7 +31,6 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
       return sendData(res, req, result, 202);
     }),
   );
-
   return router;
 }
 
@@ -43,21 +42,17 @@ function createAdminPhotoVerificationRouter({ photoVerificationAdminService, pho
     const scopeKey = req.query.scope || 'default';
     return sendData(res, req, await photoVerificationAdminService.getSettings(req.securityContext, scopeKey));
   }));
-
   router.patch('/settings', asyncHandler(async (req, res) => {
     const scopeKey = req.query.scope || 'default';
     return sendData(res, req, await photoVerificationAdminService.updateSettings(req.securityContext, req.body || {}, scopeKey));
   }));
 
   router.get('/reviews', asyncHandler(async (req, res) => {
-    const rows = await photoManualReviewService.list(req.securityContext, { limit: req.query.limit });
-    return sendData(res, req, rows);
+    return sendData(res, req, await photoManualReviewService.list(req.securityContext, { limit: req.query.limit }));
   }));
-
   router.get('/reviews/:photoChallengeId', asyncHandler(async (req, res) => {
     return sendData(res, req, await photoManualReviewService.get(req.securityContext, req.params.photoChallengeId));
   }));
-
   router.get('/reviews/:photoChallengeId/preview', asyncHandler(async (req, res) => {
     const preview = await photoManualReviewService.getPreview(req.securityContext, req.params.photoChallengeId);
     const lower = String(preview.storageKey || '').toLowerCase();
@@ -66,14 +61,19 @@ function createAdminPhotoVerificationRouter({ photoVerificationAdminService, pho
     res.type(contentType);
     return res.send(preview.buffer);
   }));
-
   router.post('/reviews/:photoChallengeId/decision', asyncHandler(async (req, res) => {
-    const result = await photoManualReviewService.decide(req.securityContext, req.params.photoChallengeId, {
-      action: req.body?.action,
-      reason: req.body?.reason,
+    return sendData(res, req, await photoManualReviewService.decide(req.securityContext, req.params.photoChallengeId, {
+      action: req.body?.action, reason: req.body?.reason, correlationId: req.correlationId,
+    }));
+  }));
+
+  router.get('/operations', asyncHandler(async (req, res) => {
+    return sendData(res, req, await photoManualReviewService.listOperationalIssues(req.securityContext, { limit: req.query.limit }));
+  }));
+  router.post('/operations/:photoChallengeId/retry', asyncHandler(async (req, res) => {
+    return sendData(res, req, await photoManualReviewService.retryOperationalIssue(req.securityContext, req.params.photoChallengeId, {
       correlationId: req.correlationId,
-    });
-    return sendData(res, req, result);
+    }));
   }));
 
   return router;
