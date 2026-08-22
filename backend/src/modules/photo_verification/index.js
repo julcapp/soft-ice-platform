@@ -11,6 +11,7 @@ const { PhotoModerationOrchestrator } = require('./PhotoModerationOrchestrator')
 const { PhotoManualReviewService, MANUAL_ACTIONS } = require('./PhotoManualReviewService');
 const { PhotoVerificationMetricsService } = require('./PhotoVerificationMetricsService');
 const { PhotoAiRecommendationJournalService, DECISIONS: PHOTO_AI_RECOMMENDATION_DECISIONS } = require('./PhotoAiRecommendationJournalService');
+const { PhotoAiRecommendationApplicationService } = require('./PhotoAiRecommendationApplicationService');
 const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
 const { PhotoRewardPolicy } = require('./PhotoRewardPolicy');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
@@ -43,12 +44,12 @@ module.exports = {
     'one-time camera capture challenge', 'CRM-backed customer photo notifications', 'production image decoding boundary',
     'production publishing adapters', 'production multimodal AI provider boundary', 'end-to-end moderation orchestration',
     'reward engine boundary', 'manual photo review queue and moderation decisions', 'photo verification operational metrics',
-    'AI recommendation advisory journal and admin decisions',
+    'AI recommendation advisory journal and admin decisions', 'two-step guarded AI recommendation application',
   ],
   PhotoVerificationAgent, MockVisionProvider, OpenAIVisionProvider, PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository, LocalPhotoStorageAdapter, PhotoSubmissionIntakeService, PhotoCaptureChallengeService,
   PhotoModerationLifecycle, PhotoModerationOrchestrator, PhotoManualReviewService, MANUAL_ACTIONS, PhotoVerificationMetricsService,
-  PhotoAiRecommendationJournalService, PHOTO_AI_RECOMMENDATION_DECISIONS,
+  PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PHOTO_AI_RECOMMENDATION_DECISIONS,
   BlockedPhotoRewardEngine, PhotoRewardPolicy, MetadataAnalyzer, ImageFingerprintService, SharpImageDecoder,
   DuplicateDetector, PhotoTechnicalAnalyzer, PhotoCustomerWorkflow, CrmPhotoNotifier, PhotoVerificationAdminService,
   PhotoPublicationReadModel, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher, PhotoPublishingOrchestrator,
