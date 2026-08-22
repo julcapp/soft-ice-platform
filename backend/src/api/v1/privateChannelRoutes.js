@@ -3,21 +3,31 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const { ApiError } = require('../../platform/errors/ApiError');
 
+const CHANNELS = {
+  TELEGRAM: { planCode: 'PRIVATE_TELEGRAM_MONTHLY', provider: 'TELEGRAM_BOT_API' },
+  MAX: { planCode: 'PRIVATE_MAX_MONTHLY', provider: 'MAX_BOT_API' },
+};
+
 function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
   router.get('/me', authenticateCustomer, asyncHandler(async (req, res) => {
     const customerId = req.securityContext.subject_id;
-    const [plan, subscription] = await Promise.all([
-      privateChannelBillingService.getPlan('PRIVATE_TELEGRAM_MONTHLY'),
-      privateChannelBillingService.getCustomerSubscription(customerId),
+    const channelType = normalizeChannel(req.query.channel || 'TELEGRAM');
+    const channel = CHANNELS[channelType];
+    const [plan, subscription, access] = await Promise.all([
+      privateChannelBillingService.getPlan(channel.planCode),
+      privateChannelBillingService.getCustomerSubscription(customerId, channel.planCode),
+      privateChannelAccessService?.listCustomerAccess?.(customerId) || [],
     ]);
     sendData(res, req, {
+      channelType,
       plan: { code: plan.code, name: plan.name, priceRub: Number(plan.priceRub), billingPeriodDays: Number(plan.billingPeriodDays), isActive: Boolean(plan.isActive) },
       subscription,
+      access: (access || []).filter((row) => String(row.channelType).toUpperCase() === channelType),
       paymentProvider: { provider: 'YOOKASSA', configured: Boolean(privateChannelPaymentAdapter?.isConfigured?.()) },
-      accessProvider: { provider: 'TELEGRAM_BOT_API', configured: Boolean(privateChannelAccessService?.isConfigured?.()) },
+      accessProvider: { provider: channel.provider, configured: Boolean(privateChannelAccessService?.isConfigured?.(channelType)) },
       recurringConsentVersion: 'private-channel-recurring-v1',
     });
   }));
@@ -25,9 +35,11 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
   router.post('/me/checkout', authenticateCustomer, asyncHandler(async (req, res) => {
     if (!privateChannelPaymentAdapter) throw unavailable('PRIVATE_CHANNEL_PAYMENT_ADAPTER_NOT_CONFIGURED', 'Payment adapter is not configured.');
     const customerId = req.securityContext.subject_id;
-    const plan = await privateChannelBillingService.getPlan(req.body?.planCode || 'PRIVATE_TELEGRAM_MONTHLY');
+    const channelType = normalizeChannel(req.body?.channelType || planCodeToChannel(req.body?.planCode));
+    const planCode = CHANNELS[channelType].planCode;
+    const plan = await privateChannelBillingService.getPlan(planCode);
     const subscription = await privateChannelBillingService.subscribe(customerId, {
-      planCode: plan.code,
+      planCode,
       recurringEnabled: req.body?.recurringEnabled === true,
       recurringConsentVersion: req.body?.recurringConsentVersion,
     });
@@ -38,6 +50,7 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
       idempotencyKey: req.get('Idempotency-Key') || undefined,
     });
     sendData(res, req, {
+      channelType,
       subscription,
       payment: { provider: 'YOOKASSA', paymentId: payment.providerPaymentId, status: payment.status, confirmationUrl: payment.confirmationUrl },
     }, 201);
@@ -70,16 +83,17 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     });
 
     if (privateChannelAccessService && recorded.periodEnd) {
+      const channelType = planCodeToChannel(recorded.planCode || payment.metadata?.plan_code);
       try {
         await privateChannelAccessService.grantForPaidPeriod({
           subscriptionId,
-          customerId: payment.metadata?.customer_id || recorded.customerId,
+          customerId: recorded.customerId || payment.metadata?.customer_id,
+          channelType,
           validFrom: recorded.periodStart,
           validUntil: recorded.periodEnd,
         });
       } catch (error) {
-        // Billing is authoritative. Access delivery is independently recoverable and must not make YooKassa retry a successful payment forever.
-        console.error('Private channel access grant failed after successful payment', { subscriptionId, paymentId, code: error.code || error.message });
+        console.error('Private channel access grant failed after successful payment', { subscriptionId, paymentId, channelType, code: error.code || error.message });
       }
     }
     return res.sendStatus(200);
@@ -88,5 +102,11 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
   return router;
 }
 
+function normalizeChannel(value) {
+  const channel = String(value || 'TELEGRAM').toUpperCase();
+  if (!CHANNELS[channel]) throw new ApiError({ statusCode: 400, code: 'PRIVATE_CHANNEL_TYPE_INVALID', message: 'Поддерживаются TELEGRAM и MAX.', source: 'runtime' });
+  return channel;
+}
+function planCodeToChannel(planCode) { return String(planCode || '').toUpperCase().includes('MAX') ? 'MAX' : 'TELEGRAM'; }
 function unavailable(code, message) { return new ApiError({ statusCode: 503, code, message, source: 'payment_provider' }); }
-module.exports = { createPrivateChannelRouter };
+module.exports = { createPrivateChannelRouter, normalizeChannel, planCodeToChannel };
