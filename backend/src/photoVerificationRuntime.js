@@ -6,6 +6,7 @@ const {
   LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService,
   PhotoCaptureChallengeService,
+  PhotoCaptureVisualVerifier,
   PhotoCustomerWorkflow,
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
@@ -38,6 +39,10 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
     repository,
     secret: process.env.PHOTO_CAPTURE_CHALLENGE_SECRET,
     ttlSeconds: process.env.PHOTO_CAPTURE_CHALLENGE_TTL_SECONDS || 180,
+  });
+  const captureVisualVerifier = dependencies.photoCaptureVisualVerifier || new PhotoCaptureVisualVerifier({
+    prisma: db,
+    secret: process.env.PHOTO_CAPTURE_CHALLENGE_SECRET,
   });
   const imageDecoder = dependencies.photoImageDecoder || new SharpImageDecoder();
   const fingerprintService = dependencies.photoFingerprintService || new ImageFingerprintService({ imageDecoder });
@@ -92,6 +97,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoNotifier = notifier;
   dependencies.photoCustomerWorkflow = customerWorkflow;
   dependencies.photoCaptureChallengeService = captureChallengeService;
+  dependencies.photoCaptureVisualVerifier = captureVisualVerifier;
   dependencies.photoImageDecoder = imageDecoder;
   dependencies.photoFingerprintService = fingerprintService;
   dependencies.photoDuplicateDetector = duplicateDetector;
@@ -110,6 +116,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
     moderationLifecycle,
     publishingOrchestrator,
     rewardEngine,
+    captureVisualVerifier,
     visionProvider,
     logger,
   });
