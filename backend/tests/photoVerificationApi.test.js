@@ -29,14 +29,18 @@ test('customer photo verification router exposes own history and camera challeng
   ]);
 });
 
-test('admin photo verification router exposes settings, metrics, review and recovery endpoints', () => {
+test('admin photo verification router exposes settings, metrics, recommendation journal, review and recovery endpoints', () => {
   const router = createAdminPhotoVerificationRouter({
-    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {}, adminAuth: {},
+    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {}, photoAiRecommendationJournalService: {}, adminAuth: {},
   });
   assert.deepEqual(routeSignatures(router), [
     { path: '/settings', methods: ['get'] },
     { path: '/settings', methods: ['patch'] },
     { path: '/metrics', methods: ['get'] },
+    { path: '/recommendations/evaluate', methods: ['post'] },
+    { path: '/recommendations/history', methods: ['get'] },
+    { path: '/recommendations/:recommendationKey/viewed', methods: ['post'] },
+    { path: '/recommendations/:recommendationKey/decision', methods: ['post'] },
     { path: '/reviews', methods: ['get'] },
     { path: '/reviews/:photoChallengeId', methods: ['get'] },
     { path: '/reviews/:photoChallengeId/preview', methods: ['get'] },
@@ -55,24 +59,28 @@ test('composition root attaches shared repository-backed photo services', () => 
   assert.ok(result.photoVerificationAdminService);
   assert.ok(result.photoManualReviewService);
   assert.ok(result.photoVerificationMetricsService);
+  assert.ok(result.photoAiRecommendationJournalService);
   assert.ok(result.photoPublicationReadModel);
   assert.ok(result.photoCaptureChallengeService);
   assert.ok(result.photoRewardEngine);
   assert.equal(result.photoVerificationAdminService.repository, result.photoVerificationRepository);
   assert.equal(result.photoManualReviewService.repository, result.photoVerificationRepository);
   assert.equal(result.photoPublicationReadModel.repository, result.photoVerificationRepository);
+  assert.equal(result.photoAiRecommendationJournalService.metricsService, result.photoVerificationMetricsService);
 });
 
 test('composition root preserves explicitly injected photo services', () => {
   const adminService = { custom: true };
   const manualReviewService = { custom: true };
   const metricsService = { custom: true };
+  const recommendationJournalService = { custom: true };
   const readModel = { custom: true };
   const captureService = { custom: true };
   const dependencies = {
     photoVerificationAdminService: adminService,
     photoManualReviewService: manualReviewService,
     photoVerificationMetricsService: metricsService,
+    photoAiRecommendationJournalService: recommendationJournalService,
     photoPublicationReadModel: readModel,
     photoCaptureChallengeService: captureService,
   };
@@ -80,6 +88,7 @@ test('composition root preserves explicitly injected photo services', () => {
   assert.equal(result.photoVerificationAdminService, adminService);
   assert.equal(result.photoManualReviewService, manualReviewService);
   assert.equal(result.photoVerificationMetricsService, metricsService);
+  assert.equal(result.photoAiRecommendationJournalService, recommendationJournalService);
   assert.equal(result.photoPublicationReadModel, readModel);
   assert.equal(result.photoCaptureChallengeService, captureService);
 });
