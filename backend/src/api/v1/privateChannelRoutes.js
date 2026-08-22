@@ -8,7 +8,7 @@ const CHANNELS = {
   MAX: { planCode: 'PRIVATE_MAX_MONTHLY', provider: 'MAX_BOT_API' },
 };
 
-function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService }) {
+function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -81,6 +81,8 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
       amountRub,
       idempotencyKey: `yookassa:${payment.id}:succeeded`,
     });
+
+    await privateChannelRenewalService?.markPaid?.(payment.id);
 
     if (privateChannelAccessService && recorded.periodEnd) {
       const channelType = planCodeToChannel(recorded.planCode || payment.metadata?.plan_code);
