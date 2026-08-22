@@ -14,6 +14,7 @@ const { PrivateChannelRenewalService } = require('../../modules/private_channel/
 const { PrivateChannelRecoveryService } = require('../../modules/private_channel/PrivateChannelRecoveryService');
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { CustomerPaymentProfileService } = require('../../modules/payment_profile/CustomerPaymentProfileService');
+const { PaymentOperationsService } = require('../../modules/payment_profile/PaymentOperationsService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -53,11 +54,12 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const privateChannelAccessService = dependencies.privateChannelAccessService || new PrivateChannelAccessService({ prisma, adapters: { TELEGRAM: telegramPrivateChannelAccessAdapter, MAX: maxPrivateChannelAccessAdapter } });
   const privateChannelRenewalService = dependencies.privateChannelRenewalService || new PrivateChannelRenewalService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
   const privateChannelRecoveryService = dependencies.privateChannelRecoveryService || new PrivateChannelRecoveryService({ prisma, renewalService: privateChannelRenewalService, accessService: privateChannelAccessService, crmRuntime: dependencies.crmRuntime || null });
-  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
   const customerPaymentProfileService = dependencies.customerPaymentProfileService || new CustomerPaymentProfileService({ prisma });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService };
+  const paymentOperationsService = dependencies.paymentOperationsService || new PaymentOperationsService({ prisma, paymentAdapter: privateChannelPaymentAdapter, customerProfileCommunicationService });
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
