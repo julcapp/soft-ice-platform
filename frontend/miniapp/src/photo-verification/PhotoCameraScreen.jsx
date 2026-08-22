@@ -2,6 +2,49 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getActivePhotoChallenge, submitChallengePhoto } from './PhotoPublicationApi.js';
 import './photoCamera.css';
 
+const MAX_IMAGE_SIDE = 1600;
+const JPEG_QUALITY = 0.85;
+
+function stampCaptureCode(canvas, code) {
+  if (!code) return;
+  const context = canvas.getContext('2d');
+  const fontSize = Math.max(24, Math.round(canvas.width * 0.035));
+  const padding = Math.max(16, Math.round(fontSize * 0.65));
+  context.font = `700 ${fontSize}px sans-serif`;
+  const textWidth = context.measureText(code).width;
+  const boxWidth = Math.min(canvas.width, textWidth + padding * 2);
+  const boxHeight = fontSize + padding * 2;
+  const x = Math.max(0, canvas.width - boxWidth - padding);
+  const y = Math.max(0, canvas.height - boxHeight - padding);
+  context.fillStyle = 'rgba(0, 0, 0, 0.72)';
+  context.fillRect(x, y, boxWidth, boxHeight);
+  context.fillStyle = '#ffffff';
+  context.textBaseline = 'middle';
+  context.fillText(code, x + padding, y + boxHeight / 2);
+}
+
+function canvasToJpeg(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось подготовить фотографию.')), 'image/jpeg', JPEG_QUALITY);
+  });
+}
+
+async function prepareFallbackPhoto(file, captureCode) {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const context = canvas.getContext('2d');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    stampCaptureCode(canvas, captureCode);
+    return canvasToJpeg(canvas);
+  } finally {
+    bitmap.close?.();
+  }
+}
+
 export function PhotoCameraScreen({ onBack, onSubmitted }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -38,22 +81,24 @@ export function PhotoCameraScreen({ onBack, onSubmitted }) {
     };
   }, [state.status, previewUrl]);
 
-  function capture() {
+  async function capture() {
     const video = videoRef.current;
-    if (!video?.videoWidth || !video?.videoHeight) return;
+    if (!video?.videoWidth || !video?.videoHeight || state.status !== 'ready') return;
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
-    const maxWidth = 1600;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((nextBlob) => {
-      if (!nextBlob) return;
+    stampCaptureCode(canvas, state.challenge.captureChallenge?.code);
+    try {
+      const nextBlob = await canvasToJpeg(canvas);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setBlob(nextBlob);
       setPreviewUrl(URL.createObjectURL(nextBlob));
-    }, 'image/jpeg', 0.9);
+    } catch (error) {
+      setState((current) => ({ ...current, submitError: error.message }));
+    }
   }
 
   function retake() {
@@ -66,7 +111,9 @@ export function PhotoCameraScreen({ onBack, onSubmitted }) {
     if (!blob || state.status !== 'ready') return;
     setState((current) => ({ ...current, submitting: true, submitError: null }));
     try {
-      const result = await submitChallengePhoto(state.challenge.id, blob);
+      const result = await submitChallengePhoto(state.challenge.id, blob, {
+        captureCode: state.challenge.captureChallenge?.code,
+      });
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       onSubmitted?.(result);
     } catch (error) {
@@ -74,21 +121,29 @@ export function PhotoCameraScreen({ onBack, onSubmitted }) {
     }
   }
 
-  function selectFallback(event) {
+  async function selectFallback(event) {
     const file = event.target.files?.[0];
-    if (!file) return;
-    setBlob(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    if (!file || state.status !== 'ready') return;
+    try {
+      const prepared = await prepareFallbackPhoto(file, state.challenge.captureChallenge?.code);
+      setBlob(prepared);
+      setPreviewUrl(URL.createObjectURL(prepared));
+    } catch (error) {
+      setState((current) => ({ ...current, submitError: error.message }));
+    }
   }
 
   if (state.status === 'loading') return <main className="app-shell photo-camera-screen"><button className="button secondary" onClick={onBack}>Назад</button><p>Проверяем активное фотозадание…</p></main>;
   if (state.status === 'empty') return <main className="app-shell photo-camera-screen"><button className="button secondary" onClick={onBack}>Назад</button><section className="hero-card"><h2>Нет активного задания</h2><p>Когда появится фотозадание, здесь откроется камера для его выполнения.</p></section></main>;
   if (state.status === 'error') return <main className="app-shell photo-camera-screen"><button className="button secondary" onClick={onBack}>Назад</button><p role="alert">{state.error.message}</p></main>;
 
+  const captureCode = state.challenge.captureChallenge?.code;
   return <main className="app-shell photo-camera-screen">
     <div className="photo-camera-header"><button className="button secondary" onClick={onBack}>Назад</button><div><p className="eyebrow">Фотозадание</p><strong>Сделайте фото сейчас</strong></div></div>
     <section className="hero-card photo-task-card">
-      <p>Сфотографируйте выполнение задания. Для бонусных заданий используется режим только камеры.</p>
+      <p>Сфотографируйте выполнение задания. Одноразовый Код Тимоши автоматически добавится на снимок.</p>
+      {captureCode && <div className="photo-capture-code"><span>Код Тимоши</span><strong>{captureCode}</strong></div>}
+      {state.challenge.captureChallenge?.expiresAt && <small>Код действует до {new Date(state.challenge.captureChallenge.expiresAt).toLocaleTimeString('ru-RU')}</small>}
       {state.challenge.deadlineAt && <small>Задание действительно до {new Date(state.challenge.deadlineAt).toLocaleString('ru-RU')}</small>}
     </section>
     <section className="photo-camera-stage">
