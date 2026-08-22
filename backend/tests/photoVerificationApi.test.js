@@ -16,14 +16,17 @@ function routeSignatures(router) {
     }));
 }
 
-test('customer photo verification router exposes own publication history only', () => {
+test('customer photo verification router exposes own history and camera challenge endpoints', () => {
   const router = createPhotoVerificationRouter({
     photoPublicationReadModel: { listForCustomer: async () => [] },
+    photoSubmissionIntakeService: {},
     authCoreService: {},
   });
 
   assert.deepEqual(routeSignatures(router), [
     { path: '/me/publications', methods: ['get'] },
+    { path: '/me/challenges/active', methods: ['get'] },
+    { path: '/me/challenges/:photoChallengeId/photo', methods: ['post'] },
   ]);
 });
 
@@ -48,6 +51,8 @@ test('composition root attaches shared repository-backed photo services', () => 
   assert.ok(result.photoVerificationRepository);
   assert.ok(result.photoVerificationAdminService);
   assert.ok(result.photoPublicationReadModel);
+  assert.ok(result.photoCaptureChallengeService);
+  assert.ok(result.photoRewardEngine);
   assert.equal(result.photoVerificationAdminService.repository, result.photoVerificationRepository);
   assert.equal(result.photoPublicationReadModel.repository, result.photoVerificationRepository);
 });
@@ -55,12 +60,15 @@ test('composition root attaches shared repository-backed photo services', () => 
 test('composition root preserves explicitly injected photo services', () => {
   const adminService = { custom: true };
   const readModel = { custom: true };
+  const captureService = { custom: true };
   const dependencies = {
     photoVerificationAdminService: adminService,
     photoPublicationReadModel: readModel,
+    photoCaptureChallengeService: captureService,
   };
 
   const result = attachPhotoVerificationRuntime(dependencies, { prisma: {} });
   assert.equal(result.photoVerificationAdminService, adminService);
   assert.equal(result.photoPublicationReadModel, readModel);
+  assert.equal(result.photoCaptureChallengeService, captureService);
 });
