@@ -29,9 +29,11 @@ export function PrivateChannelScreen({ onBack }) {
   }
 
   if (!state) return <main className="app-shell"><button onClick={onBack}>← Назад</button><p>Загрузка…</p>{message && <p>{message}</p>}</main>;
-  const { plan, subscription, paymentProvider, accessProvider, access = [] } = state;
+  const { plan, subscription, paymentProvider, accessProvider, access = [], renewalRecovery } = state;
   const active = subscription?.status === 'ACTIVE';
   const activeAccess = access.find((item) => item.status === 'ACTIVE');
+  const recoveryFailed = renewalRecovery?.status === 'FAILED';
+  const recoveryExhausted = renewalRecovery?.status === 'EXHAUSTED';
 
   return <main className="app-shell">
     <button type="button" onClick={onBack}>← Назад</button>
@@ -43,16 +45,26 @@ export function PrivateChannelScreen({ onBack }) {
       </div>
       <h3>{CHANNEL_LABEL[channelType]}</h3>
       <p>{plan.name}: {Number(plan.priceRub).toLocaleString('ru-RU')} ₽ на {plan.billingPeriodDays} дней.</p>
+      {recoveryFailed && <div role="status" style={{ padding: 12, border: '1px solid currentColor', borderRadius: 12, marginBottom: 12 }}>
+        <strong>Не удалось выполнить автопродление.</strong>
+        <p>Попытка {renewalRecovery.attemptCount}. Следующая безопасная попытка: {renewalRecovery.nextRetryAt ? new Date(renewalRecovery.nextRetryAt).toLocaleString('ru-RU') : 'будет определена системой'}.</p>
+        {renewalRecovery.graceUntil && <p>Льготный период: до {new Date(renewalRecovery.graceUntil).toLocaleString('ru-RU')}.</p>}
+      </div>}
+      {recoveryExhausted && <div role="alert" style={{ padding: 12, border: '1px solid currentColor', borderRadius: 12, marginBottom: 12 }}>
+        <strong>Автопродление остановлено.</strong>
+        <p>Все разрешённые попытки исчерпаны. Для продолжения подписки потребуется новая оплата.</p>
+        {renewalRecovery.graceUntil && <p>Льготный период завершится/завершился: {new Date(renewalRecovery.graceUntil).toLocaleString('ru-RU')}.</p>}
+      </div>}
       {!plan.isActive && <p><strong>Подписка пока не открыта.</strong> Платёжный и access-контур подготовлены, но продажи ещё не включены.</p>}
-      {plan.isActive && !active && <>
+      {plan.isActive && (!active || recoveryExhausted) && <>
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
           <span>Согласен на автоматическое продление подписки каждые {plan.billingPeriodDays} дней. Отменить автопродление можно в личном кабинете до следующего списания.</span>
         </label>
-        <button type="button" disabled={!paymentProvider.configured} onClick={() => checkout().catch((error) => setMessage(error.message))}>Перейти к оплате</button>
+        <button type="button" disabled={!paymentProvider.configured} onClick={() => checkout().catch((error) => setMessage(error.message))}>{recoveryExhausted ? 'Оплатить подписку заново' : 'Перейти к оплате'}</button>
         {!paymentProvider.configured && <small>Платёжный провайдер ещё не настроен для production.</small>}
       </>}
-      {active && <>
+      {active && !recoveryExhausted && <>
         <p><strong>Подписка активна.</strong></p>
         <p>Оплачено до: {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleString('ru-RU') : '—'}</p>
         <p>Автопродление: {subscription.recurringEnabled ? 'включено' : 'выключено'}</p>
