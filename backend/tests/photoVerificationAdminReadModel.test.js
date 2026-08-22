@@ -32,36 +32,62 @@ test('admin can update settings without enabling financial mechanics', async () 
 test('customer read model exposes independent VK Telegram MAX statuses', async () => {
   const readModel = new PhotoPublicationReadModel({
     repository: {
+      getSettings: async () => ({ requiredChannels: ['VK', 'TELEGRAM', 'MAX'] }),
       listCustomerPhotoHistory: async () => [{
         photoChallengeId: 'photo-1',
         createdAt: new Date('2026-08-22T12:00:00Z'),
         moderationStatus: 'approved',
         sourceFileStatus: 'deleted',
         publications: [
-          { channel: 'VK', status: 'confirmed', publicationUrl: 'https://vk.example/post', publishedAt: new Date() },
-          { channel: 'TELEGRAM', status: 'confirmed', publicationUrl: 'https://t.me/ice_robo_club/1', publishedAt: new Date() },
+          { channel: 'VK', status: 'published', publicationUrl: 'https://vk.example/post', publishedAt: new Date() },
+          { channel: 'TELEGRAM', status: 'published', publicationUrl: 'https://t.me/ice_robo_club/1', publishedAt: new Date() },
           { channel: 'MAX', status: 'failed', publicationUrl: null, publishedAt: null },
         ],
       }],
     },
   });
   const [item] = await readModel.listForCustomer('customer-1');
-  assert.equal(item.publications.VK.status, 'confirmed');
-  assert.equal(item.publications.TELEGRAM.status, 'confirmed');
+  assert.equal(item.publications.VK.status, 'published');
+  assert.equal(item.publications.TELEGRAM.status, 'published');
   assert.equal(item.publications.MAX.status, 'failed');
+  assert.deepEqual(item.requiredChannels, ['VK', 'TELEGRAM', 'MAX']);
   assert.equal(item.allRequiredPublished, false);
   assert.equal(item.sourceFileDeleted, true);
 });
 
-test('customer read model marks workflow complete only when all required channels confirmed', async () => {
+test('customer read model accepts published and confirmed as complete publication evidence', async () => {
   const readModel = new PhotoPublicationReadModel({
     repository: {
+      getSettings: async () => ({ requiredChannels: ['VK', 'TELEGRAM', 'MAX'] }),
       listCustomerPhotoHistory: async () => [{
         photoChallengeId: 'photo-2', createdAt: new Date(), moderationStatus: 'approved', sourceFileStatus: 'stored',
-        publications: ['VK', 'TELEGRAM', 'MAX'].map((channel) => ({ channel, status: 'confirmed', publicationUrl: null, publishedAt: new Date() })),
+        publications: [
+          { channel: 'VK', status: 'published', publicationUrl: null, publishedAt: new Date() },
+          { channel: 'TELEGRAM', status: 'confirmed', publicationUrl: null, publishedAt: new Date() },
+          { channel: 'MAX', status: 'published', publicationUrl: null, publishedAt: new Date() },
+        ],
       }],
     },
   });
   const [item] = await readModel.listForCustomer('customer-1');
+  assert.equal(item.allRequiredPublished, true);
+});
+
+test('customer read model uses configured required channels instead of hard-coded three-channel completion', async () => {
+  const readModel = new PhotoPublicationReadModel({
+    repository: {
+      getSettings: async () => ({ requiredChannels: ['VK', 'TELEGRAM'] }),
+      listCustomerPhotoHistory: async () => [{
+        photoChallengeId: 'photo-3', createdAt: new Date(), moderationStatus: 'approved', sourceFileStatus: 'stored',
+        publications: [
+          { channel: 'VK', status: 'published', publicationUrl: null, publishedAt: new Date() },
+          { channel: 'TELEGRAM', status: 'published', publicationUrl: null, publishedAt: new Date() },
+          { channel: 'MAX', status: 'failed', publicationUrl: null, publishedAt: null },
+        ],
+      }],
+    },
+  });
+  const [item] = await readModel.listForCustomer('customer-1');
+  assert.deepEqual(item.requiredChannels, ['VK', 'TELEGRAM']);
   assert.equal(item.allRequiredPublished, true);
 });
