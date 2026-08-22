@@ -1,11 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { PhotoVerificationMetricsService, resolvePeriod } = require('../src/modules/photo_verification/PhotoVerificationMetricsService');
+const { PhotoVerificationMetricsService, resolvePeriod, buildAdvisoryRecommendations } = require('../src/modules/photo_verification/PhotoVerificationMetricsService');
 
 const admin = { roles: ['ADMIN'], userId: 'admin-1' };
 const fixedNow = new Date('2026-08-22T15:00:00.000Z');
 
-test('metrics snapshot combines period moderation, recovery, quality, trends and channel counters', async () => {
+test('metrics snapshot combines period moderation, recovery, quality, recommendations, trends and channel counters', async () => {
   let query = 0;
   const prisma = {
     async $queryRaw() {
@@ -17,7 +17,8 @@ test('metrics snapshot combines period moderation, recovery, quality, trends and
       ];
       if (query === 3) return [{ day: new Date('2026-08-22T00:00:00Z'), autoApproved: 3n, autoRejected: 1n, manual: 2n }];
       if (query === 4) return [{ reviewedByHuman: 8n, comparable: 6n, agreements: 4n, disagreements: 2n, aiApproveHumanReject: 1n, aiRejectHumanApprove: 1n, aiEscalated: 2n }];
-      return [{ reasonCode: 'capture_code_mismatch', count: 3n }, { reasonCode: 'duplicate_suspected', count: 2n }];
+      if (query === 5) return [{ reasonCode: 'capture_code_mismatch', count: 3n }, { reasonCode: 'duplicate_suspected', count: 2n }];
+      return [{ mode: 'ai_assisted', approvalThreshold: 0.9, rejectionThreshold: 0.65, maxFraudScore: 0.5, challengeCodeEnabled: true }];
     },
   };
   const manualReviewService = {
@@ -49,6 +50,33 @@ test('metrics snapshot combines period moderation, recovery, quality, trends and
   assert.equal(result.quality.aiRejectHumanApprove, 1);
   assert.equal(result.quality.escalationReasons[0].reasonCode, 'capture_code_mismatch');
   assert.equal(result.quality.escalationReasons[0].count, 3);
+  assert.ok(result.recommendations.some((item) => item.id === 'review_visual_freshness'));
+  assert.ok(result.recommendations.every((item) => item.advisoryOnly === true));
+});
+
+test('advisory engine recommends manual-only review for high disagreement without applying changes', () => {
+  const recommendations = buildAdvisoryRecommendations({
+    quality: {
+      comparable: 20, disagreementPercent: 25, aiApproveHumanReject: 4, aiRejectHumanApprove: 1,
+      escalationReasons: [],
+    },
+    settings: { mode: 'ai_assisted', approvalThreshold: 0.9, rejectionThreshold: 0.65 },
+  });
+  const disagreement = recommendations.find((item) => item.id === 'high_disagreement_review_mode');
+  const approve = recommendations.find((item) => item.id === 'review_auto_approve_threshold');
+  assert.equal(disagreement.severity, 'high');
+  assert.match(disagreement.suggestedAction, /manual_only/);
+  assert.equal(approve.evidence.suggestedApprovalThreshold, 0.93);
+  assert.equal(approve.advisoryOnly, true);
+});
+
+test('advisory engine avoids strong tuning recommendation on a small control sample', () => {
+  const recommendations = buildAdvisoryRecommendations({
+    quality: { comparable: 3, disagreementPercent: 66.7, aiApproveHumanReject: 2, aiRejectHumanApprove: 0, escalationReasons: [] },
+    settings: { mode: 'ai_assisted', approvalThreshold: 0.9 },
+  });
+  assert.ok(recommendations.some((item) => item.id === 'collect_more_human_reviews'));
+  assert.equal(recommendations.some((item) => item.id === 'high_disagreement_review_mode'), false);
 });
 
 test('period resolver supports today, 7d, 30d and safe fallback', () => {
