@@ -10,7 +10,7 @@ export function StatusBadge({ status }) {
     READ_ONLY: 'Только чтение', RESERVED: 'Зарезервировано', RUNNING: 'Выполняется',
     STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
     WARNING: 'Предупреждение', SUSPENDED: 'Приостановлена', ARCHIVED: 'Архив', BLOCKED: 'Заблокирована',
-    INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль', READY: 'Готово',
+    INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
 }
