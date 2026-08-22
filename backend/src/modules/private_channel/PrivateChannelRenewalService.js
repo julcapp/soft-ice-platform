@@ -49,14 +49,10 @@ class PrivateChannelRenewalService {
     );
 
     try {
-      const payment = await this.paymentAdapter.createRecurringPayment({
-        subscription,
-        plan: subscription,
-        idempotencyKey,
-      });
+      const payment = await this.paymentAdapter.createRecurringPayment({ subscription, plan: subscription, idempotencyKey });
       await this.prisma.$executeRawUnsafe(
-        'UPDATE "PrivateChannelRenewalAttempt" SET "status"=$2, "providerPaymentId"=$3, "updatedAt"=$4 WHERE "id"=$1',
-        id, payment.status === 'succeeded' ? 'AWAITING_WEBHOOK' : 'AWAITING_WEBHOOK', payment.providerPaymentId || null, now,
+        'UPDATE "PrivateChannelRenewalAttempt" SET "status"=\'AWAITING_WEBHOOK\', "providerPaymentId"=$2, "updatedAt"=$3 WHERE "id"=$1',
+        id, payment.providerPaymentId || null, now,
       );
       return { id, subscriptionId: subscription.id, planCode: subscription.planCode, status: 'AWAITING_WEBHOOK', providerPaymentId: payment.providerPaymentId || null, idempotencyKey };
     } catch (error) {
@@ -67,6 +63,16 @@ class PrivateChannelRenewalService {
       );
       return { id, subscriptionId: subscription.id, planCode: subscription.planCode, status: 'FAILED', graceUntil, errorCode: error.code || 'RENEWAL_FAILED' };
     }
+  }
+
+  async markPaid(providerPaymentId) {
+    if (!providerPaymentId) return { changed: false };
+    const now = this.clock();
+    const affected = await this.prisma.$executeRawUnsafe(
+      'UPDATE "PrivateChannelRenewalAttempt" SET "status"=\'PAID\', "resolvedAt"=$2, "failureCode"=NULL, "failureMessage"=NULL, "updatedAt"=$2 WHERE "providerPaymentId"=$1 AND "status" IN (\'PROCESSING\',\'AWAITING_WEBHOOK\',\'FAILED\')',
+      providerPaymentId, now,
+    );
+    return { changed: Number(affected) > 0, providerPaymentId, resolvedAt: now };
   }
 
   async listRecovery({ limit = 100 } = {}) {
