@@ -3,8 +3,10 @@ const { PHOTO_PUBLISHING_TARGETS } = require('./publishingTargets');
 const PUBLICATION_STATUSES = Object.freeze({
   PENDING: 'pending',
   PUBLISHED: 'published',
+  CONFIRMED: 'confirmed',
   FAILED: 'failed',
   NOT_CONFIGURED: 'not_configured',
+  SKIPPED: 'skipped',
 });
 
 class PhotoPublishingOrchestrator {
@@ -26,8 +28,8 @@ class PhotoPublishingOrchestrator {
     })));
 
     const requiredResults = results.filter((result) => result.required);
-    const allRequiredPublished = requiredResults.every((result) => result.status === PUBLICATION_STATUSES.PUBLISHED);
-    const anyPublished = results.some((result) => result.status === PUBLICATION_STATUSES.PUBLISHED);
+    const allRequiredPublished = requiredResults.every((result) => isSuccessful(result.status));
+    const anyPublished = results.some((result) => isSuccessful(result.status));
 
     await this.repository.recordEvent({
       photoChallengeId,
@@ -37,7 +39,7 @@ class PhotoPublishingOrchestrator {
       payload: {
         allRequiredPublished,
         anyPublished,
-        channels: results.map(({ channel, status, required }) => ({ channel, status, required })),
+        channels: results.map(({ channel, status, required, skipped }) => ({ channel, status, required, skipped: Boolean(skipped) })),
       },
     });
 
@@ -45,8 +47,19 @@ class PhotoPublishingOrchestrator {
   }
 
   async #publishTarget({ photoChallengeId, target, media, caption, correlationId }) {
-    const publisher = this.publishers[target.channel];
+    const existing = await this.repository.getPublicationAttempt?.(photoChallengeId, target.channel);
+    if (existing && isSuccessful(existing.status)) {
+      return {
+        channel: target.channel,
+        required: target.required,
+        status: existing.status,
+        skipped: true,
+        externalPublicationId: existing.externalPublicationId || null,
+        publicationUrl: existing.publicationUrl || null,
+      };
+    }
 
+    const publisher = this.publishers[target.channel];
     if (!target.targetId || !publisher) {
       const status = PUBLICATION_STATUSES.NOT_CONFIGURED;
       await this.repository.upsertPublicationAttempt({
@@ -95,13 +108,13 @@ class PhotoPublishingOrchestrator {
         errorCode: error.code || 'PUBLISH_FAILED',
         errorMessage: error.message,
       });
-      return {
-        channel: target.channel,
-        required: target.required,
-        status: PUBLICATION_STATUSES.FAILED,
-      };
+      return { channel: target.channel, required: target.required, status: PUBLICATION_STATUSES.FAILED };
     }
   }
 }
 
-module.exports = { PhotoPublishingOrchestrator, PUBLICATION_STATUSES };
+function isSuccessful(status) {
+  return status === PUBLICATION_STATUSES.PUBLISHED || status === PUBLICATION_STATUSES.CONFIRMED;
+}
+
+module.exports = { PhotoPublishingOrchestrator, PUBLICATION_STATUSES, isSuccessful };
