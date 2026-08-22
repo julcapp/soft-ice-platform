@@ -12,12 +12,18 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   return router;
 }
 
-function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, adminAuth = {} }) {
+function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, photoAiRecommendationJournalService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
   router.get('/settings', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationAdminService.getSettings(req.securityContext, req.query.scope || 'default'))));
   router.patch('/settings', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationAdminService.updateSettings(req.securityContext, req.body || {}, req.query.scope || 'default'))));
   router.get('/metrics', asyncHandler(async (req, res) => sendData(res, req, await photoVerificationMetricsService.getSnapshot(req.securityContext, { period: req.query.period }))));
+
+  router.post('/recommendations/evaluate', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.evaluate(req.securityContext, { period: req.body?.period || req.query.period || '7d', correlationId: req.correlationId }))));
+  router.get('/recommendations/history', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.history(req.securityContext, { period: req.query.period || '7d', limit: req.query.limit }))));
+  router.post('/recommendations/:recommendationKey/viewed', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.markViewed(req.securityContext, req.params.recommendationKey, { correlationId: req.correlationId }))));
+  router.post('/recommendations/:recommendationKey/decision', asyncHandler(async (req, res) => sendData(res, req, await photoAiRecommendationJournalService.decide(req.securityContext, req.params.recommendationKey, { decision: req.body?.decision, comment: req.body?.comment, deferUntil: req.body?.deferUntil, correlationId: req.correlationId }))));
+
   router.get('/reviews', asyncHandler(async (req, res) => sendData(res, req, await photoManualReviewService.list(req.securityContext, { limit: req.query.limit }))));
   router.get('/reviews/:photoChallengeId', asyncHandler(async (req, res) => sendData(res, req, await photoManualReviewService.get(req.securityContext, req.params.photoChallengeId))));
   router.get('/reviews/:photoChallengeId/preview', asyncHandler(async (req, res) => {
