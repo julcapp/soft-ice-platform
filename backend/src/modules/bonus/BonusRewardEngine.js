@@ -19,6 +19,7 @@ class BonusRewardEngine {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const now = this.clock();
       const idempotencyId = randomUUID();
       const inserted = await tx.$queryRaw`
         INSERT INTO "IdempotencyRecord" (
@@ -27,7 +28,7 @@ class BonusRewardEngine {
           ${idempotencyId}, 'PHOTO_REWARD', ${idempotencyKey},
           ${JSON.stringify({ customerId, photoChallengeId })}::jsonb,
           ${`photo:${photoChallengeId}:customer:${customerId}:amount:${amountBonus}`},
-          'STARTED', ${correlationId}, ${this.clock()}, ${this.clock()}
+          'processing', ${correlationId}, ${now}, ${now}
         )
         ON CONFLICT ("scope", "key") DO NOTHING
         RETURNING "id"
@@ -41,7 +42,7 @@ class BonusRewardEngine {
           LIMIT 1
         `;
         const existing = existingRows[0];
-        if (existing?.status === 'COMPLETED' && existing.resultReference) {
+        if (existing?.status === 'completed' && existing.resultReference) {
           const rows = await tx.$queryRaw`
             SELECT "id", "amountBonus", "balanceAfterBonus"
             FROM "BonusTransaction"
@@ -62,13 +63,13 @@ class BonusRewardEngine {
 
       await tx.$executeRaw`
         INSERT INTO "BonusAccount" ("id", "customerId", "balanceBonus", "createdAt", "updatedAt")
-        VALUES (${randomUUID()}, ${customerId}, 0, ${this.clock()}, ${this.clock()})
+        VALUES (${randomUUID()}, ${customerId}, 0, ${now}, ${now})
         ON CONFLICT ("customerId") DO NOTHING
       `;
 
       const accountRows = await tx.$queryRaw`
         UPDATE "BonusAccount"
-        SET "balanceBonus" = "balanceBonus" + ${amountBonus}, "updatedAt" = ${this.clock()}
+        SET "balanceBonus" = "balanceBonus" + ${amountBonus}, "updatedAt" = ${now}
         WHERE "customerId" = ${customerId}
         RETURNING "balanceBonus"
       `;
@@ -84,13 +85,13 @@ class BonusRewardEngine {
         ) VALUES (
           ${transactionId}, ${customerId}, NULL, NULL, 'PHOTO_REWARD', 'credit', ${amountBonus},
           'PHOTO_VERIFICATION', 'Награда за подтверждённую публикацию фотографии',
-          'PhotoChallenge', ${photoChallengeId}, ${balanceAfterBonus}, NULL, ${this.clock()}, ${this.clock()}
+          'PhotoChallenge', ${photoChallengeId}, ${balanceAfterBonus}, NULL, ${now}, ${now}
         )
       `;
 
       await tx.$executeRaw`
         UPDATE "IdempotencyRecord"
-        SET "status" = 'COMPLETED', "resultReference" = ${transactionId}, "lastSeenAt" = ${this.clock()}
+        SET "status" = 'completed', "resultReference" = ${transactionId}, "lastSeenAt" = ${now}
         WHERE "scope" = 'PHOTO_REWARD' AND "key" = ${idempotencyKey}
       `;
 
