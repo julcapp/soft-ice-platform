@@ -59,9 +59,12 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
 
   async function prepare(item) {
     setBusy(item.recommendationKey); setNotice('');
-    try { setPrepared((current) => ({ ...current, [item.recommendationKey]: await preparePhotoAiRecommendationChange(item.recommendationKey) })); }
-    catch (error) { setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_NO_SAFE_PATCH' ? 'Для этой рекомендации нет безопасного автоматизированного diff. Изменение нужно выполнить вручную после анализа.' : 'Не удалось подготовить изменение.'); }
-    finally { setBusy(null); }
+    try {
+      const result = await preparePhotoAiRecommendationChange(item.recommendationKey);
+      setPrepared((current) => ({ ...current, [item.recommendationKey]: result }));
+    } catch (error) {
+      setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_NO_SAFE_PATCH' ? 'Для этой рекомендации нет безопасного автоматизированного diff. Изменение нужно выполнить вручную после анализа.' : 'Не удалось подготовить изменение.');
+    } finally { setBusy(null); }
   }
 
   async function apply(item) {
@@ -78,8 +81,10 @@ export function PhotoAiRecommendationJournal({ period = '7d' }) {
 
   async function prepareRollback(application) {
     setBusy(application.preparationId); setNotice('');
-    try { setRollback((current) => ({ ...current, [application.preparationId]: await preparePhotoAiRecommendationRollback(application.preparationId) })); }
-    catch (error) { setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_ROLLBACK_SETTINGS_CHANGED' ? 'Настройки после применения уже изменились. Автоматический откат заблокирован.' : 'Не удалось подготовить откат.'); }
+    try {
+      const result = await preparePhotoAiRecommendationRollback(application.preparationId);
+      setRollback((current) => ({ ...current, [application.preparationId]: result }));
+    } catch (error) { setNotice(error.code === 'PHOTO_AI_RECOMMENDATION_ROLLBACK_SETTINGS_CHANGED' ? 'Настройки после применения уже изменились. Автоматический откат заблокирован.' : 'Не удалось подготовить откат.'); }
     finally { setBusy(null); }
   }
 
