@@ -59,19 +59,22 @@ test('VK publisher follows upload/save/post flow', async () => {
   assert.equal(result.publicationUrl, 'https://vk.com/wall-239119350_77');
 });
 
-test('OpenAI provider sends image and parses strict verification JSON', async () => {
+test('OpenAI provider requests visual capture code OCR and parses detected code', async () => {
   let requestBody;
   const fetchImpl = async (_url, options) => {
     requestBody = JSON.parse(options.body);
-    return { ok: true, status: 200, async json() { return { model: 'vision-model', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ decision: 'approved', confidence: 0.96, fraudScore: 0.1, reasonCode: 'challenge_completed', checks: { challengeRelevant: true, requiredSubjectsPresent: true, imageQualityAcceptable: true, screenshotSuspected: false, unsafeContent: false } }) }] }] }; } };
+    return { ok: true, status: 200, async json() { return { model: 'vision-model', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ decision: 'approved', confidence: 0.96, fraudScore: 0.1, reasonCode: 'challenge_completed', checks: { challengeRelevant: true, requiredSubjectsPresent: true, imageQualityAcceptable: true, screenshotSuspected: false, unsafeContent: false, captureCodeVisible: true, detectedCaptureCode: 'ТИМОША-483721' } }) }] }] }; } };
   };
   const provider = new OpenAIVisionProvider({ apiKey: 'secret', model: 'vision-model', fetchImpl, mediaLoader: async () => ({ buffer: Buffer.from('image'), mimeType: 'image/jpeg' }) });
   const result = await provider.analyze({ storageKey: 'a.jpg', rules: {}, metadata: {}, antifraud: {} });
   assert.equal(result.decision, 'approved');
   assert.equal(result.confidence, 0.96);
+  assert.equal(result.checks.captureCodeVisible, true);
+  assert.equal(result.checks.detectedCaptureCode, 'ТИМОША-483721');
   assert.equal(requestBody.store, false);
   assert.match(requestBody.input[0].content[1].image_url, /^data:image\/jpeg;base64,/);
   assert.equal(requestBody.text.format.type, 'json_schema');
+  assert.ok(requestBody.text.format.schema.properties.checks.required.includes('detectedCaptureCode'));
 });
 
 test('production adapters fail closed when credentials are absent', async () => {
