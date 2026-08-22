@@ -11,6 +11,7 @@ const { TelegramPrivateChannelAccessAdapter } = require('../../modules/private_c
 const { MaxPrivateChannelAccessAdapter } = require('../../modules/private_channel/MaxPrivateChannelAccessAdapter');
 const { PrivateChannelAccessService } = require('../../modules/private_channel/PrivateChannelAccessService');
 const { PrivateChannelRenewalService } = require('../../modules/private_channel/PrivateChannelRenewalService');
+const { PrivateChannelRecoveryService } = require('../../modules/private_channel/PrivateChannelRecoveryService');
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
@@ -39,6 +40,7 @@ const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('./photoVerificationRoutes');
 const { createPrivateChannelRouter } = require('./privateChannelRoutes');
+const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -49,10 +51,11 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const maxPrivateChannelAccessAdapter = dependencies.maxPrivateChannelAccessAdapter || new MaxPrivateChannelAccessAdapter();
   const privateChannelAccessService = dependencies.privateChannelAccessService || new PrivateChannelAccessService({ prisma, adapters: { TELEGRAM: telegramPrivateChannelAccessAdapter, MAX: maxPrivateChannelAccessAdapter } });
   const privateChannelRenewalService = dependencies.privateChannelRenewalService || new PrivateChannelRenewalService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
+  const privateChannelRecoveryService = dependencies.privateChannelRecoveryService || new PrivateChannelRecoveryService({ prisma, renewalService: privateChannelRenewalService, accessService: privateChannelAccessService, crmRuntime: dependencies.crmRuntime || null });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, customerProfileCommunicationService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
@@ -65,6 +68,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/club-account', createClubAccountRouter(runtimeDependencies));
   router.use('/club-accounts', createClubAccountRouter(runtimeDependencies));
   router.use('/private-channel', createPrivateChannelRouter(runtimeDependencies));
+  router.use('/admin/private-channel', createAdminPrivateChannelRouter(runtimeDependencies));
   router.use('/machines', createMachineRouter(runtimeDependencies));
   router.use('/machine-operations', createMachineOperationsRouter(runtimeDependencies));
   router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
