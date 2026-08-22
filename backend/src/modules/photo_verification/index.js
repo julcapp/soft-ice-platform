@@ -12,6 +12,7 @@ const { PhotoManualReviewService, MANUAL_ACTIONS } = require('./PhotoManualRevie
 const { PhotoVerificationMetricsService } = require('./PhotoVerificationMetricsService');
 const { PhotoAiRecommendationJournalService, DECISIONS: PHOTO_AI_RECOMMENDATION_DECISIONS } = require('./PhotoAiRecommendationJournalService');
 const { PhotoAiRecommendationApplicationService } = require('./PhotoAiRecommendationApplicationService');
+const { PhotoAiRecommendationRollbackService } = require('./PhotoAiRecommendationRollbackService');
 const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
 const { PhotoRewardPolicy } = require('./PhotoRewardPolicy');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
@@ -45,11 +46,13 @@ module.exports = {
     'production publishing adapters', 'production multimodal AI provider boundary', 'end-to-end moderation orchestration',
     'reward engine boundary', 'manual photo review queue and moderation decisions', 'photo verification operational metrics',
     'AI recommendation advisory journal and admin decisions', 'two-step guarded AI recommendation application',
+    'two-step guarded AI recommendation rollback',
   ],
   PhotoVerificationAgent, MockVisionProvider, OpenAIVisionProvider, PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository, LocalPhotoStorageAdapter, PhotoSubmissionIntakeService, PhotoCaptureChallengeService,
   PhotoModerationLifecycle, PhotoModerationOrchestrator, PhotoManualReviewService, MANUAL_ACTIONS, PhotoVerificationMetricsService,
-  PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PHOTO_AI_RECOMMENDATION_DECISIONS,
+  PhotoAiRecommendationJournalService, PhotoAiRecommendationApplicationService, PhotoAiRecommendationRollbackService,
+  PHOTO_AI_RECOMMENDATION_DECISIONS,
   BlockedPhotoRewardEngine, PhotoRewardPolicy, MetadataAnalyzer, ImageFingerprintService, SharpImageDecoder,
   DuplicateDetector, PhotoTechnicalAnalyzer, PhotoCustomerWorkflow, CrmPhotoNotifier, PhotoVerificationAdminService,
   PhotoPublicationReadModel, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher, PhotoPublishingOrchestrator,
