@@ -55,6 +55,17 @@ class PrismaPhotoVerificationRepository {
     return rowId;
   }
 
+  async findFingerprintCandidates({ photoChallengeId, sha256, limit = 250 }) {
+    const rows = await this.prisma.$queryRaw`
+      SELECT "photoChallengeId", "sha256", "pHash", "dHash"
+      FROM "PhotoFingerprint"
+      WHERE "photoChallengeId" <> ${photoChallengeId}
+      ORDER BY CASE WHEN "sha256" = ${sha256} THEN 0 ELSE 1 END, "createdAt" DESC
+      LIMIT ${limit}
+    `;
+    return rows;
+  }
+
   async recordPublication(input) {
     const rowId = input.id || id();
     await this.prisma.$executeRaw`
