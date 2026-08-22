@@ -14,11 +14,12 @@ function createCustomer360Router({ customer360Runtime, authCoreService }) {
   return router;
 }
 
-function createAdminCustomer360Router({ customer360Runtime, adminAuth = {} }) {
+function createAdminCustomer360Router({ customer360Runtime, customerPaymentProfileService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
   router.get('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getProfile(req.params.customerId))));
   router.get('/customers/:customerId/timeline', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getTimeline(req.params.customerId, req.query))));
+  router.get('/customers/:customerId/payment-profile', asyncHandler(async (req, res) => sendData(res, req, await customerPaymentProfileService.get(req.params.customerId))));
   return router;
 }
 
