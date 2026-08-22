@@ -83,13 +83,13 @@ class PrismaPhotoVerificationRepository {
     return rows[0] || null;
   }
 
-  async consumeCaptureChallenge({ photoChallengeId, customerId, issuedEventId, correlationId }) {
+  async consumeCaptureChallenge({ photoChallengeId, customerId, issuedEventId, correlationId, reason = 'submitted' }) {
     return this.recordEvent({
       photoChallengeId,
       eventType: 'capture_challenge_consumed',
       eventSource: 'photo_capture_challenge_service',
       correlationId,
-      payload: { customerId, issuedEventId, consumedAt: new Date().toISOString() },
+      payload: { customerId, issuedEventId, reason, consumedAt: new Date().toISOString() },
     });
   }
 
