@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { PhotoVerificationAdminService } = require('../src/modules/photo_verification/PhotoVerificationAdminService');
 const { PhotoPublicationReadModel } = require('../src/modules/photo_verification/PhotoPublicationReadModel');
+const { PhotoRewardPolicy } = require('../src/modules/photo_verification/PhotoRewardPolicy');
 
 test('admin settings deny non-admin roles', async () => {
   const service = new PhotoVerificationAdminService({ repository: { getSettings: async () => ({}) } });
@@ -27,6 +28,36 @@ test('admin can update settings without enabling financial mechanics', async () 
   assert.equal(calls[0].updatedBy, 'admin-1');
   assert.equal(Object.hasOwn(result, 'discountPercent'), false);
   assert.equal(Object.hasOwn(result, 'bonusPercent'), false);
+});
+
+test('admin may leave photo reward unconfigured', async () => {
+  const calls = [];
+  const service = new PhotoVerificationAdminService({ repository: { upsertSettings: async (input) => { calls.push(input); return input; } } });
+  const result = await service.updateSettings({ roles: ['ADMIN'], userId: 'admin-1' }, { rewardBonusUnits: null });
+  assert.equal(result.rewardBonusUnits, null);
+  assert.equal(calls[0].rewardBonusUnits, null);
+});
+
+test('admin reward setting accepts only a positive integer', async () => {
+  const service = new PhotoVerificationAdminService({ repository: { upsertSettings: async (input) => input } });
+  await assert.rejects(
+    () => service.updateSettings({ roles: ['ADMIN'] }, { rewardBonusUnits: 0 }),
+    (error) => error.code === 'PHOTO_REWARD_BONUS_UNITS_INVALID' && error.statusCode === 400,
+  );
+  await assert.rejects(
+    () => service.updateSettings({ roles: ['ADMIN'] }, { rewardBonusUnits: 1.5 }),
+    (error) => error.code === 'PHOTO_REWARD_BONUS_UNITS_INVALID',
+  );
+  const result = await service.updateSettings({ roles: ['ADMIN'] }, { rewardBonusUnits: '25' });
+  assert.equal(result.rewardBonusUnits, 25);
+});
+
+test('settings-backed photo reward policy fails closed until amount is configured', async () => {
+  const emptyPolicy = new PhotoRewardPolicy({ repository: { getSettings: async () => ({ rewardBonusUnits: null }) } });
+  assert.equal(await emptyPolicy.resolveBonusUnits({ photoChallengeId: 'p1', customerId: 'c1' }), null);
+
+  const configuredPolicy = new PhotoRewardPolicy({ repository: { getSettings: async () => ({ rewardBonusUnits: 25 }) } });
+  assert.equal(await configuredPolicy.resolveBonusUnits({ photoChallengeId: 'p1', customerId: 'c1' }), 25);
 });
 
 test('customer read model exposes independent VK Telegram MAX statuses', async () => {
