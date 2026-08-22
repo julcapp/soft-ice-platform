@@ -7,6 +7,8 @@ const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
 const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
 const { YooKassaPrivateChannelPaymentAdapter } = require('../../modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
+const { TelegramPrivateChannelAccessAdapter } = require('../../modules/private_channel/TelegramPrivateChannelAccessAdapter');
+const { PrivateChannelAccessService } = require('../../modules/private_channel/PrivateChannelAccessService');
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
@@ -41,10 +43,12 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const prisma = getPrismaClient();
   const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
   const privateChannelPaymentAdapter = dependencies.privateChannelPaymentAdapter || new YooKassaPrivateChannelPaymentAdapter();
+  const privateChannelAccessAdapter = dependencies.privateChannelAccessAdapter || new TelegramPrivateChannelAccessAdapter();
+  const privateChannelAccessService = dependencies.privateChannelAccessService || new PrivateChannelAccessService({ prisma, adapter: privateChannelAccessAdapter });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, customerProfileCommunicationService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, customerProfileCommunicationService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
