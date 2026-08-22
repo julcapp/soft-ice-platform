@@ -103,6 +103,83 @@ class PrismaPhotoVerificationRepository {
     return rowId;
   }
 
+  async getSettings(scopeKey = 'default') {
+    const rows = await this.prisma.$queryRaw`
+      SELECT * FROM "PhotoVerificationSettings" WHERE "scopeKey" = ${scopeKey} LIMIT 1
+    `;
+    return rows[0] || null;
+  }
+
+  async upsertSettings(input) {
+    const current = await this.getSettings(input.scopeKey || 'default');
+    const next = {
+      scopeKey: input.scopeKey || 'default',
+      enabled: input.enabled ?? current?.enabled ?? false,
+      mode: input.mode ?? current?.mode ?? 'manual_only',
+      publishingEnabled: input.publishingEnabled ?? current?.publishingEnabled ?? false,
+      requiredChannels: input.requiredChannels ?? current?.requiredChannels ?? ['VK', 'TELEGRAM', 'MAX'],
+      approvalThreshold: input.approvalThreshold ?? current?.approvalThreshold ?? 0.9,
+      rejectionThreshold: input.rejectionThreshold ?? current?.rejectionThreshold ?? 0.65,
+      maxFraudScore: input.maxFraudScore ?? current?.maxFraudScore ?? 0.5,
+      duplicateChecksEnabled: input.duplicateChecksEnabled ?? current?.duplicateChecksEnabled ?? true,
+      metadataChecksEnabled: input.metadataChecksEnabled ?? current?.metadataChecksEnabled ?? true,
+      challengeCodeEnabled: input.challengeCodeEnabled ?? current?.challengeCodeEnabled ?? false,
+      retentionPolicy: input.retentionPolicy ?? current?.retentionPolicy ?? 'delete_after_publication',
+      provider: input.provider ?? current?.provider ?? null,
+      model: input.model ?? current?.model ?? null,
+      updatedBy: input.updatedBy ?? null,
+    };
+    await this.prisma.$executeRaw`
+      INSERT INTO "PhotoVerificationSettings" (
+        "scopeKey", "enabled", "mode", "publishingEnabled", "requiredChannels",
+        "approvalThreshold", "rejectionThreshold", "maxFraudScore",
+        "duplicateChecksEnabled", "metadataChecksEnabled", "challengeCodeEnabled",
+        "retentionPolicy", "provider", "model", "updatedBy"
+      ) VALUES (
+        ${next.scopeKey}, ${next.enabled}, ${next.mode}, ${next.publishingEnabled}, ${JSON.stringify(next.requiredChannels)}::jsonb,
+        ${next.approvalThreshold}, ${next.rejectionThreshold}, ${next.maxFraudScore},
+        ${next.duplicateChecksEnabled}, ${next.metadataChecksEnabled}, ${next.challengeCodeEnabled},
+        ${next.retentionPolicy}, ${next.provider}, ${next.model}, ${next.updatedBy}
+      )
+      ON CONFLICT ("scopeKey") DO UPDATE SET
+        "enabled" = EXCLUDED."enabled", "mode" = EXCLUDED."mode",
+        "publishingEnabled" = EXCLUDED."publishingEnabled", "requiredChannels" = EXCLUDED."requiredChannels",
+        "approvalThreshold" = EXCLUDED."approvalThreshold", "rejectionThreshold" = EXCLUDED."rejectionThreshold",
+        "maxFraudScore" = EXCLUDED."maxFraudScore", "duplicateChecksEnabled" = EXCLUDED."duplicateChecksEnabled",
+        "metadataChecksEnabled" = EXCLUDED."metadataChecksEnabled", "challengeCodeEnabled" = EXCLUDED."challengeCodeEnabled",
+        "retentionPolicy" = EXCLUDED."retentionPolicy", "provider" = EXCLUDED."provider",
+        "model" = EXCLUDED."model", "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = CURRENT_TIMESTAMP
+    `;
+    return this.getSettings(next.scopeKey);
+  }
+
+  async listCustomerPhotoHistory(customerId) {
+    return this.prisma.$queryRaw`
+      SELECT
+        pc."id" AS "photoChallengeId",
+        pc."createdAt" AS "createdAt",
+        pc."status" AS "moderationStatus",
+        COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'channel', pp."channel",
+              'status', pp."status",
+              'publicationUrl', pp."publicationUrl",
+              'publishedAt', pp."publishedAt"
+            )
+          ) FILTER (WHERE pp."id" IS NOT NULL),
+          '[]'::jsonb
+        ) AS publications,
+        MAX(psd."status") AS "sourceFileStatus"
+      FROM "PhotoChallenge" pc
+      LEFT JOIN "PhotoPublication" pp ON pp."photoChallengeId" = pc."id"
+      LEFT JOIN "PhotoSourceDeletion" psd ON psd."photoChallengeId" = pc."id"
+      WHERE pc."customerId" = ${customerId}
+      GROUP BY pc."id", pc."createdAt", pc."status"
+      ORDER BY pc."createdAt" DESC
+    `;
+  }
+
   async markSourceDeletion(input) {
     const rowId = input.id || id();
     await this.prisma.$executeRaw`
@@ -115,12 +192,9 @@ class PrismaPhotoVerificationRepository {
         ${input.deletedAt || null}, ${input.errorMessage || null}
       )
       ON CONFLICT ("photoChallengeId") DO UPDATE SET
-        "storageKey" = EXCLUDED."storageKey",
-        "status" = EXCLUDED."status",
-        "deleteReason" = EXCLUDED."deleteReason",
-        "requestedAt" = EXCLUDED."requestedAt",
-        "deletedAt" = EXCLUDED."deletedAt",
-        "errorMessage" = EXCLUDED."errorMessage",
+        "storageKey" = EXCLUDED."storageKey", "status" = EXCLUDED."status",
+        "deleteReason" = EXCLUDED."deleteReason", "requestedAt" = EXCLUDED."requestedAt",
+        "deletedAt" = EXCLUDED."deletedAt", "errorMessage" = EXCLUDED."errorMessage",
         "updatedAt" = CURRENT_TIMESTAMP
     `;
     return rowId;
