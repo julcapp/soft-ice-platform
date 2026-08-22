@@ -14,6 +14,7 @@ import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
 import { PhotoVerificationSettingsPage } from './PhotoVerificationSettings';
+import { PhotoModerationQueuePage } from './PhotoModerationQueue';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -28,7 +29,7 @@ export function Dashboard({ data }) {
     <FreshnessIndicator freshness={data.freshness} />
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
       <div><strong>Проверка и публикация фотографий</strong><p style={{ margin: '6px 0 0' }}>AI-модерация, антидубли и публикации VK / Telegram / MAX.</p></div>
-      <a className="text-button" href="#photo-verification">Открыть настройки</a>
+      <a className="text-button" href="#photo-verification">Открыть модерацию</a>
     </section>
     <AlertPanel alerts={critical} />
     <section className="statistics" aria-label="Статистика за сегодня">
@@ -84,7 +85,7 @@ export function App({ client = getDashboard }) {
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
   const photoVerificationRoute = route === 'photo-verification';
-  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Управление AI-модерацией, антидублями и публикациями VK / Telegram / MAX." editable /><PhotoVerificationSettingsPage /></AppShell>;
+  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
