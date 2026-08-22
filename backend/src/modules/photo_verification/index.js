@@ -6,6 +6,8 @@ const { PrismaPhotoSubmissionRepository } = require('./PrismaPhotoSubmissionRepo
 const { LocalPhotoStorageAdapter } = require('./LocalPhotoStorageAdapter');
 const { PhotoSubmissionIntakeService } = require('./PhotoSubmissionIntakeService');
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
+const { PhotoModerationOrchestrator } = require('./PhotoModerationOrchestrator');
+const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
 const { ImageFingerprintService } = require('./ImageFingerprintService');
 const { SharpImageDecoder } = require('./SharpImageDecoder');
@@ -57,6 +59,8 @@ module.exports = {
     'production image decoding boundary',
     'production publishing adapters',
     'production multimodal AI provider boundary',
+    'end-to-end moderation orchestration',
+    'reward engine boundary',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -66,6 +70,8 @@ module.exports = {
   LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService,
   PhotoModerationLifecycle,
+  PhotoModerationOrchestrator,
+  BlockedPhotoRewardEngine,
   MetadataAnalyzer,
   ImageFingerprintService,
   SharpImageDecoder,
