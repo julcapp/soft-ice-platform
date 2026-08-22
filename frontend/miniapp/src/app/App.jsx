@@ -12,6 +12,7 @@ import { PhotoPublicationHistory } from '../photo-verification/PhotoPublicationH
 import { PhotoCameraScreen } from '../photo-verification/PhotoCameraScreen.jsx';
 import { ProfileCenter } from '../profile/ProfileCenter.jsx';
 import { ReferralCenter } from '../profile/ReferralCenter.jsx';
+import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
 
 export function App() {
   const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
@@ -26,6 +27,7 @@ export function App() {
   if (appMode === 'gifts') return <MyGifts gifts={[]} api={GiftTransferApi} />;
   if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => { window.location.search = '?mode=camera'; }} />;
   if (appMode === 'camera') return <PhotoCameraScreen onBack={() => { window.location.search = '?mode=photos'; }} onSubmitted={() => { window.location.search = '?mode=photos'; }} />;
+  if (appMode === 'verify-email') return <VerifyEmailScreen />;
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
   if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
