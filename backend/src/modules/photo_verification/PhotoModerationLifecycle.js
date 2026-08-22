@@ -75,7 +75,7 @@ class PhotoModerationLifecycle {
       payload: { storageKey, deleteReason: 'publication_confirmed' },
     });
 
-    return PHOTO_SUBMISSION_STATUSES.SOURCE_DELETED;
+    return PHOTO_SUBMISSION_STATUSES.SOURCE_FILE_DELETED;
   }
 }
 
