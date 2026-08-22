@@ -5,6 +5,7 @@ const {
   PrismaPhotoSubmissionRepository,
   LocalPhotoStorageAdapter,
   PhotoSubmissionIntakeService,
+  PhotoCaptureChallengeService,
   PhotoCustomerWorkflow,
   CrmPhotoNotifier,
   PhotoVerificationAdminService,
@@ -33,6 +34,11 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   const storage = dependencies.photoStorage || new LocalPhotoStorageAdapter();
   const notifier = dependencies.photoNotifier || new CrmPhotoNotifier({ crmRuntime: dependencies.crmRuntime, logger });
   const customerWorkflow = dependencies.photoCustomerWorkflow || new PhotoCustomerWorkflow({ repository, notifier });
+  const captureChallengeService = dependencies.photoCaptureChallengeService || new PhotoCaptureChallengeService({
+    repository,
+    secret: process.env.PHOTO_CAPTURE_CHALLENGE_SECRET,
+    ttlSeconds: process.env.PHOTO_CAPTURE_CHALLENGE_TTL_SECONDS || 180,
+  });
   const imageDecoder = dependencies.photoImageDecoder || new SharpImageDecoder();
   const fingerprintService = dependencies.photoFingerprintService || new ImageFingerprintService({ imageDecoder });
   const duplicateDetector = dependencies.photoDuplicateDetector || new DuplicateDetector({ repository });
@@ -85,6 +91,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoStorage = storage;
   dependencies.photoNotifier = notifier;
   dependencies.photoCustomerWorkflow = customerWorkflow;
+  dependencies.photoCaptureChallengeService = captureChallengeService;
   dependencies.photoImageDecoder = imageDecoder;
   dependencies.photoFingerprintService = fingerprintService;
   dependencies.photoDuplicateDetector = duplicateDetector;
@@ -112,6 +119,7 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
     repository: submissionRepository,
     storage,
     customerWorkflow,
+    captureChallengeService,
   });
 
   return dependencies;
