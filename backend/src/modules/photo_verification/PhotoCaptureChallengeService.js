@@ -12,6 +12,17 @@ class PhotoCaptureChallengeService {
 
   async issue({ photoChallengeId, customerId, correlationId = null }) {
     this.#assertConfigured();
+    const previous = await this.repository.findActiveCaptureChallenge({ photoChallengeId, customerId, now: this.clock() });
+    if (previous) {
+      await this.repository.consumeCaptureChallenge({
+        photoChallengeId,
+        customerId,
+        issuedEventId: previous.id,
+        correlationId,
+        reason: 'rotated',
+      });
+    }
+
     const code = `ТИМОША-${String(this.randomInt(0, 1000000)).padStart(6, '0')}`;
     const issuedAt = this.clock();
     const expiresAt = new Date(issuedAt.getTime() + this.ttlSeconds * 1000);
@@ -41,7 +52,7 @@ class PhotoCaptureChallengeService {
   }
 
   async consume({ photoChallengeId, customerId, issuedEventId, correlationId = null }) {
-    await this.repository.consumeCaptureChallenge({ photoChallengeId, customerId, issuedEventId, correlationId });
+    await this.repository.consumeCaptureChallenge({ photoChallengeId, customerId, issuedEventId, correlationId, reason: 'submitted' });
   }
 
   #hash({ photoChallengeId, customerId, code }) {
