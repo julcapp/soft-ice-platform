@@ -6,7 +6,7 @@ import { ActionCard } from '../components/molecules/ActionCard/ActionCard.jsx';
 import { trackEvent } from '../analytics/trackEvent.js';
 import { getProfileState } from '../profile/CustomerProfileApi.js';
 
-export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera, onProfile, onReferral }) {
+export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera, onProfile, onReferral, onPrivateChannel }) {
   const [unreadCount, setUnreadCount] = useState(0);
   useEffect(() => { getProfileState().then((state) => setUnreadCount(Number(state?.unreadNotifications || 0))).catch(() => {}); }, []);
   function openProduct() { trackEvent('ProductOpened', { product_id: 'soft_ice_cup' }); onBuy(); }
@@ -24,6 +24,7 @@ export function MiniAppHomePage({ onConsentAccepted, onBuy, onPhotos, onCamera, 
         <ActionCard icon="🍦" title="Купить мороженое" description="Вкус дня, сироп и топпинг на выбор" badge="130 ₽" onClick={openProduct} />
         <ActionCard icon="🔔" title="Личный кабинет" description="Профиль, дата рождения, email и непрочитанные уведомления" badge={unreadCount ? `${unreadCount}` : undefined} onClick={onProfile} />
         <ActionCard icon="🤝" title="Пригласить друга" description="Скопировать или отправить персональную реферальную ссылку" onClick={onReferral} />
+        <ActionCard icon="🔒" title="Приватный канал" description="Статус платной подписки и управление автопродлением" onClick={onPrivateChannel} />
         <ActionCard icon="📸" title="Выполнить фотозадание" description="Откроем камеру и отправим фото на модерацию" onClick={openCamera} />
         <ActionCard icon="📷" title="Мои фотографии" description="Модерация и публикации в VK, Telegram и MAX" onClick={openPhotos} />
         <ActionCard icon="🎁" title="Клуб Тимоши" description="Участие в клубе, бонусы и специальные предложения" onClick={() => trackEvent('ClubOfferShown')} />
