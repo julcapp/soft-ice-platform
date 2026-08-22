@@ -50,52 +50,40 @@ class CRMRepository {
     });
   }
 
+  async findProfileCommunication(customerId) {
+    const [verificationRows, consentRows, unreadRows] = await Promise.all([
+      this.prisma.$queryRaw`SELECT "email", "status", "expiresAt", "verifiedAt", "createdAt" FROM "CustomerEmailVerification" WHERE "customerId"=${customerId} ORDER BY "createdAt" DESC LIMIT 1`,
+      this.prisma.$queryRaw`SELECT "isGranted", "rulesVersion", "rulesUrl", "sourceChannel", "correlationId", "grantedAt", "revokedAt", "createdAt" FROM "CustomerCommunicationConsent" WHERE "customerId"=${customerId} AND "consentType"='MARKETING_EMAIL' ORDER BY "createdAt" DESC LIMIT 1`,
+      this.prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM "CustomerNotification" WHERE "customerId"=${customerId} AND "readAt" IS NULL`,
+    ]);
+    return {
+      emailVerification: verificationRows?.[0] || null,
+      marketingEmailConsent: consentRows?.[0] || null,
+      unreadNotifications: Number(unreadRows?.[0]?.count || 0),
+    };
+  }
+
   async findCustomersByIds(customerIds = []) {
     const ids = [...new Set(customerIds.filter(Boolean))];
     if (!ids.length) return [];
-    return this.prisma.customer.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, name: true, phone: true, email: true, status: true },
-    });
+    return this.prisma.customer.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, phone: true, email: true, status: true } });
   }
 
   async findActiveSubscription(customerId, channelType) {
     return this.prisma.customerChannelSubscription.findFirst({
-      where: {
-        customerId,
-        channelType: String(channelType || '').toUpperCase(),
-        isSubscribed: true,
-      },
+      where: { customerId, channelType: String(channelType || '').toUpperCase(), isSubscribed: true },
       orderBy: { updatedAt: 'desc' },
     });
   }
 
   upsertProfile(customerId, data) {
-    return this.prisma.crmCustomerProfile.upsert({
-      where: { customerId },
-      create: { customerId, ...data },
-      update: data,
-    });
+    return this.prisma.crmCustomerProfile.upsert({ where: { customerId }, create: { customerId, ...data }, update: data });
   }
-
-  listCampaigns() {
-    return this.prisma.crmCampaign.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'asc' }] });
-  }
-
-  createCampaign(data) {
-    return this.prisma.crmCampaign.create({ data });
-  }
-
-  createNotification(data) {
-    return this.prisma.crmNotificationDelivery.create({ data });
-  }
-
+  listCampaigns() { return this.prisma.crmCampaign.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'asc' }] }); }
+  createCampaign(data) { return this.prisma.crmCampaign.create({ data }); }
+  createNotification(data) { return this.prisma.crmNotificationDelivery.create({ data }); }
   listNotifications({ limit = 50 } = {}) {
-    return this.prisma.crmNotificationDelivery.findMany({
-      take: Math.min(Number(limit) || 50, 100),
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      include: { campaign: true },
-    });
+    return this.prisma.crmNotificationDelivery.findMany({ take: Math.min(Number(limit) || 50, 100), orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], include: { campaign: true } });
   }
 
   async dashboard() {
@@ -107,15 +95,7 @@ class CRMRepository {
       this.prisma.order.aggregate({ _count: true, _sum: { amountPaidRub: true } }),
       this.prisma.bonusAccount.aggregate({ _sum: { balanceBonus: true } }),
     ]);
-    return {
-      customers,
-      activeCustomers,
-      campaigns,
-      queuedNotifications,
-      purchases: orders._count,
-      revenueRub: Number(orders._sum.amountPaidRub || 0),
-      bonusLiability: Number(bonus._sum.balanceBonus || 0),
-    };
+    return { customers, activeCustomers, campaigns, queuedNotifications, purchases: orders._count, revenueRub: Number(orders._sum.amountPaidRub || 0), bonusLiability: Number(bonus._sum.balanceBonus || 0) };
   }
 }
 
