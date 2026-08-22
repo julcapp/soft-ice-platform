@@ -56,28 +56,49 @@ class PrismaPhotoVerificationRepository {
   }
 
   async findFingerprintCandidates({ photoChallengeId, sha256, limit = 250 }) {
-    const rows = await this.prisma.$queryRaw`
+    return this.prisma.$queryRaw`
       SELECT "photoChallengeId", "sha256", "pHash", "dHash"
       FROM "PhotoFingerprint"
       WHERE "photoChallengeId" <> ${photoChallengeId}
       ORDER BY CASE WHEN "sha256" = ${sha256} THEN 0 ELSE 1 END, "createdAt" DESC
       LIMIT ${limit}
     `;
-    return rows;
   }
 
   async recordPublication(input) {
+    return this.upsertPublicationAttempt(input);
+  }
+
+  async upsertPublicationAttempt(input) {
     const rowId = input.id || id();
+    const idempotencyKey = input.idempotencyKey || `${input.photoChallengeId}:${input.channel}`;
+    const lastAttemptAt = input.lastAttemptAt || new Date();
+
     await this.prisma.$executeRaw`
       INSERT INTO "PhotoPublication" (
-        "id", "photoChallengeId", "channel", "status", "externalPublicationId",
-        "publicationUrl", "publishedAt", "confirmedAt", "errorCode", "errorMessage"
+        "id", "photoChallengeId", "channel", "targetId", "status", "externalPublicationId",
+        "publicationUrl", "publishedAt", "confirmedAt", "errorCode", "errorMessage",
+        "attemptCount", "lastAttemptAt", "idempotencyKey"
       ) VALUES (
-        ${rowId}, ${input.photoChallengeId}, ${input.channel}, ${input.status || 'pending'},
+        ${rowId}, ${input.photoChallengeId}, ${input.channel}, ${input.targetId || null}, ${input.status || 'pending'},
         ${input.externalPublicationId || null}, ${input.publicationUrl || null},
         ${input.publishedAt || null}, ${input.confirmedAt || null},
-        ${input.errorCode || null}, ${input.errorMessage || null}
+        ${input.errorCode || null}, ${input.errorMessage || null},
+        1, ${lastAttemptAt}, ${idempotencyKey}
       )
+      ON CONFLICT ("photoChallengeId", "channel") DO UPDATE SET
+        "targetId" = EXCLUDED."targetId",
+        "status" = EXCLUDED."status",
+        "externalPublicationId" = COALESCE(EXCLUDED."externalPublicationId", "PhotoPublication"."externalPublicationId"),
+        "publicationUrl" = COALESCE(EXCLUDED."publicationUrl", "PhotoPublication"."publicationUrl"),
+        "publishedAt" = COALESCE(EXCLUDED."publishedAt", "PhotoPublication"."publishedAt"),
+        "confirmedAt" = COALESCE(EXCLUDED."confirmedAt", "PhotoPublication"."confirmedAt"),
+        "errorCode" = EXCLUDED."errorCode",
+        "errorMessage" = EXCLUDED."errorMessage",
+        "attemptCount" = "PhotoPublication"."attemptCount" + 1,
+        "lastAttemptAt" = EXCLUDED."lastAttemptAt",
+        "idempotencyKey" = EXCLUDED."idempotencyKey",
+        "updatedAt" = CURRENT_TIMESTAMP
     `;
     return rowId;
   }
