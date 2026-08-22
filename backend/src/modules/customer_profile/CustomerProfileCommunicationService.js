@@ -2,16 +2,18 @@ const crypto = require('crypto');
 const { ApiError } = require('../../platform/errors/ApiError');
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const PROFILE_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const MARKETING_RULES_VERSION = 'marketing-email-v1';
-const MARKETING_RULES_URL = '/legal/marketing-email-rules';
+const MARKETING_RULES_URL = '/legal/marketing-email-rules.html';
 
 class CustomerProfileCommunicationService {
-  constructor({ prisma, crmRuntime = null, clock = () => new Date(), tokenTtlMs = EMAIL_VERIFICATION_TTL_MS }) {
+  constructor({ prisma, crmRuntime = null, clock = () => new Date(), tokenTtlMs = EMAIL_VERIFICATION_TTL_MS, profilePromptCooldownMs = PROFILE_PROMPT_COOLDOWN_MS }) {
     if (!prisma) throw new Error('prisma is required');
     this.prisma = prisma;
     this.crmRuntime = crmRuntime;
     this.clock = clock;
     this.tokenTtlMs = tokenTtlMs;
+    this.profilePromptCooldownMs = profilePromptCooldownMs;
   }
 
   async getProfileState(customerId) {
@@ -114,12 +116,13 @@ class CustomerProfileCommunicationService {
   }
 
   async #ensureNotification(customerId, notification, force = false) {
+    const now = this.clock();
     if (!force) {
-      const existing = await this.prisma.$queryRaw`SELECT "id" FROM "CustomerNotification" WHERE "customerId"=${customerId} AND "type"=${notification.type} AND "readAt" IS NULL LIMIT 1`;
+      const cutoff = new Date(now.getTime() - this.profilePromptCooldownMs);
+      const existing = await this.prisma.$queryRaw`SELECT "id" FROM "CustomerNotification" WHERE "customerId"=${customerId} AND "type"=${notification.type} AND ("readAt" IS NULL OR "createdAt">=${cutoff}) ORDER BY "createdAt" DESC LIMIT 1`;
       if (existing?.length) return existing[0];
     }
     const id = crypto.randomUUID();
-    const now = this.clock();
     await this.prisma.$executeRaw`INSERT INTO "CustomerNotification" ("id","customerId","type","title","body","importance","actionType","actionPayload","significant","createdAt") VALUES (${id},${customerId},${notification.type},${notification.title},${notification.body},${notification.importance || 'NORMAL'},${notification.actionType || null},${notification.actionPayload || null},${Boolean(notification.significant)},${now})`;
     if (notification.significant) await this.#queueVerifiedEmail(customerId, id, notification);
     return { id };
@@ -139,4 +142,4 @@ function normalizeEmail(value) { const email = String(value || '').trim().toLowe
 function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 function validation(code, message) { return new ApiError({ statusCode: 400, code, message, source: 'platform_service' }); }
 function notFound() { return new ApiError({ statusCode: 404, code: 'CUSTOMER_NOT_FOUND', message: 'Customer was not found.', source: 'platform_service' }); }
-module.exports = { CustomerProfileCommunicationService, EMAIL_VERIFICATION_TTL_MS, MARKETING_RULES_VERSION, MARKETING_RULES_URL };
+module.exports = { CustomerProfileCommunicationService, EMAIL_VERIFICATION_TTL_MS, PROFILE_PROMPT_COOLDOWN_MS, MARKETING_RULES_VERSION, MARKETING_RULES_URL };
