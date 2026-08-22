@@ -13,6 +13,9 @@ const {
   MetadataAnalyzer,
   DuplicateDetector,
   PhotoTechnicalAnalyzer,
+  PhotoModerationLifecycle,
+  PhotoModerationOrchestrator,
+  BlockedPhotoRewardEngine,
   OpenAIVisionProvider,
   TelegramPhotoPublisher,
   VkPhotoPublisher,
@@ -32,12 +35,14 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   const customerWorkflow = dependencies.photoCustomerWorkflow || new PhotoCustomerWorkflow({ repository, notifier });
   const imageDecoder = dependencies.photoImageDecoder || new SharpImageDecoder();
   const fingerprintService = dependencies.photoFingerprintService || new ImageFingerprintService({ imageDecoder });
+  const duplicateDetector = dependencies.photoDuplicateDetector || new DuplicateDetector({ repository });
   const technicalAnalyzer = dependencies.photoTechnicalAnalyzer || new PhotoTechnicalAnalyzer({
-    metadataAnalyzer: new MetadataAnalyzer(),
+    metadataAnalyzer: dependencies.photoMetadataAnalyzer || new MetadataAnalyzer(),
     fingerprintService,
-    duplicateDetector: new DuplicateDetector({ repository }),
+    duplicateDetector,
     repository,
   });
+  const moderationLifecycle = dependencies.photoModerationLifecycle || new PhotoModerationLifecycle({ repository });
 
   const targets = {
     ...PHOTO_PUBLISHING_TARGETS,
@@ -53,9 +58,21 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   };
   const visionProvider = dependencies.photoVisionProvider || (
     process.env.OPENAI_API_KEY && process.env.PHOTO_VISION_MODEL
-      ? new OpenAIVisionProvider({ mediaLoader: (storageKey) => storage.get(storageKey) })
+      ? new OpenAIVisionProvider({
+        mediaLoader: async (storageKey) => ({
+          buffer: await storage.get(storageKey),
+          mimeType: mimeTypeFromStorageKey(storageKey),
+        }),
+      })
       : null
   );
+
+  const publishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({
+    publishers,
+    repository,
+    targets,
+  });
+  const rewardEngine = dependencies.photoRewardEngine || new BlockedPhotoRewardEngine();
 
   dependencies.photoVerificationRepository = repository;
   dependencies.photoSubmissionRepository = submissionRepository;
@@ -64,14 +81,24 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   dependencies.photoCustomerWorkflow = customerWorkflow;
   dependencies.photoImageDecoder = imageDecoder;
   dependencies.photoFingerprintService = fingerprintService;
+  dependencies.photoDuplicateDetector = duplicateDetector;
   dependencies.photoTechnicalAnalyzer = technicalAnalyzer;
+  dependencies.photoModerationLifecycle = moderationLifecycle;
   dependencies.photoVisionProvider = visionProvider;
   dependencies.photoPublishers = publishers;
   dependencies.photoPublishingTargets = targets;
-  dependencies.photoPublishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({
-    publishers,
+  dependencies.photoPublishingOrchestrator = publishingOrchestrator;
+  dependencies.photoRewardEngine = rewardEngine;
+  dependencies.photoModerationOrchestrator = dependencies.photoModerationOrchestrator || new PhotoModerationOrchestrator({
     repository,
-    targets,
+    storage,
+    technicalAnalyzer,
+    customerWorkflow,
+    moderationLifecycle,
+    publishingOrchestrator,
+    rewardEngine,
+    visionProvider,
+    logger,
   });
   dependencies.photoVerificationAdminService = dependencies.photoVerificationAdminService || new PhotoVerificationAdminService({ repository });
   dependencies.photoPublicationReadModel = dependencies.photoPublicationReadModel || new PhotoPublicationReadModel({ repository });
@@ -84,4 +111,11 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   return dependencies;
 }
 
-module.exports = { attachPhotoVerificationRuntime };
+function mimeTypeFromStorageKey(storageKey) {
+  const normalized = String(storageKey).toLowerCase();
+  if (normalized.endsWith('.png')) return 'image/png';
+  if (normalized.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+module.exports = { attachPhotoVerificationRuntime, mimeTypeFromStorageKey };
