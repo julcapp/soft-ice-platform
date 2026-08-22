@@ -15,6 +15,7 @@ import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
 import { PhotoVerificationSettingsPage } from './PhotoVerificationSettings';
 import { PhotoModerationQueuePage } from './PhotoModerationQueue';
+import { PhotoVerificationMetricsPage } from './PhotoVerificationMetrics';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -85,7 +86,7 @@ export function App({ client = getDashboard }) {
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
   const photoVerificationRoute = route === 'photo-verification';
-  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
+  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><PhotoVerificationMetricsPage /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
