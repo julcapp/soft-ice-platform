@@ -13,7 +13,10 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   }));
 
   router.get('/me/challenges/active', asyncHandler(async (req, res) => {
-    const challenge = await photoSubmissionIntakeService.getActiveChallenge(req.securityContext.customer_id);
+    const challenge = await photoSubmissionIntakeService.getActiveChallenge(
+      req.securityContext.customer_id,
+      { correlationId: req.correlationId },
+    );
     return sendData(res, req, challenge);
   }));
 
@@ -26,6 +29,7 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
         photoChallengeId: req.params.photoChallengeId,
         buffer: req.body,
         mimeType: req.get('Content-Type'),
+        captureCode: req.get('X-Photo-Capture-Code'),
         correlationId: req.correlationId,
       });
       return sendData(res, req, result, 202);
