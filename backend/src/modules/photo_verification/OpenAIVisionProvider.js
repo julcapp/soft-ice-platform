@@ -15,8 +15,10 @@ const RESULT_SCHEMA = {
         imageQualityAcceptable: { type: 'boolean' },
         screenshotSuspected: { type: 'boolean' },
         unsafeContent: { type: 'boolean' },
+        captureCodeVisible: { type: 'boolean' },
+        detectedCaptureCode: { type: ['string', 'null'] },
       },
-      required: ['challengeRelevant', 'requiredSubjectsPresent', 'imageQualityAcceptable', 'screenshotSuspected', 'unsafeContent'],
+      required: ['challengeRelevant', 'requiredSubjectsPresent', 'imageQualityAcceptable', 'screenshotSuspected', 'unsafeContent', 'captureCodeVisible', 'detectedCaptureCode'],
     },
   },
   required: ['decision', 'confidence', 'fraudScore', 'reasonCode', 'checks'],
@@ -60,7 +62,10 @@ class OpenAIVisionProvider {
         input: [{
           role: 'user',
           content: [
-            { type: 'input_text', text: `Проверь фотографию для фотозадания. Не принимай бизнес-решений и не начисляй награды. Правила: ${rulesText}. Технические метаданные: ${metadataText}. Антифрод-сигналы: ${antifraudText}. Оцени только видимые признаки и верни структурированный результат.` },
+            {
+              type: 'input_text',
+              text: `Проверь фотографию для фотозадания. Не принимай бизнес-решений и не начисляй награды. Правила: ${rulesText}. Технические метаданные: ${metadataText}. Антифрод-сигналы: ${antifraudText}. Отдельно проверь, виден ли на изображении штамп формата ТИМОША-XXXXXX. Если он читается, верни его дословно в detectedCaptureCode; если не читается или отсутствует, верни null. Не пытайся угадать ожидаемый код и не определяй самостоятельно, совпадает ли он с серверным challenge. Оцени только видимые признаки и верни структурированный результат.`,
+            },
             { type: 'input_image', image_url: imageUrl, detail: 'high' },
           ],
         }],
