@@ -22,6 +22,7 @@ function baseDependencies({ rewardGranted = false } = {}) {
       async handleDuplicateCheck() { return { stopBeforeVision: false }; },
       async recordModerationDecision() { calls.push(['customer.moderation']); return { status: 'additional_review' }; },
       async recordPublished() { calls.push(['customer.published']); },
+      async recordRewarded() { calls.push(['customer.rewarded']); return { status: 'rewarded' }; },
     },
     moderationLifecycle: {
       async recordModerationResult() { calls.push(['moderation.result']); },
@@ -31,7 +32,12 @@ function baseDependencies({ rewardGranted = false } = {}) {
       async publishAll() { calls.push(['publishing']); return { allRequiredPublished: true, results: [{ channel: 'VK', status: 'published', publicationUrl: 'https://example.test/post' }] }; },
     },
     rewardEngine: {
-      async grant() { calls.push(['reward']); return { granted: rewardGranted, reasonCode: rewardGranted ? null : 'NOT_CONFIGURED' }; },
+      async grant() {
+        calls.push(['reward']);
+        return rewardGranted
+          ? { granted: true, transactionId: 'bonus-tx-1', amountBonus: 50, balanceAfterBonus: 150 }
+          : { granted: false, reasonCode: 'NOT_CONFIGURED' };
+      },
     },
   };
 }
@@ -51,17 +57,20 @@ test('approved publication keeps source when reward engine does not grant', asyn
   const orchestrator = new PhotoModerationOrchestrator({ ...deps, visionProvider: { async analyze() { return { decision: 'approved', confidence: 0.99, fraudScore: 0, checks: {} }; } } });
   const result = await orchestrator.process({ photoChallengeId: 'p1', customerId: 'c1', storageKey: 'c1/p1/a.jpg' });
   assert.equal(result.stage, 'reward_pending');
+  assert.equal(deps.calls.some(([name]) => name === 'customer.rewarded'), false);
   assert.equal(deps.calls.some(([name]) => name === 'storage.delete'), false);
 });
 
-test('source deletion occurs only after publication and successful reward', async () => {
+test('source deletion occurs only after publication, reward and rewarded customer state', async () => {
   const deps = baseDependencies({ rewardGranted: true });
   deps.repository.getSettings = async () => ({ enabled: true, mode: 'ai_assisted', publishingEnabled: true, retentionPolicy: 'delete_after_publication', approvalThreshold: 0.9, rejectionThreshold: 0.65, maxFraudScore: 0.5 });
   const orchestrator = new PhotoModerationOrchestrator({ ...deps, visionProvider: { async analyze() { return { decision: 'approved', confidence: 0.99, fraudScore: 0, checks: {} }; } } });
   const result = await orchestrator.process({ photoChallengeId: 'p1', customerId: 'c1', storageKey: 'c1/p1/a.jpg' });
   assert.equal(result.stage, 'completed');
+  assert.equal(result.rewardStatus.status, 'rewarded');
   const order = deps.calls.map(([name]) => name);
   assert.ok(order.indexOf('publishing') < order.indexOf('reward'));
-  assert.ok(order.indexOf('reward') < order.indexOf('storage.delete'));
+  assert.ok(order.indexOf('reward') < order.indexOf('customer.rewarded'));
+  assert.ok(order.indexOf('customer.rewarded') < order.indexOf('storage.delete'));
   assert.ok(order.indexOf('storage.delete') < order.indexOf('deletion.evidence'));
 });
