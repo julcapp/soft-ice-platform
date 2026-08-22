@@ -16,7 +16,7 @@ class PhotoVerificationMetricsService {
     const range = resolvePeriod(period, this.clock());
     const { startAt, endAt } = range;
 
-    const [decisionRows, channelRows, trendRows, manualQueue, operationalIssues] = await Promise.all([
+    const [decisionRows, channelRows, trendRows, qualityRows, reasonRows, manualQueue, operationalIssues] = await Promise.all([
       this.prisma.$queryRaw`
         WITH latest AS (
           SELECT DISTINCT ON (v."photoChallengeId")
@@ -68,17 +68,62 @@ class PhotoVerificationMetricsService {
         GROUP BY DATE_TRUNC('day', latest."processedAt")
         ORDER BY "day"
       `,
+      this.prisma.$queryRaw`
+        WITH manual_final AS (
+          SELECT DISTINCT ON (v."photoChallengeId")
+            v."photoChallengeId", v."decision" AS "humanDecision", v."processedAt" AS "humanAt"
+          FROM "PhotoVerificationResult" v
+          WHERE v."provider" = 'manual'
+            AND v."decision" IN ('approved', 'rejected')
+            AND v."processedAt" >= ${startAt} AND v."processedAt" < ${endAt}
+          ORDER BY v."photoChallengeId", v."processedAt" DESC
+        ), paired AS (
+          SELECT m."photoChallengeId", m."humanDecision", ai."decision" AS "aiDecision"
+          FROM manual_final m
+          JOIN LATERAL (
+            SELECT v."decision"
+            FROM "PhotoVerificationResult" v
+            WHERE v."photoChallengeId" = m."photoChallengeId"
+              AND v."provider" IS DISTINCT FROM 'manual'
+              AND v."processedAt" <= m."humanAt"
+            ORDER BY v."processedAt" DESC
+            LIMIT 1
+          ) ai ON TRUE
+        )
+        SELECT
+          COUNT(*) AS "reviewedByHuman",
+          COUNT(*) FILTER (WHERE "aiDecision" IN ('approved', 'rejected')) AS "comparable",
+          COUNT(*) FILTER (WHERE "aiDecision" IN ('approved', 'rejected') AND "aiDecision" = "humanDecision") AS "agreements",
+          COUNT(*) FILTER (WHERE "aiDecision" IN ('approved', 'rejected') AND "aiDecision" <> "humanDecision") AS "disagreements",
+          COUNT(*) FILTER (WHERE "aiDecision" = 'approved' AND "humanDecision" = 'rejected') AS "aiApproveHumanReject",
+          COUNT(*) FILTER (WHERE "aiDecision" = 'rejected' AND "humanDecision" = 'approved') AS "aiRejectHumanApprove",
+          COUNT(*) FILTER (WHERE "aiDecision" = 'manual_review') AS "aiEscalated"
+        FROM paired
+      `,
+      this.prisma.$queryRaw`
+        SELECT COALESCE(NULLIF(v."reasonCode", ''), 'unspecified') AS "reasonCode", COUNT(*) AS "count"
+        FROM "PhotoVerificationResult" v
+        WHERE v."provider" IS DISTINCT FROM 'manual'
+          AND v."decision" = 'manual_review'
+          AND v."processedAt" >= ${startAt} AND v."processedAt" < ${endAt}
+        GROUP BY COALESCE(NULLIF(v."reasonCode", ''), 'unspecified')
+        ORDER BY "count" DESC, "reasonCode" ASC
+        LIMIT 10
+      `,
       this.manualReviewService.list(securityContext, { limit: 100 }),
       this.manualReviewService.listOperationalIssues(securityContext, { limit: 200 }),
     ]);
 
     const decisions = decisionRows[0] || {};
+    const quality = qualityRows[0] || {};
     const issueCounts = operationalIssues.reduce((acc, item) => {
       acc[item.issueType] = (acc[item.issueType] || 0) + 1;
       return acc;
     }, {});
     const totalDecided = Number(decisions.approved || 0) + Number(decisions.rejected || 0) + Number(decisions.manualReview || 0);
-    const percent = (value) => totalDecided ? Math.round((Number(value || 0) / totalDecided) * 1000) / 10 : 0;
+    const percent = (value, base = totalDecided) => base ? Math.round((Number(value || 0) / Number(base)) * 1000) / 10 : 0;
+    const comparable = Number(quality.comparable || 0);
+    const disagreements = Number(quality.disagreements || 0);
 
     return {
       generatedAt: this.clock().toISOString(),
@@ -102,6 +147,18 @@ class PhotoVerificationMetricsService {
         autoRejectPercent: percent(decisions.autoRejected),
         manualPercent: percent(decisions.manualReview),
         averageModerationSeconds: decisions.averageModerationSeconds == null ? null : Math.round(Number(decisions.averageModerationSeconds)),
+      },
+      quality: {
+        reviewedByHuman: Number(quality.reviewedByHuman || 0),
+        comparable,
+        agreements: Number(quality.agreements || 0),
+        disagreements,
+        agreementPercent: percent(quality.agreements, comparable),
+        disagreementPercent: percent(disagreements, comparable),
+        aiApproveHumanReject: Number(quality.aiApproveHumanReject || 0),
+        aiRejectHumanApprove: Number(quality.aiRejectHumanApprove || 0),
+        aiEscalated: Number(quality.aiEscalated || 0),
+        escalationReasons: reasonRows.map((row) => ({ reasonCode: row.reasonCode, count: Number(row.count || 0) })),
       },
       channels: channelRows.map((row) => {
         const total = Number(row.total || 0);
