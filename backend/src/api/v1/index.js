@@ -13,6 +13,7 @@ const { PrivateChannelAccessService } = require('../../modules/private_channel/P
 const { PrivateChannelRenewalService } = require('../../modules/private_channel/PrivateChannelRenewalService');
 const { PrivateChannelRecoveryService } = require('../../modules/private_channel/PrivateChannelRecoveryService');
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
+const { CustomerPaymentProfileService } = require('../../modules/payment_profile/CustomerPaymentProfileService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -55,7 +56,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService });
   const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService };
+  const customerPaymentProfileService = dependencies.customerPaymentProfileService || new CustomerPaymentProfileService({ prisma });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
