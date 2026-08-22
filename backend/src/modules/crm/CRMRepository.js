@@ -20,6 +20,8 @@ class CRMRepository {
         bonusAccount: true,
         segmentAssignments: { where: { unassignedAt: null }, include: { segment: true } },
         orders: { orderBy: { createdAt: 'desc' }, take: 1 },
+        channelSubscriptions: { where: { isSubscribed: true }, orderBy: { updatedAt: 'desc' } },
+        _count: { select: { orders: true, referralsMade: true } },
       },
     });
   }
@@ -34,6 +36,9 @@ class CRMRepository {
         orders: { orderBy: { createdAt: 'desc' }, take: 50 },
         referralsMade: { orderBy: { createdAt: 'desc' }, take: 50 },
         referredBy: { orderBy: { createdAt: 'desc' }, take: 1 },
+        channelSubscriptions: { orderBy: { updatedAt: 'desc' } },
+        externalProfiles: { orderBy: { updatedAt: 'desc' } },
+        identities: { orderBy: { linkedAt: 'desc' } },
         segmentAssignments: {
           where: { unassignedAt: null },
           include: { segment: true },
@@ -42,6 +47,17 @@ class CRMRepository {
         crmProfile: true,
         notificationDeliveries: { orderBy: { createdAt: 'desc' }, take: 50 },
       },
+    });
+  }
+
+  async findActiveSubscription(customerId, channelType) {
+    return this.prisma.customerChannelSubscription.findFirst({
+      where: {
+        customerId,
+        channelType: String(channelType || '').toUpperCase(),
+        isSubscribed: true,
+      },
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
