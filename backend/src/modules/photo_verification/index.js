@@ -9,6 +9,7 @@ const { PhotoCaptureChallengeService } = require('./PhotoCaptureChallengeService
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const { PhotoModerationOrchestrator } = require('./PhotoModerationOrchestrator');
 const { PhotoManualReviewService, MANUAL_ACTIONS } = require('./PhotoManualReviewService');
+const { PhotoVerificationMetricsService } = require('./PhotoVerificationMetricsService');
 const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
 const { PhotoRewardPolicy } = require('./PhotoRewardPolicy');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
@@ -40,11 +41,11 @@ module.exports = {
     'customer photo publication read model', 'camera photo intake and source storage boundary',
     'one-time camera capture challenge', 'CRM-backed customer photo notifications', 'production image decoding boundary',
     'production publishing adapters', 'production multimodal AI provider boundary', 'end-to-end moderation orchestration',
-    'reward engine boundary', 'manual photo review queue and moderation decisions',
+    'reward engine boundary', 'manual photo review queue and moderation decisions', 'photo verification operational metrics',
   ],
   PhotoVerificationAgent, MockVisionProvider, OpenAIVisionProvider, PrismaPhotoVerificationRepository,
   PrismaPhotoSubmissionRepository, LocalPhotoStorageAdapter, PhotoSubmissionIntakeService, PhotoCaptureChallengeService,
-  PhotoModerationLifecycle, PhotoModerationOrchestrator, PhotoManualReviewService, MANUAL_ACTIONS,
+  PhotoModerationLifecycle, PhotoModerationOrchestrator, PhotoManualReviewService, MANUAL_ACTIONS, PhotoVerificationMetricsService,
   BlockedPhotoRewardEngine, PhotoRewardPolicy, MetadataAnalyzer, ImageFingerprintService, SharpImageDecoder,
   DuplicateDetector, PhotoTechnicalAnalyzer, PhotoCustomerWorkflow, CrmPhotoNotifier, PhotoVerificationAdminService,
   PhotoPublicationReadModel, TelegramPhotoPublisher, VkPhotoPublisher, MaxPhotoPublisher, PhotoPublishingOrchestrator,
