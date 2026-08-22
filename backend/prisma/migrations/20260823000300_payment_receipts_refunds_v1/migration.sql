@@ -45,6 +45,8 @@ CREATE TABLE "PaymentRefund" (
   "amountRub" DECIMAL(12,2) NOT NULL CHECK ("amountRub" > 0),
   "currency" TEXT NOT NULL DEFAULT 'RUB',
   "reason" TEXT,
+  "idempotencyKey" TEXT NOT NULL,
+  "failureReason" TEXT,
   "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "succeededAt" TIMESTAMP(3),
   "failedAt" TIMESTAMP(3),
@@ -55,6 +57,8 @@ CREATE TABLE "PaymentRefund" (
 CREATE UNIQUE INDEX "PaymentRefund_provider_refund_key"
   ON "PaymentRefund"("provider", "providerRefundId")
   WHERE "providerRefundId" IS NOT NULL;
+CREATE UNIQUE INDEX "PaymentRefund_idempotency_key"
+  ON "PaymentRefund"("idempotencyKey");
 CREATE INDEX "PaymentRefund_customer_created_idx"
   ON "PaymentRefund"("customerId", "createdAt" DESC);
 CREATE INDEX "PaymentRefund_source_idx"
