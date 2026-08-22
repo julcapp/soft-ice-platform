@@ -75,11 +75,13 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     if (!subscriptionId) return res.sendStatus(200);
     const amountRub = Number(payment.amount?.value || 0);
     const paymentMethodRef = payment.payment_method?.saved === true ? payment.payment_method?.id || null : null;
+    const paymentMethodType = payment.payment_method?.type || null;
     const recorded = await privateChannelBillingService.recordPayment({
       subscriptionId,
       provider: 'YOOKASSA',
       providerPaymentId: payment.id,
       providerPaymentMethodRef: paymentMethodRef,
+      paymentMethodType,
       amountRub,
       idempotencyKey: `yookassa:${payment.id}:succeeded`,
     });
