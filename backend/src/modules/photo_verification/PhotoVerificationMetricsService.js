@@ -1,22 +1,52 @@
 const { assertAdmin } = require('./PhotoVerificationAdminService');
 
 class PhotoVerificationMetricsService {
-  constructor({ repository, manualReviewService }) {
-    if (!repository) throw new Error('repository is required');
+  constructor({ prisma, manualReviewService }) {
+    if (!prisma) throw new Error('prisma is required');
     if (!manualReviewService) throw new Error('manualReviewService is required');
-    this.repository = repository;
+    this.prisma = prisma;
     this.manualReviewService = manualReviewService;
   }
 
   async getSnapshot(securityContext) {
     assertAdmin(securityContext);
-    const [decisions, channels, manualQueue, operationalIssues] = await Promise.all([
-      this.repository.getDecisionMetrics(),
-      this.repository.getChannelMetrics(),
-      this.repository.listManualReviewQueue({ limit: 100 }),
+    const [decisionRows, channelRows, manualQueue, operationalIssues] = await Promise.all([
+      this.prisma.$queryRaw`
+        WITH latest AS (
+          SELECT DISTINCT ON (v."photoChallengeId")
+            v."photoChallengeId", v."decision", v."provider", v."processedAt"
+          FROM "PhotoVerificationResult" v
+          ORDER BY v."photoChallengeId", v."processedAt" DESC
+        )
+        SELECT
+          COUNT(*) FILTER (WHERE pc."photoFilePath" IS NOT NULL) AS "submitted",
+          COUNT(*) FILTER (WHERE latest."decision" = 'approved') AS "approved",
+          COUNT(*) FILTER (WHERE latest."decision" = 'rejected') AS "rejected",
+          COUNT(*) FILTER (WHERE latest."decision" = 'manual_review') AS "manualReview",
+          COUNT(*) FILTER (WHERE latest."provider" = 'manual') AS "manualDecisions",
+          COUNT(*) FILTER (WHERE latest."provider" <> 'manual' AND latest."decision" = 'approved') AS "autoApproved",
+          COUNT(*) FILTER (WHERE latest."provider" <> 'manual' AND latest."decision" = 'rejected') AS "autoRejected",
+          AVG(EXTRACT(EPOCH FROM (latest."processedAt" - pc."createdAt"))) FILTER (WHERE latest."processedAt" IS NOT NULL) AS "averageModerationSeconds"
+        FROM "PhotoChallenge" pc
+        LEFT JOIN latest ON latest."photoChallengeId" = pc."id"
+      `,
+      this.prisma.$queryRaw`
+        SELECT
+          pp."channel",
+          COUNT(*) AS "total",
+          COUNT(*) FILTER (WHERE pp."status" IN ('published', 'confirmed')) AS "published",
+          COUNT(*) FILTER (WHERE pp."status" = 'failed') AS "failed",
+          COUNT(*) FILTER (WHERE pp."status" = 'pending') AS "pending",
+          COUNT(*) FILTER (WHERE pp."status" = 'not_configured') AS "notConfigured"
+        FROM "PhotoPublication" pp
+        GROUP BY pp."channel"
+        ORDER BY pp."channel"
+      `,
+      this.manualReviewService.list(securityContext, { limit: 100 }),
       this.manualReviewService.listOperationalIssues(securityContext, { limit: 200 }),
     ]);
 
+    const decisions = decisionRows[0] || {};
     const issueCounts = operationalIssues.reduce((acc, item) => {
       acc[item.issueType] = (acc[item.issueType] || 0) + 1;
       return acc;
@@ -46,7 +76,7 @@ class PhotoVerificationMetricsService {
         manualPercent: percent(decisions.manualReview),
         averageModerationSeconds: decisions.averageModerationSeconds == null ? null : Math.round(Number(decisions.averageModerationSeconds)),
       },
-      channels: channels.map((row) => ({
+      channels: channelRows.map((row) => ({
         channel: row.channel,
         total: Number(row.total || 0),
         published: Number(row.published || 0),
