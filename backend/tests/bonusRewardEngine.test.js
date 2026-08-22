@@ -20,7 +20,7 @@ class FakePrisma {
       const [id, key, actorContext, semanticHash, correlationId] = values;
       const compound = `PHOTO_REWARD:${key}`;
       if (this.idempotency.has(compound)) return [];
-      this.idempotency.set(compound, { id, status: 'STARTED', resultReference: null, actorContext, semanticHash, correlationId });
+      this.idempotency.set(compound, { id, status: 'processing', resultReference: null, actorContext, semanticHash, correlationId });
       return [{ id }];
     }
 
@@ -65,7 +65,7 @@ class FakePrisma {
       const [transactionId, _lastSeenAt, key] = values;
       const compound = `PHOTO_REWARD:${key}`;
       const row = this.idempotency.get(compound);
-      row.status = 'COMPLETED';
+      row.status = 'completed';
       row.resultReference = transactionId;
       return 1;
     }
