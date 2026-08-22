@@ -3,7 +3,7 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
 
-function createPhotoVerificationRouter({ photoPublicationReadModel, authCoreService }) {
+function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmissionIntakeService, authCoreService }) {
   const router = express.Router();
   router.use(createCustomerAuthenticator(authCoreService));
 
@@ -11,6 +11,26 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, authCoreServ
     const rows = await photoPublicationReadModel.listForCustomer(req.securityContext.customer_id);
     return sendData(res, req, rows);
   }));
+
+  router.get('/me/challenges/active', asyncHandler(async (req, res) => {
+    const challenge = await photoSubmissionIntakeService.getActiveChallenge(req.securityContext.customer_id);
+    return sendData(res, req, challenge);
+  }));
+
+  router.post(
+    '/me/challenges/:photoChallengeId/photo',
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }),
+    asyncHandler(async (req, res) => {
+      const result = await photoSubmissionIntakeService.submit({
+        customerId: req.securityContext.customer_id,
+        photoChallengeId: req.params.photoChallengeId,
+        buffer: req.body,
+        mimeType: req.get('Content-Type'),
+        correlationId: req.correlationId,
+      });
+      return sendData(res, req, result, 202);
+    }),
+  );
 
   return router;
 }
