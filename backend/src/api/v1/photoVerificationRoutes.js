@@ -34,7 +34,7 @@ function createPhotoVerificationRouter({ photoPublicationReadModel, photoSubmiss
   return router;
 }
 
-function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, adminAuth = {} }) {
+function createAdminPhotoVerificationRouter({ photoVerificationAdminService, photoManualReviewService, photoVerificationMetricsService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
 
@@ -45,6 +45,9 @@ function createAdminPhotoVerificationRouter({ photoVerificationAdminService, pho
   router.patch('/settings', asyncHandler(async (req, res) => {
     const scopeKey = req.query.scope || 'default';
     return sendData(res, req, await photoVerificationAdminService.updateSettings(req.securityContext, req.body || {}, scopeKey));
+  }));
+  router.get('/metrics', asyncHandler(async (req, res) => {
+    return sendData(res, req, await photoVerificationMetricsService.getSnapshot(req.securityContext));
   }));
 
   router.get('/reviews', asyncHandler(async (req, res) => {
