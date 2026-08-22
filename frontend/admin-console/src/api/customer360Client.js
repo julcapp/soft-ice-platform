@@ -6,6 +6,7 @@ async function request(path, options = {}) {
 }
 export const getCustomer360 = (customerId, { signal } = {}) => request(`/customers/${customerId}`, { signal });
 export const getCustomerTimeline = (customerId, { signal } = {}) => request(`/customers/${customerId}/timeline`, { signal });
+export const getCustomerPaymentProfile = (customerId, { signal } = {}) => request(`/customers/${customerId}/payment-profile`, { signal });
 async function requestAdmin(path, { signal } = {}) {
   const response = await fetch(`/api/v1/admin/customers${path}`, { signal, headers });
   if (!response.ok) throw new Error('Не удалось загрузить внешние каналы клиента.');
