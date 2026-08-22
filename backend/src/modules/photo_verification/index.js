@@ -9,6 +9,7 @@ const { PhotoCaptureChallengeService } = require('./PhotoCaptureChallengeService
 const { PhotoModerationLifecycle } = require('./PhotoModerationLifecycle');
 const { PhotoModerationOrchestrator } = require('./PhotoModerationOrchestrator');
 const { BlockedPhotoRewardEngine } = require('./BlockedPhotoRewardEngine');
+const { PhotoRewardPolicy } = require('./PhotoRewardPolicy');
 const { MetadataAnalyzer } = require('./MetadataAnalyzer');
 const { ImageFingerprintService } = require('./ImageFingerprintService');
 const { SharpImageDecoder } = require('./SharpImageDecoder');
@@ -63,6 +64,7 @@ module.exports = {
     'production multimodal AI provider boundary',
     'end-to-end moderation orchestration',
     'reward engine boundary',
+    'settings-backed photo reward policy',
   ],
   PhotoVerificationAgent,
   MockVisionProvider,
@@ -75,6 +77,7 @@ module.exports = {
   PhotoModerationLifecycle,
   PhotoModerationOrchestrator,
   BlockedPhotoRewardEngine,
+  PhotoRewardPolicy,
   MetadataAnalyzer,
   ImageFingerprintService,
   SharpImageDecoder,
