@@ -14,7 +14,7 @@ class YooKassaReportScheduleService {
     const ingestion = await this.ingestor.run();
     const now = this.clock();
     const reportDate = moscowYesterday(now);
-    const deadlineHour = clampHour(this.config.YOOKASSA_REPORT_EXPECTED_BY_MSK_HOUR, 10);
+    const deadlineHour = clampHour(this.config.YOOKASSA_REPORT_EXPECTED_BY_MSK_HOUR, 5);
     const deadline = moscowDeadlineUtc(reportDate, deadlineHour);
     const results = [];
 
