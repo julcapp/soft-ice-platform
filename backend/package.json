@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.js",
+    "build": "npm run prisma:generate && node scripts/build.js",
     "prisma:merge": "node scripts/merge-promotion-prisma.js",
     "prisma:check-integrated": "node scripts/merge-promotion-prisma.js --check",
     "prisma:generate": "npm run prisma:merge && prisma generate",
     "prisma:migrate": "npm run prisma:merge && prisma migrate dev",
     "prisma:validate": "npm run prisma:merge && prisma validate",
-    "test": "node --test tests/*.test.js",
+    "test": "npm run prisma:merge && node --test tests/*.test.js",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },
