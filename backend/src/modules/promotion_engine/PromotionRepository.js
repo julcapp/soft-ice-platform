@@ -19,6 +19,41 @@ class PromotionRepository {
   async createVersion({ campaignId, version, actorId }) { return this.prisma.$transaction(async (tx) => { const campaign = await this.getCampaignById(campaignId, tx); if (!campaign) return null; const max = await tx.promotionVersion.aggregate({ where: { campaignId }, _max: { version: true } }); const nextVersion = (max._max.version || 0) + 1; const created = await tx.promotionVersion.create({ data: { campaignId, version: nextVersion, ...versionScalarData(version, actorId), schedules: { create: normalizeSchedules(version.schedules || []) }, targets: { create: version.targets || [] }, audiences: { create: version.audiences || [] }, rules: { create: version.rules || [] }, channels: { create: version.channels || [] } } }); await tx.promotionCampaign.update({ where: { id: campaignId }, data: { currentVersionId: created.id, status: 'DRAFT' } }); await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: created.id, eventType: 'VERSION_CREATED', actorType: 'ADMIN_USER', actorId, oldValue: { currentVersionId: campaign.currentVersionId }, newValue: { currentVersionId: created.id, version: nextVersion } } }); return this.getCampaignById(campaignId, tx); }); }
   async updateCampaignStatus({ campaignId, status, actorId, validationResult }) { return this.transitionStatus({ campaignId, status, actorId, eventType: status === 'READY' ? 'VALIDATION_PASSED' : 'VALIDATION_FAILED', actorType: 'SYSTEM', metadata: validationResult }); }
   async transitionStatus({ campaignId, status, actorId, eventType, actorType = 'ADMIN_USER', reason = null, metadata = undefined, versionPatch = undefined }) { return this.prisma.$transaction(async (tx) => { const current = await tx.promotionCampaign.findUnique({ where: { id: campaignId } }); if (!current) return null; if (versionPatch && current.currentVersionId) await tx.promotionVersion.update({ where: { id: current.currentVersionId }, data: versionPatch }); const updated = await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status, ...(status === 'ARCHIVED' ? { archivedAt: new Date() } : {}) } }); await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: current.currentVersionId, eventType, actorType, actorId, oldValue: { status: current.status }, newValue: { status }, reason, metadata } }); return updated; }); }
-  async countApprovals(promotionVersionId) { return this.prisma.promotionApproval.count({ where: { promotionVersionId, status: 'APPROVED' } }); }
+
+  async requestApproval({ campaignId, promotionVersionId, approvalPolicy, requestedBy, reason = null, metadata = undefined }) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.promotionApproval.updateMany({ where: { promotionVersionId, status: 'PENDING' }, data: { status: 'CANCELLED', decidedAt: new Date(), reason: 'Superseded by a new approval request.' } });
+      const request = await tx.promotionApproval.create({ data: { campaignId, promotionVersionId, approvalPolicy, status: 'PENDING', requestedBy, reason, metadata } });
+      await tx.promotionEvent.create({ data: { campaignId, promotionVersionId, eventType: 'APPROVAL_REQUESTED', actorType: 'ADMIN_USER', actorId: requestedBy, newValue: { approvalId: request.id, approvalPolicy }, reason, metadata } });
+      return request;
+    });
+  }
+
+  async getPendingApprovalRequest(promotionVersionId) {
+    return this.prisma.promotionApproval.findFirst({ where: { promotionVersionId, status: 'PENDING' }, orderBy: { requestedAt: 'desc' } });
+  }
+
+  async recordApprovalDecision({ campaignId, promotionVersionId, approvalPolicy, requestedBy, decidedBy, status, reason = null, metadata = undefined }) {
+    return this.prisma.$transaction(async (tx) => {
+      const decision = await tx.promotionApproval.create({ data: { campaignId, promotionVersionId, approvalPolicy, status, requestedBy, decidedBy, decidedAt: new Date(), reason, metadata } });
+      await tx.promotionEvent.create({ data: { campaignId, promotionVersionId, eventType: status === 'APPROVED' ? 'APPROVAL_GRANTED' : 'APPROVAL_REJECTED', actorType: 'ADMIN_USER', actorId: decidedBy, newValue: { approvalId: decision.id, status, approvalPolicy }, reason, metadata } });
+      if (status === 'REJECTED') await tx.promotionApproval.updateMany({ where: { promotionVersionId, status: 'PENDING' }, data: { status: 'REJECTED', decidedBy, decidedAt: new Date(), reason } });
+      return decision;
+    });
+  }
+
+  async listApprovals(promotionVersionId) {
+    return this.prisma.promotionApproval.findMany({ where: { promotionVersionId }, orderBy: { requestedAt: 'asc' } });
+  }
+
+  async countApprovals(promotionVersionId) {
+    const rows = await this.prisma.promotionApproval.findMany({ where: { promotionVersionId, status: 'APPROVED', decidedBy: { not: null } }, select: { decidedBy: true }, distinct: ['decidedBy'] });
+    return rows.length;
+  }
+
+  async hasOwnerApproval(promotionVersionId) {
+    const row = await this.prisma.promotionApproval.findFirst({ where: { promotionVersionId, status: 'APPROVED', metadata: { path: ['deciderRoles'], array_contains: 'OWNER' } } });
+    return Boolean(row);
+  }
 }
 module.exports = { PromotionRepository, normalizeSchedules, serializeCampaign };
