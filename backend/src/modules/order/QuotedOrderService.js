@@ -56,20 +56,58 @@ class QuotedOrderService {
   }
 
   async _createPaidOrder(customerId, quote, context) {
-    return this.orderRuntime.createOrder(
-      customerId,
-      {
+    const service = this.orderRuntime.orderService;
+    if (service?.orderRepository) {
+      const order = await service.orderRepository.create({
+        customerId,
+        status: ORDER_STATUS.PAYMENT_PENDING,
         amount: Number(quote.finalAmount),
         currency: quote.currency,
         machineId: quote.machineId,
         basePriceRub: Number(quote.baseAmount),
         promoDiscountRub: Number(quote.promotionDiscountAmount),
-      },
+      });
+      const event = typeof service.publishOrderEvent === 'function'
+        ? await service.publishOrderEvent(ORDER_DOMAIN_EVENTS.ORDER_CREATED, order, {
+            fromStatus: null,
+            toStatus: order.status,
+            stateReason: 'pricing_quote_order_created',
+            context: {
+              ...context,
+              sourceChannel: context.sourceChannel || quote.channel,
+              pricingQuoteId: quote.id,
+              pricingSnapshotId: quote.snapshotId,
+            },
+          })
+        : null;
+      if (typeof service.recordAudit === 'function') {
+        await service.recordAudit({
+          eventType: ORDER_DOMAIN_EVENTS.ORDER_CREATED.name,
+          customerId,
+          order,
+          action: 'create',
+          decision: 'success',
+          reasonCode: 'pricing_quote_order_created',
+          context,
+        });
+      }
+      return { order, event, created: true, paymentBypassed: false };
+    }
+
+    if (typeof this.orderRuntime.createOrder !== 'function') {
+      throw this._error('ORDER_RUNTIME_UNAVAILABLE', 'Order runtime cannot create a paid quoted order.', 503);
+    }
+    return this.orderRuntime.createOrder(
+      customerId,
+      { amount: Number(quote.finalAmount), currency: quote.currency },
       {
         ...context,
         sourceChannel: context.sourceChannel || quote.channel,
         pricingQuoteId: quote.id,
         pricingSnapshotId: quote.snapshotId,
+        machineId: quote.machineId,
+        basePriceRub: Number(quote.baseAmount),
+        promoDiscountRub: Number(quote.promotionDiscountAmount),
       },
     );
   }
