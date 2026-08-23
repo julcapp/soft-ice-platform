@@ -6,11 +6,16 @@ class YooKassaPaymentAdapter {
     secretKey = process.env.YOOKASSA_SECRET_KEY,
     apiBaseUrl = 'https://api.yookassa.ru/v3',
     fetchImpl = globalThis.fetch,
+    allowedReturnOrigins = (process.env.PAYMENT_RETURN_ORIGINS || 'https://app.utimoshi.ru')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
   } = {}) {
     this.shopId = shopId;
     this.secretKey = secretKey;
     this.apiBaseUrl = apiBaseUrl.replace(/\/$/, '');
     this.fetchImpl = fetchImpl;
+    this.allowedReturnOrigins = new Set(allowedReturnOrigins);
   }
 
   isConfigured() {
@@ -21,7 +26,7 @@ class YooKassaPaymentAdapter {
     this._assertConfigured();
     if (!orderId) throw this._error('YOOKASSA_ORDER_REQUIRED', 'orderId is required.', 400);
     if (!idempotencyKey) throw this._error('YOOKASSA_IDEMPOTENCY_REQUIRED', 'Idempotency key is required.', 400);
-    if (!returnUrl) throw this._error('YOOKASSA_RETURN_URL_REQUIRED', 'returnUrl is required.', 400);
+    this._assertReturnUrl(returnUrl);
     const normalizedMethod = String(method || 'sbp').toLowerCase();
     if (!['sbp', 'bank_card'].includes(normalizedMethod)) throw this._error('YOOKASSA_PAYMENT_METHOD_UNSUPPORTED', `Unsupported YooKassa payment method: ${normalizedMethod}.`, 400);
 
@@ -45,6 +50,15 @@ class YooKassaPaymentAdapter {
     this._assertConfigured();
     if (!providerPaymentId) throw this._error('YOOKASSA_PAYMENT_ID_REQUIRED', 'Provider payment id is required.', 400);
     return this._request(`/payments/${encodeURIComponent(providerPaymentId)}`, { method: 'GET' });
+  }
+
+  _assertReturnUrl(returnUrl) {
+    if (!returnUrl) throw this._error('YOOKASSA_RETURN_URL_REQUIRED', 'returnUrl is required.', 400);
+    let parsed;
+    try { parsed = new URL(returnUrl); } catch { throw this._error('YOOKASSA_RETURN_URL_INVALID', 'returnUrl must be a valid absolute URL.', 400); }
+    if (parsed.protocol !== 'https:' || !this.allowedReturnOrigins.has(parsed.origin)) {
+      throw this._error('YOOKASSA_RETURN_URL_FORBIDDEN', 'returnUrl origin is not allowed.', 400, [{ origin: parsed.origin }]);
+    }
   }
 
   async _request(path, { method, headers = {}, body } = {}) {
