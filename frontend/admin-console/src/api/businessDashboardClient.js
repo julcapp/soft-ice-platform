@@ -3,17 +3,23 @@ const adminHeaders = {
   'X-Admin-Subject': 'business-dashboard',
 };
 
-export async function getBusinessDashboard({ signal, from, to } = {}) {
-  const params = new URLSearchParams();
-  if (from) params.set('from', from);
-  if (to) params.set('to', to);
-  const response = await fetch(`/api/v1/admin/dashboard/business?${params.toString()}`, { signal, headers: adminHeaders });
+async function request(path, { signal } = {}) {
+  const response = await fetch(`/api/v1/admin/dashboard${path}`, { signal, headers: adminHeaders });
   const body = await response.json();
   if (!response.ok) {
-    const error = new Error(body?.error?.message || 'Не удалось загрузить бизнес-статистику.');
+    const error = new Error(body?.error?.message || 'Не удалось загрузить данные бизнес-дашборда.');
     error.status = response.status;
     error.code = body?.error?.code;
     throw error;
   }
   return body.data;
 }
+
+export async function getBusinessDashboard({ signal, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/business?${params.toString()}`, { signal });
+}
+
+export const getFinancialReadiness = ({ signal } = {}) => request('/financial-readiness', { signal });
