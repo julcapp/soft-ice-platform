@@ -69,6 +69,10 @@ function modelRegex(name) {
   return new RegExp(`(^|\\n)model\\s+${name}\\s*\\{`);
 }
 
+function fieldRegex(fieldName, typeExpression) {
+  return new RegExp(`(^|\\n)\\s*${fieldName}\\s+${typeExpression}(?:\\s|$)`);
+}
+
 function appendMissingModels(schema, fragment) {
   const blocks = extractModelBlocks(fragment);
   let output = schema.trimEnd();
@@ -112,14 +116,16 @@ function assertIntegrated(schema) {
     if (!modelRegex(name).test(schema)) throw new Error(`Integrated schema is missing model ${name}.`);
   }
 
-  const requiredTokens = [
-    'orderId                    String?   @unique',
-    'giftRewardReservation GiftRewardReservation?',
-    'paymentAttempts PaymentAttempt[]',
-    'promotionGroupMemberships PromotionMachineGroupMember[]',
+  const requiredFields = [
+    ['orderId', 'String\\?\\s+@unique'],
+    ['giftRewardReservation', 'GiftRewardReservation\\?'],
+    ['paymentAttempts', 'PaymentAttempt\\[\\]'],
+    ['promotionGroupMemberships', 'PromotionMachineGroupMember\\[\\]'],
   ];
-  for (const token of requiredTokens) {
-    if (!schema.includes(token)) throw new Error(`Integrated schema is missing required token: ${token}`);
+  for (const [fieldName, typeExpression] of requiredFields) {
+    if (!fieldRegex(fieldName, typeExpression).test(schema)) {
+      throw new Error(`Integrated schema is missing required field: ${fieldName}`);
+    }
   }
 }
 
