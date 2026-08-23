@@ -13,8 +13,8 @@ function promotion() {
       benefitValue: 20,
       priceLockSeconds: 300,
       rules: [
-        { ruleType: 'BONUS_PAYMENT', value: 'FORBIDDEN' },
-        { ruleType: 'THIRD_PARTY_TRANSFER', value: 'FORBIDDEN' },
+        { ruleType: 'PARTIAL_BONUS_PAYMENT', value: 'FORBIDDEN' },
+        { ruleType: 'TRANSFER_TO_THIRD_PARTY', value: 'FORBIDDEN' },
         { ruleType: 'MONEY_DISCOUNT_STACKING', value: 'FORBIDDEN' },
       ],
     },
