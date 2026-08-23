@@ -20,7 +20,12 @@ class PricingEngineService {
     if (!promotionResolver) throw new Error('Promotion resolver is required.');
     this.repository = repository;
     this.promotionResolver = promotionResolver;
-    this.giftResolver = giftResolver || { resolve: async () => ({ giftItemIds: [] }), consume: async () => null, completePurchase: async () => null };
+    this.giftResolver = giftResolver || {
+      resolve: async () => ({ giftItemIds: [] }),
+      reserve: async () => ({ reserved: false }),
+      consume: async () => null,
+      completePurchase: async () => null,
+    };
     this.safetyService = safetyService || null;
     this.clock = clock;
   }
@@ -41,9 +46,55 @@ class PricingEngineService {
     const promotion = await this.promotionResolver.resolve({ customerId, machineId, channel, at: now, items: normalizedItems });
     const lockSeconds = Number(promotion?.currentVersion?.priceLockSeconds || 300);
     const lockedUntil = new Date(now.getTime() + lockSeconds * 1000);
-    const gift = await this.giftResolver.resolve({ quoteId, customerId, machineId, items: normalizedItems, at: now, lockedUntil });
-    const giftIds = new Set(gift?.giftItemIds || []);
+    const giftPreview = await this.giftResolver.resolve({ customerId, machineId, items: normalizedItems, at: now });
 
+    let quote = this._buildQuote({
+      quoteId,
+      customerId,
+      machineId,
+      channel,
+      now,
+      lockedUntil,
+      normalizedItems,
+      promotion,
+      gift: giftPreview,
+    });
+
+    await this._assertPromotionSafety(promotion, quote);
+    let saved = await this.repository.saveQuote(quote);
+
+    if (giftPreview?.eligible && giftPreview.itemId && typeof this.giftResolver.reserve === 'function') {
+      const reservation = await this.giftResolver.reserve({
+        quoteId,
+        customerId,
+        machineId,
+        itemId: giftPreview.itemId,
+        purchaseOrdinal: giftPreview.purchaseOrdinal,
+        lockedUntil,
+      });
+
+      if (!reservation?.reserved) {
+        quote = this._buildQuote({
+          quoteId,
+          customerId,
+          machineId,
+          channel,
+          now,
+          lockedUntil,
+          normalizedItems,
+          promotion,
+          gift: { giftItemIds: [], eligible: false, purchaseOrdinal: null },
+        });
+        await this._assertPromotionSafety(promotion, quote);
+        saved = await this.repository.replaceQuotePricing(quoteId, quote);
+      }
+    }
+
+    return saved;
+  }
+
+  _buildQuote({ quoteId, customerId, machineId, channel, now, lockedUntil, normalizedItems, promotion, gift }) {
+    const giftIds = new Set(gift?.giftItemIds || []);
     let baseAmount = 0;
     let giftAmount = 0;
     let promotionDiscountAmount = 0;
@@ -77,23 +128,8 @@ class PricingEngineService {
     const finalAmount = money(baseAmount - giftAmount - promotionDiscountAmount);
     const bonusRule = promotion ? ruleValue(promotion.currentVersion, 'BONUS_PAYMENT') : undefined;
     const transferRule = promotion ? ruleValue(promotion.currentVersion, 'THIRD_PARTY_TRANSFER') : undefined;
-    const partialBonusPaymentAllowed = bonusRule !== 'FORBIDDEN';
-    const transferAllowed = transferRule !== 'FORBIDDEN';
-    const paymentRequired = finalAmount > 0;
 
-    if (promotion && this.safetyService) {
-      const safety = this.safetyService.evaluate({
-        version: promotion.currentVersion,
-        baseAmount,
-        discountAmount: promotionDiscountAmount,
-        finalAmount,
-        applicationsCount: promotion.metrics?.applicationsCount || 0,
-        discountSpent: promotion.metrics?.discountSpent || 0,
-      });
-      if (safety?.blocking) throw this._error('PRICING_PROMOTION_SAFETY_BLOCK', 'Promotion pricing is blocked by safety policy.', 409, safety.issues || []);
-    }
-
-    const quote = {
+    return {
       id: quoteId,
       customerId,
       machineId,
@@ -104,9 +140,9 @@ class PricingEngineService {
       promotionDiscountAmount,
       finalAmount,
       bonusPaymentAllowed: true,
-      partialBonusPaymentAllowed,
-      transferAllowed,
-      paymentRequired,
+      partialBonusPaymentAllowed: bonusRule !== 'FORBIDDEN',
+      transferAllowed: transferRule !== 'FORBIDDEN',
+      paymentRequired: finalAmount > 0,
       campaignId: promotion?.id || null,
       promotionVersionId: promotion?.currentVersion?.id || null,
       createdAt: now,
@@ -119,7 +155,23 @@ class PricingEngineService {
         giftPurchaseOrdinal: gift?.purchaseOrdinal || null,
       },
     };
-    return this.repository.saveQuote(quote);
+  }
+
+  async _assertPromotionSafety(promotion, quote) {
+    if (!promotion || !this.safetyService) return;
+    const paidBase = money(quote.baseAmount - quote.giftAmount);
+    const observedDiscountPercent = paidBase > 0
+      ? Number(((quote.promotionDiscountAmount / paidBase) * 100).toFixed(4))
+      : 0;
+    const safety = await this.safetyService.evaluate({
+      campaign: promotion,
+      // A milestone gift may legitimately make the total zero; minimum price protects monetary discounts.
+      observedFinalPrice: quote.giftAmount > 0 ? null : quote.finalAmount,
+      observedDiscountPercent,
+    });
+    if (!safety.safe) {
+      throw this._error('PRICING_PROMOTION_SAFETY_BLOCK', 'Promotion pricing is blocked by safety policy.', 409, safety.issues || []);
+    }
   }
 
   async getValidQuote(quoteId) {
@@ -145,7 +197,12 @@ class PricingEngineService {
   }
 
   _error(code, message, statusCode, details = []) {
-    const error = new Error(message); error.code = code; error.statusCode = statusCode; error.details = details; error.source = 'pricing_engine'; return error;
+    const error = new Error(message);
+    error.code = code;
+    error.statusCode = statusCode;
+    error.details = details;
+    error.source = 'pricing_engine';
+    return error;
   }
 }
 
