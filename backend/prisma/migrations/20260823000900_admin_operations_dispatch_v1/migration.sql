@@ -1,6 +1,14 @@
 CREATE TABLE "AdminOperationsWorkItem" (
     "id" TEXT NOT NULL,
     "notificationKey" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "severity" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT,
+    "deepLink" TEXT,
+    "sourceActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "lastSourceSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "status" TEXT NOT NULL DEFAULT 'OPEN',
     "assigneeSubject" TEXT,
     "acknowledgedAt" TIMESTAMP(3),
@@ -14,6 +22,10 @@ CREATE UNIQUE INDEX "AdminOperationsWorkItem_notificationKey_key"
 ON "AdminOperationsWorkItem"("notificationKey");
 CREATE INDEX "AdminOperationsWorkItem_status_assigneeSubject_idx"
 ON "AdminOperationsWorkItem"("status", "assigneeSubject");
+CREATE INDEX "AdminOperationsWorkItem_category_severity_status_idx"
+ON "AdminOperationsWorkItem"("category", "severity", "status");
+CREATE INDEX "AdminOperationsWorkItem_sourceActive_lastSourceSeenAt_idx"
+ON "AdminOperationsWorkItem"("sourceActive", "lastSourceSeenAt");
 
 CREATE TABLE "AdminOperationsWorkEvent" (
     "id" TEXT NOT NULL,
