@@ -15,6 +15,26 @@ function normalizeSchedules(schedules = []) {
   }));
 }
 
+function timeFromPrisma(value) {
+  if (!(value instanceof Date)) return value;
+  return value.toISOString().slice(11, 19);
+}
+
+function serializeCampaign(campaign) {
+  if (!campaign || !campaign.currentVersion) return campaign;
+  return {
+    ...campaign,
+    currentVersion: {
+      ...campaign.currentVersion,
+      schedules: (campaign.currentVersion.schedules || []).map((item) => ({
+        ...item,
+        startTime: timeFromPrisma(item.startTime),
+        endTime: timeFromPrisma(item.endTime),
+      })),
+    },
+  };
+}
+
 class PromotionRepository {
   constructor(prisma) {
     if (!prisma) throw new Error('Prisma client is required.');
@@ -22,23 +42,11 @@ class PromotionRepository {
   }
 
   async createDraft(input) {
-    const {
-      code,
-      name,
-      description = null,
-      createdBy,
-      version,
-    } = input;
+    const { code, name, description = null, createdBy, version } = input;
 
     return this.prisma.$transaction(async (tx) => {
       const campaign = await tx.promotionCampaign.create({
-        data: {
-          code,
-          name,
-          description,
-          status: 'DRAFT',
-          createdBy,
-        },
+        data: { code, name, description, status: 'DRAFT', createdBy },
       });
 
       const createdVersion = await tx.promotionVersion.create({
@@ -83,11 +91,7 @@ class PromotionRepository {
           eventType: 'DRAFT_CREATED',
           actorType: 'ADMIN_USER',
           actorId: createdBy,
-          newValue: {
-            code,
-            name,
-            version: createdVersion.version,
-          },
+          newValue: { code, name, version: createdVersion.version },
         },
       });
 
@@ -96,7 +100,7 @@ class PromotionRepository {
   }
 
   async getCampaignById(id, client = this.prisma) {
-    return client.promotionCampaign.findUnique({
+    const campaign = await client.promotionCampaign.findUnique({
       where: { id },
       include: {
         currentVersion: {
@@ -110,6 +114,7 @@ class PromotionRepository {
         },
       },
     });
+    return serializeCampaign(campaign);
   }
 
   async updateCampaignStatus({ campaignId, status, actorId, validationResult }) {
@@ -140,4 +145,4 @@ class PromotionRepository {
   }
 }
 
-module.exports = { PromotionRepository, normalizeSchedules };
+module.exports = { PromotionRepository, normalizeSchedules, serializeCampaign };
