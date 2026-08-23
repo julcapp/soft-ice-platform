@@ -19,6 +19,7 @@ const BENEFIT_TYPES = new Set([
   'FIXED_DISCOUNT',
   'GIFT',
   'BONUS_REWARD',
+  'BONUS_PAYMENT',
   'FREE_ADDON',
   'PERSONAL_OFFER',
 ]);
@@ -29,8 +30,8 @@ const STACKING_MODES = new Set(['BEST_PRICE', 'EXCLUSIVE', 'STACKABLE']);
 const BUDGET_ACTIONS = new Set(['STOP', 'NOTIFY_ONLY']);
 
 const REQUIRED_HAPPY_HOUR_RULES = new Map([
-  ['BONUS_PAYMENT', 'FORBIDDEN'],
-  ['THIRD_PARTY_TRANSFER', 'FORBIDDEN'],
+  ['PARTIAL_BONUS_PAYMENT', 'FORBIDDEN'],
+  ['TRANSFER_TO_THIRD_PARTY', 'FORBIDDEN'],
   ['MONEY_DISCOUNT_STACKING', 'FORBIDDEN'],
   ['GIFT_COMPATIBILITY', 'PAID_ITEMS_ONLY'],
 ]);
@@ -125,73 +126,86 @@ class PromotionValidationService {
     }
 
     if (!Number.isInteger(version.priceLockSeconds) || version.priceLockSeconds <= 0) {
-      errors.push(issue('INVALID_PRICE_LOCK', 'Price lock must be a positive number of seconds.', 'version.priceLockSeconds'));
+      errors.push(issue('INVALID_PRICE_LOCK', 'priceLockSeconds must be a positive integer.', 'version.priceLockSeconds'));
     }
 
     if (version.startsAt && version.endsAt && new Date(version.startsAt) >= new Date(version.endsAt)) {
-      errors.push(issue('INVALID_CAMPAIGN_RANGE', 'Campaign end must be later than campaign start.', 'version.endsAt'));
+      errors.push(issue('INVALID_DATE_RANGE', 'startsAt must be earlier than endsAt.', 'version.startsAt'));
     }
 
     if (version.minimumFinalPrice !== null && version.minimumFinalPrice !== undefined && Number(version.minimumFinalPrice) < 0) {
-      errors.push(issue('INVALID_MINIMUM_PRICE', 'Minimum final price cannot be negative.', 'version.minimumFinalPrice'));
+      errors.push(issue('INVALID_MINIMUM_FINAL_PRICE', 'minimumFinalPrice cannot be negative.', 'version.minimumFinalPrice'));
     }
 
     if (version.budgetAmount !== null && version.budgetAmount !== undefined && Number(version.budgetAmount) < 0) {
-      errors.push(issue('INVALID_BUDGET', 'Campaign budget cannot be negative.', 'version.budgetAmount'));
+      errors.push(issue('INVALID_BUDGET', 'budgetAmount cannot be negative.', 'version.budgetAmount'));
     }
 
-    if (!version.timezone) {
-      errors.push(issue('TIMEZONE_REQUIRED', 'Campaign timezone is required.', 'version.timezone'));
+    if (!version.timezone || !String(version.timezone).trim()) {
+      errors.push(issue('TIMEZONE_REQUIRED', 'Promotion timezone is required.', 'version.timezone'));
+    } else {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: version.timezone }).format(new Date());
+      } catch (_error) {
+        errors.push(issue('INVALID_TIMEZONE', 'Promotion timezone is invalid.', 'version.timezone'));
+      }
+    }
+
+    if (version.priceLockSeconds !== 300) {
+      warnings.push(issue('NON_STANDARD_PRICE_LOCK', 'Recommended price lock is 300 seconds.', 'version.priceLockSeconds', 'WARNING'));
     }
   }
 
   _validateSchedule(schedules, errors, warnings) {
-    if (!Array.isArray(schedules) || schedules.filter((item) => item.isEnabled !== false).length === 0) {
+    const enabled = schedules.filter((item) => item.isEnabled !== false);
+    if (enabled.length === 0) {
       errors.push(issue('SCHEDULE_REQUIRED', 'At least one enabled schedule window is required.', 'version.schedules'));
       return;
     }
 
     const byDay = new Map();
-    schedules.forEach((window, index) => {
-      if (window.isEnabled === false) return;
-      if (!Number.isInteger(window.dayOfWeek) || window.dayOfWeek < 1 || window.dayOfWeek > 7) {
-        errors.push(issue('INVALID_DAY_OF_WEEK', 'dayOfWeek must be between 1 and 7.', `version.schedules[${index}].dayOfWeek`));
+    enabled.forEach((schedule, index) => {
+      const path = `version.schedules[${index}]`;
+      if (!Number.isInteger(schedule.dayOfWeek) || schedule.dayOfWeek < 1 || schedule.dayOfWeek > 7) {
+        errors.push(issue('INVALID_DAY_OF_WEEK', 'dayOfWeek must be an integer from 1 to 7.', `${path}.dayOfWeek`));
         return;
       }
-      const start = toMinutes(window.startTime);
-      const end = toMinutes(window.endTime);
+      const start = toMinutes(schedule.startTime);
+      const end = toMinutes(schedule.endTime);
       if (start === null || end === null) {
-        errors.push(issue('INVALID_TIME', 'Schedule time must use HH:MM or HH:MM:SS.', `version.schedules[${index}]`));
+        errors.push(issue('INVALID_SCHEDULE_TIME', 'Schedule times must use HH:MM or HH:MM:SS.', path));
         return;
       }
       if (start >= end) {
-        errors.push(issue('INVALID_SCHEDULE_WINDOW', 'Schedule end must be later than start.', `version.schedules[${index}]`));
+        errors.push(issue('INVALID_SCHEDULE_WINDOW', 'Schedule start time must be earlier than end time.', path));
         return;
       }
-      const dayWindows = byDay.get(window.dayOfWeek) || [];
-      dayWindows.push({ start, end, index });
-      byDay.set(window.dayOfWeek, dayWindows);
+      if (!byDay.has(schedule.dayOfWeek)) byDay.set(schedule.dayOfWeek, []);
+      byDay.get(schedule.dayOfWeek).push({ start, end, path });
     });
 
-    for (const [day, windows] of byDay.entries()) {
+    for (const windows of byDay.values()) {
       windows.sort((a, b) => a.start - b.start);
       for (let i = 1; i < windows.length; i += 1) {
         if (windows[i].start < windows[i - 1].end) {
-          errors.push(issue('OVERLAPPING_SCHEDULE_WINDOWS', `Schedule windows overlap on day ${day}.`, `version.schedules[${windows[i].index}]`));
+          errors.push(issue('OVERLAPPING_SCHEDULE_WINDOWS', 'Schedule windows cannot overlap.', windows[i].path));
         }
       }
+    }
+
+    if (enabled.length > 14) {
+      warnings.push(issue('COMPLEX_SCHEDULE', 'Promotion has many schedule windows; verify the configuration.', 'version.schedules', 'WARNING'));
     }
   }
 
   _validateTargets(targets, errors) {
-    if (!Array.isArray(targets) || targets.length === 0) {
+    if (targets.length === 0) {
       errors.push(issue('TARGET_REQUIRED', 'At least one promotion target is required.', 'version.targets'));
       return;
     }
-
     targets.forEach((target, index) => {
       if (!target.targetType) {
-        errors.push(issue('TARGET_TYPE_REQUIRED', 'Target type is required.', `version.targets[${index}].targetType`));
+        errors.push(issue('TARGET_TYPE_REQUIRED', 'targetType is required.', `version.targets[${index}].targetType`));
       }
       if (target.targetType !== 'ALL_MACHINES' && !target.targetId) {
         errors.push(issue('TARGET_ID_REQUIRED', 'targetId is required for this target type.', `version.targets[${index}].targetId`));
@@ -200,55 +214,47 @@ class PromotionValidationService {
   }
 
   _validateAudiences(audiences, errors) {
-    if (!Array.isArray(audiences) || audiences.length === 0) {
-      errors.push(issue('AUDIENCE_REQUIRED', 'At least one audience rule is required.', 'version.audiences'));
+    if (audiences.length === 0) {
+      errors.push(issue('AUDIENCE_REQUIRED', 'At least one promotion audience is required.', 'version.audiences'));
     }
   }
 
   _validateChannels(channels, errors, warnings) {
-    const enabled = Array.isArray(channels) ? channels.filter((item) => item.enabled !== false) : [];
+    const enabled = channels.filter((item) => item.enabled !== false);
     if (enabled.length === 0) {
-      errors.push(issue('CHANNEL_REQUIRED', 'At least one enabled customer channel is required.', 'version.channels'));
+      errors.push(issue('CHANNEL_REQUIRED', 'At least one enabled channel is required.', 'version.channels'));
       return;
     }
-
     enabled.forEach((channel, index) => {
       if (!CHANNELS.has(channel.channel)) {
         errors.push(issue('INVALID_CHANNEL', `Unsupported channel: ${channel.channel}.`, `version.channels[${index}].channel`));
       }
-      if (channel.countdownEnabled !== true) {
-        warnings.push(issue('COUNTDOWN_DISABLED', `Countdown is disabled for ${channel.channel}.`, `version.channels[${index}].countdownEnabled`, 'WARNING'));
+      if (channel.countdownEnabled === false) {
+        warnings.push(issue('COUNTDOWN_DISABLED', 'Countdown is disabled for an enabled channel.', `version.channels[${index}].countdownEnabled`, 'WARNING'));
       }
     });
   }
 
-  _validateRules(campaignCode, version, rules, errors, warnings) {
-    const ruleMap = new Map();
-    for (const rule of rules) {
-      if (rule && rule.ruleType) ruleMap.set(rule.ruleType, normalizeRuleValue(rule.value));
+  _validateRules(campaignCode, version, rules, errors) {
+    if (campaignCode !== 'HAPPY_HOUR') return;
+
+    if (version.benefitType !== 'PERCENT_DISCOUNT' || Number(version.benefitValue) !== 20) {
+      errors.push(issue('HAPPY_HOUR_DISCOUNT_MUST_BE_20', 'HAPPY_HOUR v1 must use a 20% discount.', 'version.benefitValue'));
     }
 
-    if (campaignCode === 'HAPPY_HOUR') {
-      if (version.benefitType !== 'PERCENT_DISCOUNT' || Number(version.benefitValue) !== 20) {
-        errors.push(issue('HAPPY_HOUR_DISCOUNT_MUST_BE_20', 'HAPPY_HOUR v1 must use a 20% percentage discount.', 'version.benefitValue'));
-      }
-
-      for (const [ruleType, expected] of REQUIRED_HAPPY_HOUR_RULES.entries()) {
-        if (ruleMap.get(ruleType) !== expected) {
-          errors.push(issue('HAPPY_HOUR_REQUIRED_RULE_MISSING', `${ruleType} must be ${expected}.`, `version.rules.${ruleType}`, 'ERROR', { expected }));
-        }
-      }
-
-      const enabledChannels = (version.channels || []).filter((item) => item.enabled !== false);
-      const withoutCountdown = enabledChannels.filter((item) => item.countdownEnabled !== true).map((item) => item.channel);
-      if (withoutCountdown.length > 0) {
-        errors.push(issue('HAPPY_HOUR_COUNTDOWN_REQUIRED', 'Countdown is mandatory in every enabled HAPPY_HOUR channel.', 'version.channels', 'ERROR', { channels: withoutCountdown }));
-      }
-
-      if (version.priceLockSeconds !== 300) {
-        warnings.push(issue('HAPPY_HOUR_PRICE_LOCK_NONSTANDARD', 'HAPPY_HOUR v1 is designed for a 300-second price lock.', 'version.priceLockSeconds', 'WARNING'));
+    for (const [ruleType, requiredValue] of REQUIRED_HAPPY_HOUR_RULES.entries()) {
+      const rule = rules.find((item) => item.ruleType === ruleType);
+      const actual = normalizeRuleValue(rule && rule.value);
+      if (actual !== requiredValue) {
+        errors.push(issue('HAPPY_HOUR_REQUIRED_RULE_MISSING', `${ruleType} must equal ${requiredValue}.`, `version.rules.${ruleType}`));
       }
     }
+
+    (version.channels || []).filter((item) => item.enabled !== false).forEach((channel) => {
+      if (channel.countdownEnabled !== true) {
+        errors.push(issue('HAPPY_HOUR_COUNTDOWN_REQUIRED', 'Countdown is mandatory in every enabled HAPPY_HOUR channel.', `version.channels.${channel.channel}.countdownEnabled`));
+      }
+    });
   }
 
   _result(errors, warnings) {
@@ -266,4 +272,8 @@ module.exports = {
   CAMPAIGN_STATUSES,
   BENEFIT_TYPES,
   CHANNELS,
+  APPROVAL_POLICIES,
+  STACKING_MODES,
+  BUDGET_ACTIONS,
+  REQUIRED_HAPPY_HOUR_RULES,
 };
