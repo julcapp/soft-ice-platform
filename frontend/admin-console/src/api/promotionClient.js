@@ -4,6 +4,7 @@ function headers(json = false) {
   return {
     ...(json ? { 'Content-Type': 'application/json' } : {}),
     'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN',
+    'X-Admin-Subject': import.meta.env.VITE_ADMIN_DEMO_SUBJECT || 'development-admin',
   };
 }
 
