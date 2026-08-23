@@ -18,14 +18,22 @@ class QuotedOrderService {
       throw this._error('PRICING_QUOTE_CUSTOMER_MISMATCH', 'Pricing quote does not belong to this customer.', 403);
     }
 
-    const result = await this._createOrderFromQuote(customerId, quote, context);
+    const result = quote.paymentRequired
+      ? await this._createPaidOrder(customerId, quote, context)
+      : await this._createZeroAmountOrder(customerId, quote, context);
 
     try {
       await this.pricingEngineService.consumeQuote(quoteId, { orderId: result.order.id });
-      if (!quote.paymentRequired) await this.pricingEngineService.completePaidOrder(result.order.id);
+      if (!quote.paymentRequired && typeof this.pricingEngineService.completePaidOrder === 'function') {
+        await this.pricingEngineService.completePaidOrder(result.order.id);
+      }
     } catch (error) {
-      if (result.order.status === ORDER_STATUS.PAYMENT_PENDING) {
-        await this.orderRuntime.cancelOrder(result.order.id, { ...context, customerId, reasonCode: 'pricing_quote_consume_failed' });
+      if (result.order.status === ORDER_STATUS.PAYMENT_PENDING && typeof this.orderRuntime.cancelOrder === 'function') {
+        await this.orderRuntime.cancelOrder(result.order.id, {
+          ...context,
+          customerId,
+          reasonCode: 'pricing_quote_consume_failed',
+        });
       }
       throw error;
     }
@@ -47,39 +55,63 @@ class QuotedOrderService {
     };
   }
 
-  async _createOrderFromQuote(customerId, quote, context) {
-    const service = this.orderRuntime.orderService;
-    const order = await service.orderRepository.create({
+  async _createPaidOrder(customerId, quote, context) {
+    return this.orderRuntime.createOrder(
       customerId,
-      status: ORDER_STATUS.PAYMENT_PENDING,
-      amount: Number(quote.finalAmount),
-      currency: quote.currency,
-      machineId: quote.machineId,
-      basePriceRub: Number(quote.baseAmount),
-      promoDiscountRub: Number(quote.promotionDiscountAmount),
-    });
-    const event = await service.publishOrderEvent(ORDER_DOMAIN_EVENTS.ORDER_CREATED, order, {
-      fromStatus: null,
-      toStatus: order.status,
-      stateReason: quote.paymentRequired ? 'pricing_quote_order_created' : 'zero_amount_pricing_quote_created',
-      context: {
+      {
+        amount: Number(quote.finalAmount),
+        currency: quote.currency,
+        machineId: quote.machineId,
+        basePriceRub: Number(quote.baseAmount),
+        promoDiscountRub: Number(quote.promotionDiscountAmount),
+      },
+      {
         ...context,
         sourceChannel: context.sourceChannel || quote.channel,
         pricingQuoteId: quote.id,
         pricingSnapshotId: quote.snapshotId,
       },
-    });
-    await service.recordAudit({
-      eventType: ORDER_DOMAIN_EVENTS.ORDER_CREATED.name,
-      customerId,
-      order,
-      action: 'create',
-      decision: 'success',
-      reasonCode: quote.paymentRequired ? 'pricing_quote_order_created' : 'zero_amount_pricing_quote_created',
-      context,
-    });
+    );
+  }
 
-    if (quote.paymentRequired) return { order, event, created: true, paymentBypassed: false };
+  async _createZeroAmountOrder(customerId, quote, context) {
+    const service = this.orderRuntime.orderService;
+    if (!service?.orderRepository) {
+      throw this._error('ZERO_AMOUNT_ORDER_RUNTIME_UNAVAILABLE', 'Zero-amount quoted orders require OrderService repository access.', 503);
+    }
+    const order = await service.orderRepository.create({
+      customerId,
+      status: ORDER_STATUS.PAYMENT_PENDING,
+      amount: 0,
+      currency: quote.currency,
+      machineId: quote.machineId,
+      basePriceRub: Number(quote.baseAmount),
+      promoDiscountRub: Number(quote.promotionDiscountAmount),
+    });
+    const event = typeof service.publishOrderEvent === 'function'
+      ? await service.publishOrderEvent(ORDER_DOMAIN_EVENTS.ORDER_CREATED, order, {
+          fromStatus: null,
+          toStatus: order.status,
+          stateReason: 'zero_amount_pricing_quote_created',
+          context: {
+            ...context,
+            sourceChannel: context.sourceChannel || quote.channel,
+            pricingQuoteId: quote.id,
+            pricingSnapshotId: quote.snapshotId,
+          },
+        })
+      : null;
+    if (typeof service.recordAudit === 'function') {
+      await service.recordAudit({
+        eventType: ORDER_DOMAIN_EVENTS.ORDER_CREATED.name,
+        customerId,
+        order,
+        action: 'create',
+        decision: 'success',
+        reasonCode: 'zero_amount_pricing_quote_created',
+        context,
+      });
+    }
 
     const paid = await this.orderRuntime.confirmPayment(order.id, {
       ...context,
