@@ -22,6 +22,7 @@ import { PhotoVerificationReadinessPage } from './PhotoVerificationReadiness';
 import { BusinessDashboardPage } from './BusinessDashboard';
 import { PrivateChannelRecoveryPage } from './PrivateChannelRecovery';
 import { PromotionEnginePage } from './PromotionEngine';
+import { PaymentsPage } from './Payments';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -75,10 +76,12 @@ export function App({ client = getDashboard }) {
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
   const promotionRoute = route === 'promotions' || route.startsWith('promotions/');
+  const paymentsRoute = route === 'payments';
   const photoVerificationRoute = route === 'photo-verification';
   const photoReadinessRoute = route === 'photo-verification-readiness';
   const businessAnalyticsRoute = route === 'business-analytics';
   const privateChannelRecoveryRoute = route === 'private-channel-recovery';
+  if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PaymentsPage /></AppShell>;
   if (promotionRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Promotion Engine" copy="Управление акциями, безопасностью, согласованием, каналами и аналитикой." editable /><PromotionEnginePage /></AppShell>;
   if (businessAnalyticsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Бизнес" title="Бизнес-статистика" copy="Пользователи, Клуб Тимоши, рефералы, подписки, продажи, пополнения и предоплаченные заказы." /><BusinessDashboardPage /></AppShell>;
   if (privateChannelRecoveryRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Подписки" title="Recovery приватных каналов" copy="Автопродления Telegram / MAX, grace period, повторные попытки и состояние доступа." editable /><PrivateChannelRecoveryPage /></AppShell>;

@@ -71,9 +71,11 @@ async function create(f, suffix = `${++sequence}`) {
 
 test.before(async () => {
   if (!hasDatabase) return;
-  await prisma.transactionalOutboxEvent.deleteMany({ where: { saleFlowId: { not: null } } });
-  await prisma.saleFlowIdempotencyKey.deleteMany();
-  await prisma.saleFlow.deleteMany();
+  const flows = await prisma.saleFlow.findMany({ where: { flowId: { startsWith: 'flow_' }, organizationId: 'org_pg' }, select: { flowId: true } });
+  const flowIds = flows.map((flow) => flow.flowId);
+  await prisma.transactionalOutboxEvent.deleteMany({ where: { saleFlowId: { in: flowIds } } });
+  await prisma.saleFlowIdempotencyKey.deleteMany({ where: { flowId: { in: flowIds } } });
+  await prisma.saleFlow.deleteMany({ where: { flowId: { in: flowIds } } });
 });
 
 test.after(async () => {

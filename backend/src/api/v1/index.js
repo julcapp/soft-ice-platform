@@ -56,6 +56,7 @@ const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes
 const { createPromotionAdminRouter } = require('./promotionRoutes');
 const { createPricingRouter } = require('./pricingRoutes');
 const { createPaymentRouter } = require('./paymentRoutes');
+const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: paymentwebhookrouter } = require('./paymentlifecycleroutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -102,6 +103,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/orders', createOrderRouter(runtimeDependencies));
   router.use('/pricing', createPricingRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
+  router.use('/admin/payments', adminpaymentrouter(runtimeependencies));
+  router.use('/webhooks/payments', paymentwebhookrouter(runtimeependencies));
   if (runtimeDependencies.giftTransferRuntime) {
     router.use('/me', createGiftTransferRouter(runtimeDependencies));
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
