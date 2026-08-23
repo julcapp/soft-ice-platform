@@ -9,11 +9,16 @@ class YooKassaDailyReconciliationService {
     this.clock = clock;
   }
 
-  async importCsv({ csvText, reportType, reportDate, fileName = null, shopId = null, actorId = 'admin' }) {
+  async importCsv({ csvText, reportType, reportDate = null, fileName = null, shopId = null, actorId = 'admin' }) {
     const type = normalizeReportType(reportType);
-    const date = normalizeDate(reportDate);
     const text = String(csvText || '').replace(/^\uFEFF/, '');
     if (!text.trim()) throw validation('YOOKASSA_REPORT_EMPTY', 'Реестр пуст.');
+    const metadata = extractReportMetadata(text, type);
+    const date = normalizeDate(metadata.reportDate || reportDate);
+    if (metadata.reportDate && reportDate && metadata.reportDate !== reportDate) {
+      throw validation('YOOKASSA_REPORT_DATE_MISMATCH', `Дата внутри реестра ${metadata.reportDate} не совпадает с датой ${reportDate}, определённой из письма или имени файла.`);
+    }
+    const effectiveShopId = metadata.shopId || shopId;
     const fileHash = crypto.createHash('sha256').update(text).digest('hex');
     const duplicate = await this.prisma.$queryRawUnsafe('SELECT * FROM "YooKassaDailyReport" WHERE "fileHash"=$1 LIMIT 1', fileHash);
     if (duplicate[0]) return { ...duplicate[0], idempotentReplay: true };
@@ -28,10 +33,10 @@ class YooKassaDailyReconciliationService {
 
     await this.prisma.$executeRawUnsafe(
       `INSERT INTO "YooKassaDailyReport" ("id","shopId","reportDate","reportType","fileName","fileHash","status","rowsTotal","rowsMatched","rowsMissingLocal","rowsMismatch","grossAmountRub","netAmountRub","commissionRub","commissionVatRub","refundAmountRub","importedBy","importedAt","reconciledAt","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18,$18)`,
-      reportId, shopId, date, type, fileName, fileHash, result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', normalized.length, result.matched, result.missingLocal, result.mismatch, totals.grossAmountRub, totals.netAmountRub, totals.commissionRub, totals.commissionVatRub, totals.refundAmountRub, actorId, now,
+      reportId, effectiveShopId, date, type, fileName, fileHash, result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', normalized.length, result.matched, result.missingLocal, result.mismatch, totals.grossAmountRub, totals.netAmountRub, totals.commissionRub, totals.commissionVatRub, totals.refundAmountRub, actorId, now,
     );
     for (const item of result.issues) await this.#insertIssue(reportId, type, item);
-    return { reportId, reportType: type, reportDate: date, fileName, rowsTotal: normalized.length, ...result, totals, status: result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', idempotentReplay: false };
+    return { reportId, reportType: type, reportDate: date, shopId: effectiveShopId, contractRef: metadata.contractRef, fileName, rowsTotal: normalized.length, ...result, totals, status: result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', idempotentReplay: false };
   }
 
   async stats({ from, toExclusive }) {
@@ -82,9 +87,40 @@ class YooKassaDailyReconciliationService {
 }
 
 function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim()); if (!lines.length) return [];
-  const delimiter = detectDelimiter(lines[0]); const headers = splitCsvLine(lines[0], delimiter).map(cleanHeader);
-  return lines.slice(1).map((line) => splitCsvLine(line, delimiter)).filter((cells) => cells.some((v) => String(v).trim())).map((cells) => Object.fromEntries(headers.map((header, index) => [header, String(cells[index] ?? '').trim()])));
+  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => isOperationHeader(line));
+  if (headerIndex < 0) return [];
+  const headerLine = lines[headerIndex];
+  const delimiter = detectDelimiter(headerLine);
+  const headers = splitCsvLine(headerLine, delimiter).map(cleanHeader);
+  return lines.slice(headerIndex + 1)
+    .filter((line) => line.trim())
+    .map((line) => splitCsvLine(line, delimiter))
+    .filter((cells) => cells.some((v) => String(v).trim()))
+    .filter((cells) => !isFooterOrMetadataRow(cells))
+    .map((cells) => Object.fromEntries(headers.map((header, index) => [header, String(cells[index] ?? '').trim()])));
+}
+function isOperationHeader(line) {
+  const normalized = cleanHeader(line);
+  return normalized.includes('идентификатор платежа') || normalized.includes('идентификатор возврата') || normalized.includes('payment_id') || normalized.includes('refund_id');
+}
+function isFooterOrMetadataRow(cells) {
+  if (cells.length > 1) return false;
+  const value = cleanHeader(cells[0]);
+  return value.startsWith('итого') || value.startsWith('дата платеж') || value.startsWith('дата возврат') || value.startsWith('реестр ');
+}
+function extractReportMetadata(text, reportType = null) {
+  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).slice(0, 30);
+  const head = lines.join('\n');
+  const datePatterns = reportType === 'REFUNDS'
+    ? [/дата\s+возврат(?:ов|а)?\s*:\s*(20\d{2}-\d{2}-\d{2})/i, /дата\s+операций\s*:\s*(20\d{2}-\d{2}-\d{2})/i]
+    : [/дата\s+платеж(?:ей|а)?\s*:\s*(20\d{2}-\d{2}-\d{2})/i, /дата\s+операций\s*:\s*(20\d{2}-\d{2}-\d{2})/i];
+  let reportDate = null;
+  for (const pattern of datePatterns) { const match = head.match(pattern); if (match) { reportDate = match[1]; break; } }
+  const contractMatch = head.match(/реестр\s+(?:платежей|возвратов)\s+по\s+договору\s+([^\r\n;]+)/i);
+  const contractRef = contractMatch ? contractMatch[1].trim() : null;
+  const shopMatch = contractRef && contractRef.match(/\((\d+)\)\s*$/);
+  return { reportDate, contractRef, shopId: shopMatch ? shopMatch[1] : null };
 }
 function detectDelimiter(line) { return (line.match(/;/g) || []).length >= (line.match(/,/g) || []).length ? ';' : ','; }
 function splitCsvLine(line, delimiter) { const out=[]; let cell=''; let quoted=false; for (let i=0;i<line.length;i++){ const c=line[i]; if(c==='"'){ if(quoted && line[i+1]==='"'){cell+='"';i++;} else quoted=!quoted; } else if(c===delimiter && !quoted){out.push(cell);cell='';} else cell+=c; } out.push(cell); return out; }
@@ -103,6 +139,6 @@ function numericDiffs(local,row,pairs){return pairs.filter(([lk,rk])=>Math.abs(N
 function pick(obj,keys){return Object.fromEntries(keys.map(k=>[k,Number(obj[k]||0)]));}
 function issue(issueType,providerOperationId,providerPaymentId,expected,actual){return {issueType,providerOperationId,providerPaymentId,expected,actual,severity:issueType.startsWith('MISSING_')?'CRITICAL':'WARNING'};}
 function normalizeReportType(value){const v=String(value||'').toUpperCase(); if(!['PAYMENTS','REFUNDS'].includes(v)) throw validation('YOOKASSA_REPORT_TYPE_INVALID','reportType must be PAYMENTS or REFUNDS.'); return v;}
-function normalizeDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))) throw validation('YOOKASSA_REPORT_DATE_INVALID','reportDate must use YYYY-MM-DD.'); return String(value);}
+function normalizeDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))) throw validation('YOOKASSA_REPORT_DATE_INVALID','Не удалось определить дату реестра в формате YYYY-MM-DD.'); return String(value);}
 function validation(code,message){return new ApiError({statusCode:400,code,message,source:'yookassa_reconciliation'});}
-module.exports={YooKassaDailyReconciliationService,parseCsv,normalizePaymentRow,normalizeRefundRow};
+module.exports={YooKassaDailyReconciliationService,parseCsv,extractReportMetadata,normalizePaymentRow,normalizeRefundRow};
