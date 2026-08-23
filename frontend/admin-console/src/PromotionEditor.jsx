@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { promotionClient } from './api/promotionClient';
+import { moscowLocalToIso } from './promotionTime';
 
 const DAYS = [{ id: 1, label: 'Пн' }, { id: 2, label: 'Вт' }, { id: 3, label: 'Ср' }, { id: 4, label: 'Чт' }, { id: 5, label: 'Пт' }, { id: 6, label: 'Сб' }, { id: 7, label: 'Вс' }];
 const CHANNELS = ['MINI_APP', 'WEB', 'TERMINAL', 'TELEGRAM', 'MAX', 'VK'];
@@ -85,7 +86,7 @@ export function PromotionEditor({ campaign, approvals = [], onChanged }) {
   const validate = () => perform('Валидация выполнена.', () => promotionClient.validate(campaign.id));
   const requestApproval = () => perform('Версия отправлена на согласование.', () => promotionClient.requestApproval(campaign.id, 'Запрос из Promotion Engine Console'));
   const approve = () => perform('Согласование зафиксировано.', () => promotionClient.approve(campaign.id, 'Одобрено в Promotion Engine Console'));
-  const schedule = () => perform('Версия запланирована.', () => promotionClient.schedule(campaign.id, new Date(scheduleStart).toISOString(), scheduleEnd ? new Date(scheduleEnd).toISOString() : null));
+  const schedule = () => perform('Версия запланирована.', () => promotionClient.schedule(campaign.id, moscowLocalToIso(scheduleStart), scheduleEnd ? moscowLocalToIso(scheduleEnd) : null));
 
   if (!campaign || !version) return null;
   return <section className="pe-card pe-editor">
@@ -119,7 +120,7 @@ export function PromotionEditor({ campaign, approvals = [], onChanged }) {
 
     {workingStatus === 'READY' && <div className="pe-workflow"><div><strong>READY</strong><span>Версия прошла валидацию. Следующий шаг — согласование.</span></div>{version.approvalPolicy === 'NONE' ? <span>Согласование не требуется</span> : <><button disabled={busy} onClick={requestApproval}>Запросить согласование</button><button disabled={busy} onClick={approve}>Одобрить</button></>}</div>}
 
-    {workingStatus === 'READY' && (version.approvalPolicy === 'NONE' || approved > 0) && <div className="pe-schedule-editor"><h3>Запланировать запуск</h3><label><span>Начало</span><input type="datetime-local" value={scheduleStart} onChange={(e) => setScheduleStart(e.target.value)} /></label><label><span>Окончание</span><input type="datetime-local" value={scheduleEnd} onChange={(e) => setScheduleEnd(e.target.value)} /></label><button disabled={busy || !scheduleStart} onClick={schedule}>Schedule</button></div>}
+    {workingStatus === 'READY' && (version.approvalPolicy === 'NONE' || approved > 0) && <div className="pe-schedule-editor"><h3>Запланировать запуск · Europe/Moscow</h3><label><span>Начало</span><input type="datetime-local" value={scheduleStart} onChange={(e) => setScheduleStart(e.target.value)} /></label><label><span>Окончание</span><input type="datetime-local" value={scheduleEnd} onChange={(e) => setScheduleEnd(e.target.value)} /></label><button disabled={busy || !scheduleStart} onClick={schedule}>Schedule</button></div>}
 
     {message && <div className={`pe-editor-message ${message.type}`}>{message.text}</div>}
   </section>;
