@@ -13,7 +13,7 @@ function urgencyCopy(urgency) {
   return 'Час выгоды идёт — −20%';
 }
 
-export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
+export function PromotionPricePanel({ pricing, compact = false, variant = 'default', onRefresh }) {
   if (!pricing) return null;
   const {
     status,
@@ -26,9 +26,11 @@ export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
     promotionUrgency,
   } = pricing;
 
+  const className = `promo-price-panel${compact ? ' is-compact' : ''}${variant === 'terminal' ? ' is-terminal' : ''}`;
+
   if (status === 'unavailable') {
     return (
-      <div className="promo-price-panel is-neutral">
+      <div className={`${className} is-neutral`}>
         <strong>Цена будет подтверждена сервером</strong>
         <span>Выберите конкретный автомат, чтобы проверить действующие акции.</span>
       </div>
@@ -36,12 +38,12 @@ export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
   }
 
   if (status === 'loading' && !quote) {
-    return <div className="promo-price-panel is-neutral"><strong>Проверяем лучшую цену…</strong></div>;
+    return <div className={`${className} is-neutral`}><strong>Проверяем лучшую цену…</strong></div>;
   }
 
   if (status === 'error') {
     return (
-      <div className="promo-price-panel is-error">
+      <div className={`${className} is-error`}>
         <strong>Не удалось подтвердить цену</strong>
         <span>{error?.message || 'Повторите расчёт.'}</span>
         {onRefresh && <button type="button" onClick={onRefresh}>Пересчитать цену</button>}
@@ -57,7 +59,7 @@ export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
   const discountPercent = Number(quote.promotionRuntime?.benefitValue || 20);
 
   return (
-    <section className={`promo-price-panel${compact ? ' is-compact' : ''}${hasPromotion ? ' is-active' : ''}${hasGift ? ' has-gift' : ''}`} aria-live="polite">
+    <section className={`${className}${hasPromotion ? ' is-active' : ''}${hasGift ? ' has-gift' : ''}`} aria-live="polite">
       {hasPromotion && (
         <>
           <div className="promo-heading">
