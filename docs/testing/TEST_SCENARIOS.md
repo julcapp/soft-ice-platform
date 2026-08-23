@@ -1,5 +1,21 @@
 # TEST_SCENARIOS
 
+## Payment Lifecycle & Reconciliation v1
+
+- Создание Payment читает authoritative amount/currency из Order; client amount mismatch отклоняется без записи.
+- Один create idempotency key с тем же каноническим server-side запросом возвращает тот же Payment без второго outbox event; другой Order, authoritative amount, currency, provider, description или metadata даёт `PAYMENT_IDEMPOTENCY_CONFLICT`.
+- Concurrent identical create даёт один Payment и duplicate; concurrent conflicting create даёт один Payment и один conflict; оба сценария сохраняются после restart.
+- Допустимые переходы проходят, terminal/повторные неподдержанные переходы fail-closed.
+- Create, confirmation, cancel, provider event и refund сохраняют idempotency после нового Prisma client.
+- Повторный provider event создаёт одну Inbox запись; sensitive provider fields не сохраняются.
+- `SUCCEEDED` атомарно фиксирует Payment + Order + Sale Flow + Outbox и не consume Inventory reserve.
+- Failure/cancel release reserve; refund не восстанавливает физически выданный товар.
+- Tenant другой организации не читает и не меняет Payment/Refund/Inbox.
+- Прямая PostgreSQL-запись не может связать Payment с Order/Sale Flow другого tenant или Refund с Payment другого tenant.
+- PostgreSQL отклоняет Payment/Refund status без требуемого timestamp и взаимоисключающие terminal timestamps.
+- Payment, Order, Sale Flow, Inventory и Outbox failure injection оставляют `NO PARTIAL STATE`.
+- Reconciliation классифицирует mismatch, создаёт manual review/audit/outbox и не исправляет Payment молча.
+
 ## Сквозная продажа Soft ICE v1 — ревизия orchestration boundary
 
 - Проверить, что `PAYMENT_CONFIRMED` не означает `COMPLETED` и не вызывает consume/loyalty.
@@ -434,3 +450,12 @@ Service restart остаётся непроверяемым до durable reposit
 - Production composition требует `organizationContext`, `orderDomain`, `priceCalculator`, `paymentAdapter`, `machineAdapter`, PostgreSQL Inventory и PostgreSQL Transactional Outbox до начала бизнес-транзакции; внешние Payment/Machine границы честно возвращают `BLOCKED_EXTERNAL`.
 - Одна Prisma/PostgreSQL transaction фиксирует Order, multi-item Inventory reservation/stock, Sale Flow и Outbox; инъекции отказа Order, Inventory, Sale Flow и Outbox дают полный rollback.
 - Legacy migration fixtures покрывают `ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`, single-item и multi-item; terminal rows сохраняют `reservedQuantity = quantity`, а невосстановимое ownership приводит к abort всей migration transaction.
+
+# Payment Lifecycle & Reconciliation v1 — повторная ревизия 2026-08-23
+
+- Provider webhook ingress проверяет signature boundary до persistence, выводит tenant из `provider + providerPaymentId` и глобально дедуплицирует `provider + providerEventId`.
+- Durable Inbox worker использует claim/lease/retry, переживает restart и повторно применяет command через persistent idempotency.
+- Refund request остаётся `REQUESTED/REFUND_PENDING`; `REFUNDED` возможен только по связанному provider event из Inbox. Refund не возвращает физически выданный Inventory.
+- Повтор reconciliation одного snapshot создаёт ровно один manual-review record, audit и outbox event; state/amount mismatch не исправляется автоматически.
+- Failure injection Payment, Order, Sale Flow, Inventory и Outbox подтверждает `NO PARTIAL STATE`.
+- Legacy migration: clean DB, полная chain, пустая legacy Payment, explicit valid mapping и unmapped row. Последняя останавливается до DDL, сохраняя строку и исходную схему.

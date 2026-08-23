@@ -1555,6 +1555,7 @@ model Order {
   bonusTransactions BonusTransaction[]
   photoChallenge    PhotoChallenge?
   birthdayReward    BirthdayReward?
+  payment           Payment?
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
@@ -1756,33 +1757,178 @@ model BirthdayReward {
   @@unique([customerId, year])
 }
 
+enum PaymentStatus {
+  CREATED
+  PENDING
+  AUTHORIZED
+  SUCCEEDED
+  FAILED
+  CANCELED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum RefundStatus {
+  REQUESTED
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentInboxStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum PaymentReconciliationStatus {
+  OPEN
+  MANUAL_REVIEW
+  RESOLVED
+}
+
 model Payment {
-  id          String  @id @default(uuid())
-  customerId  String?
+  id String @id @default(uuid())
+  organizationId String
+  orderId String @unique
+  saleFlowId String
+  customerId String?
   clubTopupId String? @unique
-
-  amountRub Float
-  currency  String @default("RUB")
-
-  provider          String  @default("yookassa")
-  providerPaymentId String? @unique
-  providerStatus    String?
-
-  status      String  @default("pending")
+  provider String
+  providerPaymentId String?
+  idempotencyKey String
+  requestFingerprint String
+  status PaymentStatus @default(CREATED)
+  amount Decimal @db.Decimal(18, 2)
+  currency String @default("RUB")
+  providerStatus String?
   description String?
-
-  confirmationUrl String?
-  returnUrl       String?
-
   metadata Json?
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  confirmedAt DateTime?
-  canceledAt  DateTime?
-
-  customer  Customer?  @relation(fields: [customerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pendingAt DateTime?
+  authorizedAt DateTime?
+  succeededAt DateTime?
+  failedAt DateTime?
+  canceledAt DateTime?
+  refundedAt DateTime?
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  saleFlow SaleFlow @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
+  customer Customer? @relation(fields: [customerId], references: [id])
   clubTopup ClubTopup? @relation(fields: [clubTopupId], references: [id])
+  refunds PaymentRefund[]
+  inboxEvents PaymentProviderInbox[]
+  operations PaymentOperation[]
+  reconciliationItems PaymentReconciliation[]
+  auditEntries PaymentAuditEntry[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, orderId, saleFlowId])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, provider, providerPaymentId])
+  @@unique([provider, providerPaymentId])
+  @@index([organizationId, status, createdAt])
+  @@index([saleFlowId])
+  @@index([provider, status, updatedAt])
+}
+
+model PaymentOperation {
+  id String @id @default(uuid())
+  organizationId String
+  paymentId String
+  operationType String
+  idempotencyKey String
+  requestHash String
+  resultReference String?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  @@unique([organizationId, operationType, idempotencyKey])
+  @@index([organizationId, paymentId, createdAt])
+}
+
+model PaymentRefund {
+  id String @id @default(uuid())
+  organizationId String
+  paymentId String
+  providerRefundId String?
+  idempotencyKey String
+  status RefundStatus @default(REQUESTED)
+  amount Decimal @db.Decimal(18, 2)
+  currency String @default("RUB")
+  reason String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  requestedAt DateTime @default(now())
+  pendingAt DateTime?
+  succeededAt DateTime?
+  failedAt DateTime?
+  failureCode String?
+  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, providerRefundId])
+  @@index([organizationId, paymentId, status])
+}
+
+model PaymentProviderInbox {
+  id String @id @default(uuid())
+  organizationId String
+  paymentId String?
+  provider String
+  providerEventId String
+  eventType String
+  payload Json
+  status PaymentInboxStatus @default(RECEIVED)
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+  attemptCount Int @default(0)
+  maxAttempts Int @default(10)
+  lastFailureCode String?
+  nextAttemptAt DateTime?
+  lockedAt DateTime?
+  lockedBy String?
+  payment Payment? @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  @@unique([provider, providerEventId])
+  @@unique([organizationId, id])
+  @@index([status, nextAttemptAt, receivedAt])
+  @@index([organizationId, paymentId, receivedAt])
+}
+
+model PaymentReconciliation {
+  id String @id @default(uuid())
+  organizationId String
+  paymentId String?
+  provider String
+  providerPaymentId String?
+  category String
+  fingerprint String
+  status PaymentReconciliationStatus @default(OPEN)
+  localStatus String?
+  providerStatus String?
+  localAmount Decimal? @db.Decimal(18, 2)
+  providerAmount Decimal? @db.Decimal(18, 2)
+  details Json?
+  detectedAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolutionNote String?
+  payment Payment? @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, detectedAt])
+  @@index([provider, providerPaymentId])
+}
+
+model PaymentAuditEntry {
+  id String @id @default(uuid())
+  organizationId String
+  paymentId String
+  action String
+  actorType String
+  actorId String?
+  correlationId String?
+  details Json?
+  occurredAt DateTime @default(now())
+  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  @@index([organizationId, paymentId, occurredAt])
 }
 
 enum SaleFlowState {
@@ -1851,7 +1997,9 @@ model SaleFlow {
   metadata                          Json?
   idempotencyKeys                   SaleFlowIdempotencyKey[]
   outboxEvents                      TransactionalOutboxEvent[]
+  payment                           Payment?
 
+  @@unique([organizationId, orderId, flowId])
   @@index([orderId])
   @@index([correlationId])
   @@index([currentState])

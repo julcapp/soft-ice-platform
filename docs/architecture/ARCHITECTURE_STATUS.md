@@ -1,5 +1,14 @@
 # Architecture Status
 
+## Payment Lifecycle & Reconciliation v1 — 2026-08-23
+
+- Payment Domain: `IMPLEMENTED`.
+- Provider contract: `IMPLEMENTED`.
+- Provider Inbox / Refund lifecycle / Reconciliation: `IMPLEMENTED`.
+- Real provider integration: `BLOCKED_EXTERNAL`.
+- Webhook signature verification: `BLOCKED_EXTERNAL`.
+- Production payment/refund operations: `BLOCKED_EXTERNAL`.
+
 Status: Active
 Document code: ARCH-002
 Version: 3.4

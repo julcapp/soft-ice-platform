@@ -39,6 +39,7 @@ const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, Notifi
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
 const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
+const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -47,6 +48,11 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const auditRepository = new AuditRepository(prisma);
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
+  const paymentRepository = new PaymentRepository(prisma);
+  const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
+  const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
+  const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
   const customerRepository = new CustomerRepository(prisma);
   const consentRepository = new ConsentRepository(prisma);
   const segmentationRepository = new SegmentationRepository(prisma);
@@ -273,6 +279,10 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineAdapter,
     transactionalOutboxRepository,
     outboxAdminService,
+    paymentRepository,
+    paymentService,
+    paymentReconciliationService,
+    paymentInboxWorker,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

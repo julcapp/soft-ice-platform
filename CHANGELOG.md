@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-23 — Payment Lifecycle & Reconciliation v1
+
+- Устранены три HIGH-дефекта повторной ревизии: create-idempotency теперь сверяет persisted server-side fingerprint и fail-closed отклоняет изменённый Order/amount/currency/provider, включая concurrent race и restart.
+- Payment связан с tenant-scoped составным ключом Sale Flow; Refund/Inbox/Reconciliation/Audit сохраняют составные Payment FK, а PostgreSQL CHECK запрещают несовместимые status/temporal fields.
+- PostgreSQL test cleanup ограничен собственными fixture ID и выполняется в dependency order; полный backend regression проходит без ослабления production FK.
+- Устранены дефекты независимой ревизии: добавлены mounted webhook ingress и durable lease/retry worker; tenant webhook выводится из provider reference, а не из недоверенного запроса.
+- Refund request отделён от provider-driven completion; без связанного Inbox event завершение возврата fail-closed.
+- Reconciliation получил persistent fingerprint, legacy migration — явный validated mapping и pre-DDL fail-closed для несопоставимых строк.
+- Payment выделен в durable PostgreSQL authoritative domain с Decimal money, строгой state machine и persistent idempotency.
+- Добавлены tenant-scoped provider Inbox, Refund lifecycle, audit, reconciliation manual review и события существующего Transactional Outbox.
+- Подтверждение Payment, Order и Sale Flow выполняется атомарно; Inventory reserve сохраняется до физической выдачи, failure/cancel release выполняется в той же транзакции.
+- Добавлены русскоязычный read-only Admin Console, migration, unit/PostgreSQL/failure-injection tests и ADR-044.
+- Реальные ЮKassa/СБП, production payment/refund operations и webhook signature verification остаются `BLOCKED_EXTERNAL`.
+
 ## 2026-08-21 — устранение критических дефектов Inventory Reservation & Locking v1
 
 - PostgreSQL `InventoryRuntimeStock` закреплён как единственный production source of truth; legacy in-memory runtime оставлен только как test/demo adapter без production fallback.

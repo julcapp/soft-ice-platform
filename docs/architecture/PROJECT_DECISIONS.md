@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-068 — Payment Is the Authoritative Monetary Lifecycle
+
+**Date:** 2026-08-23
+
+**Status:** Accepted
+
+Payment владеет денежной state machine, persistent idempotency, provider Inbox, Refund и Reconciliation. Подтверждение меняет Payment, Order, Sale Flow и Transactional Outbox одной PostgreSQL-транзакцией, но не означает выдачу и не consume Inventory. Реальные provider operations и webhook signature verification остаются `BLOCKED_EXTERNAL`. Подробности: `docs/architecture/ADR/ADR-044-payment-lifecycle-reconciliation-v1.md`.
+
 # Decision: DECISION-067 — Sale Commit Uses One PostgreSQL Transaction
 
 **Date:** 2026-08-21

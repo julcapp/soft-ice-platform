@@ -19,7 +19,7 @@ function createApp(options = {}) {
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
-  app.use(express.json());
+  app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
   app.use(attachCorrelationId);
   app.use(requestContext(logger));
   app.use((req, res, next) => {
@@ -54,6 +54,7 @@ function createApp(options = {}) {
 let app;
 
 let server;
+let paymentInboxTimer;
 
 function startServer() {
   if (server) {
@@ -63,6 +64,11 @@ function startServer() {
   server = getApp().listen(backendConfig.http.port, backendConfig.http.host, () => {
     getApp().locals.platform.logger.info('application.started', { host: backendConfig.http.host, port: backendConfig.http.port, environment: backendConfig.environment });
   });
+  const paymentInboxWorker = getApp().locals.platform.dependencies.paymentInboxWorker;
+  if (paymentInboxWorker && !paymentInboxTimer) {
+    paymentInboxTimer = setInterval(() => paymentInboxWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('payment.inbox.worker.failed', { code: error.code || 'PAYMENT_INBOX_WORKER_FAILED' })), 5000);
+    paymentInboxTimer.unref();
+  }
 
   return server;
 }
@@ -82,6 +88,7 @@ async function shutdown(signal, options = {}) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     server = undefined;
   }
+  if (paymentInboxTimer) { clearInterval(paymentInboxTimer); paymentInboxTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();

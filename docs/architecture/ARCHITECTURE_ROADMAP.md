@@ -1,5 +1,11 @@
 # Architecture Roadmap
 
+## Payment boundary
+
+- [x] Durable Payment lifecycle, Inbox, Refund, Reconciliation и Transactional Outbox integration.
+- [ ] `BLOCKED_EXTERNAL`: approved provider credentials/configuration, ЮKassa/СБП adapter, signature verification и sandbox certification.
+- [ ] Защищённая manual reconciliation command architecture с отдельными permissions/approval workflow.
+
 Status: Approved
 Version: 2.5
 Checkpoint date: 2026-07-23
