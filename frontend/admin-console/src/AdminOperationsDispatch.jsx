@@ -28,7 +28,9 @@ export function AdminOperationsDispatch({ compact = false }) {
 
   async function apply(item, patch) {
     const values = draft[item.key] || {};
-    await updateOperationsWorkItem({ notificationKey: item.key, assigneeSubject: values.assigneeSubject, comment: values.comment, ...patch });
+    const payload = { notificationKey: item.key, comment: values.comment, ...patch };
+    if (Object.prototype.hasOwnProperty.call(values, 'assigneeSubject')) payload.assigneeSubject = values.assigneeSubject;
+    await updateOperationsWorkItem(payload);
     setDraft((current) => ({ ...current, [item.key]: { ...values, comment: '' } }));
     await load();
     if (history?.key === item.key) await openHistory(item.key);
@@ -51,11 +53,13 @@ export function AdminOperationsDispatch({ compact = false }) {
     {data?.items?.length === 0 && <p>По выбранным фильтрам инцидентов нет.</p>}
     {data?.items?.map((item) => {
       const values = draft[item.key] || {};
+      const assignedLabel = item.work.assigneeDisplayName || item.work.assigneeSubject || 'не назначен';
       return <article key={item.key} style={{ borderTop: '1px solid var(--border-color, #ddd)', padding: '14px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><small>{categoryLabels[item.category] || item.category} · {item.source}</small><strong style={{ display: 'block', marginTop: 3 }}>{item.title}</strong></div><div style={{ display: 'flex', gap: 6 }}><StatusBadge status={item.severity} /><StatusBadge status={item.work.status} /></div></div>
         <p>{item.message}</p>
+        {item.work.assigneeSubject && <p style={{ margin: '4px 0 10px' }}><strong>Ответственный:</strong> {assignedLabel}{item.work.assignmentMode === 'AUTO' ? ' · назначен автоматически' : item.work.assignmentMode === 'MANUAL' ? ' · назначен вручную' : ''}{item.work.assignmentReason ? ` · ${item.work.assignmentReason}` : ''}</p>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
-          <label>Ответственный<input value={values.assigneeSubject ?? item.work.assigneeSubject ?? ''} onChange={(e) => setDraft((v) => ({ ...v, [item.key]: { ...(v[item.key] || {}), assigneeSubject: e.target.value } }))} placeholder="логин/роль сотрудника" /></label>
+          <label>Переназначить<input value={values.assigneeSubject ?? ''} onChange={(e) => setDraft((v) => ({ ...v, [item.key]: { ...(v[item.key] || {}), assigneeSubject: e.target.value } }))} placeholder={item.work.assigneeSubject || 'логин/роль сотрудника'} /></label>
           <label style={{ flex: '1 1 260px' }}>Комментарий<input value={values.comment || ''} onChange={(e) => setDraft((v) => ({ ...v, [item.key]: { ...(v[item.key] || {}), comment: e.target.value } }))} placeholder="Что сделано или что требуется" /></label>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
