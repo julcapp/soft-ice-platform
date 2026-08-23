@@ -8,7 +8,7 @@ function version(overrides = {}) {
   return {
     id: 'version-1', status: 'ACTIVE', priority: 100, timezone: 'Europe/Moscow', isManualOverride: false,
     schedules: [{ id: 'schedule-1', dayOfWeek: 2, startTime: new Date('1970-01-01T17:00:00.000Z'), endTime: new Date('1970-01-01T19:00:00.000Z'), isEnabled: true }],
-    targets: [{ targetType: 'ALL_MACHINES', targetId: null }], audiences: [{ audienceType: 'ALL' }], rules: [], channels: [{ channel: 'TERMINAL', enabled: true }],
+    targets: [{ targetType: 'ALL_MACHINES', targetId: null }], audiences: [{ audienceType: 'ALL' }], rules: [], channels: [{ channel: 'TERMINAL', enabled: true }, { channel: 'MINI_APP', enabled: true }],
     ...overrides,
   };
 }
@@ -50,6 +50,24 @@ test('P-12: a new DRAFT working version never changes serving pricing', async ()
   const resolved = await resolverFor(row).resolve({ machineId: 'machine-1', channel: 'TERMINAL', at: new Date('2026-08-25T15:00:00.000Z') });
   assert.equal(resolved.currentVersion.id, 'effective-v1');
   assert.equal(Number(resolved.currentVersion.benefitValue), 20);
+});
+
+test('upcoming resolver works for initial SCHEDULED working version without effective pointer', async () => {
+  const scheduled = version({ id: 'working-v1', status: 'SCHEDULED', startsAt: new Date('2026-08-25T14:00:00.000Z') });
+  const row = { id: 'campaign-happy-hour', name: 'Час выгоды', status: 'SCHEDULED', effectiveVersionId: null, effectiveVersion: null, currentVersionId: scheduled.id, currentVersion: scheduled };
+  const upcoming = await resolverFor(row).resolveUpcoming({ machineId: 'machine-1', channel: 'MINI_APP', at: new Date('2026-08-25T13:30:00.000Z'), withinMinutes: 60 });
+  assert.equal(upcoming?.currentVersion.id, 'working-v1');
+  assert.equal(upcoming?.promotionRuntime.upcomingWindow.secondsUntilStart, 1800);
+});
+
+test('scheduled working replacement is visible as upcoming while effective version keeps serving', async () => {
+  const row = campaign({ id: 'effective-v1', status: 'ACTIVE', schedules: [], startsAt: new Date('2026-08-25T10:00:00.000Z'), endsAt: new Date('2026-08-25T20:00:00.000Z') }, { id: 'working-v2', status: 'SCHEDULED', schedules: [], startsAt: new Date('2026-08-25T14:00:00.000Z'), endsAt: new Date('2026-08-25T16:00:00.000Z') });
+  row.effectiveVersionId = 'effective-v1';
+  const resolver = resolverFor(row);
+  const active = await resolver.resolve({ machineId: 'machine-1', channel: 'TERMINAL', at: new Date('2026-08-25T13:30:00.000Z') });
+  const upcoming = await resolver.resolveUpcoming({ machineId: 'machine-1', channel: 'MINI_APP', at: new Date('2026-08-25T13:30:00.000Z'), withinMinutes: 60 });
+  assert.equal(active?.currentVersion.id, 'effective-v1');
+  assert.equal(upcoming?.currentVersion.id, 'working-v2');
 });
 
 test('manual run-now override is not blocked by recurring schedule window', () => { assert.equal(isScheduleWindowActive(version({ isManualOverride: true, endsAt: new Date('2026-08-25T06:00:00.000Z') }), new Date('2026-08-25T05:00:00.000Z')), true); });
