@@ -1,0 +1,130 @@
+name: Promotion Engine CI
+
+on:
+  push:
+    branches:
+      - feature/promotion-engine-v1
+    paths:
+      - '.github/workflows/promotion-engine-ci.yml'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'backend/prisma/**'
+      - 'backend/scripts/merge-promotion-prisma.js'
+      - 'backend/src/api/v1/**'
+      - 'backend/src/modules/order/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/promotion_engine/**'
+      - 'backend/tests/**'
+      - 'frontend/miniapp/**'
+      - 'frontend/admin-console/**'
+  pull_request:
+    paths:
+      - '.github/workflows/promotion-engine-ci.yml'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'backend/prisma/**'
+      - 'backend/scripts/merge-promotion-prisma.js'
+      - 'backend/src/api/v1/**'
+      - 'backend/src/modules/order/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/promotion_engine/**'
+      - 'backend/tests/**'
+      - 'frontend/miniapp/**'
+      - 'frontend/admin-console/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/softice_ci
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: softice_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d softice_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Merge Promotion/Pricing/Payment Prisma models
+        working-directory: backend
+        run: npm run prisma:merge
+
+      - name: Verify integrated Prisma schema is committed
+        working-directory: backend
+        run: npm run prisma:check-integrated
+
+      - name: Format Prisma schema
+        working-directory: backend
+        run: npx prisma format --schema prisma/schema.prisma
+
+      - name: Ensure Prisma formatting creates no diff
+        run: git diff --exit-code -- backend/prisma/schema.prisma
+
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npx prisma validate --schema prisma/schema.prisma
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate --schema prisma/schema.prisma
+
+      - name: Apply database migrations
+        working-directory: backend
+        run: npx prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Run Promotion purchase PostgreSQL E2E
+        working-directory: backend
+        run: node --test tests/promotion-purchase.e2e.js
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install Mini App dependencies
+        working-directory: frontend/miniapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Mini App
+        working-directory: frontend/miniapp
+        run: pnpm build
+
+      - name: Install Admin Console dependencies
+        working-directory: frontend/admin-console
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Admin Console
+        working-directory: frontend/admin-console
+        run: pnpm test
+
+      - name: Build Admin Console
+        working-directory: frontend/admin-console
+        run: pnpm build

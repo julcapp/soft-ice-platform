@@ -27,26 +27,16 @@ const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./g
 const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
+const { createPromotionAdminRouter } = require('./promotionRoutes');
+const { createPricingRouter } = require('./pricingRoutes');
+const { createPaymentRouter } = require('./paymentRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
-
   router.use(attachCorrelationId);
 
   router.get('/', (req, res) => {
-    res.json({
-      data: {
-        type: 'api_version',
-        id: 'v1',
-        attributes: {
-          status: 'online',
-        },
-      },
-      meta: {
-        api_version: 'v1',
-        correlation_id: req.correlationId,
-      },
-    });
+    res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
 
   router.use('/auth', createAuthRouter(dependencies));
@@ -58,12 +48,15 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine-operations', createMachineOperationsRouter(dependencies));
   router.use('/machine', createMachineGatewayRouter(dependencies));
   router.use('/orders', createOrderRouter(dependencies));
+  router.use('/pricing', createPricingRouter(dependencies));
+  router.use('/payments', createPaymentRouter(dependencies));
   if (dependencies.giftTransferRuntime) {
     router.use('/me', createGiftTransferRouter(dependencies));
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
   }
   router.use('/telegram', createTelegramRouter(dependencies));
   router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
+  router.use('/admin/promotions', createPromotionAdminRouter(dependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
   router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
@@ -83,28 +76,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
   if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
 
-  router.use((req, res, next) => {
-    next(
-      new ApiError({
-        statusCode: 404,
-        code: 'RESOURCE_NOT_FOUND',
-        message: 'API route was not found.',
-      }),
-    );
-  });
-
-  router.use((error, req, res, next) => {
-    if (res.headersSent) {
-      next(error);
-      return;
-    }
-
-    sendError(res, req, error, logger);
-  });
-
+  router.use((req, res, next) => next(new ApiError({ statusCode: 404, code: 'RESOURCE_NOT_FOUND', message: 'API route was not found.' })));
+  router.use((error, req, res, next) => { if (res.headersSent) return next(error); return sendError(res, req, error, logger); });
   return router;
 }
 
-module.exports = {
-  createApiV1Router,
-};
+module.exports = { createApiV1Router };

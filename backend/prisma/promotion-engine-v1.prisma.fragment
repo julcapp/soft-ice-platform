@@ -1,0 +1,238 @@
+// Promotion Engine v1 — Prisma model fragment.
+// Money fields use Decimal; business state vocabularies stay String in v1.
+
+model PromotionCampaign {
+  id                 String    @id @default(uuid())
+  code               String    @unique
+  name               String
+  description        String?
+  status             String    @default("DRAFT")
+  currentVersionId   String?
+  effectiveVersionId String?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  archivedAt         DateTime?
+
+  currentVersion   PromotionVersion? @relation("PromotionCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  effectiveVersion PromotionVersion? @relation("PromotionEffectiveVersion", fields: [effectiveVersionId], references: [id], onDelete: SetNull)
+  versions         PromotionVersion[] @relation("PromotionVersions")
+  approvals        PromotionApproval[]
+  events           PromotionEvent[]
+  applications     PromotionApplication[]
+
+  @@index([status, createdAt])
+  @@index([effectiveVersionId])
+}
+
+model PromotionVersion {
+  id                         String    @id @default(uuid())
+  campaignId                 String
+  version                    Int
+  status                     String    @default("DRAFT")
+  benefitType                String
+  benefitValue               Decimal?  @db.Decimal(12, 4)
+  priority                   Int       @default(0)
+  stackingMode               String    @default("BEST_PRICE")
+  exclusiveGroup             String?
+  priceLockSeconds           Int       @default(300)
+  startsAt                   DateTime?
+  endsAt                     DateTime?
+  timezone                   String    @default("Europe/Moscow")
+  approvalPolicy             String    @default("SINGLE_APPROVAL")
+  isManualOverride           Boolean   @default(false)
+  budgetAmount               Decimal?  @db.Decimal(14, 2)
+  budgetAction               String    @default("STOP")
+  maxApplications            Int?
+  maxApplicationsPerCustomer Int?
+  minimumFinalPrice          Decimal?  @db.Decimal(12, 2)
+  metadata                   Json?
+  createdBy                  String
+  createdAt                  DateTime  @default(now())
+
+  campaign              PromotionCampaign   @relation("PromotionVersions", fields: [campaignId], references: [id], onDelete: Restrict)
+  currentForCampaigns   PromotionCampaign[] @relation("PromotionCurrentVersion")
+  effectiveForCampaigns PromotionCampaign[] @relation("PromotionEffectiveVersion")
+  schedules             PromotionSchedule[]
+  targets               PromotionTarget[]
+  audiences             PromotionAudience[]
+  rules                 PromotionRule[]
+  channels              PromotionChannel[]
+  approvals             PromotionApproval[]
+  events                PromotionEvent[]
+  applications          PromotionApplication[]
+
+  @@unique([campaignId, version])
+  @@index([campaignId, createdAt])
+  @@index([campaignId, status])
+  @@index([startsAt, endsAt])
+}
+
+model PromotionSchedule {
+  id                 String   @id @default(uuid())
+  promotionVersionId String
+  dayOfWeek          Int
+  startTime          DateTime @db.Time(0)
+  endTime            DateTime @db.Time(0)
+  isEnabled          Boolean  @default(true)
+  windowOrder        Int      @default(0)
+  createdAt          DateTime @default(now())
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  @@index([promotionVersionId, dayOfWeek, isEnabled])
+}
+
+model PromotionMachineGroup {
+  id String @id @default(uuid())
+  code String @unique
+  name String
+  description String?
+  active Boolean @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members PromotionMachineGroupMember[]
+  @@index([active, name])
+}
+
+model PromotionMachineGroupMember {
+  id String @id @default(uuid())
+  groupId String
+  machineId String
+  addedBy String
+  addedAt DateTime @default(now())
+  removedAt DateTime?
+  group PromotionMachineGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  @@index([groupId, removedAt])
+  @@index([machineId, removedAt])
+}
+
+model PromotionTarget {
+  id String @id @default(uuid())
+  promotionVersionId String
+  targetType String
+  targetId String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  @@index([promotionVersionId, targetType])
+  @@index([targetType, targetId])
+}
+
+model PromotionAudience {
+  id String @id @default(uuid())
+  promotionVersionId String
+  audienceType String
+  audienceReference String?
+  segmentId String?
+  criteria Json?
+  createdAt DateTime @default(now())
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  segment Segment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  @@index([promotionVersionId, audienceType])
+  @@index([segmentId])
+}
+
+model PromotionRule {
+  id String @id @default(uuid())
+  promotionVersionId String
+  ruleType String
+  operator String
+  value Json
+  priority Int @default(0)
+  createdAt DateTime @default(now())
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  @@index([promotionVersionId, ruleType, priority])
+}
+
+model PromotionChannel {
+  id String @id @default(uuid())
+  promotionVersionId String
+  channel String
+  enabled Boolean @default(true)
+  popupEnabled Boolean @default(false)
+  countdownEnabled Boolean @default(true)
+  preNotificationMinutes Int?
+  startMessageTemplate String?
+  activeMessageTemplate String?
+  endMessageTemplate String?
+  ctaLabel String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  @@unique([promotionVersionId, channel])
+  @@index([channel, enabled])
+}
+
+model PromotionApproval {
+  id String @id @default(uuid())
+  campaignId String
+  promotionVersionId String
+  approvalPolicy String
+  status String @default("PENDING")
+  requestedBy String
+  requestedAt DateTime @default(now())
+  decidedBy String?
+  decidedAt DateTime?
+  reason String?
+  metadata Json?
+  campaign PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Restrict)
+  @@index([campaignId, status, requestedAt])
+  @@index([promotionVersionId, status])
+}
+
+model PromotionEvent {
+  id String @id @default(uuid())
+  campaignId String
+  promotionVersionId String?
+  eventType String
+  actorType String
+  actorId String?
+  correlationId String?
+  idempotencyKey String? @unique
+  oldValue Json?
+  newValue Json?
+  reason String?
+  metadata Json?
+  occurredAt DateTime @default(now())
+  campaign PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion? @relation(fields: [promotionVersionId], references: [id], onDelete: SetNull)
+  @@index([campaignId, occurredAt])
+  @@index([promotionVersionId, occurredAt])
+  @@index([correlationId])
+}
+
+model PromotionApplication {
+  id String @id @default(uuid())
+  orderId String
+  customerId String
+  machineId String?
+  campaignId String
+  promotionVersionId String
+  baseAmount Decimal @db.Decimal(12, 2)
+  discountAmount Decimal @db.Decimal(12, 2)
+  finalAmount Decimal @db.Decimal(12, 2)
+  pricingSnapshotId String?
+  appliedItems Json?
+  reason String?
+  appliedAt DateTime @default(now())
+  metadata Json?
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  machine Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  campaign PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Restrict)
+  @@unique([orderId, promotionVersionId])
+  @@index([campaignId, appliedAt])
+  @@index([machineId, appliedAt])
+  @@index([customerId, appliedAt])
+}
+
+// Opposite relation fields to merge into existing models:
+// Customer: promotionApplications PromotionApplication[]
+// Machine: promotionApplications PromotionApplication[]
+//          promotionGroupMemberships PromotionMachineGroupMember[]
+// Order: promotionApplications PromotionApplication[]
+// Segment: promotionAudiences PromotionAudience[]
