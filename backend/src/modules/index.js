@@ -20,6 +20,7 @@ const videoSurveillance = require('./video_surveillance');
 const eventCenter = require('./event_center');
 const organization = require('./organization');
 const saleFlow = require('./sale_flow');
+const photoVerification = require('./photo_verification');
 
 const moduleManifests = [
   customer,
@@ -44,6 +45,7 @@ const moduleManifests = [
   eventCenter,
   organization,
   saleFlow,
+  photoVerification,
 ];
 
 module.exports = {

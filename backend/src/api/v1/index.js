@@ -2,6 +2,28 @@ const express = require('express');
 
 const { ApiError } = require('../../platform/errors/ApiError');
 const { attachCorrelationId, sendError } = require('../../platform/http/apiResponse');
+const { getPrismaClient } = require('../../common/database');
+const { BusinessDashboardService } = require('../../modules/admin_dashboard');
+const { AdminNotificationCenterService } = require('../../modules/admin_dashboard/AdminNotificationCenterService');
+const { AdminOperationsDispatchService } = require('../../modules/admin_dashboard/AdminOperationsDispatchService');
+const { AdminOperationsEscalationService } = require('../../modules/admin_dashboard/AdminOperationsEscalationService');
+const { ServiceSpecialistDirectoryService } = require('../../modules/admin_dashboard/ServiceSpecialistDirectoryService');
+const { CustomerRoleContextService } = require('../../modules/customer_profile/CustomerRoleContextService');
+const { ServiceSpecialistWorkspaceService } = require('../../modules/customer_profile/ServiceSpecialistWorkspaceService');
+const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
+const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
+const { YooKassaPrivateChannelPaymentAdapter } = require('../../modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
+const { TelegramPrivateChannelAccessAdapter } = require('../../modules/private_channel/TelegramPrivateChannelAccessAdapter');
+const { MaxPrivateChannelAccessAdapter } = require('../../modules/private_channel/MaxPrivateChannelAccessAdapter');
+const { PrivateChannelAccessService } = require('../../modules/private_channel/PrivateChannelAccessService');
+const { PrivateChannelRenewalService } = require('../../modules/private_channel/PrivateChannelRenewalService');
+const { PrivateChannelRecoveryService } = require('../../modules/private_channel/PrivateChannelRecoveryService');
+const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
+const { CustomerPaymentProfileService } = require('../../modules/payment_profile/CustomerPaymentProfileService');
+const { PaymentOperationsService } = require('../../modules/payment_profile/PaymentOperationsService');
+const { PaymentEconomicsService } = require('../../modules/payment_profile/PaymentEconomicsService');
+const { FinancialReadinessService } = require('../../modules/payment_profile/FinancialReadinessService');
+const { YooKassaDailyReconciliationService } = require('../../modules/payment_profile/YooKassaDailyReconciliationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -17,6 +39,7 @@ const { createPlatformEventRouter } = require('./platformEventRoutes');
 const { createInventoryRouter } = require('./inventoryRoutes');
 const { createMaintenanceRouter } = require('./maintenanceRoutes');
 const { createOperatorWorkspaceRouter } = require('./operatorWorkspaceRoutes');
+const { createRoleContextRouter } = require('./roleContextRoutes');
 const { createCRMRouter } = require('./crmRoutes');
 const { createCustomer360Router, createAdminCustomer360Router } = require('./customer360Routes');
 const { createExternalChannelRouter } = require('./externalChannelRoutes');
@@ -27,84 +50,86 @@ const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./g
 const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
+const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('./photoVerificationRoutes');
+const { createPrivateChannelRouter } = require('./privateChannelRoutes');
+const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
+  const prisma = getPrismaClient();
+  const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
+  const privateChannelPaymentAdapter = dependencies.privateChannelPaymentAdapter || new YooKassaPrivateChannelPaymentAdapter();
+  const telegramPrivateChannelAccessAdapter = dependencies.telegramPrivateChannelAccessAdapter || dependencies.privateChannelAccessAdapter || new TelegramPrivateChannelAccessAdapter();
+  const maxPrivateChannelAccessAdapter = dependencies.maxPrivateChannelAccessAdapter || new MaxPrivateChannelAccessAdapter();
+  const privateChannelAccessService = dependencies.privateChannelAccessService || new PrivateChannelAccessService({ prisma, adapters: { TELEGRAM: telegramPrivateChannelAccessAdapter, MAX: maxPrivateChannelAccessAdapter } });
+  const privateChannelRenewalService = dependencies.privateChannelRenewalService || new PrivateChannelRenewalService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
+  const privateChannelRecoveryService = dependencies.privateChannelRecoveryService || new PrivateChannelRecoveryService({ prisma, renewalService: privateChannelRenewalService, accessService: privateChannelAccessService, crmRuntime: dependencies.crmRuntime || null });
+  const referralEngagementService = dependencies.referralEngagementService || new ReferralEngagementService({ prisma });
+  const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
+  const customerPaymentProfileService = dependencies.customerPaymentProfileService || new CustomerPaymentProfileService({ prisma });
+  const paymentOperationsService = dependencies.paymentOperationsService || new PaymentOperationsService({ prisma, paymentAdapter: privateChannelPaymentAdapter, customerProfileCommunicationService });
+  const paymentEconomicsService = dependencies.paymentEconomicsService || new PaymentEconomicsService({ prisma });
+  const financialReadinessService = dependencies.financialReadinessService || new FinancialReadinessService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
+  const yooKassaDailyReconciliationService = dependencies.yooKassaDailyReconciliationService || new YooKassaDailyReconciliationService({ prisma });
+  const adminNotificationCenterService = dependencies.adminNotificationCenterService || new AdminNotificationCenterService({ prisma });
+  const adminOperationsDispatchService = dependencies.adminOperationsDispatchService || new AdminOperationsDispatchService({ prisma, notificationCenter: adminNotificationCenterService });
+  const adminOperationsEscalationService = dependencies.adminOperationsEscalationService || new AdminOperationsEscalationService({ prisma });
+  const serviceSpecialistDirectoryService = dependencies.serviceSpecialistDirectoryService || new ServiceSpecialistDirectoryService({ prisma });
+  const customerRoleContextService = dependencies.customerRoleContextService || new CustomerRoleContextService({ prisma });
+  const serviceSpecialistWorkspaceService = dependencies.serviceSpecialistWorkspaceService || new ServiceSpecialistWorkspaceService({ prisma, specialistDirectory: serviceSpecialistDirectoryService });
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService };
 
   router.use(attachCorrelationId);
-
   router.get('/', (req, res) => {
-    res.json({
-      data: {
-        type: 'api_version',
-        id: 'v1',
-        attributes: {
-          status: 'online',
-        },
-      },
-      meta: {
-        api_version: 'v1',
-        correlation_id: req.correlationId,
-      },
-    });
+    res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
 
-  router.use('/auth', createAuthRouter(dependencies));
-  router.use('/customers', createCustomerRouter(dependencies));
-  router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
-  router.use('/club-account', createClubAccountRouter(dependencies));
-  router.use('/club-accounts', createClubAccountRouter(dependencies));
-  router.use('/machines', createMachineRouter(dependencies));
-  router.use('/machine-operations', createMachineOperationsRouter(dependencies));
-  router.use('/machine', createMachineGatewayRouter(dependencies));
-  router.use('/orders', createOrderRouter(dependencies));
-  if (dependencies.giftTransferRuntime) {
-    router.use('/me', createGiftTransferRouter(dependencies));
-    router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
+  router.use('/auth', createAuthRouter(runtimeDependencies));
+  router.use('/customers', createCustomerRouter(runtimeDependencies));
+  router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
+  router.use('/me', createRoleContextRouter(runtimeDependencies));
+  router.use('/club-account', createClubAccountRouter(runtimeDependencies));
+  router.use('/club-accounts', createClubAccountRouter(runtimeDependencies));
+  router.use('/private-channel', createPrivateChannelRouter(runtimeDependencies));
+  router.use('/admin/private-channel', createAdminPrivateChannelRouter(runtimeDependencies));
+  router.use('/machines', createMachineRouter(runtimeDependencies));
+  router.use('/machine-operations', createMachineOperationsRouter(runtimeDependencies));
+  router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
+  router.use('/orders', createOrderRouter(runtimeDependencies));
+  if (runtimeDependencies.giftTransferRuntime) {
+    router.use('/me', createGiftTransferRouter(runtimeDependencies));
+    router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
-  router.use('/telegram', createTelegramRouter(dependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
-  router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
-  router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
-  router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
-  router.use('/inventory', createInventoryRouter(dependencies));
-  router.use('/admin/inventory', createInventoryRouter(dependencies));
-  router.use('/maintenance', createMaintenanceRouter(dependencies));
-  router.use('/admin/maintenance', createMaintenanceRouter(dependencies));
-  router.use('/operator-workspace', createOperatorWorkspaceRouter(dependencies));
-  router.use('/admin/crm', createCRMRouter(dependencies));
-  router.use('/customer-360', createCustomer360Router(dependencies));
-  router.use('/admin/customer-360', createAdminCustomer360Router(dependencies));
-  router.use('/admin/customers', createExternalChannelRouter(dependencies));
-  router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
-  router.use('/admin', createVideoSurveillanceRouter(dependencies));
-  if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
-  if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
-  if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
-  if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
+  router.use('/telegram', createTelegramRouter(runtimeDependencies));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
+  router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
+  router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
+  router.use('/admin/platform-events', createPlatformEventRouter(runtimeDependencies));
+  router.use('/inventory', createInventoryRouter(runtimeDependencies));
+  router.use('/admin/inventory', createInventoryRouter(runtimeDependencies));
+  router.use('/maintenance', createMaintenanceRouter(runtimeDependencies));
+  router.use('/admin/maintenance', createMaintenanceRouter(runtimeDependencies));
+  router.use('/operator-workspace', createOperatorWorkspaceRouter(runtimeDependencies));
+  router.use('/admin/crm', createCRMRouter(runtimeDependencies));
+  router.use('/customer-360', createCustomer360Router(runtimeDependencies));
+  router.use('/admin/customer-360', createAdminCustomer360Router(runtimeDependencies));
+  router.use('/admin/customers', createExternalChannelRouter(runtimeDependencies));
+  router.use('/admin/machines', createMachineConnectivityRouter(runtimeDependencies));
+  router.use('/admin', createVideoSurveillanceRouter(runtimeDependencies));
+  if (runtimeDependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(runtimeDependencies));
+  if (runtimeDependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(runtimeDependencies));
+  if (runtimeDependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(runtimeDependencies));
+  if (runtimeDependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(runtimeDependencies));
+  if (runtimeDependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(runtimeDependencies));
+  if (runtimeDependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(runtimeDependencies));
 
-  router.use((req, res, next) => {
-    next(
-      new ApiError({
-        statusCode: 404,
-        code: 'RESOURCE_NOT_FOUND',
-        message: 'API route was not found.',
-      }),
-    );
-  });
-
+  router.use((req, res, next) => next(new ApiError({ statusCode: 404, code: 'RESOURCE_NOT_FOUND', message: 'API route was not found.' })));
   router.use((error, req, res, next) => {
-    if (res.headersSent) {
-      next(error);
-      return;
-    }
-
+    if (res.headersSent) { next(error); return; }
     sendError(res, req, error, logger);
   });
-
   return router;
 }
 
-module.exports = {
-  createApiV1Router,
-};
+module.exports = { createApiV1Router };

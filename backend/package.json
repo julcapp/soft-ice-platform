@@ -8,6 +8,13 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:validate": "prisma validate",
     "test": "node --test tests/*.test.js",
+    "max:resolve-chat-id": "node scripts/resolve-max-chat-id.js",
+    "photo:publish-smoke": "node scripts/photo-publish-smoke.js",
+    "private-channel:renewals": "node scripts/run-private-channel-renewals.js",
+    "yookassa:reports:imap": "node scripts/import-yookassa-reports-from-yandex.js",
+    "yookassa:reports:scheduled": "node scripts/run-yookassa-report-schedule.js",
+    "operations:escalation-delivery": "node scripts/run-admin-operations-escalation-delivery.js",
+    "crm:direct-delivery": "node scripts/run-crm-direct-message-delivery.js",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },

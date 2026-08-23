@@ -8,11 +8,18 @@ import { InventoryPage } from './Inventory';
 import { MaintenancePage } from './Maintenance';
 import { CRMPage } from './CRM';
 import { Customer360Page } from './Customer360';
+import { UsersPage } from './Users';
 import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
+import { PhotoVerificationSettingsPage } from './PhotoVerificationSettings';
+import { PhotoModerationQueuePage } from './PhotoModerationQueue';
+import { PhotoVerificationMetricsPage } from './PhotoVerificationMetrics';
+import { PhotoVerificationReadinessPage } from './PhotoVerificationReadiness';
+import { BusinessDashboardPage } from './BusinessDashboard';
+import { PrivateChannelRecoveryPage } from './PrivateChannelRecovery';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -25,6 +32,10 @@ export function Dashboard({ data }) {
   if (isEmpty) return <EmptyState />;
   return <div className="dashboard">
     <FreshnessIndicator freshness={data.freshness} />
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Бизнес-статистика</strong><p style={{ margin: '6px 0 0' }}>Пользователи, клуб, рефералы, подписки, продажи и незабранные заказы.</p></div><a className="text-button" href="#business-analytics">Открыть бизнес-дашборд</a></section>
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Пользователи</strong><p style={{ margin: '6px 0 0' }}>Единая таблица пользователей и глубокие карточки Customer 360°.</p></div><a className="text-button" href="#users">Открыть пользователей</a></section>
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Приватные подписки</strong><p style={{ margin: '6px 0 0' }}>Recovery автопродлений Telegram / MAX, grace period и проблемы доступа.</p></div><a className="text-button" href="#private-channel-recovery">Открыть recovery</a></section>
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Проверка и публикация фотографий</strong><p style={{ margin: '6px 0 0' }}>AI-модерация, антидубли и публикации VK / Telegram / MAX.</p></div><div><a className="text-button" href="#photo-verification">Открыть модерацию</a> <a className="text-button" href="#photo-verification-readiness">Проверить readiness</a></div></section>
     <AlertPanel alerts={critical} />
     <section className="statistics" aria-label="Статистика за сегодня">
       <StatisticCard label="Выручка за сегодня" value={money(s.revenueToday.value, s.revenueToday.currency)} detail="Демонстрационная оценка валовой выручки" />
@@ -37,17 +48,8 @@ export function Dashboard({ data }) {
       <StatisticCard label="Активные операторы" value={data.operatorSummary.active} tone="success" />
       <StatisticCard label="Ожидают согласования" value={data.operatorSummary.pendingServiceApprovals} detail="Очередь только для чтения" />
     </section>
-    <section className="charts">
-      <ChartCard title="Динамика продаж" values={data.paymentSummary.salesTrend} summary="Последние 7 периодов" />
-      <ChartCard title="Динамика выручки" values={data.paymentSummary.revenueTrend} summary="Рубли, последние 7 периодов" />
-      <DistributionChart items={data.machineStatus.distribution} />
-    </section>
-    <section className="tables">
-      <DataTable title="Требует внимания на складе" rows={data.inventoryAlerts} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'item', label: 'Позиция' }, { key: 'level', label: 'Остаток' }, { key: 'severity', label: 'Важность', render: (value) => <StatusBadge status={value} /> }]} />
-      <DataTable title="Последние работы по обслуживанию" rows={data.maintenanceSummary} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'activity', label: 'Работа' }, statusColumn, dateColumn]} />
-      <DataTable title="Последние платежи" rows={data.paymentSummary.recent} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'amount', label: 'Сумма', render: (value, row) => money(value, row.currency) }, statusColumn, dateColumn]} />
-      <DataTable title="Последние события платформы" rows={data.recentEvents} columns={[{ key: 'type', label: 'Событие' }, { key: 'description', label: 'Описание' }, { key: 'severity', label: 'Важность', render: (value) => <StatusBadge status={value} /> }, dateColumn]} />
-    </section>
+    <section className="charts"><ChartCard title="Динамика продаж" values={data.paymentSummary.salesTrend} summary="Последние 7 периодов" /><ChartCard title="Динамика выручки" values={data.paymentSummary.revenueTrend} summary="Рубли, последние 7 периодов" /><DistributionChart items={data.machineStatus.distribution} /></section>
+    <section className="tables"><DataTable title="Требует внимания на складе" rows={data.inventoryAlerts} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'item', label: 'Позиция' }, { key: 'level', label: 'Остаток' }, { key: 'severity', label: 'Важность', render: (value) => <StatusBadge status={value} /> }]} /><DataTable title="Последние работы по обслуживанию" rows={data.maintenanceSummary} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'activity', label: 'Работа' }, statusColumn, dateColumn]} /><DataTable title="Последние платежи" rows={data.paymentSummary.recent} columns={[{ key: 'machine', label: 'Автомат' }, { key: 'amount', label: 'Сумма', render: (value, row) => money(value, row.currency) }, statusColumn, dateColumn]} /><DataTable title="Последние события платформы" rows={data.recentEvents} columns={[{ key: 'type', label: 'Событие' }, { key: 'description', label: 'Описание' }, { key: 'severity', label: 'Важность', render: (value) => <StatusBadge status={value} /> }, dateColumn]} /></section>
   </div>;
 }
 
@@ -55,29 +57,29 @@ export function App({ client = getDashboard }) {
   const [state, setState] = useState({ status: 'loading' });
   const [navOpen, setNavOpen] = useState(false);
   const [route, setRoute] = useState(() => window.location.hash.slice(1));
-  useEffect(() => {
-    const controller = new AbortController();
-    client({ signal: controller.signal }).then((data) => setState({ status: 'ready', data })).catch((error) => {
-      if (error.name !== 'AbortError') setState({ status: error.status === 401 || error.status === 403 ? 'denied' : 'unavailable' });
-    });
-    return () => controller.abort();
-  }, [client]);
-  useEffect(() => {
-    const update = () => setRoute(window.location.hash.slice(1));
-    window.addEventListener('hashchange', update);
-    return () => window.removeEventListener('hashchange', update);
-  }, []);
+  useEffect(() => { const controller = new AbortController(); client({ signal: controller.signal }).then((data) => setState({ status: 'ready', data })).catch((error) => { if (error.name !== 'AbortError') setState({ status: error.status === 401 || error.status === 403 ? 'denied' : 'unavailable' }); }); return () => controller.abort(); }, [client]);
+  useEffect(() => { const update = () => setRoute(window.location.hash.slice(1)); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
   const twinRoute = route.startsWith('machine-twins');
   const runtimeRoute = route.startsWith('machine-runtime');
   const eventRoute = route.startsWith('platform-events') || route === 'dead-letter';
   const inventoryRoute = route === 'inventory';
   const maintenanceRoute = route === 'maintenance';
+  const usersRoute = route === 'users' || route.startsWith('users/');
   const crmRoute = route === 'crm' || route.startsWith('crm/');
   const customer360Route = route.startsWith('customer-360/');
   const eventCenterRoute = route === 'event-center' || route.startsWith('event-center/');
   const giftTransferRoute = route === 'gift-transfers';
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
+  const photoVerificationRoute = route === 'photo-verification';
+  const photoReadinessRoute = route === 'photo-verification-readiness';
+  const businessAnalyticsRoute = route === 'business-analytics';
+  const privateChannelRecoveryRoute = route === 'private-channel-recovery';
+  if (businessAnalyticsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Бизнес" title="Бизнес-статистика" copy="Пользователи, Клуб Тимоши, рефералы, подписки, продажи, пополнения и предоплаченные заказы." /><BusinessDashboardPage /></AppShell>;
+  if (privateChannelRecoveryRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Подписки" title="Recovery приватных каналов" copy="Автопродления Telegram / MAX, grace period, повторные попытки и состояние доступа." editable /><PrivateChannelRecoveryPage /></AppShell>;
+  if (usersRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title={route.includes('/') ? 'Карточка пользователя' : 'Пользователи'} copy="Единый реестр пользователей: идентификация, клуб, деньги, бонусы, покупки, рефералы, каналы и история." editable={route.includes('/')} /><UsersPage route={route} /></AppShell>;
+  if (photoReadinessRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Production readiness" copy="Обязательная конфигурация Photo Verification Agent и причины READY / DEGRADED / BLOCKED." /><PhotoVerificationReadinessPage /></AppShell>;
+  if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><section className="card"><a className="text-button" href="#photo-verification-readiness">Production readiness →</a></section><PhotoVerificationMetricsPage /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
@@ -87,4 +89,4 @@ export function App({ client = getDashboard }) {
   const page = twinRoute ? <><ReadHeader group="Автоматы" title="Цифровой двойник автомата" copy="Достоверные проекции автоматов только для чтения." /><MachineTwinsPage route={route} /></> : runtimeRoute ? <><ReadHeader group="Автоматы" title={route.includes('/') ? 'Состояние автомата' : 'Контур управления автоматами'} copy="Основное состояние выполнения операций. Дистанционное управление недоступно." /><RuntimeMonitorPage route={route} /></> : eventRoute ? <><ReadHeader group="Платформа" title={route === 'dead-letter' ? 'Хранилище событий' : 'Журнал событий'} copy="Неизменяемые нормализованные факты и диагностика доставки." /><EventStreamPage route={route} /></> : inventoryRoute ? <><ReadHeader group="Операционная работа" title="Складской учёт" copy="Расчётные остатки, резервы и неизменяемый журнал движений." /><InventoryPage /></> : maintenanceRoute ? <><ReadHeader group="Операционная работа" title="Техническое обслуживание" copy="Плановое и корректирующее обслуживание, согласования, подтверждения и показатели." /><MaintenancePage /></> : <><PageHeader />{state.status === 'loading' && <Skeleton />}{state.status === 'unavailable' && <ErrorState />}{state.status === 'denied' && <PermissionGate allowed={false} />}{state.status === 'ready' && <PermissionGate allowed={state.data.permissionScope?.access === 'READ_ONLY'}><Dashboard data={state.data} /></PermissionGate>}</>;
   return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}>{page}</AppShell>;
 }
-function ReadHeader({ group, title, copy }) { return <div className="page-header"><div><p>{group}</p><h1>{title}</h1><span>{copy}</span></div><StatusBadge status="READ_ONLY" /></div>; }
+function ReadHeader({ group, title, copy, editable = false }) { return <div className="page-header"><div><p>{group}</p><h1>{title}</h1><span>{copy}</span></div><StatusBadge status={editable ? 'ACTIVE' : 'READ_ONLY'} /></div>; }
