@@ -137,6 +137,7 @@ class PricingEngineService {
     const transferRule = promotion
       ? ruleValueWithLegacyAlias(promotion.currentVersion, 'TRANSFER_TO_THIRD_PARTY', 'THIRD_PARTY_TRANSFER')
       : undefined;
+    const activeWindow = promotion?.promotionRuntime?.activeWindow || null;
 
     return {
       id: quoteId,
@@ -156,6 +157,17 @@ class PricingEngineService {
       promotionVersionId: promotion?.currentVersion?.id || null,
       createdAt: now,
       lockedUntil,
+      promotionRuntime: promotion ? {
+        name: promotion.name || 'Час выгоды',
+        benefitType: promotion.currentVersion?.benefitType || null,
+        benefitValue: promotion.currentVersion?.benefitValue !== undefined ? Number(promotion.currentVersion.benefitValue) : null,
+        serverTime: now,
+        startsAt: activeWindow?.startsAt || null,
+        endsAt: activeWindow?.endsAt || null,
+        remainingSeconds: activeWindow?.remainingSeconds ?? null,
+        timezone: activeWindow?.timezone || promotion.currentVersion?.timezone || 'Europe/Moscow',
+        source: activeWindow?.source || null,
+      } : null,
       items: pricedItems,
       rules: {
         giftFirst: true,
@@ -174,7 +186,6 @@ class PricingEngineService {
       : 0;
     const safety = await this.safetyService.evaluate({
       campaign: promotion,
-      // A milestone gift may legitimately make the total zero; minimum price protects monetary discounts.
       observedFinalPrice: quote.giftAmount > 0 ? null : quote.finalAmount,
       observedDiscountPercent,
     });
