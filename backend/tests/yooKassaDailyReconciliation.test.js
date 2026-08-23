@@ -18,7 +18,7 @@ test('payment report finalizes provider cost and reports clean reconciliation', 
   const prisma = {
     $queryRawUnsafe: async (sql) => {
       if (sql.includes('YooKassaDailyReport') && sql.includes('fileHash')) return [];
-      if (sql.includes('PaymentProviderCost')) return [{ id: 'pc1', grossAmountRub: 100, netIncomeRub: 96.34 }];
+      if (sql.includes('PaymentProviderCost')) return [{ id: 'pc1', grossAmountRub: 100, netSettlementRub: 96.34 }];
       return [];
     },
     $executeRawUnsafe: async (...args) => { executed.push(args); return 1; },
@@ -31,7 +31,12 @@ test('payment report finalizes provider cost and reports clean reconciliation', 
   assert.equal(result.status, 'RECONCILED');
   assert.equal(result.matched, 1);
   assert.equal(result.issues.length, 0);
-  assert.equal(executed.some((args) => String(args[0]).includes("reconciliationStatus\"='FINAL'")), true);
+  const update = executed.find((args) => String(args[0]).includes('UPDATE "PaymentProviderCost"'));
+  assert.ok(update);
+  assert.match(String(update[0]), /"netSettlementRub"=\$3/);
+  assert.match(String(update[0]), /"processorCommissionRub"=\$5/);
+  assert.match(String(update[0]), /"processorCommissionVatRub"=\$6/);
+  assert.match(String(update[0]), /"isFinal"=TRUE/);
 });
 
 test('missing local payment becomes a critical reconciliation issue', async () => {
