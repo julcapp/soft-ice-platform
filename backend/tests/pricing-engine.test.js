@@ -21,17 +21,27 @@ function promotion() {
   };
 }
 
-function fixture({ giftItemIds = [], activePromotion = promotion() } = {}) {
+function fixture({ giftItemIds = [], activePromotion = promotion(), reserveResult = { reserved: true } } = {}) {
   let saved;
   const repository = {
     saveQuote: async (quote) => { saved = quote; return quote; },
+    replaceQuotePricing: async (id, quote) => { saved = { ...quote, id }; return saved; },
     getQuote: async () => saved,
+    getQuoteByOrderId: async () => saved,
     consumeQuote: async (id, consumedAt) => ({ ...saved, id, consumedAt }),
   };
+  const gift = giftItemIds.length
+    ? { giftItemIds, eligible: true, itemId: giftItemIds[0], purchaseOrdinal: 50 }
+    : { giftItemIds: [], eligible: false };
   const service = new PricingEngineService({
     repository,
     promotionResolver: { resolve: async () => activePromotion },
-    giftResolver: { resolve: async () => ({ giftItemIds }) },
+    giftResolver: {
+      resolve: async () => gift,
+      reserve: async () => reserveResult,
+      consume: async () => null,
+      completePurchase: async () => null,
+    },
     clock: () => new Date('2026-08-23T10:00:00Z'),
   });
   return { service, repository };
@@ -65,6 +75,19 @@ test('fully gifted order bypasses payment', async () => {
   assert.equal(quote.paymentRequired, false);
 });
 
+test('gift reservation conflict reprices quote without gift', async () => {
+  const { service } = fixture({ giftItemIds: ['ice'], reserveResult: { reserved: false, reason: 'GIFT_ALREADY_RESERVED' } });
+  const quote = await service.createQuote({
+    customerId: 'c1', machineId: 'm1', channel: 'TERMINAL',
+    items: [{ id: 'ice', unitPrice: 250 }],
+  });
+  assert.equal(quote.giftAmount, 0);
+  assert.equal(quote.promotionDiscountAmount, 50);
+  assert.equal(quote.finalAmount, 200);
+  assert.equal(quote.paymentRequired, true);
+  assert.equal(quote.rules.giftPurchaseOrdinal, null);
+});
+
 test('without active promotion price remains ordinary and transfer stays allowed', async () => {
   const { service } = fixture({ activePromotion: null });
   const quote = await service.createQuote({ machineId: 'm1', channel: 'WEB', items: [{ id: 'ice', unitPrice: 250 }] });
@@ -76,16 +99,23 @@ test('without active promotion price remains ordinary and transfer stays allowed
 
 test('expired quote cannot be consumed', async () => {
   const store = { quote: null };
+  const clock = (() => {
+    let now = new Date('2026-08-23T10:00:00Z');
+    const fn = () => now;
+    fn.advance = () => { now = new Date('2026-08-23T10:06:00Z'); };
+    return fn;
+  })();
   const service = new PricingEngineService({
     repository: {
       saveQuote: async (q) => { store.quote = q; return q; },
+      replaceQuotePricing: async (id, q) => { store.quote = { ...q, id }; return store.quote; },
       getQuote: async () => store.quote,
       consumeQuote: async () => store.quote,
     },
     promotionResolver: { resolve: async () => promotion() },
-    clock: (() => { let now = new Date('2026-08-23T10:00:00Z'); const fn = () => now; fn.advance = () => { now = new Date('2026-08-23T10:06:00Z'); }; return fn; })(),
+    clock,
   });
   const quote = await service.createQuote({ machineId: 'm1', channel: 'TERMINAL', items: [{ id: 'ice', unitPrice: 250 }] });
-  service.clock.advance();
+  clock.advance();
   await assert.rejects(() => service.consumeQuote(quote.id), (error) => error.code === 'PRICING_QUOTE_EXPIRED');
 });
