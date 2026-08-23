@@ -2,14 +2,35 @@
 
 const express = require('express');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
+const { ApiError } = require('../../platform/errors/ApiError');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
 const { getPrismaClient } = require('../../common/database');
 const { PromotionRepository, PromotionService } = require('../../modules/promotion_engine');
+
+const PROMOTION_ROLES = {
+  READ: new Set(['OBSERVER', 'MARKETER', 'MANAGER', 'ADMIN', 'OWNER']),
+  CREATE_DRAFT: new Set(['MARKETER', 'MANAGER', 'ADMIN', 'OWNER']),
+  VALIDATE: new Set(['MANAGER', 'ADMIN', 'OWNER']),
+};
 
 function resolvePromotionService(dependencies = {}) {
   if (dependencies.promotionService) return dependencies.promotionService;
   const prisma = dependencies.prisma || getPrismaClient();
   return new PromotionService({ repository: new PromotionRepository(prisma) });
+}
+
+function requirePromotionRole(allowedRoles) {
+  return (req, res, next) => {
+    const roles = (req.securityContext?.roles || []).map((role) => String(role).trim().toUpperCase());
+    if (roles.some((role) => allowedRoles.has(role))) return next();
+    return next(new ApiError({
+      statusCode: 403,
+      code: 'PROMOTION_PERMISSION_DENIED',
+      message: 'You do not have permission to perform this Promotion Engine operation.',
+      source: 'promotion_engine',
+      details: [{ allowedRoles: [...allowedRoles], actualRoles: roles }],
+    }));
+  };
 }
 
 function createPromotionAdminRouter(dependencies = {}) {
@@ -25,7 +46,7 @@ function createPromotionAdminRouter(dependencies = {}) {
     idempotencyKey: req.get('Idempotency-Key') || null,
   });
 
-  router.post('/', asyncHandler(async (req, res) => {
+  router.post('/', requirePromotionRole(PROMOTION_ROLES.CREATE_DRAFT), asyncHandler(async (req, res) => {
     const actor = actorContext(req);
     const draft = await promotionService.createDraft({
       ...req.body,
@@ -34,12 +55,12 @@ function createPromotionAdminRouter(dependencies = {}) {
     return sendData(res, req, draft, 201);
   }));
 
-  router.get('/:campaignId', asyncHandler(async (req, res) => {
+  router.get('/:campaignId', requirePromotionRole(PROMOTION_ROLES.READ), asyncHandler(async (req, res) => {
     const campaign = await promotionService.getCampaign(req.params.campaignId);
     return sendData(res, req, campaign);
   }));
 
-  router.post('/:campaignId/validate', asyncHandler(async (req, res) => {
+  router.post('/:campaignId/validate', requirePromotionRole(PROMOTION_ROLES.VALIDATE), asyncHandler(async (req, res) => {
     const actor = actorContext(req);
     const result = await promotionService.validateDraft({
       campaignId: req.params.campaignId,
@@ -54,4 +75,6 @@ function createPromotionAdminRouter(dependencies = {}) {
 module.exports = {
   createPromotionAdminRouter,
   resolvePromotionService,
+  requirePromotionRole,
+  PROMOTION_ROLES,
 };
