@@ -8,7 +8,7 @@ const CHANNELS = {
   MAX: { planCode: 'PRIVATE_MAX_MONTHLY', provider: 'MAX_BOT_API' },
 };
 
-function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, paymentOperationsService }) {
+function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, paymentOperationsService, paymentEconomicsService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -74,6 +74,19 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     const paymentMethodRef = payment.payment_method?.saved === true ? payment.payment_method?.id || null : null;
     const paymentMethodType = payment.payment_method?.type || null;
     const recorded = await privateChannelBillingService.recordPayment({ subscriptionId, provider: 'YOOKASSA', providerPaymentId: payment.id, providerPaymentMethodRef: paymentMethodRef, paymentMethodType, amountRub, idempotencyKey: `yookassa:${payment.id}:succeeded` });
+    if (paymentEconomicsService?.recordFromPayment && payment.income_amount?.value != null) {
+      await paymentEconomicsService.recordFromPayment({
+        customerId: recorded.customerId || payment.metadata?.customer_id || null,
+        paymentSourceType: 'PRIVATE_CHANNEL',
+        paymentSourceId: recorded.id,
+        provider: 'YOOKASSA',
+        providerPaymentId: payment.id,
+        paymentMethodType,
+        grossAmountRub: amountRub,
+        incomeAmountRub: Number(payment.income_amount.value),
+        occurredAt: payment.captured_at ? new Date(payment.captured_at) : new Date(),
+      });
+    }
     if (payment.receipt_registration && paymentOperationsService?.recordReceipt) {
       await paymentOperationsService.recordReceipt({ customerId: recorded.customerId || payment.metadata?.customer_id, sourceType: 'PRIVATE_CHANNEL', sourcePaymentId: recorded.id, subscriptionId, provider: 'YOOKASSA', receiptType: 'PAYMENT', amountRub, status: String(payment.receipt_registration).toUpperCase(), issuedAt: payment.receipt_registration === 'succeeded' ? new Date() : null });
     }
