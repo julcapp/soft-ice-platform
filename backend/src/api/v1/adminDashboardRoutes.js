@@ -3,10 +3,13 @@ const { asyncHandler } = require('../../platform/http/apiResponse');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
 const { getPrismaClient } = require('../../common/database');
 const { FinancialDayCloseService } = require('../../modules/payment_profile/FinancialDayCloseService');
-function createAdminDashboardRouter({ adminDashboardService, businessDashboardService, financialReadinessService, yooKassaDailyReconciliationService, financialDayCloseService = null, adminNotificationCenterService = null, adminOperationsDispatchService = null, adminOperationsEscalationService = null, adminAuth = {} }) {
+const { ServiceSpecialistDirectoryService } = require('../../modules/admin_dashboard/ServiceSpecialistDirectoryService');
+function createAdminDashboardRouter({ adminDashboardService, businessDashboardService, financialReadinessService, yooKassaDailyReconciliationService, financialDayCloseService = null, adminNotificationCenterService = null, adminOperationsDispatchService = null, adminOperationsEscalationService = null, serviceSpecialistDirectoryService = null, adminAuth = {} }) {
   const router = express.Router();
   const authenticate = createAdminAuthenticator(adminAuth);
-  const dayCloseService = financialDayCloseService || new FinancialDayCloseService({ prisma: getPrismaClient() });
+  const prisma = getPrismaClient();
+  const dayCloseService = financialDayCloseService || new FinancialDayCloseService({ prisma });
+  const specialistDirectory = serviceSpecialistDirectoryService || new ServiceSpecialistDirectoryService({ prisma });
   const adminSubject = (req) => req.securityContext?.subject || req.securityContext?.subject_id || 'admin';
   router.get('/', authenticate, asyncHandler(async (req, res) => {
     res.json(await adminDashboardService.getDashboard(req.securityContext));
@@ -58,6 +61,9 @@ function createAdminDashboardRouter({ adminDashboardService, businessDashboardSe
     }));
     router.get('/operations-dispatch/history', authenticate, asyncHandler(async (req, res) => {
       res.json({ data: await adminOperationsDispatchService.history({ notificationKey: req.query.notificationKey, limit: req.query.limit }) });
+    }));
+    router.get('/operations-dispatch/specialist', authenticate, asyncHandler(async (req, res) => {
+      res.json({ data: await specialistDirectory.getBySubject(req.query.subject) });
     }));
   }
   if (yooKassaDailyReconciliationService) {
