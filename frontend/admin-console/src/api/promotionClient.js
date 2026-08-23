@@ -14,6 +14,7 @@ async function request(path = '', options = {}) {
     const error = new Error(payload?.error?.message || 'Promotion Engine request failed.');
     error.status = response.status;
     error.code = payload?.error?.code || 'PROMOTION_ADMIN_REQUEST_FAILED';
+    error.details = payload?.error?.details || [];
     throw error;
   }
   return payload?.data ?? payload;
@@ -22,6 +23,13 @@ async function request(path = '', options = {}) {
 export const promotionClient = {
   list: () => request(''),
   get: (id) => request(`/${id}`),
+  updateDraft: (id, patch) => request(`/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  createVersion: (id, version = {}) => request(`/${id}/versions`, { method: 'POST', body: JSON.stringify(version) }),
+  validate: (id) => request(`/${id}/validate`, { method: 'POST', body: '{}' }),
+  requestApproval: (id, reason = null) => request(`/${id}/approval-requests`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  approve: (id, reason = null) => request(`/${id}/approve`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  reject: (id, reason) => request(`/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  schedule: (id, startsAt, endsAt = null) => request(`/${id}/schedule`, { method: 'POST', body: JSON.stringify({ startsAt, endsAt }) }),
   approvals: (id) => request(`/${id}/approvals`),
   funnel: (id, versionId) => request(`/${id}/channel-funnel${versionId ? `?promotionVersionId=${encodeURIComponent(versionId)}` : ''}`),
   runNow: (id, durationMinutes) => request(`/${id}/run-now`, { method: 'POST', body: JSON.stringify({ durationMinutes }) }),
