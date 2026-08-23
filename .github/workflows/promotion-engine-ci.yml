@@ -29,7 +29,7 @@ on:
       - 'backend/tests/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -71,9 +71,16 @@ jobs:
         working-directory: backend
         run: npm run prisma:merge
 
+      - name: Verify integrated Prisma schema is committed
+        working-directory: backend
+        run: npm run prisma:check-integrated
+
       - name: Format Prisma schema
         working-directory: backend
         run: npx prisma format --schema prisma/schema.prisma
+
+      - name: Ensure Prisma formatting creates no diff
+        run: git diff --exit-code -- backend/prisma/schema.prisma
 
       - name: Validate Prisma schema
         working-directory: backend
@@ -90,16 +97,3 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         run: npm test
-
-      - name: Commit integrated schema on feature branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/promotion-engine-v1'
-        run: |
-          if git diff --quiet -- backend/prisma/schema.prisma; then
-            echo "schema.prisma already synchronized"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add backend/prisma/schema.prisma
-          git commit -m "chore(prisma): integrate promotion pricing payment schema"
-          git push
