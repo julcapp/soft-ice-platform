@@ -11,7 +11,7 @@ class CustomerPaymentProfileService {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
     if (!customer) throw new ApiError({ statusCode: 404, code: 'CUSTOMER_NOT_FOUND', message: 'Customer was not found.', source: 'payment_profile' });
 
-    const [payments, privatePayments, subscriptions, receipts, refunds] = await Promise.all([
+    const [payments, privatePayments, subscriptions, receipts, refunds, providerCosts] = await Promise.all([
       this.prisma.$queryRawUnsafe(
         `SELECT "id","clubTopupId","amountRub","currency","provider","providerPaymentId","providerStatus","status","description","metadata","createdAt","confirmedAt","canceledAt"
          FROM "Payment" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
@@ -46,7 +46,14 @@ class CustomerPaymentProfileService {
          FROM "PaymentRefund" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
         customerId,
       ),
+      this.prisma.$queryRawUnsafe(
+        `SELECT "paymentSourceType","paymentSourceId","grossAmountRub","netSettlementRub","processorCostTotalRub","processorCommissionRub","processorCommissionVatRub","commissionRatePct","calculationSource","isFinal"
+         FROM "PaymentProviderCost" WHERE "customerId"=$1 ORDER BY "occurredAt" DESC LIMIT 100`,
+        customerId,
+      ),
     ]);
+
+    const costMap = new Map(providerCosts.map((row) => [`${String(row.paymentSourceType).toUpperCase()}:${row.paymentSourceId}`, paymentEconomics(row)]));
 
     const recurringSubscriptions = subscriptions.map((row) => ({
       id: row.id,
@@ -90,6 +97,7 @@ class CustomerPaymentProfileService {
         currency: row.currency || 'RUB',
         status: String(row.status || row.providerStatus || 'UNKNOWN').toUpperCase(),
         description: row.description || null,
+        economics: costMap.get(`PAYMENT:${row.id}`) || null,
         occurredAt: row.confirmedAt || row.canceledAt || row.createdAt,
       })),
       ...privatePayments.map((row) => ({
@@ -107,6 +115,7 @@ class CustomerPaymentProfileService {
         amountRub: Number(row.amountRub || 0),
         currency: 'RUB',
         status: String(row.status || 'UNKNOWN').toUpperCase(),
+        economics: costMap.get(`PRIVATE_CHANNEL:${row.id}`) || null,
         periodStart: row.periodStart,
         periodEnd: row.periodEnd,
         occurredAt: row.paidAt || row.failedAt || row.createdAt,
@@ -167,6 +176,18 @@ class CustomerPaymentProfileService {
   }
 }
 
+function paymentEconomics(row) {
+  return {
+    grossAmountRub: Number(row.grossAmountRub || 0),
+    providerCostTotalRub: Number(row.processorCostTotalRub || 0),
+    providerCommissionRub: row.processorCommissionRub == null ? null : Number(row.processorCommissionRub),
+    providerCommissionVatRub: row.processorCommissionVatRub == null ? null : Number(row.processorCommissionVatRub),
+    commissionRatePct: row.commissionRatePct == null ? null : Number(row.commissionRatePct),
+    netSettlementRub: Number(row.netSettlementRub || 0),
+    calculationSource: row.calculationSource,
+    isFinal: Boolean(row.isFinal),
+  };
+}
 function resolvePlatformPaymentLink(row) {
   const metadata = row.metadata || {};
   if (metadata.orderId || metadata.order_id) return { type: 'ORDER', id: metadata.orderId || metadata.order_id };
@@ -208,4 +229,4 @@ function maskEmail(value) {
   return `${local.slice(0, 2)}•••@${domain}`;
 }
 
-module.exports = { CustomerPaymentProfileService, maskReference, safePaymentMethod, normalizePaymentMethodType, maskEmail };
+module.exports = { CustomerPaymentProfileService, maskReference, safePaymentMethod, normalizePaymentMethodType, maskEmail, paymentEconomics };
