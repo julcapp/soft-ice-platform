@@ -1,10 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flavorOfDay, product, syrups, toppings } from '../../domain/catalog.js';
 import { trackEvent } from '../../analytics/trackEvent.js';
 import { DESIGN_RULES } from '../../shared/design/index.js';
 import { MiniAppPromotionAwareness } from '../../promotion/PromotionAwareness.jsx';
 import { PromotionPreStartBanner } from '../../promotion/PromotionPreStartBanner.jsx';
 import { PromotionPricePanel } from '../../promotion/PromotionPricePanel.jsx';
+import { trackPromotionEngagement } from '../../promotion/PromotionAttribution.js';
 import { resolveMachineId } from '../../promotion/PricingQuoteApi.js';
 import { usePricingQuote } from '../../promotion/usePricingQuote.js';
 import { usePromotionAwareness } from '../../promotion/usePromotionAwareness.js';
@@ -21,6 +22,7 @@ function quotePrice(pricing) {
 export function ProductScreen({ onBack }) {
   const machineId = useMemo(() => resolveMachineId(), []);
   const pricingRef = useRef(null);
+  const openedTracked = useRef(false);
   const [selectedSyrup, setSelectedSyrup] = useState(syrups[0].id);
   const [selectedTopping, setSelectedTopping] = useState(toppings[0].id);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
@@ -28,10 +30,20 @@ export function ProductScreen({ onBack }) {
   const pricing = usePricingQuote({ machineId, channel: 'MINI_APP', productId: product.id, productName: product.name, refreshKey: quoteRefreshKey });
   const currentPrice = quotePrice(pricing);
 
+  useEffect(() => {
+    if (openedTracked.current) return;
+    openedTracked.current = true;
+    trackPromotionEngagement('OPENED', { machineId });
+  }, [machineId]);
+
   function selectSyrup(id) { setSelectedSyrup(id); trackEvent('SyrupSelected', { syrup_id: id }); }
   function selectTopping(id) { setSelectedTopping(id); trackEvent('ToppingSelected', { topping_id: id }); }
   function refreshQuote() { setQuoteRefreshKey((value) => value + 1); trackEvent('PricingQuoteRefreshRequested', { machine_id: machineId, channel: 'MINI_APP' }); }
-  function focusPricing() { pricingRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }); trackEvent('PromotionAwarenessCtaPressed', { machine_id: machineId, channel: 'MINI_APP' }); }
+  function focusPricing() {
+    pricingRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    trackEvent('PromotionAwarenessCtaPressed', { machine_id: machineId, channel: 'MINI_APP' });
+    trackPromotionEngagement('CLICKED', { machineId });
+  }
   function continueOrder() {
     if (pricing.status !== 'ready' || pricing.lockExpired) return;
     trackEvent('ContinuePressed', { product_id: product.id, syrup_id: selectedSyrup, topping_id: selectedTopping, machine_id: machineId, quote_id: pricing.quote.id, final_amount: Number(pricing.quote.finalAmount), campaign_id: pricing.quote.campaignId || null, gift_applied: Number(pricing.quote.giftAmount || 0) > 0 });
