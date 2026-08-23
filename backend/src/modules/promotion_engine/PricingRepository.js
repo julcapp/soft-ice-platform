@@ -148,7 +148,7 @@ class PricingRepository {
               discountAmount: quote.promotionDiscountAmount,
               finalAmount: quote.finalAmount,
               pricingSnapshotId: snapshot?.id || null,
-              appliedItems: snapshot?.items || undefined,
+              appliedItems: this._applicationItems(snapshot?.items),
               reason: 'PRICING_QUOTE_CONSUMED',
             },
           });
@@ -156,6 +156,23 @@ class PricingRepository {
       }
       return tx.pricingQuote.findUnique({ where: { id } });
     });
+  }
+
+  _applicationItems(items) {
+    if (!Array.isArray(items) || items.length === 0) return undefined;
+    return items.map((item) => ({
+      itemId: item.itemId,
+      sku: item.sku,
+      name: item.name,
+      quantity: item.quantity,
+      baseAmount: Number(item.baseAmount),
+      giftAmount: Number(item.giftAmount),
+      promotionDiscountAmount: Number(item.promotionDiscountAmount),
+      finalAmount: Number(item.finalAmount),
+      giftApplied: item.giftApplied,
+      campaignId: item.campaignId,
+      promotionVersionId: item.promotionVersionId,
+    }));
   }
 
   _snapshotItems(items) {
