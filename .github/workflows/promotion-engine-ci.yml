@@ -16,6 +16,7 @@ on:
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
       - 'frontend/miniapp/**'
+      - 'frontend/admin-console/**'
   pull_request:
     paths:
       - '.github/workflows/promotion-engine-ci.yml'
@@ -29,6 +30,7 @@ on:
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
       - 'frontend/miniapp/**'
+      - 'frontend/admin-console/**'
 
 permissions:
   contents: read
@@ -113,4 +115,16 @@ jobs:
 
       - name: Build Mini App
         working-directory: frontend/miniapp
+        run: pnpm build
+
+      - name: Install Admin Console dependencies
+        working-directory: frontend/admin-console
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Admin Console
+        working-directory: frontend/admin-console
+        run: pnpm test
+
+      - name: Build Admin Console
+        working-directory: frontend/admin-console
         run: pnpm build
