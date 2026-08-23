@@ -20,7 +20,7 @@ class PricingEngineService {
     if (!promotionResolver) throw new Error('Promotion resolver is required.');
     this.repository = repository;
     this.promotionResolver = promotionResolver;
-    this.giftResolver = giftResolver || { resolve: async () => ({ giftItemIds: [] }), consume: async () => null };
+    this.giftResolver = giftResolver || { resolve: async () => ({ giftItemIds: [] }), consume: async () => null, completePurchase: async () => null };
     this.safetyService = safetyService || null;
     this.clock = clock;
   }
@@ -135,6 +135,13 @@ class PricingEngineService {
     const consumed = await this.repository.consumeQuote(quoteId, this.clock(), orderId);
     if (orderId && this.giftResolver?.consume) await this.giftResolver.consume({ quoteId, orderId });
     return { ...consumed, quote };
+  }
+
+  async completePaidOrder(orderId) {
+    const quote = await this.repository.getQuoteByOrderId(orderId);
+    if (!quote || !quote.customerId || !quote.machineId) return null;
+    if (!this.giftResolver?.completePurchase) return null;
+    return this.giftResolver.completePurchase({ customerId: quote.customerId, machineId: quote.machineId, orderId });
   }
 
   _error(code, message, statusCode, details = []) {
