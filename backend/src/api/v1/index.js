@@ -29,6 +29,7 @@ const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPromotionAdminRouter } = require('./promotionRoutes');
 const { createPricingRouter } = require('./pricingRoutes');
+const { createPaymentRouter } = require('./paymentRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -48,6 +49,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine', createMachineGatewayRouter(dependencies));
   router.use('/orders', createOrderRouter(dependencies));
   router.use('/pricing', createPricingRouter(dependencies));
+  router.use('/payments', createPaymentRouter(dependencies));
   if (dependencies.giftTransferRuntime) {
     router.use('/me', createGiftTransferRouter(dependencies));
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
