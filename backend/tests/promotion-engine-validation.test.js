@@ -33,8 +33,8 @@ function happyHour(overrides = {}) {
         { channel: 'VK', enabled: true, countdownEnabled: true },
       ],
       rules: [
-        { ruleType: 'BONUS_PAYMENT', value: 'FORBIDDEN' },
-        { ruleType: 'THIRD_PARTY_TRANSFER', value: 'FORBIDDEN' },
+        { ruleType: 'PARTIAL_BONUS_PAYMENT', value: 'FORBIDDEN' },
+        { ruleType: 'TRANSFER_TO_THIRD_PARTY', value: 'FORBIDDEN' },
         { ruleType: 'MONEY_DISCOUNT_STACKING', value: 'FORBIDDEN' },
         { ruleType: 'GIFT_COMPATIBILITY', value: 'PAID_ITEMS_ONLY' },
       ],
@@ -78,7 +78,7 @@ test('HAPPY_HOUR rejects partial bonus payment rule', () => {
   campaign.version.rules[0].value = 'ALLOWED';
   const result = new PromotionValidationService().validateCampaign(campaign);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((entry) => entry.code === 'HAPPY_HOUR_REQUIRED_RULE_MISSING'));
+  assert.ok(result.errors.some((entry) => entry.path === 'version.rules.PARTIAL_BONUS_PAYMENT'));
 });
 
 test('HAPPY_HOUR rejects third-party transfer', () => {
@@ -86,7 +86,23 @@ test('HAPPY_HOUR rejects third-party transfer', () => {
   campaign.version.rules[1].value = 'ALLOWED';
   const result = new PromotionValidationService().validateCampaign(campaign);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((entry) => entry.path === 'version.rules.THIRD_PARTY_TRANSFER'));
+  assert.ok(result.errors.some((entry) => entry.path === 'version.rules.TRANSFER_TO_THIRD_PARTY'));
+});
+
+test('legacy restriction names do not validate a new HAPPY_HOUR version', () => {
+  const campaign = happyHour();
+  campaign.version.rules[0].ruleType = 'BONUS_PAYMENT';
+  campaign.version.rules[1].ruleType = 'THIRD_PARTY_TRANSFER';
+  const result = new PromotionValidationService().validateCampaign(campaign);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => entry.path === 'version.rules.PARTIAL_BONUS_PAYMENT'));
+  assert.ok(result.errors.some((entry) => entry.path === 'version.rules.TRANSFER_TO_THIRD_PARTY'));
+});
+
+test('BONUS_PAYMENT remains a supported generic benefit type', () => {
+  const campaign = happyHour({ code: 'GENERIC_BONUS_PAYMENT', version: { benefitType: 'BONUS_PAYMENT', benefitValue: 25 } });
+  const result = new PromotionValidationService().validateCampaign(campaign);
+  assert.equal(result.errors.some((entry) => entry.code === 'INVALID_BENEFIT_TYPE'), false);
 });
 
 test('overlapping schedule windows fail validation', () => {
@@ -95,6 +111,12 @@ test('overlapping schedule windows fail validation', () => {
   const result = new PromotionValidationService().validateCampaign(campaign);
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((entry) => entry.code === 'OVERLAPPING_SCHEDULE_WINDOWS'));
+});
+
+test('invalid IANA timezone fails validation', () => {
+  const result = new PromotionValidationService().validateCampaign(happyHour({ version: { timezone: 'Mars/Olympus' } }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => entry.code === 'INVALID_TIMEZONE'));
 });
 
 test('non ALL_MACHINES target requires targetId', () => {
