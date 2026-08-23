@@ -15,6 +15,7 @@ on:
       - 'backend/src/modules/payment/**'
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
+      - 'frontend/miniapp/**'
   pull_request:
     paths:
       - '.github/workflows/promotion-engine-ci.yml'
@@ -27,6 +28,7 @@ on:
       - 'backend/src/modules/payment/**'
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
+      - 'frontend/miniapp/**'
 
 permissions:
   contents: read
@@ -101,3 +103,14 @@ jobs:
       - name: Run Promotion purchase PostgreSQL E2E
         working-directory: backend
         run: node --test tests/promotion-purchase.e2e.js
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install Mini App dependencies
+        working-directory: frontend/miniapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Mini App
+        working-directory: frontend/miniapp
+        run: pnpm build
