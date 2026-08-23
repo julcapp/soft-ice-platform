@@ -7,6 +7,9 @@ const { BusinessDashboardService } = require('../../modules/admin_dashboard');
 const { AdminNotificationCenterService } = require('../../modules/admin_dashboard/AdminNotificationCenterService');
 const { AdminOperationsDispatchService } = require('../../modules/admin_dashboard/AdminOperationsDispatchService');
 const { AdminOperationsEscalationService } = require('../../modules/admin_dashboard/AdminOperationsEscalationService');
+const { ServiceSpecialistDirectoryService } = require('../../modules/admin_dashboard/ServiceSpecialistDirectoryService');
+const { CustomerRoleContextService } = require('../../modules/customer_profile/CustomerRoleContextService');
+const { ServiceSpecialistWorkspaceService } = require('../../modules/customer_profile/ServiceSpecialistWorkspaceService');
 const { ReferralEngagementService } = require('../../modules/referral_engagement/ReferralEngagementService');
 const { PrivateChannelBillingService } = require('../../modules/private_channel/PrivateChannelBillingService');
 const { YooKassaPrivateChannelPaymentAdapter } = require('../../modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
@@ -36,6 +39,7 @@ const { createPlatformEventRouter } = require('./platformEventRoutes');
 const { createInventoryRouter } = require('./inventoryRoutes');
 const { createMaintenanceRouter } = require('./maintenanceRoutes');
 const { createOperatorWorkspaceRouter } = require('./operatorWorkspaceRoutes');
+const { createRoleContextRouter } = require('./roleContextRoutes');
 const { createCRMRouter } = require('./crmRoutes');
 const { createCustomer360Router, createAdminCustomer360Router } = require('./customer360Routes');
 const { createExternalChannelRouter } = require('./externalChannelRoutes');
@@ -70,8 +74,11 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const adminNotificationCenterService = dependencies.adminNotificationCenterService || new AdminNotificationCenterService({ prisma });
   const adminOperationsDispatchService = dependencies.adminOperationsDispatchService || new AdminOperationsDispatchService({ prisma, notificationCenter: adminNotificationCenterService });
   const adminOperationsEscalationService = dependencies.adminOperationsEscalationService || new AdminOperationsEscalationService({ prisma });
+  const serviceSpecialistDirectoryService = dependencies.serviceSpecialistDirectoryService || new ServiceSpecialistDirectoryService({ prisma });
+  const customerRoleContextService = dependencies.customerRoleContextService || new CustomerRoleContextService({ prisma });
+  const serviceSpecialistWorkspaceService = dependencies.serviceSpecialistWorkspaceService || new ServiceSpecialistWorkspaceService({ prisma, specialistDirectory: serviceSpecialistDirectoryService });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
@@ -81,6 +88,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/auth', createAuthRouter(runtimeDependencies));
   router.use('/customers', createCustomerRouter(runtimeDependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
+  router.use('/me', createRoleContextRouter(runtimeDependencies));
   router.use('/club-account', createClubAccountRouter(runtimeDependencies));
   router.use('/club-accounts', createClubAccountRouter(runtimeDependencies));
   router.use('/private-channel', createPrivateChannelRouter(runtimeDependencies));
