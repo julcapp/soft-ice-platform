@@ -1,0 +1,83 @@
+name: Promotion Engine CI
+
+on:
+  push:
+    branches:
+      - feature/promotion-engine-v1
+    paths:
+      - '.github/workflows/promotion-engine-ci.yml'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'backend/prisma/**'
+      - 'backend/scripts/merge-promotion-prisma.js'
+      - 'backend/src/api/v1/**'
+      - 'backend/src/modules/order/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/promotion_engine/**'
+      - 'backend/tests/**'
+  pull_request:
+    paths:
+      - 'backend/prisma/**'
+      - 'backend/scripts/merge-promotion-prisma.js'
+      - 'backend/src/api/v1/**'
+      - 'backend/src/modules/order/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/promotion_engine/**'
+      - 'backend/tests/**'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/softice_ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Merge Promotion/Pricing/Payment Prisma models
+        working-directory: backend
+        run: npm run prisma:merge
+
+      - name: Format Prisma schema
+        working-directory: backend
+        run: npx prisma format --schema prisma/schema.prisma
+
+      - name: Validate Prisma schema
+        working-directory: backend
+        run: npx prisma validate --schema prisma/schema.prisma
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate --schema prisma/schema.prisma
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Commit integrated schema on feature branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/promotion-engine-v1'
+        run: |
+          if git diff --quiet -- backend/prisma/schema.prisma; then
+            echo "schema.prisma already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/prisma/schema.prisma
+          git commit -m "chore(prisma): integrate promotion pricing payment schema"
+          git push
