@@ -17,6 +17,7 @@ const { CustomerPaymentProfileService } = require('../../modules/payment_profile
 const { PaymentOperationsService } = require('../../modules/payment_profile/PaymentOperationsService');
 const { PaymentEconomicsService } = require('../../modules/payment_profile/PaymentEconomicsService');
 const { FinancialReadinessService } = require('../../modules/payment_profile/FinancialReadinessService');
+const { YooKassaDailyReconciliationService } = require('../../modules/payment_profile/YooKassaDailyReconciliationService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -62,8 +63,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const paymentOperationsService = dependencies.paymentOperationsService || new PaymentOperationsService({ prisma, paymentAdapter: privateChannelPaymentAdapter, customerProfileCommunicationService });
   const paymentEconomicsService = dependencies.paymentEconomicsService || new PaymentEconomicsService({ prisma });
   const financialReadinessService = dependencies.financialReadinessService || new FinancialReadinessService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
-  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService };
+  const yooKassaDailyReconciliationService = dependencies.yooKassaDailyReconciliationService || new YooKassaDailyReconciliationService({ prisma });
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
