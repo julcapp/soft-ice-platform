@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.js",
+    "prisma:merge": "node scripts/merge-promotion-prisma.js",
+    "prisma:check-integrated": "node scripts/merge-promotion-prisma.js --check",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:validate": "prisma validate",
