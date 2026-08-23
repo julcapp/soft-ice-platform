@@ -1,4 +1,5 @@
 import React from 'react';
+import './promotion.css';
 
 function rub(value) {
   const amount = Number(value || 0);
