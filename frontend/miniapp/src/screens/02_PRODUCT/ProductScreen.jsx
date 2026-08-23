@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { flavorOfDay, product, syrups, toppings } from '../../domain/catalog.js';
 import { trackEvent } from '../../analytics/trackEvent.js';
 import { DESIGN_RULES } from '../../shared/design/index.js';
+import { MiniAppPromotionAwareness } from '../../promotion/PromotionAwareness.jsx';
 import { PromotionPricePanel } from '../../promotion/PromotionPricePanel.jsx';
 import { resolveMachineId } from '../../promotion/PricingQuoteApi.js';
 import { usePricingQuote } from '../../promotion/usePricingQuote.js';
@@ -22,6 +23,7 @@ function quotePrice(pricing) {
 
 export function ProductScreen({ onBack }) {
   const machineId = useMemo(() => resolveMachineId(), []);
+  const pricingRef = useRef(null);
   const [selectedSyrup, setSelectedSyrup] = useState(syrups[0].id);
   const [selectedTopping, setSelectedTopping] = useState(toppings[0].id);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
@@ -49,6 +51,11 @@ export function ProductScreen({ onBack }) {
     trackEvent('PricingQuoteRefreshRequested', { machine_id: machineId, channel: 'MINI_APP' });
   }
 
+  function focusPricing() {
+    pricingRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    trackEvent('PromotionAwarenessCtaPressed', { machine_id: machineId, channel: 'MINI_APP' });
+  }
+
   function continueOrder() {
     if (pricing.status !== 'ready' || pricing.lockExpired) return;
     trackEvent('ContinuePressed', {
@@ -67,6 +74,7 @@ export function ProductScreen({ onBack }) {
 
   return (
     <main className="app-shell">
+      <MiniAppPromotionAwareness pricing={pricing} onCta={focusPricing} />
       <header className="screen-header">
         <button className="back-button" type="button" onClick={onBack}>‹</button>
         <div>
@@ -85,7 +93,7 @@ export function ProductScreen({ onBack }) {
         </div>
       </section>
 
-      <PromotionPricePanel pricing={pricing} onRefresh={refreshQuote} />
+      <div ref={pricingRef}><PromotionPricePanel pricing={pricing} onRefresh={refreshQuote} /></div>
 
       <section className="selector-section">
         <h2>Выберите сироп</h2>
