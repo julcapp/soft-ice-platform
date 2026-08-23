@@ -75,6 +75,16 @@ class PricingRepository {
     return { ...row, items: row.snapshot?.items || [], snapshotId: row.snapshot?.id || null, rules: row.snapshot?.rules || row.metadata?.rules || {} };
   }
 
+  async getQuoteByOrderId(orderId) {
+    if (!orderId) return null;
+    const row = await this.prisma.pricingQuote.findUnique({
+      where: { orderId },
+      include: { snapshot: { include: { items: true } } },
+    });
+    if (!row) return null;
+    return { ...row, items: row.snapshot?.items || [], snapshotId: row.snapshot?.id || null, rules: row.snapshot?.rules || row.metadata?.rules || {} };
+  }
+
   async consumeQuote(id, consumedAt, orderId = null) {
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.pricingQuote.updateMany({
@@ -91,7 +101,7 @@ class PricingRepository {
       if (orderId) {
         await tx.pricingSnapshot.update({ where: { quoteId: id }, data: { orderId } });
         const quote = await tx.pricingQuote.findUnique({ where: { id } });
-        const snapshot = await tx.pricingSnapshot.findUnique({ where: { quoteId: id } });
+        const snapshot = await tx.pricingSnapshot.findUnique({ where: { quoteId: id }, include: { items: true } });
         if (quote?.campaignId && quote?.promotionVersionId && quote?.customerId) {
           await tx.promotionApplication.create({
             data: {
