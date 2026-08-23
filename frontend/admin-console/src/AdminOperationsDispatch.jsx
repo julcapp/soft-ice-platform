@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBadge } from './components';
-import { getOperationsDispatch, getOperationsHistory, updateOperationsWorkItem } from './api/adminOperationsDispatchClient';
+import { getOperationsDispatch, getOperationsHistory, getServiceSpecialistCard, updateOperationsWorkItem } from './api/adminOperationsDispatchClient';
 
 const categoryLabels = { ALL: 'Все', FINANCE: 'Финансы', MACHINES: 'Аппараты', SUBSCRIPTIONS: 'Подписки', CONTENT: 'Контент' };
 const statusLabels = { ALL: 'Все', OPEN: 'Открыт', IN_PROGRESS: 'В работе', RESOLVED: 'Решён' };
@@ -11,6 +11,7 @@ export function AdminOperationsDispatch({ compact = false }) {
   const [state, setState] = useState({ status: 'loading', data: null });
   const [history, setHistory] = useState(null);
   const [draft, setDraft] = useState({});
+  const [specialist, setSpecialist] = useState(null);
 
   async function load(signal) {
     try {
@@ -39,6 +40,11 @@ export function AdminOperationsDispatch({ compact = false }) {
     const data = await getOperationsHistory(key);
     setHistory({ key, ...data });
   }
+  async function openSpecialist(item) {
+    if (!item.work.assigneeSubject) return;
+    const data = await getServiceSpecialistCard(item.work.assigneeSubject);
+    setSpecialist({ key: item.key, data });
+  }
 
   const data = state.data;
   return <section className="card" aria-label="Операционная диспетчерская" style={compact ? { marginTop: 12 } : undefined}>
@@ -66,6 +72,7 @@ export function AdminOperationsDispatch({ compact = false }) {
       const values = draft[item.key] || {};
       const assignedLabel = item.work.assigneeDisplayName || item.work.assigneeSubject || 'не назначен';
       const slaCritical = item.work.ackOverdue || item.work.resolveOverdue;
+      const profile = specialist?.key === item.key ? specialist.data : null;
       return <article key={item.key} style={{ borderTop: '1px solid var(--border-color, #ddd)', padding: '14px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><small>{categoryLabels[item.category] || item.category} · {item.source}</small><strong style={{ display: 'block', marginTop: 3 }}>{item.title}</strong></div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><StatusBadge status={item.severity} /><StatusBadge status={item.work.status} />{slaCritical && <StatusBadge status="CRITICAL" />}{item.work.escalationLevel > 0 && <span>Эскалация L{item.work.escalationLevel}</span>}</div></div>
         <p>{item.message}</p>
@@ -74,7 +81,8 @@ export function AdminOperationsDispatch({ compact = false }) {
           <small><strong>SLA решения:</strong> {item.work.resolvedAt ? `решено ${formatDate(item.work.resolvedAt)}` : item.work.resolveDueAt ? `${item.work.resolveOverdue ? 'ПРОСРОЧЕНО · ' : ''}${formatDate(item.work.resolveDueAt)}` : '—'}</small>
           {item.work.slaPolicyCode && <small><strong>Политика:</strong> {item.work.slaPolicyCode}</small>}
         </div>
-        {item.work.assigneeSubject && <p style={{ margin: '4px 0 10px' }}><strong>Ответственный:</strong> {assignedLabel}{item.work.assignmentMode === 'AUTO' ? ' · назначен автоматически' : item.work.assignmentMode === 'MANUAL' ? ' · назначен вручную' : ''}{item.work.assignmentReason ? ` · ${item.work.assignmentReason}` : ''}</p>}
+        {item.work.assigneeSubject && <p style={{ margin: '4px 0 10px' }}><strong>Ответственный:</strong> {assignedLabel}{item.work.assignmentMode === 'AUTO' ? ' · назначен автоматически' : item.work.assignmentMode === 'MANUAL' ? ' · назначен вручную' : ''}{item.work.assignmentReason ? ` · ${item.work.assignmentReason}` : ''} <button type="button" className="text-button" onClick={() => openSpecialist(item)}>Карточка специалиста</button></p>}
+        {profile && <SpecialistCard profile={profile} />}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
           <label>Переназначить<input value={values.assigneeSubject ?? ''} onChange={(e) => setDraft((v) => ({ ...v, [item.key]: { ...(v[item.key] || {}), assigneeSubject: e.target.value } }))} placeholder={item.work.assigneeSubject || 'логин/роль сотрудника'} /></label>
           <label style={{ flex: '1 1 260px' }}>Комментарий<input value={values.comment || ''} onChange={(e) => setDraft((v) => ({ ...v, [item.key]: { ...(v[item.key] || {}), comment: e.target.value } }))} placeholder="Что сделано или что требуется" /></label>
@@ -93,4 +101,21 @@ export function AdminOperationsDispatch({ compact = false }) {
   </section>;
 }
 
+function SpecialistCard({ profile }) {
+  if (!profile) return <p>Карточка специалиста не связана с профилем сотрудника.</p>;
+  const channels = profile.channels || {};
+  return <div style={{ margin: '8px 0 14px', padding: 12, background: 'rgba(0,0,0,.03)', borderRadius: 10 }}>
+    <strong>{profile.fullName}</strong><div><small>{profile.position}</small></div>
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
+      <span><strong>Телефон:</strong> {profile.phone || 'не указан'}</span><span><strong>Email:</strong> {profile.email || 'не указан'}</span><span><strong>ID пользователя:</strong> {profile.platformUserId || 'не связан'}</span>
+    </div>
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
+      <Channel label="Telegram" value={channels.telegram} /><Channel label="MAX" value={channels.max} /><Channel label="VK" value={channels.vk} />
+    </div>
+  </div>;
+}
+function Channel({ label, value }) {
+  const identity = value?.username ? `@${value.username}` : value?.userId || value?.profileUrl || 'не связан';
+  return <span><strong>{label}:</strong> {identity}{value?.verified ? ' · подтверждён' : ''}</span>;
+}
 function formatDate(value) { return value ? new Date(value).toLocaleString('ru-RU') : '—'; }
