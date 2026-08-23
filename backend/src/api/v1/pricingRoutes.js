@@ -8,6 +8,7 @@ const {
   PricingEngineService,
   PricingRepository,
   ActivePromotionResolver,
+  PromotionAwarenessService,
   PromotionRepository,
   PromotionSafetyService,
   FiftiethPurchaseGiftResolver,
@@ -30,6 +31,12 @@ function resolvePricingService(dependencies = {}) {
   });
 }
 
+function resolveAwarenessService(dependencies = {}) {
+  if (dependencies.promotionAwarenessService) return dependencies.promotionAwarenessService;
+  const prisma = dependencies.prisma || getPrismaClient();
+  return new PromotionAwarenessService({ prisma, resolver: new ActivePromotionResolver({ prisma }) });
+}
+
 function resolveServerProductPricing(dependencies = {}) {
   return dependencies.serverProductPricingResolver || new ServerProductPricingResolver();
 }
@@ -46,8 +53,20 @@ function optionalCustomerAuth(authCoreService) {
 function createPricingRouter(dependencies = {}) {
   const router = express.Router();
   const service = resolvePricingService(dependencies);
+  const awareness = resolveAwarenessService(dependencies);
   const serverProductPricing = resolveServerProductPricing(dependencies);
   router.use(optionalCustomerAuth(dependencies.authCoreService));
+
+  router.get('/promotion-awareness', asyncHandler(async (req, res) => {
+    const customerId = req.securityContext?.subject_type === 'customer' ? req.securityContext.subject_id : null;
+    const data = await awareness.getStatus({
+      customerId,
+      machineId: req.query?.machineId || req.query?.machine_id,
+      channel: String(req.query?.channel || 'MINI_APP').toUpperCase(),
+      withinMinutes: Math.min(60, Math.max(1, Number(req.query?.withinMinutes || 60))),
+    });
+    return sendData(res, req, data);
+  }));
 
   router.post('/quote', asyncHandler(async (req, res) => {
     const customerId = req.securityContext?.subject_type === 'customer' ? req.securityContext.subject_id : null;
@@ -70,6 +89,7 @@ function createPricingRouter(dependencies = {}) {
 module.exports = {
   createPricingRouter,
   resolvePricingService,
+  resolveAwarenessService,
   resolveServerProductPricing,
   optionalCustomerAuth,
 };
