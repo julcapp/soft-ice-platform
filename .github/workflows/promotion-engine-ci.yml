@@ -97,3 +97,7 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         run: npm test
+
+      - name: Run Promotion purchase PostgreSQL E2E
+        working-directory: backend
+        run: node --test tests/promotion-purchase.e2e.js
