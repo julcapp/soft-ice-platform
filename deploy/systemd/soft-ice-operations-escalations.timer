@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Soft ICE operations escalation delivery every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+RandomizedDelaySec=30
+Unit=soft-ice-operations-escalations.service
+
+[Install]
+WantedBy=timers.target
