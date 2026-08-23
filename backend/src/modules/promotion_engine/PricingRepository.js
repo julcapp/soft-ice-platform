@@ -43,21 +43,7 @@ class PricingRepository {
           pricingRuleVersion: 'pricing-v1',
           lockedUntil: quote.lockedUntil,
           rules: quote.rules,
-          items: {
-            create: quote.items.map((item) => ({
-              itemId: item.itemId,
-              sku: item.sku,
-              name: item.name,
-              quantity: item.quantity,
-              baseAmount: item.baseAmount,
-              giftAmount: item.giftAmount,
-              promotionDiscountAmount: item.promotionDiscountAmount,
-              finalAmount: item.finalAmount,
-              giftApplied: item.giftApplied,
-              campaignId: item.campaignId,
-              promotionVersionId: item.promotionVersionId,
-            })),
-          },
+          items: { create: this._snapshotItems(quote.items) },
         },
         include: { items: true },
       });
@@ -66,8 +52,56 @@ class PricingRepository {
     });
   }
 
-  async getQuote(id) {
-    const row = await this.prisma.pricingQuote.findUnique({
+  async replaceQuotePricing(quoteId, quote) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.pricingQuote.findUnique({ where: { id: quoteId } });
+      if (!existing || existing.consumedAt) {
+        const error = new Error('Pricing quote cannot be repriced.');
+        error.code = 'PRICING_QUOTE_REPRICE_CONFLICT';
+        error.statusCode = 409;
+        error.source = 'pricing_engine';
+        throw error;
+      }
+
+      await tx.pricingQuote.update({
+        where: { id: quoteId },
+        data: {
+          baseAmount: quote.baseAmount,
+          giftAmount: quote.giftAmount,
+          promotionDiscountAmount: quote.promotionDiscountAmount,
+          finalAmount: quote.finalAmount,
+          bonusPaymentAllowed: quote.bonusPaymentAllowed,
+          partialBonusPaymentAllowed: quote.partialBonusPaymentAllowed,
+          transferAllowed: quote.transferAllowed,
+          paymentRequired: quote.paymentRequired,
+          metadata: { rules: quote.rules },
+        },
+      });
+
+      const snapshot = await tx.pricingSnapshot.findUnique({ where: { quoteId } });
+      if (!snapshot) throw new Error('Pricing snapshot not found for quote.');
+      await tx.pricingSnapshotItem.deleteMany({ where: { pricingSnapshotId: snapshot.id } });
+      await tx.pricingSnapshot.update({
+        where: { id: snapshot.id },
+        data: {
+          baseAmount: quote.baseAmount,
+          giftAmount: quote.giftAmount,
+          promotionDiscountAmount: quote.promotionDiscountAmount,
+          finalAmount: quote.finalAmount,
+          rules: quote.rules,
+        },
+      });
+      if (quote.items.length) {
+        await tx.pricingSnapshotItem.createMany({
+          data: this._snapshotItems(quote.items).map((item) => ({ ...item, pricingSnapshotId: snapshot.id })),
+        });
+      }
+      return this.getQuote(quoteId, tx);
+    });
+  }
+
+  async getQuote(id, client = this.prisma) {
+    const row = await client.pricingQuote.findUnique({
       where: { id },
       include: { snapshot: { include: { items: true } } },
     });
@@ -122,6 +156,22 @@ class PricingRepository {
       }
       return tx.pricingQuote.findUnique({ where: { id } });
     });
+  }
+
+  _snapshotItems(items) {
+    return (items || []).map((item) => ({
+      itemId: item.itemId,
+      sku: item.sku,
+      name: item.name,
+      quantity: item.quantity,
+      baseAmount: item.baseAmount,
+      giftAmount: item.giftAmount,
+      promotionDiscountAmount: item.promotionDiscountAmount,
+      finalAmount: item.finalAmount,
+      giftApplied: item.giftApplied,
+      campaignId: item.campaignId,
+      promotionVersionId: item.promotionVersionId,
+    }));
   }
 }
 
