@@ -23,3 +23,6 @@ export function updateOperationsWorkItem(payload) {
 export function getOperationsHistory(notificationKey, { signal } = {}) {
   return request(`/operations-dispatch/history?notificationKey=${encodeURIComponent(notificationKey)}`, { signal });
 }
+export function getServiceSpecialistCard(subject, { signal } = {}) {
+  return request(`/operations-dispatch/specialist?subject=${encodeURIComponent(subject)}`, { signal });
+}
