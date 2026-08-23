@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
+const { ApiError } = require('../../platform/errors/ApiError');
 const { getPrismaClient } = require('../../common/database');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const {
@@ -9,6 +10,7 @@ const {
   PricingRepository,
   ActivePromotionResolver,
   PromotionAwarenessService,
+  PromotionAnalyticsService,
   PromotionRepository,
   PromotionSafetyService,
   FiftiethPurchaseGiftResolver,
@@ -37,6 +39,11 @@ function resolveAwarenessService(dependencies = {}) {
   return new PromotionAwarenessService({ prisma, resolver: new ActivePromotionResolver({ prisma }) });
 }
 
+function resolveAnalyticsService(dependencies = {}) {
+  if (dependencies.promotionAnalyticsService) return dependencies.promotionAnalyticsService;
+  return new PromotionAnalyticsService({ prisma: dependencies.prisma || getPrismaClient() });
+}
+
 function resolveServerProductPricing(dependencies = {}) {
   return dependencies.serverProductPricingResolver || new ServerProductPricingResolver();
 }
@@ -54,6 +61,7 @@ function createPricingRouter(dependencies = {}) {
   const router = express.Router();
   const service = resolvePricingService(dependencies);
   const awareness = resolveAwarenessService(dependencies);
+  const analytics = resolveAnalyticsService(dependencies);
   const serverProductPricing = resolveServerProductPricing(dependencies);
   router.use(optionalCustomerAuth(dependencies.authCoreService));
 
@@ -76,10 +84,24 @@ function createPricingRouter(dependencies = {}) {
       channel: req.body?.channel,
       eventType: req.body?.eventType,
       customerId,
-      metadata: {
-        sourceEvent: req.body?.sourceEvent || null,
-        machineId: req.body?.machineId || null,
-      },
+      metadata: { sourceEvent: req.body?.sourceEvent || null, machineId: req.body?.machineId || null },
+    });
+    return sendData(res, req, { eventId: event.id }, 201);
+  }));
+
+  router.post('/promotion-delivery-receipt', asyncHandler(async (req, res) => {
+    const expected = dependencies.promotionAnalyticsIngestToken || process.env.PROMOTION_ANALYTICS_INGEST_TOKEN;
+    const provided = req.get('X-Promotion-Analytics-Token');
+    if (!expected || provided !== expected) {
+      throw new ApiError({ statusCode: 401, code: 'PROMOTION_ANALYTICS_INGEST_UNAUTHORIZED', message: 'Promotion analytics gateway authentication failed.', source: 'promotion_engine' });
+    }
+    const event = await analytics.ingestDeliveryReceipt({
+      campaignId: req.body?.campaignId,
+      promotionVersionId: req.body?.promotionVersionId,
+      channel: req.body?.channel,
+      deliveryId: req.body?.deliveryId || null,
+      deliveredCount: req.body?.deliveredCount ?? 1,
+      sourceEvent: req.body?.sourceEvent || null,
     });
     return sendData(res, req, { eventId: event.id }, 201);
   }));
@@ -90,12 +112,7 @@ function createPricingRouter(dependencies = {}) {
       ? req.body.items.map(({ unitPrice, price, amount, serverProductType, giftEligible, ...safe }) => safe)
       : req.body?.items;
     const serverItems = await serverProductPricing.resolveItems(requestedItems);
-    const quote = await service.createQuote({
-      customerId,
-      machineId: req.body?.machineId,
-      channel: req.body?.channel,
-      items: serverItems,
-    });
+    const quote = await service.createQuote({ customerId, machineId: req.body?.machineId, channel: req.body?.channel, items: serverItems });
     return sendData(res, req, quote, 201);
   }));
 
@@ -106,6 +123,7 @@ module.exports = {
   createPricingRouter,
   resolvePricingService,
   resolveAwarenessService,
+  resolveAnalyticsService,
   resolveServerProductPricing,
   optionalCustomerAuth,
 };
