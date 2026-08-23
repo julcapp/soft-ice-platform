@@ -15,6 +15,7 @@ const { PrivateChannelRecoveryService } = require('../../modules/private_channel
 const { CustomerProfileCommunicationService } = require('../../modules/customer_profile/CustomerProfileCommunicationService');
 const { CustomerPaymentProfileService } = require('../../modules/payment_profile/CustomerPaymentProfileService');
 const { PaymentOperationsService } = require('../../modules/payment_profile/PaymentOperationsService');
+const { PaymentEconomicsService } = require('../../modules/payment_profile/PaymentEconomicsService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -58,8 +59,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const customerProfileCommunicationService = dependencies.customerProfileCommunicationService || new CustomerProfileCommunicationService({ prisma, crmRuntime: dependencies.crmRuntime || null });
   const customerPaymentProfileService = dependencies.customerPaymentProfileService || new CustomerPaymentProfileService({ prisma });
   const paymentOperationsService = dependencies.paymentOperationsService || new PaymentOperationsService({ prisma, paymentAdapter: privateChannelPaymentAdapter, customerProfileCommunicationService });
-  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService };
+  const paymentEconomicsService = dependencies.paymentEconomicsService || new PaymentEconomicsService({ prisma });
+  const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
