@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { promotionClient } from './api/promotionClient';
+import { PromotionEditor } from './PromotionEditor';
 import './promotion-engine.css';
 
 const fmtMoney = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -30,23 +31,25 @@ export function PromotionEnginePage() {
     if (!id) return;
     try {
       const [nextCampaign, nextApprovals] = await Promise.all([promotionClient.get(id), promotionClient.approvals(id)]);
-      const nextFunnel = await promotionClient.funnel(id, nextCampaign?.currentVersion?.id);
+      const nextFunnel = await promotionClient.funnel(id, nextCampaign?.effectiveVersion?.id || nextCampaign?.currentVersion?.id);
       setCampaign(nextCampaign); setApprovals(nextApprovals || []); setFunnel(nextFunnel || { channels: [] }); setError(null);
     } catch (e) { setError(e); }
   }
 
+  async function reload(id = selectedId) { await loadList(); await loadDetail(id); }
   useEffect(() => { loadList(); }, []);
   useEffect(() => { if (selectedId) loadDetail(selectedId); }, [selectedId]);
 
   async function act(action, payload) {
     if (!campaign || busy) return;
     setBusy(true); setError(null);
-    try { await promotionClient[action](campaign.id, payload); await loadList(); await loadDetail(campaign.id); }
+    try { await promotionClient[action](campaign.id, payload); await reload(campaign.id); }
     catch (e) { setError(e); }
     finally { setBusy(false); }
   }
 
   const version = campaign?.currentVersion;
+  const servingVersion = campaign?.effectiveVersion;
   const approved = useMemo(() => approvals.filter((row) => row.status === 'APPROVED').length, [approvals]);
   const schedule = version?.schedules || [];
   const channelRows = funnel?.channels || funnel || [];
@@ -69,11 +72,13 @@ export function PromotionEnginePage() {
     <section className="pe-main">
       {campaign && <>
         <header className="pe-hero">
-          <div><p>Promotion Engine · версия {version?.version}</p><h1>{campaign.name}</h1><span>{campaign.description || 'Управление коммерческой акцией и её каналами.'}</span></div>
-          <div className="pe-hero-status"><Status value={campaign.status} /><small>Обновлено {fmtTime(campaign.updatedAt)}</small></div>
+          <div><p>Promotion Engine · working v{version?.version}{servingVersion ? ` · effective v${servingVersion.version}` : ''}</p><h1>{campaign.name}</h1><span>{campaign.description || 'Управление коммерческой акцией и её каналами.'}</span></div>
+          <div className="pe-hero-status"><Status value={campaign.status} /><small>Рабочая версия: <b>{version?.status || campaign.status}</b></small><small>Обновлено {fmtTime(campaign.updatedAt)}</small></div>
         </header>
 
         {error && <div className="pe-alert"><strong>{error.code || 'Ошибка'}</strong><span>{error.message}</span></div>}
+
+        <PromotionEditor campaign={campaign} approvals={approvals} onChanged={() => reload(campaign.id)} />
 
         <section className="pe-metrics">
           <Metric label="Скидка" value={`${Number(version?.benefitValue || 0)}%`} detail={version?.benefitType} />
@@ -84,20 +89,20 @@ export function PromotionEnginePage() {
 
         <section className="pe-grid">
           <article className="pe-card pe-control">
-            <div className="pe-card-title"><div><p>Управление</p><h2>Коммерческий запуск</h2></div><Status value={campaign.status} /></div>
+            <div className="pe-card-title"><div><p>Операционный контур</p><h2>Действующая акция</h2></div><Status value={campaign.status} /></div>
             <div className="pe-actions">
-              <button disabled={busy || !['READY','SCHEDULED'].includes(campaign.status)} onClick={() => act('runNow', 120)}>▶ Run now · 120 мин</button>
+              <button disabled={busy || !['READY','SCHEDULED'].includes(version?.status || campaign.status)} onClick={() => act('runNow', 120)}>▶ Run now · 120 мин</button>
               <button disabled={busy || campaign.status !== 'ACTIVE'} onClick={() => act('pause', 'Пауза из админ-панели')}>Ⅱ Пауза</button>
               <button disabled={busy || campaign.status !== 'PAUSED'} onClick={() => act('resume', 'Возобновление из админ-панели')}>Продолжить</button>
               <button disabled={busy || !['SCHEDULED','ACTIVE','PAUSED'].includes(campaign.status)} onClick={() => act('emergencyStop', 'Emergency Stop из Promotion Engine Console')}>■ Emergency Stop</button>
               <button disabled={busy || !['SCHEDULED','ACTIVE','PAUSED','PAUSED_BY_SAFETY','PAUSED_BY_BUDGET'].includes(campaign.status)} onClick={() => act('end', 'Завершено из админ-панели')}>Завершить</button>
               <button disabled={busy} onClick={() => act('safetyCheck')}>Проверить безопасность</button>
             </div>
-            <div className="pe-control-note">Критические действия всегда проходят backend RBAC, approval policy и журналируются в PromotionEvent.</div>
+            <div className="pe-control-note">Коммерческие правки проходят через новую рабочую версию. Действующая effective-версия не меняется до отдельной активации.</div>
           </article>
 
           <article className="pe-card">
-            <div className="pe-card-title"><div><p>Расписание</p><h2>{version?.timezone || 'Europe/Moscow'}</h2></div></div>
+            <div className="pe-card-title"><div><p>Расписание рабочей версии</p><h2>{version?.timezone || 'Europe/Moscow'}</h2></div></div>
             <div className="pe-schedule">{schedule.length ? schedule.map((row) => <div key={row.id || `${row.dayOfWeek}-${row.startTime}`}><strong>{DAY[row.dayOfWeek] || row.dayOfWeek}</strong><span>{String(row.startTime).slice(0,5)}–{String(row.endTime).slice(0,5)}</span><em>{row.isEnabled === false ? 'выкл' : 'активно'}</em></div>) : <p>Используется общее окно версии: {fmtTime(version?.startsAt)} — {fmtTime(version?.endsAt)}</p>}</div>
           </article>
 
@@ -108,13 +113,13 @@ export function PromotionEnginePage() {
           </article>
 
           <article className="pe-card">
-            <div className="pe-card-title"><div><p>Согласование</p><h2>{version?.approvalPolicy || 'NONE'}</h2></div><strong>{approved}</strong></div>
+            <div className="pe-card-title"><div><p>Согласование working v{version?.version}</p><h2>{version?.approvalPolicy || 'NONE'}</h2></div><strong>{approved}</strong></div>
             <div className="pe-approvals">{approvals.length ? approvals.slice(-5).reverse().map((row) => <div key={row.id}><Status value={row.status} /><span>{row.decidedBy || row.requestedBy}</span><small>{fmtTime(row.decidedAt || row.requestedAt)}</small></div>) : <p>Решений по текущей версии пока нет.</p>}</div>
           </article>
         </section>
 
         <section className="pe-card pe-funnel-card">
-          <div className="pe-card-title"><div><p>Каналы</p><h2>Воронка Telegram / MAX / VK</h2></div><span>версия {version?.version}</span></div>
+          <div className="pe-card-title"><div><p>Каналы</p><h2>Воронка Telegram / MAX / VK</h2></div><span>{servingVersion ? `effective v${servingVersion.version}` : `working v${version?.version}`}</span></div>
           <div className="pe-funnel-head"><span>Канал</span><span>Доставлено</span><span>Открыто</span><span>Клики</span><span>Покупки</span><span>CTR</span><span>Конверсия</span></div>
           {(Array.isArray(channelRows) ? channelRows : []).map((row) => <div className="pe-funnel-row" key={row.channel}>
             <strong>{row.channel}</strong><span>{row.delivered ?? 0}</span><span>{row.opened ?? 0}</span><span>{row.clicked ?? 0}</span><span>{row.purchase ?? row.purchases ?? 0}</span><span>{Number(row.ctr || 0).toFixed(1)}%</span><span>{Number(row.purchaseConversion || 0).toFixed(1)}%</span>
@@ -123,7 +128,7 @@ export function PromotionEnginePage() {
         </section>
 
         <section className="pe-card">
-          <div className="pe-card-title"><div><p>Каналы кампании</p><h2>Настройки коммуникаций</h2></div></div>
+          <div className="pe-card-title"><div><p>Каналы рабочей версии</p><h2>Настройки коммуникаций</h2></div></div>
           <div className="pe-channel-cards">{(version?.channels || []).map((row) => <div key={row.channel}><strong>{row.channel}</strong><Status value={row.enabled ? 'ACTIVE' : 'DISABLED'} /><small>Предуведомление: {row.preNotificationMinutes || 0} мин</small><small>Popup: {row.popupEnabled ? 'да' : 'нет'} · Countdown: {row.countdownEnabled ? 'да' : 'нет'}</small></div>)}</div>
         </section>
       </>}
