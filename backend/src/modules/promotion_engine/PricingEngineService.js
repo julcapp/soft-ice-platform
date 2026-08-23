@@ -20,7 +20,7 @@ class PricingEngineService {
     if (!promotionResolver) throw new Error('Promotion resolver is required.');
     this.repository = repository;
     this.promotionResolver = promotionResolver;
-    this.giftResolver = giftResolver || { resolve: async () => ({ giftItemIds: [] }) };
+    this.giftResolver = giftResolver || { resolve: async () => ({ giftItemIds: [] }), consume: async () => null };
     this.safetyService = safetyService || null;
     this.clock = clock;
   }
@@ -31,6 +31,7 @@ class PricingEngineService {
     if (!Array.isArray(items) || items.length === 0) throw this._error('PRICING_ITEMS_REQUIRED', 'At least one item is required.', 400);
 
     const now = this.clock();
+    const quoteId = `quote_${crypto.randomUUID()}`;
     const normalizedItems = items.map((item, index) => {
       const quantity = Number(item.quantity ?? 1);
       if (!Number.isInteger(quantity) || quantity <= 0) throw this._error('PRICING_INVALID_QUANTITY', `Invalid quantity at items[${index}].`, 400);
@@ -38,7 +39,9 @@ class PricingEngineService {
     });
 
     const promotion = await this.promotionResolver.resolve({ customerId, machineId, channel, at: now, items: normalizedItems });
-    const gift = await this.giftResolver.resolve({ customerId, machineId, items: normalizedItems, at: now });
+    const lockSeconds = Number(promotion?.currentVersion?.priceLockSeconds || 300);
+    const lockedUntil = new Date(now.getTime() + lockSeconds * 1000);
+    const gift = await this.giftResolver.resolve({ quoteId, customerId, machineId, items: normalizedItems, at: now, lockedUntil });
     const giftIds = new Set(gift?.giftItemIds || []);
 
     let baseAmount = 0;
@@ -77,8 +80,6 @@ class PricingEngineService {
     const partialBonusPaymentAllowed = bonusRule !== 'FORBIDDEN';
     const transferAllowed = transferRule !== 'FORBIDDEN';
     const paymentRequired = finalAmount > 0;
-    const lockSeconds = Number(promotion?.currentVersion?.priceLockSeconds || 300);
-    const lockedUntil = new Date(now.getTime() + lockSeconds * 1000);
 
     if (promotion && this.safetyService) {
       const safety = this.safetyService.evaluate({
@@ -93,7 +94,7 @@ class PricingEngineService {
     }
 
     const quote = {
-      id: `quote_${crypto.randomUUID()}`,
+      id: quoteId,
       customerId,
       machineId,
       channel,
@@ -115,6 +116,7 @@ class PricingEngineService {
         giftFirst: true,
         promotionOnPaidItemsOnly: true,
         moneyDiscountStacking: promotion ? ruleValue(promotion.currentVersion, 'MONEY_DISCOUNT_STACKING') : null,
+        giftPurchaseOrdinal: gift?.purchaseOrdinal || null,
       },
     };
     return this.repository.saveQuote(quote);
@@ -128,9 +130,11 @@ class PricingEngineService {
     return quote;
   }
 
-  async consumeQuote(quoteId) {
-    await this.getValidQuote(quoteId);
-    return this.repository.consumeQuote(quoteId, this.clock());
+  async consumeQuote(quoteId, { orderId = null } = {}) {
+    const quote = await this.getValidQuote(quoteId);
+    const consumed = await this.repository.consumeQuote(quoteId, this.clock());
+    if (orderId && this.giftResolver?.consume) await this.giftResolver.consume({ quoteId, orderId });
+    return { ...consumed, quote };
   }
 
   _error(code, message, statusCode, details = []) {
