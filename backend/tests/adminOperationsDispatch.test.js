@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { AdminOperationsDispatchService, sourceCategory, autoAssignmentFor, isTechnicalMachineIncident } = require('../src/modules/admin_dashboard/AdminOperationsDispatchService');
+const { AdminOperationsDispatchService, sourceCategory, autoAssignmentFor, isTechnicalMachineIncident, slaPolicyFor } = require('../src/modules/admin_dashboard/AdminOperationsDispatchService');
 
 test('operations dispatch syncs active notifications into persisted work items', async () => {
   const executed = [];
@@ -9,13 +9,14 @@ test('operations dispatch syncs active notifications into persisted work items',
   ] }) };
   const prisma = {
     $executeRawUnsafe: async (...args) => { executed.push(args); return 1; },
-    $queryRawUnsafe: async () => [{ id: 'w1', notificationKey: 'financial:x', source: 'FINANCIAL', category: 'FINANCE', severity: 'CRITICAL', title: 'Финансы', message: 'Ошибка', deepLink: '#business-analytics', sourceActive: true, status: 'OPEN', assigneeSubject: null }],
+    $queryRawUnsafe: async () => [{ id: 'w1', notificationKey: 'financial:x', source: 'FINANCIAL', category: 'FINANCE', severity: 'CRITICAL', title: 'Финансы', message: 'Ошибка', deepLink: '#business-analytics', sourceActive: true, status: 'OPEN', assigneeSubject: null, escalationLevel: 0 }],
   };
   const result = await new AdminOperationsDispatchService({ prisma, notificationCenter }).list({ category: 'FINANCE' });
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0].category, 'FINANCE');
   assert.equal(result.items[0].sourceActive, true);
   assert.ok(executed.some((call) => String(call[0]).includes('ON CONFLICT')));
+  assert.ok(executed.some((call) => String(call[0]).includes('ackBreachedAt')));
 });
 
 test('operations dispatch updates workflow and writes immutable event', async () => {
@@ -25,7 +26,7 @@ test('operations dispatch updates workflow and writes immutable event', async ()
     $queryRawUnsafe: async () => {
       queryCount += 1;
       if (queryCount === 1) return [{ id: 'work-1', status: 'OPEN', assigneeSubject: null, assigneeDisplayName: null }];
-      return [{ id: 'work-1', notificationKey: 'financial:x', status: 'IN_PROGRESS', assigneeSubject: 'operator-1', assigneeDisplayName: 'operator-1', acknowledgedAt: new Date() }];
+      return [{ id: 'work-1', notificationKey: 'financial:x', status: 'IN_PROGRESS', assigneeSubject: 'operator-1', assigneeDisplayName: 'operator-1', acknowledgedAt: new Date(), escalationLevel: 0 }];
     },
     $executeRawUnsafe: async (...args) => { executed.push(args); return 1; },
   };
@@ -35,6 +36,27 @@ test('operations dispatch updates workflow and writes immutable event', async ()
   assert.equal(result.assigneeSubject, 'operator-1');
   assert.equal(executed.length, 2);
   assert.match(executed[1][0], /AdminOperationsWorkEvent/);
+});
+
+test('critical machine incident has 15 minute acknowledgement SLA and 2 hour resolution SLA', () => {
+  const policy = slaPolicyFor({ key: 'machine:dispense-failed:d1', source: 'MACHINE', severity: 'CRITICAL' }, 'MACHINES');
+  assert.equal(policy.code, 'MACHINE_CRITICAL_V1');
+  assert.equal(policy.ackMinutes, 15);
+  assert.equal(policy.resolveMinutes, 120);
+});
+
+test('low stock has separate operational SLA', () => {
+  const policy = slaPolicyFor({ key: 'machine:low-stock:s1', source: 'MACHINE', severity: 'WARNING' }, 'MACHINES');
+  assert.equal(policy.code, 'MACHINE_STOCK_WARNING_V1');
+  assert.equal(policy.ackMinutes, 120);
+  assert.equal(policy.resolveMinutes, 480);
+});
+
+test('finance incident has 30 minute acknowledgement SLA', () => {
+  const policy = slaPolicyFor({ key: 'financial:x', source: 'FINANCIAL', severity: 'CRITICAL' }, 'FINANCE');
+  assert.equal(policy.code, 'FINANCE_INCIDENT_V1');
+  assert.equal(policy.ackMinutes, 30);
+  assert.equal(policy.resolveMinutes, 240);
 });
 
 test('technical machine incident prefers service specialist', () => {
