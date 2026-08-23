@@ -66,10 +66,18 @@ class FiftiethPurchaseGiftResolver {
 
   async completePurchase({ customerId, machineId, orderId }) {
     if (!customerId || !machineId || !orderId) return null;
-    return this.prisma.customerMachineRewardCounter.upsert({
-      where: { customerId_machineId: { customerId, machineId } },
-      create: { id: `cmrc_${crypto.randomUUID()}`, customerId, machineId, completedPurchases: 1, lastCompletedOrderId: orderId },
-      update: { completedPurchases: { increment: 1 }, lastCompletedOrderId: orderId },
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.customerMachineRewardCounter.findUnique({ where: { customerId_machineId: { customerId, machineId } } });
+      if (current?.lastCompletedOrderId === orderId) return current;
+      if (!current) {
+        return tx.customerMachineRewardCounter.create({
+          data: { id: `cmrc_${crypto.randomUUID()}`, customerId, machineId, completedPurchases: 1, lastCompletedOrderId: orderId },
+        });
+      }
+      return tx.customerMachineRewardCounter.update({
+        where: { customerId_machineId: { customerId, machineId } },
+        data: { completedPurchases: { increment: 1 }, lastCompletedOrderId: orderId },
+      });
     });
   }
 }
