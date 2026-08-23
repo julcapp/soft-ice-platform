@@ -1,4 +1,5 @@
 import React from 'react';
+import { AdminNotificationBell } from '../AdminNotificationCenter';
 
 export function StatusBadge({ status }) {
   const labels = {
@@ -91,7 +92,7 @@ export function Sidebar({ open, onClose }) {
 }
 
 export function Header({ onMenu }) {
-  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><button className="notification" aria-label="2 уведомления">♢<i>2</i></button><div className="user-menu"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></div></div></header>;
+  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><AdminNotificationBell /><div className="user-menu"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></div></div></header>;
 }
 
 export function PageHeader() {
