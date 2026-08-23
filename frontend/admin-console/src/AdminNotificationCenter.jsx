@@ -6,6 +6,7 @@ const sourceLabels = {
   FINANCIAL: 'Финансы',
   PRIVATE_CHANNEL: 'Приватные каналы',
   PHOTO_PUBLICATION: 'UGC-публикации',
+  MACHINE: 'Автоматы',
 };
 
 export function AdminNotificationBell() {
