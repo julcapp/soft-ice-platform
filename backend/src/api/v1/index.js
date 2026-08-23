@@ -27,6 +27,7 @@ const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./g
 const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
+const { createPromotionAdminRouter } = require('./promotionRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -64,6 +65,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   }
   router.use('/telegram', createTelegramRouter(dependencies));
   router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
+  router.use('/admin/promotions', createPromotionAdminRouter(dependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));
   router.use('/admin/platform-events', createPlatformEventRouter(dependencies));
