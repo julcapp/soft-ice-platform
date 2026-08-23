@@ -27,7 +27,7 @@ class PricingRepository {
           promotionVersionId: quote.promotionVersionId,
           createdAt: quote.createdAt,
           lockedUntil: quote.lockedUntil,
-          metadata: { rules: quote.rules },
+          metadata: { rules: quote.rules, promotionRuntime: quote.promotionRuntime },
         },
       });
 
@@ -48,7 +48,13 @@ class PricingRepository {
         include: { items: true },
       });
 
-      return { ...created, items: snapshot.items, snapshotId: snapshot.id, rules: quote.rules };
+      return {
+        ...created,
+        items: snapshot.items,
+        snapshotId: snapshot.id,
+        rules: quote.rules,
+        promotionRuntime: quote.promotionRuntime,
+      };
     });
   }
 
@@ -74,7 +80,7 @@ class PricingRepository {
           partialBonusPaymentAllowed: quote.partialBonusPaymentAllowed,
           transferAllowed: quote.transferAllowed,
           paymentRequired: quote.paymentRequired,
-          metadata: { rules: quote.rules },
+          metadata: { rules: quote.rules, promotionRuntime: quote.promotionRuntime },
         },
       });
 
@@ -106,7 +112,7 @@ class PricingRepository {
       include: { snapshot: { include: { items: true } } },
     });
     if (!row) return null;
-    return { ...row, items: row.snapshot?.items || [], snapshotId: row.snapshot?.id || null, rules: row.snapshot?.rules || row.metadata?.rules || {} };
+    return this._hydrateQuote(row);
   }
 
   async getQuoteByOrderId(orderId) {
@@ -116,7 +122,7 @@ class PricingRepository {
       include: { snapshot: { include: { items: true } } },
     });
     if (!row) return null;
-    return { ...row, items: row.snapshot?.items || [], snapshotId: row.snapshot?.id || null, rules: row.snapshot?.rules || row.metadata?.rules || {} };
+    return this._hydrateQuote(row);
   }
 
   async consumeQuote(id, consumedAt, orderId = null) {
@@ -156,6 +162,16 @@ class PricingRepository {
       }
       return tx.pricingQuote.findUnique({ where: { id } });
     });
+  }
+
+  _hydrateQuote(row) {
+    return {
+      ...row,
+      items: row.snapshot?.items || [],
+      snapshotId: row.snapshot?.id || null,
+      rules: row.snapshot?.rules || row.metadata?.rules || {},
+      promotionRuntime: row.metadata?.promotionRuntime || null,
+    };
   }
 
   _applicationItems(items) {
