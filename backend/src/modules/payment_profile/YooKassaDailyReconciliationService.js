@@ -30,7 +30,7 @@ class YooKassaDailyReconciliationService {
       `INSERT INTO "YooKassaDailyReport" ("id","shopId","reportDate","reportType","fileName","fileHash","status","rowsTotal","rowsMatched","rowsMissingLocal","rowsMismatch","grossAmountRub","netAmountRub","commissionRub","commissionVatRub","refundAmountRub","importedBy","importedAt","reconciledAt","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18,$18)`,
       reportId, shopId, date, type, fileName, fileHash, result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', normalized.length, result.matched, result.missingLocal, result.mismatch, totals.grossAmountRub, totals.netAmountRub, totals.commissionRub, totals.commissionVatRub, totals.refundAmountRub, actorId, now,
     );
-    for (const issue of result.issues) await this.#insertIssue(reportId, type, issue);
+    for (const item of result.issues) await this.#insertIssue(reportId, type, item);
     return { reportId, reportType: type, reportDate: date, fileName, rowsTotal: normalized.length, ...result, totals, status: result.issues.length ? 'RECONCILED_WITH_ISSUES' : 'RECONCILED', idempotentReplay: false };
   }
 
@@ -40,15 +40,7 @@ class YooKassaDailyReconciliationService {
       this.prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS open FROM "YooKassaReconciliationIssue" i JOIN "YooKassaDailyReport" r ON r."id"=i."reportId" WHERE i."status"='OPEN' AND r."reportDate">=$1::date AND r."reportDate"<$2::date`, from, toExclusive),
     ]);
     return {
-      reportsImported: Number(reports[0]?.reports || 0),
-      grossAmountRub: Number(reports[0]?.gross || 0),
-      netAmountRub: Number(reports[0]?.net || 0),
-      commissionRub: Number(reports[0]?.commission || 0),
-      commissionVatRub: Number(reports[0]?.vat || 0),
-      refundAmountRub: Number(reports[0]?.refunds || 0),
-      mismatchRows: Number(reports[0]?.mismatches || 0),
-      missingLocalRows: Number(reports[0]?.missing || 0),
-      openIssues: Number(issues[0]?.open || 0),
+      reportsImported: Number(reports[0]?.reports || 0), grossAmountRub: Number(reports[0]?.gross || 0), netAmountRub: Number(reports[0]?.net || 0), commissionRub: Number(reports[0]?.commission || 0), commissionVatRub: Number(reports[0]?.vat || 0), refundAmountRub: Number(reports[0]?.refunds || 0), mismatchRows: Number(reports[0]?.mismatches || 0), missingLocalRows: Number(reports[0]?.missing || 0), openIssues: Number(issues[0]?.open || 0),
     };
   }
 
@@ -57,17 +49,21 @@ class YooKassaDailyReconciliationService {
     return this.prisma.$queryRawUnsafe(`SELECT i.*, r."reportDate", r."fileName" FROM "YooKassaReconciliationIssue" i JOIN "YooKassaDailyReport" r ON r."id"=i."reportId" WHERE i."status"=$1 ORDER BY i."createdAt" DESC LIMIT $2`, String(status || 'OPEN').toUpperCase(), safeLimit);
   }
 
-  async #reconcile(reportId, type, rows) {
+  async #reconcile(_reportId, type, rows) {
     let matched = 0; let missingLocal = 0; let mismatch = 0; const issues = [];
     for (const row of rows) {
       if (type === 'PAYMENTS') {
         const localRows = await this.prisma.$queryRawUnsafe('SELECT * FROM "PaymentProviderCost" WHERE "provider"=\'YOOKASSA\' AND "providerPaymentId"=$1 LIMIT 1', row.paymentId);
         const local = localRows[0];
         if (!local) { missingLocal += 1; issues.push(issue('MISSING_LOCAL_PAYMENT', row.paymentId, row.paymentId, null, row)); continue; }
-        const diffs = numericDiffs(local, row, [['grossAmountRub','grossAmountRub'],['netIncomeRub','netAmountRub']]);
+        const diffs = numericDiffs(local, row, [['grossAmountRub','grossAmountRub'],['netSettlementRub','netAmountRub']]);
         if (diffs.length) { mismatch += 1; issues.push(issue('PAYMENT_AMOUNT_MISMATCH', row.paymentId, row.paymentId, pick(local, diffs.map((d) => d.localKey)), row)); }
         else matched += 1;
-        await this.prisma.$executeRawUnsafe(`UPDATE "PaymentProviderCost" SET "grossAmountRub"=$2,"netIncomeRub"=$3,"providerCostRub"=$4,"commissionRub"=$5,"commissionVatRub"=$6,"unallocatedProviderCostRub"=0,"commissionRatePct"=CASE WHEN $2>0 THEN ROUND(($5/$2)*100,4) ELSE NULL END,"reconciliationStatus"='FINAL',"source"='YOOKASSA_DAILY_REPORT',"reconciledAt"=$7,"updatedAt"=$7 WHERE "id"=$1`, local.id, row.grossAmountRub, row.netAmountRub, row.providerCostRub, row.commissionRub, row.commissionVatRub, this.clock());
+        const rate = row.grossAmountRub > 0 ? Number(((row.commissionRub / row.grossAmountRub) * 100).toFixed(4)) : null;
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE "PaymentProviderCost" SET "grossAmountRub"=$2,"netSettlementRub"=$3,"processorCostTotalRub"=$4,"processorCommissionRub"=$5,"processorCommissionVatRub"=$6,"commissionRatePct"=$7,"calculationSource"='SETTLEMENT_REGISTRY',"isFinal"=TRUE,"updatedAt"=$8 WHERE "id"=$1`,
+          local.id, row.grossAmountRub, row.netAmountRub, row.providerCostRub, row.commissionRub, row.commissionVatRub, rate, this.clock(),
+        );
       } else {
         const localRows = await this.prisma.$queryRawUnsafe('SELECT * FROM "PaymentRefund" WHERE "provider"=\'YOOKASSA\' AND "providerRefundId"=$1 LIMIT 1', row.refundId);
         const local = localRows[0];
@@ -86,31 +82,21 @@ class YooKassaDailyReconciliationService {
 }
 
 function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim());
-  if (!lines.length) return [];
-  const delimiter = detectDelimiter(lines[0]);
-  const headers = splitCsvLine(lines[0], delimiter).map(cleanHeader);
+  const lines = text.split(/\r?\n/).filter((line) => line.trim()); if (!lines.length) return [];
+  const delimiter = detectDelimiter(lines[0]); const headers = splitCsvLine(lines[0], delimiter).map(cleanHeader);
   return lines.slice(1).map((line) => splitCsvLine(line, delimiter)).filter((cells) => cells.some((v) => String(v).trim())).map((cells) => Object.fromEntries(headers.map((header, index) => [header, String(cells[index] ?? '').trim()])));
 }
 function detectDelimiter(line) { return (line.match(/;/g) || []).length >= (line.match(/,/g) || []).length ? ';' : ','; }
 function splitCsvLine(line, delimiter) { const out=[]; let cell=''; let quoted=false; for (let i=0;i<line.length;i++){ const c=line[i]; if(c==='"'){ if(quoted && line[i+1]==='"'){cell+='"';i++;} else quoted=!quoted; } else if(c===delimiter && !quoted){out.push(cell);cell='';} else cell+=c; } out.push(cell); return out; }
 function cleanHeader(value) { return String(value || '').trim().replace(/^"|"$/g,'').toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' '); }
 function field(row, aliases) { for (const alias of aliases) { const key=cleanHeader(alias); if (Object.hasOwn(row,key) && row[key] !== '') return row[key]; } return null; }
-function money(value) { const n=Number(String(value ?? '').replace(/\s/g,'').replace(',','.')); if (!Number.isFinite(n)) return 0; return Number(n.toFixed(2)); }
+function money(value) { const n=Number(String(value ?? '').replace(/\s/g,'').replace(',','.')); return Number.isFinite(n) ? Number(n.toFixed(2)) : 0; }
 function normalizePaymentRow(row) {
-  const paymentId = field(row,['Идентификатор платежа','Номер транзакции','payment id','payment_id']);
-  if (!paymentId) throw validation('YOOKASSA_REPORT_PAYMENT_ID_MISSING','В строке реестра платежей отсутствует идентификатор платежа.');
-  const gross=money(field(row,['Сумма платежа','amount']));
-  const net=money(field(row,['Сумма за вычетом комиссии и НДС','Сумма за вычетом комиссии','income amount','income_amount']));
-  const commission=money(field(row,['Сумма комиссии без НДС','Комиссия','commission']));
-  const vat=money(field(row,['НДС с комиссии','commission vat','vat']));
+  const paymentId = field(row,['Идентификатор платежа','Номер транзакции','payment id','payment_id']); if (!paymentId) throw validation('YOOKASSA_REPORT_PAYMENT_ID_MISSING','В строке реестра платежей отсутствует идентификатор платежа.');
+  const gross=money(field(row,['Сумма платежа','amount'])); const net=money(field(row,['Сумма за вычетом комиссии и НДС','Сумма за вычетом комиссии','income amount','income_amount'])); const commission=money(field(row,['Сумма комиссии без НДС','Комиссия','commission'])); const vat=money(field(row,['НДС с комиссии','commission vat','vat']));
   return { paymentId, grossAmountRub:gross, netAmountRub:net, commissionRub:commission, commissionVatRub:vat, providerCostRub:Number((commission+vat).toFixed(2)), paymentMethod:field(row,['Тип платежа','Способ оплаты','payment method']) };
 }
-function normalizeRefundRow(row) {
-  const refundId=field(row,['Идентификатор возврата','refund id','refund_id']); const paymentId=field(row,['Идентификатор платежа','Номер транзакции','payment id','payment_id']);
-  if(!refundId) throw validation('YOOKASSA_REPORT_REFUND_ID_MISSING','В строке реестра возвратов отсутствует идентификатор возврата.');
-  return { refundId, paymentId, refundAmountRub:money(field(row,['Сумма возврата','amount'])) };
-}
+function normalizeRefundRow(row) { const refundId=field(row,['Идентификатор возврата','refund id','refund_id']); const paymentId=field(row,['Идентификатор платежа','Номер транзакции','payment id','payment_id']); if(!refundId) throw validation('YOOKASSA_REPORT_REFUND_ID_MISSING','В строке реестра возвратов отсутствует идентификатор возврата.'); return { refundId, paymentId, refundAmountRub:money(field(row,['Сумма возврата','amount'])) }; }
 function paymentTotals(rows){return rows.reduce((a,r)=>({grossAmountRub:a.grossAmountRub+r.grossAmountRub,netAmountRub:a.netAmountRub+r.netAmountRub,commissionRub:a.commissionRub+r.commissionRub,commissionVatRub:a.commissionVatRub+r.commissionVatRub,refundAmountRub:0}),{grossAmountRub:0,netAmountRub:0,commissionRub:0,commissionVatRub:0,refundAmountRub:0});}
 function refundTotals(rows){return {grossAmountRub:0,netAmountRub:0,commissionRub:0,commissionVatRub:0,refundAmountRub:Number(rows.reduce((s,r)=>s+r.refundAmountRub,0).toFixed(2))};}
 function numericDiffs(local,row,pairs){return pairs.filter(([lk,rk])=>Math.abs(Number(local[lk]||0)-Number(row[rk]||0))>0.009).map(([localKey,reportKey])=>({localKey,reportKey}));}
