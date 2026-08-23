@@ -9,6 +9,13 @@ const { FiftiethPurchaseGiftResolver } = require('../../modules/promotion_engine
 
 function resolvePaymentOrchestrator(dependencies = {}) {
   if (dependencies.paymentOrchestrator) return dependencies.paymentOrchestrator;
+  if (!dependencies.orderRuntime) {
+    const error = new Error('Order runtime is not configured for payments.');
+    error.code = 'PAYMENT_ORDER_RUNTIME_UNAVAILABLE';
+    error.statusCode = 503;
+    error.source = 'payment';
+    throw error;
+  }
   const prisma = dependencies.prisma || getPrismaClient();
   const giftResolver = dependencies.giftRewardResolver || new FiftiethPurchaseGiftResolver({ prisma });
   return new PaymentOrchestrator({
@@ -21,10 +28,14 @@ function resolvePaymentOrchestrator(dependencies = {}) {
 
 function createPaymentRouter(dependencies = {}) {
   const router = express.Router();
-  const orchestrator = resolvePaymentOrchestrator(dependencies);
+  let orchestrator = dependencies.paymentOrchestrator || null;
+  const getOrchestrator = () => {
+    if (!orchestrator) orchestrator = resolvePaymentOrchestrator(dependencies);
+    return orchestrator;
+  };
 
   router.post('/yookassa/webhook', asyncHandler(async (req, res) => {
-    await orchestrator.handleWebhook(req.body, {
+    await getOrchestrator().handleWebhook(req.body, {
       correlationId: req.correlationId,
       sourceIp: req.ip,
     });
@@ -33,7 +44,7 @@ function createPaymentRouter(dependencies = {}) {
 
   const authenticateCustomer = createCustomerAuthenticator(dependencies.authCoreService);
   router.post('/orders/:orderId', authenticateCustomer, asyncHandler(async (req, res) => {
-    const attempt = await orchestrator.startPayment({
+    const attempt = await getOrchestrator().startPayment({
       orderId: req.params.orderId,
       customerId: req.securityContext.subject_id,
       method: req.body?.method || 'sbp',
