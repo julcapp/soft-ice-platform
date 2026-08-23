@@ -18,6 +18,9 @@ const PROMOTION_ROLES = {
   SCHEDULE: new Set(['MANAGER','ADMIN','OWNER']),
   ACTIVATE: new Set(['ADMIN','OWNER']),
   CONTROL: new Set(['ADMIN','OWNER']),
+  SAFETY_CHECK: new Set(['MANAGER','ADMIN','OWNER']),
+  EMERGENCY_STOP: new Set(['ADMIN','OWNER']),
+  SAFETY_OVERRIDE: new Set(['OWNER']),
   ARCHIVE: new Set(['ADMIN','OWNER']),
 };
 function resolvePromotionService(dependencies={}) { if (dependencies.promotionService) return dependencies.promotionService; const prisma = dependencies.prisma || getPrismaClient(); return new PromotionService({ repository: new PromotionRepository(prisma) }); }
@@ -42,6 +45,11 @@ function createPromotionAdminRouter(dependencies={}) {
   router.post('/:campaignId/pause', requirePromotionRole(PROMOTION_ROLES.CONTROL), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.pause({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}))));
   router.post('/:campaignId/resume', requirePromotionRole(PROMOTION_ROLES.CONTROL), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.resume({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}))));
   router.post('/:campaignId/end', requirePromotionRole(PROMOTION_ROLES.CONTROL), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.end({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}))));
+
+  router.post('/:campaignId/safety-check', requirePromotionRole(PROMOTION_ROLES.SAFETY_CHECK), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.evaluateSafety({campaignId:req.params.campaignId,observedFinalPrice:req.body?.observedFinalPrice ?? null,observedDiscountPercent:req.body?.observedDiscountPercent ?? null,actorId:actor(req).actorId}))));
+  router.post('/:campaignId/emergency-stop', requirePromotionRole(PROMOTION_ROLES.EMERGENCY_STOP), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.emergencyStop({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}))));
+  router.post('/:campaignId/resume-safety', requirePromotionRole(PROMOTION_ROLES.SAFETY_OVERRIDE), asyncHandler(async(req,res)=>{ const a=actor(req); return sendData(res,req,await promotionService.resumeAfterSafety({campaignId:req.params.campaignId,actorId:a.actorId,actorRoles:a.roles,reason:req.body?.reason||null})); }));
+
   router.post('/:campaignId/archive', requirePromotionRole(PROMOTION_ROLES.ARCHIVE), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.archive({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}))));
   return router;
 }
