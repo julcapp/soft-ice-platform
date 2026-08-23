@@ -41,9 +41,6 @@ ALTER TABLE "CustomerMachineRewardCounter"
   ADD CONSTRAINT "CustomerMachineRewardCounter_machineId_fkey"
   FOREIGN KEY ("machineId") REFERENCES "Machine"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "GiftRewardReservation"
-  ADD CONSTRAINT "GiftRewardReservation_quoteId_fkey"
-  FOREIGN KEY ("quoteId") REFERENCES "PricingQuote"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "GiftRewardReservation"
   ADD CONSTRAINT "GiftRewardReservation_customerId_fkey"
   FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "GiftRewardReservation"
