@@ -13,6 +13,8 @@ const PROMOTION_ROLES = {
   EDIT_DRAFT: new Set(['MARKETER','MANAGER','ADMIN','OWNER']),
   CREATE_VERSION: new Set(['MANAGER','ADMIN','OWNER']),
   VALIDATE: new Set(['MANAGER','ADMIN','OWNER']),
+  REQUEST_APPROVAL: new Set(['MANAGER','ADMIN','OWNER']),
+  APPROVE: new Set(['MANAGER','ADMIN','OWNER']),
   SCHEDULE: new Set(['MANAGER','ADMIN','OWNER']),
   ACTIVATE: new Set(['ADMIN','OWNER']),
   CONTROL: new Set(['ADMIN','OWNER']),
@@ -28,6 +30,12 @@ function createPromotionAdminRouter(dependencies={}) {
   router.patch('/:campaignId', requirePromotionRole(PROMOTION_ROLES.EDIT_DRAFT), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.updateDraft({campaignId:req.params.campaignId,patch:req.body,actorId:actor(req).actorId}))));
   router.post('/:campaignId/versions', requirePromotionRole(PROMOTION_ROLES.CREATE_VERSION), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.createVersion({campaignId:req.params.campaignId,version:req.body,actorId:actor(req).actorId}),201)));
   router.post('/:campaignId/validate', requirePromotionRole(PROMOTION_ROLES.VALIDATE), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.validateDraft({campaignId:req.params.campaignId,actorId:actor(req).actorId}))));
+
+  router.post('/:campaignId/approval-requests', requirePromotionRole(PROMOTION_ROLES.REQUEST_APPROVAL), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.requestApproval({campaignId:req.params.campaignId,actorId:actor(req).actorId,reason:req.body?.reason||null}),201)));
+  router.get('/:campaignId/approvals', requirePromotionRole(PROMOTION_ROLES.READ), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.getApprovalHistory(req.params.campaignId))));
+  router.post('/:campaignId/approve', requirePromotionRole(PROMOTION_ROLES.APPROVE), asyncHandler(async(req,res)=>{ const a=actor(req); return sendData(res,req,await promotionService.approve({campaignId:req.params.campaignId,actorId:a.actorId,actorRoles:a.roles,reason:req.body?.reason||null}),201); }));
+  router.post('/:campaignId/reject', requirePromotionRole(PROMOTION_ROLES.APPROVE), asyncHandler(async(req,res)=>{ const a=actor(req); return sendData(res,req,await promotionService.reject({campaignId:req.params.campaignId,actorId:a.actorId,actorRoles:a.roles,reason:req.body?.reason||null}),201); }));
+
   router.post('/:campaignId/schedule', requirePromotionRole(PROMOTION_ROLES.SCHEDULE), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.schedule({campaignId:req.params.campaignId,actorId:actor(req).actorId,startsAt:req.body.startsAt,endsAt:req.body.endsAt}))));
   router.post('/:campaignId/activate', requirePromotionRole(PROMOTION_ROLES.ACTIVATE), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.activate({campaignId:req.params.campaignId,actorId:actor(req).actorId}))));
   router.post('/:campaignId/run-now', requirePromotionRole(PROMOTION_ROLES.ACTIVATE), asyncHandler(async(req,res)=>sendData(res,req,await promotionService.activate({campaignId:req.params.campaignId,actorId:actor(req).actorId,runNow:true,durationMinutes:req.body?.durationMinutes ?? null}))));
