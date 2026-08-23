@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPricingQuote } from './PricingQuoteApi.js';
 
-function millisecondsLeft(until, nowMs) {
-  const target = new Date(until).getTime();
-  if (!Number.isFinite(target)) return 0;
-  return Math.max(0, target - nowMs);
+function safeTimestamp(value) {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function monotonicNow() {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
+function initialDurationMs(start, end) {
+  const startMs = safeTimestamp(start);
+  const endMs = safeTimestamp(end);
+  if (startMs === null || endMs === null) return 0;
+  return Math.max(0, endMs - startMs);
 }
 
 export function formatCountdown(ms) {
@@ -15,18 +27,26 @@ export function formatCountdown(ms) {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
+export function promotionUrgency(remainingMs) {
+  if (remainingMs <= 0) return 'ENDED';
+  if (remainingMs <= 10 * 60 * 1000) return 'LAST_10_MINUTES';
+  if (remainingMs <= 30 * 60 * 1000) return 'LAST_30_MINUTES';
+  if (remainingMs <= 60 * 60 * 1000) return 'LAST_HOUR';
+  return 'ACTIVE';
+}
+
 export function usePricingQuote({ machineId, channel, productId, productName, refreshKey = '' }) {
-  const [state, setState] = useState({ status: 'idle', quote: null, error: null });
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [state, setState] = useState({ status: 'idle', quote: null, error: null, receivedAt: null });
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!machineId || !productId || !channel) {
-      setState({ status: 'unavailable', quote: null, error: null });
+      setState({ status: 'unavailable', quote: null, error: null, receivedAt: null });
       return undefined;
     }
 
     const controller = new AbortController();
-    setState((current) => ({ status: 'loading', quote: current.quote, error: null }));
+    setState((current) => ({ ...current, status: 'loading', error: null }));
     createPricingQuote({
       machineId,
       channel,
@@ -34,31 +54,51 @@ export function usePricingQuote({ machineId, channel, productId, productName, re
       name: productName,
       signal: controller.signal,
     }).then((quote) => {
-      setState({ status: 'ready', quote, error: null });
-      setNowMs(Date.now());
+      setState({ status: 'ready', quote, error: null, receivedAt: monotonicNow() });
+      setTick(0);
     }).catch((error) => {
       if (error?.name === 'AbortError') return;
-      setState({ status: 'error', quote: null, error });
+      setState({ status: 'error', quote: null, error, receivedAt: null });
     });
 
     return () => controller.abort();
   }, [machineId, channel, productId, productName, refreshKey]);
 
   useEffect(() => {
-    if (!state.quote?.lockedUntil) return undefined;
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    if (!state.quote || state.receivedAt === null) return undefined;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [state.quote?.lockedUntil]);
+  }, [state.quote, state.receivedAt]);
 
-  const lockRemainingMs = useMemo(
-    () => state.quote?.lockedUntil ? millisecondsLeft(state.quote.lockedUntil, nowMs) : 0,
-    [state.quote?.lockedUntil, nowMs],
-  );
+  const elapsedMs = useMemo(() => {
+    if (!state.quote || state.receivedAt === null) return 0;
+    return Math.max(0, monotonicNow() - state.receivedAt);
+  }, [state.quote, state.receivedAt, tick]);
+
+  const lockRemainingMs = useMemo(() => {
+    if (!state.quote?.lockedUntil) return 0;
+    const serverTime = state.quote?.promotionRuntime?.serverTime || state.quote?.createdAt;
+    const initial = initialDurationMs(serverTime, state.quote.lockedUntil);
+    return Math.max(0, initial - elapsedMs);
+  }, [state.quote, elapsedMs]);
+
+  const promotionRemainingMs = useMemo(() => {
+    if (!state.quote?.promotionRuntime) return 0;
+    const seconds = Number(state.quote.promotionRuntime.remainingSeconds);
+    const initial = Number.isFinite(seconds)
+      ? Math.max(0, seconds * 1000)
+      : initialDurationMs(state.quote.promotionRuntime.serverTime, state.quote.promotionRuntime.endsAt);
+    return Math.max(0, initial - elapsedMs);
+  }, [state.quote, elapsedMs]);
 
   return {
     ...state,
     lockRemainingMs,
     lockCountdown: formatCountdown(lockRemainingMs),
     lockExpired: Boolean(state.quote) && lockRemainingMs <= 0,
+    promotionRemainingMs,
+    promotionCountdown: formatCountdown(promotionRemainingMs),
+    promotionEnded: Boolean(state.quote?.promotionRuntime) && promotionRemainingMs <= 0,
+    promotionUrgency: promotionUrgency(promotionRemainingMs),
   };
 }
