@@ -6,12 +6,28 @@ function normalizeTimeForPrisma(value) {
   const normalized = value.length === 5 ? `${value}:00` : value;
   return new Date(`1970-01-01T${normalized}.000Z`);
 }
-function normalizeSchedules(schedules = []) { return schedules.map((item) => ({ ...item, startTime: normalizeTimeForPrisma(item.startTime), endTime: normalizeTimeForPrisma(item.endTime) })); }
+function stripIdentity(row = {}) {
+  const clean = { ...row };
+  ['id', 'promotionVersionId', 'createdAt', 'updatedAt'].forEach((key) => delete clean[key]);
+  return clean;
+}
+function cloneChildRows(rows = []) { return rows.map(stripIdentity); }
+function normalizeSchedules(schedules = []) { return cloneChildRows(schedules).map((item) => ({ ...item, startTime: normalizeTimeForPrisma(item.startTime), endTime: normalizeTimeForPrisma(item.endTime) })); }
 function timeFromPrisma(value) { return value instanceof Date ? value.toISOString().slice(11, 19) : value; }
 function serializeVersion(version) { if (!version) return version; return { ...version, schedules: (version.schedules || []).map((item) => ({ ...item, startTime: timeFromPrisma(item.startTime), endTime: timeFromPrisma(item.endTime) })) }; }
 function serializeCampaign(campaign) { if (!campaign) return campaign; return { ...campaign, currentVersion: serializeVersion(campaign.currentVersion), effectiveVersion: serializeVersion(campaign.effectiveVersion) }; }
 function versionScalarData(version, createdBy) { return { status: version.status || 'DRAFT', benefitType: version.benefitType, benefitValue: version.benefitValue, priority: version.priority || 0, stackingMode: version.stackingMode || 'BEST_PRICE', exclusiveGroup: version.exclusiveGroup || null, priceLockSeconds: version.priceLockSeconds || 300, startsAt: version.startsAt || null, endsAt: version.endsAt || null, timezone: version.timezone || 'Europe/Moscow', approvalPolicy: version.approvalPolicy || 'SINGLE_APPROVAL', isManualOverride: Boolean(version.isManualOverride), budgetAmount: version.budgetAmount ?? null, budgetAction: version.budgetAction || 'STOP', maxApplications: version.maxApplications ?? null, maxApplicationsPerCustomer: version.maxApplicationsPerCustomer ?? null, minimumFinalPrice: version.minimumFinalPrice ?? null, metadata: version.metadata || undefined, createdBy }; }
 const versionInclude = { schedules: true, targets: true, audiences: true, rules: true, channels: true };
+
+function versionChildren(version = {}) {
+  return {
+    schedules: { create: normalizeSchedules(version.schedules || []) },
+    targets: { create: cloneChildRows(version.targets || []) },
+    audiences: { create: cloneChildRows(version.audiences || []) },
+    rules: { create: cloneChildRows(version.rules || []) },
+    channels: { create: cloneChildRows(version.channels || []) },
+  };
+}
 
 class PromotionRepository {
   constructor(prisma) { if (!prisma) throw new Error('Prisma client is required.'); this.prisma = prisma; }
@@ -20,7 +36,7 @@ class PromotionRepository {
     const { code, name, description = null, createdBy, version } = input;
     return this.prisma.$transaction(async (tx) => {
       const campaign = await tx.promotionCampaign.create({ data: { code, name, description, status: 'DRAFT', createdBy } });
-      const createdVersion = await tx.promotionVersion.create({ data: { campaignId: campaign.id, version: version.version || 1, ...versionScalarData({ ...version, status: 'DRAFT' }, createdBy), schedules: { create: normalizeSchedules(version.schedules || []) }, targets: { create: version.targets || [] }, audiences: { create: version.audiences || [] }, rules: { create: version.rules || [] }, channels: { create: version.channels || [] } } });
+      const createdVersion = await tx.promotionVersion.create({ data: { campaignId: campaign.id, version: version.version || 1, ...versionScalarData({ ...version, status: 'DRAFT' }, createdBy), ...versionChildren(version) } });
       await tx.promotionCampaign.update({ where: { id: campaign.id }, data: { currentVersionId: createdVersion.id } });
       await tx.promotionEvent.create({ data: { campaignId: campaign.id, promotionVersionId: createdVersion.id, eventType: 'DRAFT_CREATED', actorType: 'ADMIN_USER', actorId: createdBy, newValue: { code, name, version: createdVersion.version } } });
       return this.getCampaignById(campaign.id, tx);
@@ -53,7 +69,7 @@ class PromotionRepository {
         for (const [key, model] of [['schedules','promotionSchedule'],['targets','promotionTarget'],['audiences','promotionAudience'],['rules','promotionRule'],['channels','promotionChannel']]) {
           if (patch.version[key]) {
             await tx[model].deleteMany({ where: { promotionVersionId: versionId } });
-            const rows = key === 'schedules' ? normalizeSchedules(patch.version[key]) : patch.version[key];
+            const rows = key === 'schedules' ? normalizeSchedules(patch.version[key]) : cloneChildRows(patch.version[key]);
             if (rows.length) await tx[model].createMany({ data: rows.map((x) => ({ ...x, promotionVersionId: versionId })) });
           }
         }
@@ -70,7 +86,7 @@ class PromotionRepository {
       if (!campaign) return null;
       const max = await tx.promotionVersion.aggregate({ where: { campaignId }, _max: { version: true } });
       const nextVersion = (max._max.version || 0) + 1;
-      const created = await tx.promotionVersion.create({ data: { campaignId, version: nextVersion, ...versionScalarData({ ...version, status: 'DRAFT' }, actorId), schedules: { create: normalizeSchedules(version.schedules || []) }, targets: { create: version.targets || [] }, audiences: { create: version.audiences || [] }, rules: { create: version.rules || [] }, channels: { create: version.channels || [] } } });
+      const created = await tx.promotionVersion.create({ data: { campaignId, version: nextVersion, ...versionScalarData({ ...version, status: 'DRAFT' }, actorId), ...versionChildren(version) } });
       await tx.promotionCampaign.update({ where: { id: campaignId }, data: { currentVersionId: created.id, ...(campaign.effectiveVersionId ? {} : { status: 'DRAFT' }) } });
       await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: created.id, eventType: 'VERSION_CREATED', actorType: 'ADMIN_USER', actorId, oldValue: { currentVersionId: campaign.currentVersionId, effectiveVersionId: campaign.effectiveVersionId, campaignStatus: campaign.status }, newValue: { currentVersionId: created.id, version: nextVersion, status: 'DRAFT' } } });
       return this.getCampaignById(campaignId, tx);
@@ -151,4 +167,4 @@ class PromotionRepository {
   }
 }
 
-module.exports = { PromotionRepository, normalizeSchedules, serializeCampaign };
+module.exports = { PromotionRepository, normalizeSchedules, serializeCampaign, cloneChildRows };
