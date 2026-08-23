@@ -49,7 +49,18 @@ export function AdminOperationsDispatch({ compact = false }) {
       <label>Статус<select value={filters.status} onChange={(e) => setFilters((v) => ({ ...v, status: e.target.value }))}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     </div>
     {state.status === 'error' && <p>Не удалось загрузить диспетчерскую.</p>}
-    {data && <div className="statistics" style={{ marginBottom: 14 }}><div><strong>{data.summary.total}</strong><small> всего</small></div><div><strong>{data.summary.critical}</strong><small> критичных</small></div><div><strong>{data.summary.open}</strong><small> открыто</small></div><div><strong>{data.summary.inProgress}</strong><small> в работе</small></div><div><strong>{data.summary.resolved}</strong><small> решено</small></div><div><strong>{data.summary.slaOverdue || 0}</strong><small> SLA просрочено</small></div><div><strong>{data.summary.escalated || 0}</strong><small> эскалировано</small></div></div>}
+    {data && <div className="statistics" style={{ marginBottom: 14 }}><div><strong>{data.summary.total}</strong><small> всего</small></div><div><strong>{data.summary.critical}</strong><small> критичных</small></div><div><strong>{data.summary.open}</strong><small> открыто</small></div><div><strong>{data.summary.inProgress}</strong><small> в работе</small></div><div><strong>{data.summary.resolved}</strong><small> решено</small></div><div><strong>{data.summary.slaOverdue || 0}</strong><small> SLA просрочено</small></div><div><strong>{data.summary.activeEscalations || 0}</strong><small> активных эскалаций</small></div><div><strong>{data.summary.l2Escalations || 0}</strong><small> L2 владельцу</small></div></div>}
+
+    {data?.escalations?.length > 0 && <section style={{ margin: '12px 0 18px', padding: 12, border: '1px solid var(--border-color, #ddd)', borderRadius: 10 }} aria-label="Активные эскалации">
+      <div className="card-heading"><div><h3 style={{ margin: 0 }}>Активные эскалации</h3><p style={{ margin: '4px 0 0' }}>Эскалация не меняет основного исполнителя и закрывается только после решения инцидента.</p></div><StatusBadge status="CRITICAL" /></div>
+      {data.escalations.map((escalation) => <article key={escalation.id} style={{ borderTop: '1px solid var(--border-color, #ddd)', padding: '10px 0' }}>
+        <strong>L{escalation.level} · {escalation.title}</strong>
+        <p style={{ margin: '5px 0' }}>{escalation.reason}</p>
+        <small><strong>Поднято:</strong> {escalation.recipientDisplayName || escalation.recipientSubject}{escalation.assigneeDisplayName ? ` · основной исполнитель: ${escalation.assigneeDisplayName}` : ''} · {formatDate(escalation.createdAt)}</small>
+        {escalation.deepLink && <div style={{ marginTop: 6 }}><a className="text-button" href={escalation.deepLink}>Открыть источник</a></div>}
+      </article>)}
+    </section>}
+
     {data?.items?.length === 0 && <p>По выбранным фильтрам инцидентов нет.</p>}
     {data?.items?.map((item) => {
       const values = draft[item.key] || {};
@@ -76,7 +87,7 @@ export function AdminOperationsDispatch({ compact = false }) {
           <button type="button" className="text-button" onClick={() => openHistory(item.key)}>История</button>
           {item.deepLink && <a className="text-button" href={item.deepLink}>Открыть источник</a>}
         </div>
-        {history?.key === item.key && <div style={{ marginTop: 12, padding: 10, background: 'rgba(0,0,0,.03)' }}><strong>История обработки</strong>{history.events?.length ? <ul>{history.events.map((event) => <li key={event.id}>{formatDate(event.createdAt)} · {event.actorSubject} · {event.eventType}{event.fromStatus || event.toStatus ? ` · ${event.fromStatus || '—'} → ${event.toStatus || '—'}` : ''}{event.assigneeSubject ? ` · ответственный: ${event.assigneeSubject}` : ''}{event.comment ? ` · ${event.comment}` : ''}</li>)}</ul> : <p>Действий пока нет.</p>}</div>}
+        {history?.key === item.key && <div style={{ marginTop: 12, padding: 10, background: 'rgba(0,0,0,.03)' }}><strong>История обработки</strong>{history.events?.length ? <ul>{history.events.map((event) => <li key={event.id}>{formatDate(event.createdAt)} · {event.actorSubject} · {event.eventType}{event.fromStatus || event.toStatus ? ` · ${event.fromStatus || '—'} → ${event.toStatus || '—'}` : ''}{event.assigneeSubject ? ` · ответственный/получатель: ${event.assigneeSubject}` : ''}{event.comment ? ` · ${event.comment}` : ''}</li>)}</ul> : <p>Действий пока нет.</p>}</div>}
       </article>;
     })}
   </section>;
