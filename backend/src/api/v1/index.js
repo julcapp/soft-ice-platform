@@ -16,6 +16,7 @@ const { CustomerProfileCommunicationService } = require('../../modules/customer_
 const { CustomerPaymentProfileService } = require('../../modules/payment_profile/CustomerPaymentProfileService');
 const { PaymentOperationsService } = require('../../modules/payment_profile/PaymentOperationsService');
 const { PaymentEconomicsService } = require('../../modules/payment_profile/PaymentEconomicsService');
+const { FinancialReadinessService } = require('../../modules/payment_profile/FinancialReadinessService');
 const { createAuthRouter } = require('./authRoutes');
 const { createClubAccountRouter } = require('./clubAccountRoutes');
 const { createCustomerRouter } = require('./customerRoutes');
@@ -60,8 +61,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const customerPaymentProfileService = dependencies.customerPaymentProfileService || new CustomerPaymentProfileService({ prisma });
   const paymentOperationsService = dependencies.paymentOperationsService || new PaymentOperationsService({ prisma, paymentAdapter: privateChannelPaymentAdapter, customerProfileCommunicationService });
   const paymentEconomicsService = dependencies.paymentEconomicsService || new PaymentEconomicsService({ prisma });
+  const financialReadinessService = dependencies.financialReadinessService || new FinancialReadinessService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService };
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
