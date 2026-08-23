@@ -10,7 +10,7 @@ class PromotionChannelWebhookDispatcher {
     this.timeoutMs = timeoutMs;
   }
 
-  async send({ campaign, channel, message, startsAt, endsAt }) {
+  async send({ campaign, channel, message, startsAt, endsAt, event = 'promotion.pre_notification', deepLink = null }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -19,14 +19,14 @@ class PromotionChannelWebhookDispatcher {
       const response = await this.fetchImpl(this.url, {
         method: 'POST', headers, signal: controller.signal,
         body: JSON.stringify({
-          event: 'promotion.pre_notification',
+          event,
           channel,
           campaign_id: campaign.id,
           promotion_version_id: campaign.currentVersion.id,
           message,
           starts_at: startsAt,
           ends_at: endsAt,
-          deep_link: process.env.PROMOTION_DEEP_LINK || 'https://app.utimoshi.ru/',
+          deep_link: deepLink || process.env.PROMOTION_DEEP_LINK || 'https://app.utimoshi.ru/',
         }),
       });
       if (!response.ok) {
