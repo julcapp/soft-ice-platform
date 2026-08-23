@@ -13,6 +13,7 @@ import { GiftTransfersPage } from './GiftTransfers';
 import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
+import { PromotionEnginePage } from './PromotionEngine';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -67,6 +68,7 @@ export function App({ client = getDashboard }) {
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
+  const promotionRoute = route === 'promotions' || route.startsWith('promotions/');
   const twinRoute = route.startsWith('machine-twins');
   const runtimeRoute = route.startsWith('machine-runtime');
   const eventRoute = route.startsWith('platform-events') || route === 'dead-letter';
@@ -78,6 +80,7 @@ export function App({ client = getDashboard }) {
   const giftTransferRoute = route === 'gift-transfers';
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
+  if (promotionRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Promotion Engine" copy="Управление акциями, безопасностью, согласованием, каналами и аналитикой." /><PromotionEnginePage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
