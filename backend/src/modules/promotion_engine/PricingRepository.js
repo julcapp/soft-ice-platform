@@ -75,8 +75,43 @@ class PricingRepository {
     return { ...row, items: row.snapshot?.items || [], snapshotId: row.snapshot?.id || null, rules: row.snapshot?.rules || row.metadata?.rules || {} };
   }
 
-  async consumeQuote(id, consumedAt) {
-    return this.prisma.pricingQuote.update({ where: { id }, data: { consumedAt } });
+  async consumeQuote(id, consumedAt, orderId = null) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.pricingQuote.updateMany({
+        where: { id, consumedAt: null, lockedUntil: { gt: consumedAt } },
+        data: { consumedAt, orderId },
+      });
+      if (result.count !== 1) {
+        const error = new Error('Pricing quote cannot be consumed.');
+        error.code = 'PRICING_QUOTE_CONSUME_CONFLICT';
+        error.statusCode = 409;
+        error.source = 'pricing_engine';
+        throw error;
+      }
+      if (orderId) {
+        await tx.pricingSnapshot.update({ where: { quoteId: id }, data: { orderId } });
+        const quote = await tx.pricingQuote.findUnique({ where: { id } });
+        const snapshot = await tx.pricingSnapshot.findUnique({ where: { quoteId: id } });
+        if (quote?.campaignId && quote?.promotionVersionId && quote?.customerId) {
+          await tx.promotionApplication.create({
+            data: {
+              orderId,
+              customerId: quote.customerId,
+              machineId: quote.machineId,
+              campaignId: quote.campaignId,
+              promotionVersionId: quote.promotionVersionId,
+              baseAmount: quote.baseAmount,
+              discountAmount: quote.promotionDiscountAmount,
+              finalAmount: quote.finalAmount,
+              pricingSnapshotId: snapshot?.id || null,
+              appliedItems: snapshot?.items || undefined,
+              reason: 'PRICING_QUOTE_CONSUMED',
+            },
+          });
+        }
+      }
+      return tx.pricingQuote.findUnique({ where: { id } });
+    });
   }
 }
 
