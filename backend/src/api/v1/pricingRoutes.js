@@ -8,6 +8,7 @@ const {
   PricingEngineService,
   PricingRepository,
   ActivePromotionResolver,
+  PromotionRepository,
   PromotionSafetyService,
   FiftiethPurchaseGiftResolver,
   ServerProductPricingResolver,
@@ -20,10 +21,11 @@ function resolvePricingService(dependencies = {}) {
     prisma,
     itemSelector: (items) => items.find((item) => item.serverProductType === 'ICE_CREAM'),
   });
+  const promotionRepository = new PromotionRepository(prisma);
   return new PricingEngineService({
     repository: new PricingRepository(prisma),
     promotionResolver: new ActivePromotionResolver({ prisma }),
-    safetyService: new PromotionSafetyService(),
+    safetyService: new PromotionSafetyService({ repository: promotionRepository }),
     giftResolver,
   });
 }
