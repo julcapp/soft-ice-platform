@@ -6,9 +6,25 @@ function rub(value) {
   return `${amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`;
 }
 
+function urgencyCopy(urgency) {
+  if (urgency === 'LAST_10_MINUTES') return 'Последние 10 минут «Часа выгоды»';
+  if (urgency === 'LAST_30_MINUTES') return 'Осталось меньше 30 минут';
+  if (urgency === 'LAST_HOUR') return 'До конца меньше часа';
+  return 'Час выгоды идёт — −20%';
+}
+
 export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
   if (!pricing) return null;
-  const { status, quote, error, lockCountdown, lockExpired } = pricing;
+  const {
+    status,
+    quote,
+    error,
+    lockCountdown,
+    lockExpired,
+    promotionCountdown,
+    promotionEnded,
+    promotionUrgency,
+  } = pricing;
 
   if (status === 'unavailable') {
     return (
@@ -38,14 +54,31 @@ export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
   const hasGift = Number(quote.giftAmount) > 0;
   const hasPromotion = Number(quote.promotionDiscountAmount) > 0;
   const saved = Number(quote.giftAmount || 0) + Number(quote.promotionDiscountAmount || 0);
+  const discountPercent = Number(quote.promotionRuntime?.benefitValue || 20);
 
   return (
     <section className={`promo-price-panel${compact ? ' is-compact' : ''}${hasPromotion ? ' is-active' : ''}${hasGift ? ' has-gift' : ''}`} aria-live="polite">
       {hasPromotion && (
-        <div className="promo-heading">
-          <span>🔥 Час выгоды</span>
-          <strong>−20%</strong>
-        </div>
+        <>
+          <div className="promo-heading">
+            <span>🔥 {quote.promotionRuntime?.name || 'Час выгоды'}</span>
+            <strong>−{discountPercent}%</strong>
+          </div>
+
+          <div className={`promo-campaign-timer urgency-${String(promotionUrgency || 'ACTIVE').toLowerCase()}`}>
+            {promotionEnded ? (
+              <>
+                <strong>«Час выгоды» завершён</strong>
+                {!lockExpired && <span>Но ваша акционная цена сохранена ещё <b>{lockCountdown}</b>.</span>}
+              </>
+            ) : (
+              <>
+                <span>{urgencyCopy(promotionUrgency)}</span>
+                <strong>До окончания: <b>{promotionCountdown}</b></strong>
+              </>
+            )}
+          </div>
+        </>
       )}
 
       {hasGift && <div className="promo-gift">🎁 Это ваша подарочная покупка!</div>}
@@ -57,7 +90,7 @@ export function PromotionPricePanel({ pricing, compact = false, onRefresh }) {
       </div>
 
       {hasPromotion && !quote.partialBonusPaymentAllowed && (
-        <p>Во время «Часа выгоды» частичная оплата бонусами недоступна — для заказа уже действует скидка 20%.</p>
+        <p>Во время «Часа выгоды» частичная оплата бонусами недоступна — для заказа уже действует скидка {discountPercent}%.</p>
       )}
 
       {hasPromotion && !quote.transferAllowed && (
