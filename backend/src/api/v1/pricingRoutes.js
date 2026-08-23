@@ -68,6 +68,22 @@ function createPricingRouter(dependencies = {}) {
     return sendData(res, req, data);
   }));
 
+  router.post('/promotion-engagement', asyncHandler(async (req, res) => {
+    const customerId = req.securityContext?.subject_type === 'customer' ? req.securityContext.subject_id : null;
+    const event = await awareness.trackEngagement({
+      campaignId: req.body?.campaignId,
+      promotionVersionId: req.body?.promotionVersionId,
+      channel: req.body?.channel,
+      eventType: req.body?.eventType,
+      customerId,
+      metadata: {
+        sourceEvent: req.body?.sourceEvent || null,
+        machineId: req.body?.machineId || null,
+      },
+    });
+    return sendData(res, req, { eventId: event.id }, 201);
+  }));
+
   router.post('/quote', asyncHandler(async (req, res) => {
     const customerId = req.securityContext?.subject_type === 'customer' ? req.securityContext.subject_id : null;
     const requestedItems = Array.isArray(req.body?.items)
