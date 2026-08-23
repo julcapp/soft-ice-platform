@@ -1,5 +1,20 @@
 'use strict';
 
+function normalizeTimeForPrisma(value) {
+  if (value instanceof Date) return value;
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}(:\d{2})?$/.test(value)) return value;
+  const normalized = value.length === 5 ? `${value}:00` : value;
+  return new Date(`1970-01-01T${normalized}.000Z`);
+}
+
+function normalizeSchedules(schedules = []) {
+  return schedules.map((item) => ({
+    ...item,
+    startTime: normalizeTimeForPrisma(item.startTime),
+    endTime: normalizeTimeForPrisma(item.endTime),
+  }));
+}
+
 class PromotionRepository {
   constructor(prisma) {
     if (!prisma) throw new Error('Prisma client is required.');
@@ -48,7 +63,7 @@ class PromotionRepository {
           minimumFinalPrice: version.minimumFinalPrice ?? null,
           metadata: version.metadata || undefined,
           createdBy,
-          schedules: { create: version.schedules || [] },
+          schedules: { create: normalizeSchedules(version.schedules || []) },
           targets: { create: version.targets || [] },
           audiences: { create: version.audiences || [] },
           rules: { create: version.rules || [] },
@@ -125,4 +140,4 @@ class PromotionRepository {
   }
 }
 
-module.exports = { PromotionRepository };
+module.exports = { PromotionRepository, normalizeSchedules };
