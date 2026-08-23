@@ -3,7 +3,7 @@ const { asyncHandler } = require('../../platform/http/apiResponse');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
 const { getPrismaClient } = require('../../common/database');
 const { FinancialDayCloseService } = require('../../modules/payment_profile/FinancialDayCloseService');
-function createAdminDashboardRouter({ adminDashboardService, businessDashboardService, financialReadinessService, yooKassaDailyReconciliationService, financialDayCloseService = null, adminNotificationCenterService = null, adminOperationsDispatchService = null, adminAuth = {} }) {
+function createAdminDashboardRouter({ adminDashboardService, businessDashboardService, financialReadinessService, yooKassaDailyReconciliationService, financialDayCloseService = null, adminNotificationCenterService = null, adminOperationsDispatchService = null, adminOperationsEscalationService = null, adminAuth = {} }) {
   const router = express.Router();
   const authenticate = createAdminAuthenticator(adminAuth);
   const dayCloseService = financialDayCloseService || new FinancialDayCloseService({ prisma: getPrismaClient() });
@@ -37,14 +37,24 @@ function createAdminDashboardRouter({ adminDashboardService, businessDashboardSe
   }
   if (adminOperationsDispatchService) {
     router.get('/operations-dispatch', authenticate, asyncHandler(async (req, res) => {
-      res.json({ data: await adminOperationsDispatchService.list({
+      const data = await adminOperationsDispatchService.list({
         adminSubject: adminSubject(req), category: req.query.category || 'ALL', severity: req.query.severity || 'ALL', status: req.query.status || 'ALL', limit: req.query.limit,
-      }) });
+      });
+      if (adminOperationsEscalationService) {
+        await adminOperationsEscalationService.sync();
+        const escalations = await adminOperationsEscalationService.listActive({ limit: req.query.limit || 100 });
+        data.escalations = escalations;
+        data.summary.activeEscalations = escalations.length;
+        data.summary.l2Escalations = escalations.filter((item) => Number(item.level) >= 2).length;
+      }
+      res.json({ data });
     }));
     router.post('/operations-dispatch/update', authenticate, express.json(), asyncHandler(async (req, res) => {
-      res.json({ data: await adminOperationsDispatchService.update({
+      const data = await adminOperationsDispatchService.update({
         notificationKey: req.body?.notificationKey, actorSubject: adminSubject(req), status: req.body?.status, assigneeSubject: req.body?.assigneeSubject, comment: req.body?.comment,
-      }) });
+      });
+      if (adminOperationsEscalationService) await adminOperationsEscalationService.sync();
+      res.json({ data });
     }));
     router.get('/operations-dispatch/history', authenticate, asyncHandler(async (req, res) => {
       res.json({ data: await adminOperationsDispatchService.history({ notificationKey: req.query.notificationKey, limit: req.query.limit }) });
