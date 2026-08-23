@@ -10,6 +10,8 @@ const { PromotionRepository, PromotionService } = require('../../modules/promoti
 const PROMOTION_ROLES = {
   READ: new Set(['OBSERVER', 'MARKETER', 'MANAGER', 'ADMIN', 'OWNER']),
   CREATE_DRAFT: new Set(['MARKETER', 'MANAGER', 'ADMIN', 'OWNER']),
+  EDIT_DRAFT: new Set(['MARKETER', 'MANAGER', 'ADMIN', 'OWNER']),
+  CREATE_VERSION: new Set(['MANAGER', 'ADMIN', 'OWNER']),
   VALIDATE: new Set(['MANAGER', 'ADMIN', 'OWNER']),
 };
 
@@ -48,10 +50,7 @@ function createPromotionAdminRouter(dependencies = {}) {
 
   router.post('/', requirePromotionRole(PROMOTION_ROLES.CREATE_DRAFT), asyncHandler(async (req, res) => {
     const actor = actorContext(req);
-    const draft = await promotionService.createDraft({
-      ...req.body,
-      createdBy: actor.actorId,
-    });
+    const draft = await promotionService.createDraft({ ...req.body, createdBy: actor.actorId });
     return sendData(res, req, draft, 201);
   }));
 
@@ -60,21 +59,25 @@ function createPromotionAdminRouter(dependencies = {}) {
     return sendData(res, req, campaign);
   }));
 
+  router.patch('/:campaignId', requirePromotionRole(PROMOTION_ROLES.EDIT_DRAFT), asyncHandler(async (req, res) => {
+    const actor = actorContext(req);
+    const campaign = await promotionService.updateDraft({ campaignId: req.params.campaignId, patch: req.body, actorId: actor.actorId });
+    return sendData(res, req, campaign);
+  }));
+
+  router.post('/:campaignId/versions', requirePromotionRole(PROMOTION_ROLES.CREATE_VERSION), asyncHandler(async (req, res) => {
+    const actor = actorContext(req);
+    const campaign = await promotionService.createVersion({ campaignId: req.params.campaignId, version: req.body, actorId: actor.actorId });
+    return sendData(res, req, campaign, 201);
+  }));
+
   router.post('/:campaignId/validate', requirePromotionRole(PROMOTION_ROLES.VALIDATE), asyncHandler(async (req, res) => {
     const actor = actorContext(req);
-    const result = await promotionService.validateDraft({
-      campaignId: req.params.campaignId,
-      actorId: actor.actorId,
-    });
+    const result = await promotionService.validateDraft({ campaignId: req.params.campaignId, actorId: actor.actorId });
     return sendData(res, req, result);
   }));
 
   return router;
 }
 
-module.exports = {
-  createPromotionAdminRouter,
-  resolvePromotionService,
-  requirePromotionRole,
-  PROMOTION_ROLES,
-};
+module.exports = { createPromotionAdminRouter, resolvePromotionService, requirePromotionRole, PROMOTION_ROLES };
