@@ -14,6 +14,11 @@ function ruleValue(version, type) {
   return row.value && typeof row.value === 'object' && Object.prototype.hasOwnProperty.call(row.value, 'value') ? row.value.value : row.value;
 }
 
+function ruleValueWithLegacyAlias(version, canonicalType, legacyType) {
+  const canonical = ruleValue(version, canonicalType);
+  return canonical === undefined && legacyType ? ruleValue(version, legacyType) : canonical;
+}
+
 class PricingEngineService {
   constructor({ repository, promotionResolver, giftResolver, safetyService, clock = () => new Date() } = {}) {
     if (!repository) throw new Error('Pricing repository is required.');
@@ -126,8 +131,12 @@ class PricingEngineService {
     });
 
     const finalAmount = money(baseAmount - giftAmount - promotionDiscountAmount);
-    const bonusRule = promotion ? ruleValue(promotion.currentVersion, 'BONUS_PAYMENT') : undefined;
-    const transferRule = promotion ? ruleValue(promotion.currentVersion, 'THIRD_PARTY_TRANSFER') : undefined;
+    const partialBonusRule = promotion
+      ? ruleValueWithLegacyAlias(promotion.currentVersion, 'PARTIAL_BONUS_PAYMENT', 'BONUS_PAYMENT')
+      : undefined;
+    const transferRule = promotion
+      ? ruleValueWithLegacyAlias(promotion.currentVersion, 'TRANSFER_TO_THIRD_PARTY', 'THIRD_PARTY_TRANSFER')
+      : undefined;
 
     return {
       id: quoteId,
@@ -140,7 +149,7 @@ class PricingEngineService {
       promotionDiscountAmount,
       finalAmount,
       bonusPaymentAllowed: true,
-      partialBonusPaymentAllowed: bonusRule !== 'FORBIDDEN',
+      partialBonusPaymentAllowed: partialBonusRule !== 'FORBIDDEN',
       transferAllowed: transferRule !== 'FORBIDDEN',
       paymentRequired: finalAmount > 0,
       campaignId: promotion?.id || null,
@@ -206,4 +215,4 @@ class PricingEngineService {
   }
 }
 
-module.exports = { PricingEngineService, money, ruleValue };
+module.exports = { PricingEngineService, money, ruleValue, ruleValueWithLegacyAlias };
