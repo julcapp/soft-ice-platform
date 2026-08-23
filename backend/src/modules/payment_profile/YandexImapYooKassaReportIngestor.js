@@ -130,8 +130,8 @@ function classifySubject(subject) {
 }
 function extractReportDate(value) {
   const decoded = decodeMimeWords(String(value || ''));
-  let match = decoded.match(/\b(20\d{2})[-_.](\d{2})[-_.](\d{2})\b/); if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-  match = decoded.match(/\b(\d{2})[.\/_-](\d{2})[.\/_-](20\d{2})\b/); if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  let match = decoded.match(/(20\d{2})[-_.](\d{2})[-_.](\d{2})(?!\d)/); if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  match = decoded.match(/(?:^|[^0-9])(\d{2})[.\/_-](\d{2})[.\/_-](20\d{2})(?!\d)/); if (match) return `${match[3]}-${match[2]}-${match[1]}`;
   return null;
 }
 function parseMimeMessage(raw) {
