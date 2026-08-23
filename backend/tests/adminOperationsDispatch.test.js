@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { AdminOperationsDispatchService, sourceCategory } = require('../src/modules/admin_dashboard/AdminOperationsDispatchService');
+const { AdminOperationsDispatchService, sourceCategory, autoAssignmentFor, isTechnicalMachineIncident } = require('../src/modules/admin_dashboard/AdminOperationsDispatchService');
 
 test('operations dispatch syncs active notifications into persisted work items', async () => {
   const executed = [];
@@ -24,8 +24,8 @@ test('operations dispatch updates workflow and writes immutable event', async ()
   const prisma = {
     $queryRawUnsafe: async () => {
       queryCount += 1;
-      if (queryCount === 1) return [{ id: 'work-1', status: 'OPEN', assigneeSubject: null }];
-      return [{ id: 'work-1', notificationKey: 'financial:x', status: 'IN_PROGRESS', assigneeSubject: 'operator-1', acknowledgedAt: new Date() }];
+      if (queryCount === 1) return [{ id: 'work-1', status: 'OPEN', assigneeSubject: null, assigneeDisplayName: null }];
+      return [{ id: 'work-1', notificationKey: 'financial:x', status: 'IN_PROGRESS', assigneeSubject: 'operator-1', assigneeDisplayName: 'operator-1', acknowledgedAt: new Date() }];
     },
     $executeRawUnsafe: async (...args) => { executed.push(args); return 1; },
   };
@@ -35,6 +35,32 @@ test('operations dispatch updates workflow and writes immutable event', async ()
   assert.equal(result.assigneeSubject, 'operator-1');
   assert.equal(executed.length, 2);
   assert.match(executed[1][0], /AdminOperationsWorkEvent/);
+});
+
+test('technical machine incident prefers service specialist', () => {
+  const item = { key: 'machine:dispense-stuck:d1', source: 'MACHINE', referenceId: 'm1' };
+  const assignment = { serviceSpecialistId: 's1', servicePlatformUserId: 'user-service', serviceName: 'Сервис Иван', responsibleMemberId: 'r1', responsibleName: 'Ответственный Пётр' };
+  const result = autoAssignmentFor(item, assignment);
+  assert.equal(result.subject, 'user-service');
+  assert.equal(result.displayName, 'Сервис Иван');
+  assert.match(result.reason, /сервисному специалисту/);
+});
+
+test('low stock incident prefers responsible member', () => {
+  const item = { key: 'machine:low-stock:stock1', source: 'MACHINE', referenceId: 'm1' };
+  const assignment = { serviceSpecialistId: 's1', serviceName: 'Сервис Иван', responsibleMemberId: 'r1', responsiblePlatformUserId: 'user-responsible', responsibleName: 'Ответственный Пётр' };
+  const result = autoAssignmentFor(item, assignment);
+  assert.equal(result.subject, 'user-responsible');
+  assert.equal(result.displayName, 'Ответственный Пётр');
+  assert.match(result.reason, /Низкий остаток/);
+});
+
+test('machine technical classifier covers state, dispense and connectivity', () => {
+  assert.equal(isTechnicalMachineIncident('machine:state:m1:ERROR'), true);
+  assert.equal(isTechnicalMachineIncident('machine:state:m1:OFFLINE'), true);
+  assert.equal(isTechnicalMachineIncident('machine:dispense-failed:d1'), true);
+  assert.equal(isTechnicalMachineIncident('machine:connectivity:balance:m1'), true);
+  assert.equal(isTechnicalMachineIncident('machine:low-stock:s1'), false);
 });
 
 test('source categories are stable for dispatcher filters', () => {
