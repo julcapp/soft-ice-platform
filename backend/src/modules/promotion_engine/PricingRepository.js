@@ -159,6 +159,27 @@ class PricingRepository {
             },
           });
         }
+        if (quote?.campaignId && quote?.promotionVersionId) {
+          await tx.promotionEvent.create({
+            data: {
+              campaignId: quote.campaignId,
+              promotionVersionId: quote.promotionVersionId,
+              eventType: 'CHANNEL_PURCHASE',
+              actorType: quote.customerId ? 'CUSTOMER' : 'ANONYMOUS',
+              actorId: quote.customerId || null,
+              idempotencyKey: `PROMO_PURCHASE:${quote.promotionVersionId}:${orderId}`,
+              newValue: {
+                channel: quote.channel,
+                orderId,
+                machineId: quote.machineId,
+                quoteId: quote.id,
+                finalAmount: Number(quote.finalAmount),
+              },
+              metadata: { funnelEvent: 'PURCHASE', channel: quote.channel },
+              occurredAt: consumedAt,
+            },
+          });
+        }
       }
       return tx.pricingQuote.findUnique({ where: { id } });
     });
