@@ -55,5 +55,25 @@ class PromotionRepository {
     const row = await this.prisma.promotionApproval.findFirst({ where: { promotionVersionId, status: 'APPROVED', metadata: { path: ['deciderRoles'], array_contains: 'OWNER' } } });
     return Boolean(row);
   }
+
+  async getUsageSummary(promotionVersionId) {
+    const aggregate = await this.prisma.promotionApplication.aggregate({
+      where: { promotionVersionId },
+      _count: { _all: true },
+      _sum: { discountAmount: true, baseAmount: true, finalAmount: true },
+      _min: { finalAmount: true },
+    });
+    return {
+      applications: aggregate._count?._all || 0,
+      discountAmount: Number(aggregate._sum?.discountAmount || 0),
+      baseAmount: Number(aggregate._sum?.baseAmount || 0),
+      finalAmount: Number(aggregate._sum?.finalAmount || 0),
+      minimumObservedFinalAmount: aggregate._min?.finalAmount == null ? null : Number(aggregate._min.finalAmount),
+    };
+  }
+
+  async recordEvent({ campaignId, promotionVersionId = null, eventType, actorType = 'SYSTEM', actorId = null, reason = null, metadata = undefined, oldValue = undefined, newValue = undefined }) {
+    return this.prisma.promotionEvent.create({ data: { campaignId, promotionVersionId, eventType, actorType, actorId, reason, metadata, oldValue, newValue } });
+  }
 }
 module.exports = { PromotionRepository, normalizeSchedules, serializeCampaign };
