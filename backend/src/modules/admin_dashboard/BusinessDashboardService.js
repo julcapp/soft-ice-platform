@@ -4,12 +4,13 @@ const ADMIN_ROLES = new Set(['PLATFORM_OWNER', 'ADMIN']);
 const CHANNELS = ['VK', 'TELEGRAM', 'MAX'];
 
 class BusinessDashboardService {
-  constructor({ prisma, privateChannelBillingService = null, paymentOperationsService = null, paymentEconomicsService = null, clock = () => new Date() }) {
+  constructor({ prisma, privateChannelBillingService = null, paymentOperationsService = null, paymentEconomicsService = null, yooKassaDailyReconciliationService = null, clock = () => new Date() }) {
     if (!prisma) throw new Error('prisma is required');
     this.prisma = prisma;
     this.privateChannelBillingService = privateChannelBillingService;
     this.paymentOperationsService = paymentOperationsService;
     this.paymentEconomicsService = paymentEconomicsService;
+    this.yooKassaDailyReconciliationService = yooKassaDailyReconciliationService;
     this.clock = clock;
   }
 
@@ -30,6 +31,7 @@ class BusinessDashboardService {
     const privateChannel = this.privateChannelBillingService ? await this.privateChannelBillingService.stats({ from: range.from, toExclusive: range.toExclusive }) : { subscribers: null, paidPaymentsInPeriod: null, paidAmountRubInPeriod: null, forecastNext30DaysRub: null, status: 'BLOCKED', reason: 'PRIVATE_CHANNEL_BILLING_SOURCE_NOT_WIRED' };
     const financialDocuments = this.paymentOperationsService ? await this.paymentOperationsService.stats({ from: range.from, toExclusive: range.toExclusive }) : { refundsSucceeded: null, refundedAmountRub: null, receiptsCreated: null, status: 'BLOCKED' };
     const paymentEconomics = this.paymentEconomicsService ? await this.paymentEconomicsService.stats({ from: range.from, toExclusive: range.toExclusive }) : { status: 'BLOCKED', reason: 'PAYMENT_ECONOMICS_SOURCE_NOT_WIRED' };
+    const yooKassaReconciliation = this.yooKassaDailyReconciliationService ? await this.yooKassaDailyReconciliationService.stats({ from: range.from, toExclusive: range.toExclusive }) : { status: 'BLOCKED', reason: 'YOOKASSA_RECONCILIATION_NOT_WIRED' };
 
     const paidOrders = orders.filter((order) => order.paidAt);
     const completedOrders = paidOrders.filter((order) => order.status === 'COMPLETED');
@@ -69,11 +71,13 @@ class BusinessDashboardService {
       },
       financialDocuments,
       paymentEconomics,
+      yooKassaReconciliation,
       privateChannel,
       sourceReadiness: {
         users: 'READY', club: 'READY', referralsAccepted: 'READY', referralShares: 'READY', publicChannels: 'READY', sales: 'READY', awaitingPickup: 'READY',
         receiptsAndRefunds: this.paymentOperationsService ? 'READY' : 'BLOCKED',
         paymentEconomics: this.paymentEconomicsService ? 'READY' : 'BLOCKED',
+        yooKassaReconciliation: this.yooKassaDailyReconciliationService ? (yooKassaReconciliation.openIssues ? 'DEGRADED' : 'READY') : 'BLOCKED',
         privateChannelBilling: privateChannel.status === 'READY' ? 'READY' : 'BLOCKED',
       },
     };
