@@ -16,6 +16,7 @@ model PricingQuote {
   paymentRequired            Boolean   @default(true)
   campaignId                 String?
   promotionVersionId         String?
+  orderId                    String?   @unique
   createdAt                  DateTime  @default(now())
   lockedUntil                DateTime
   consumedAt                 DateTime?
@@ -25,7 +26,9 @@ model PricingQuote {
   machine          Machine            @relation(fields: [machineId], references: [id], onDelete: Restrict)
   campaign         PromotionCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   promotionVersion PromotionVersion?  @relation(fields: [promotionVersionId], references: [id], onDelete: SetNull)
+  order            Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
   snapshot         PricingSnapshot?
+  giftRewardReservation GiftRewardReservation?
 
   @@index([customerId, createdAt])
   @@index([machineId, createdAt])
@@ -36,6 +39,7 @@ model PricingQuote {
 model PricingSnapshot {
   id                      String    @id @default(uuid())
   quoteId                 String    @unique
+  orderId                 String?   @unique
   currency                String    @default("RUB")
   baseAmount              Decimal   @db.Decimal(12, 2)
   giftAmount              Decimal   @default(0) @db.Decimal(12, 2)
@@ -49,6 +53,7 @@ model PricingSnapshot {
   metadata                Json?
 
   quote PricingQuote           @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  order Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
   items PricingSnapshotItem[]
 }
 
@@ -76,5 +81,6 @@ model PricingSnapshotItem {
 // Opposite relation fields to merge into existing models:
 // Customer: pricingQuotes PricingQuote[]
 // Machine: pricingQuotes PricingQuote[]
+// Order: pricingQuote PricingQuote?; pricingSnapshot PricingSnapshot?
 // PromotionCampaign: pricingQuotes PricingQuote[]
 // PromotionVersion: pricingQuotes PricingQuote[]
