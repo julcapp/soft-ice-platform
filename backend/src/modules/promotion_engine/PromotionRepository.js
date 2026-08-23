@@ -31,31 +31,19 @@ class PromotionRepository {
     const campaign = await client.promotionCampaign.findUnique({ where: { id }, include: { currentVersion: { include: versionInclude }, effectiveVersion: { include: versionInclude } } });
     return serializeCampaign(campaign);
   }
-
-  async listCampaigns(client = this.prisma) {
-    const rows = await client.promotionCampaign.findMany({ include: { currentVersion: { include: versionInclude }, effectiveVersion: { include: versionInclude } }, orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }] });
-    return rows.map(serializeCampaign);
-  }
+  async listCampaigns(client = this.prisma) { const rows = await client.promotionCampaign.findMany({ include: { currentVersion: { include: versionInclude }, effectiveVersion: { include: versionInclude } }, orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }] }); return rows.map(serializeCampaign); }
 
   async updateDraft({ campaignId, patch, actorId }) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await this.getCampaignById(campaignId, tx);
-      if (!current) return null;
-      const campaignData = {};
-      if (Object.prototype.hasOwnProperty.call(patch, 'name')) campaignData.name = patch.name;
-      if (Object.prototype.hasOwnProperty.call(patch, 'description')) campaignData.description = patch.description;
+      const current = await this.getCampaignById(campaignId, tx); if (!current) return null;
+      const campaignData = {}; if (Object.prototype.hasOwnProperty.call(patch, 'name')) campaignData.name = patch.name; if (Object.prototype.hasOwnProperty.call(patch, 'description')) campaignData.description = patch.description;
       if (Object.keys(campaignData).length) await tx.promotionCampaign.update({ where: { id: campaignId }, data: campaignData });
       if (patch.version) {
-        const versionId = current.currentVersion.id;
-        const versionPatch = { ...patch.version, status: 'DRAFT' };
+        const versionId = current.currentVersion.id; const versionPatch = { ...patch.version, status: 'DRAFT' };
         ['schedules','targets','audiences','rules','channels','id','campaignId','version','createdAt','createdBy'].forEach((key) => delete versionPatch[key]);
         if (Object.keys(versionPatch).length) await tx.promotionVersion.update({ where: { id: versionId }, data: versionPatch });
         for (const [key, model] of [['schedules','promotionSchedule'],['targets','promotionTarget'],['audiences','promotionAudience'],['rules','promotionRule'],['channels','promotionChannel']]) {
-          if (patch.version[key]) {
-            await tx[model].deleteMany({ where: { promotionVersionId: versionId } });
-            const rows = key === 'schedules' ? normalizeSchedules(patch.version[key]) : patch.version[key];
-            if (rows.length) await tx[model].createMany({ data: rows.map((x) => ({ ...x, promotionVersionId: versionId })) });
-          }
+          if (patch.version[key]) { await tx[model].deleteMany({ where: { promotionVersionId: versionId } }); const rows = key === 'schedules' ? normalizeSchedules(patch.version[key]) : patch.version[key]; if (rows.length) await tx[model].createMany({ data: rows.map((x) => ({ ...x, promotionVersionId: versionId })) }); }
         }
       }
       if (!current.effectiveVersionId) await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status: 'DRAFT' } });
@@ -66,10 +54,8 @@ class PromotionRepository {
 
   async createVersion({ campaignId, version, actorId }) {
     return this.prisma.$transaction(async (tx) => {
-      const campaign = await this.getCampaignById(campaignId, tx);
-      if (!campaign) return null;
-      const max = await tx.promotionVersion.aggregate({ where: { campaignId }, _max: { version: true } });
-      const nextVersion = (max._max.version || 0) + 1;
+      const campaign = await this.getCampaignById(campaignId, tx); if (!campaign) return null;
+      const max = await tx.promotionVersion.aggregate({ where: { campaignId }, _max: { version: true } }); const nextVersion = (max._max.version || 0) + 1;
       const created = await tx.promotionVersion.create({ data: { campaignId, version: nextVersion, ...versionScalarData({ ...version, status: 'DRAFT' }, actorId), schedules: { create: normalizeSchedules(version.schedules || []) }, targets: { create: version.targets || [] }, audiences: { create: version.audiences || [] }, rules: { create: version.rules || [] }, channels: { create: version.channels || [] } } });
       await tx.promotionCampaign.update({ where: { id: campaignId }, data: { currentVersionId: created.id, ...(campaign.effectiveVersionId ? {} : { status: 'DRAFT' }) } });
       await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: created.id, eventType: 'VERSION_CREATED', actorType: 'ADMIN_USER', actorId, oldValue: { currentVersionId: campaign.currentVersionId, effectiveVersionId: campaign.effectiveVersionId, campaignStatus: campaign.status }, newValue: { currentVersionId: created.id, version: nextVersion, status: 'DRAFT' } } });
@@ -79,8 +65,7 @@ class PromotionRepository {
 
   async updateWorkingVersionStatus({ campaignId, status, actorId, eventType, metadata }) {
     return this.prisma.$transaction(async (tx) => {
-      const campaign = await tx.promotionCampaign.findUnique({ where: { id: campaignId } });
-      if (!campaign?.currentVersionId) return null;
+      const campaign = await tx.promotionCampaign.findUnique({ where: { id: campaignId } }); if (!campaign?.currentVersionId) return null;
       const before = await tx.promotionVersion.findUnique({ where: { id: campaign.currentVersionId } });
       await tx.promotionVersion.update({ where: { id: campaign.currentVersionId }, data: { status } });
       if (!campaign.effectiveVersionId) await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status } });
@@ -88,24 +73,24 @@ class PromotionRepository {
       return this.getCampaignById(campaignId, tx);
     });
   }
-
   async updateCampaignStatus({ campaignId, status, actorId, validationResult }) { return this.updateWorkingVersionStatus({ campaignId, status, actorId, eventType: status === 'READY' ? 'VALIDATION_PASSED' : 'VALIDATION_FAILED', metadata: validationResult }); }
 
-  async transitionStatus({ campaignId, status, actorId, eventType, actorType = 'ADMIN_USER', reason = null, metadata = undefined, versionPatch = undefined }) {
+  async transitionStatus({ campaignId, status, actorId, eventType, actorType = 'ADMIN_USER', reason = null, metadata = undefined, versionPatch = undefined, activateWorkingVersion = false }) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.promotionCampaign.findUnique({ where: { id: campaignId } });
-      if (!current) return null;
+      const current = await tx.promotionCampaign.findUnique({ where: { id: campaignId } }); if (!current) return null;
       if (versionPatch && current.currentVersionId) await tx.promotionVersion.update({ where: { id: current.currentVersionId }, data: versionPatch });
-      if (status === 'ACTIVE' && current.currentVersionId) {
+      let effectiveVersionId = current.effectiveVersionId;
+      if (status === 'ACTIVE' && activateWorkingVersion && current.currentVersionId) {
         if (current.effectiveVersionId && current.effectiveVersionId !== current.currentVersionId) await tx.promotionVersion.update({ where: { id: current.effectiveVersionId }, data: { status: 'SUPERSEDED' } });
         await tx.promotionVersion.update({ where: { id: current.currentVersionId }, data: { status: 'ACTIVE' } });
-        await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status: 'ACTIVE', effectiveVersionId: current.currentVersionId } });
+        effectiveVersionId = current.currentVersionId;
+        await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status: 'ACTIVE', effectiveVersionId } });
       } else {
-        if (current.effectiveVersionId) await tx.promotionVersion.update({ where: { id: current.effectiveVersionId }, data: { status } });
-        else if (current.currentVersionId) await tx.promotionVersion.update({ where: { id: current.currentVersionId }, data: { status } });
+        const servingId = current.effectiveVersionId || current.currentVersionId;
+        if (servingId) await tx.promotionVersion.update({ where: { id: servingId }, data: { status } });
         await tx.promotionCampaign.update({ where: { id: campaignId }, data: { status, ...(status === 'ARCHIVED' ? { archivedAt: new Date() } : {}) } });
       }
-      await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: current.currentVersionId, eventType, actorType, actorId, oldValue: { status: current.status, effectiveVersionId: current.effectiveVersionId }, newValue: { status, effectiveVersionId: status === 'ACTIVE' ? current.currentVersionId : current.effectiveVersionId }, reason, metadata } });
+      await tx.promotionEvent.create({ data: { campaignId, promotionVersionId: activateWorkingVersion ? current.currentVersionId : (current.effectiveVersionId || current.currentVersionId), eventType, actorType, actorId, oldValue: { status: current.status, effectiveVersionId: current.effectiveVersionId }, newValue: { status, effectiveVersionId }, reason, metadata } });
       return this.getCampaignById(campaignId, tx);
     });
   }
