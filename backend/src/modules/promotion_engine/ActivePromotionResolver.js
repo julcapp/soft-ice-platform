@@ -41,19 +41,59 @@ function localScheduleClock(at, timezone) {
   }
 }
 
-function isScheduleWindowActive(version, at) {
-  if (!version) return false;
-  if (version.isManualOverride) return true;
+function activeScheduleWindow(version, at) {
+  if (!version) return null;
+
+  if (version.isManualOverride) {
+    const explicitEnd = version.endsAt ? new Date(version.endsAt) : null;
+    return {
+      source: 'MANUAL_OVERRIDE',
+      startsAt: version.startsAt ? new Date(version.startsAt) : null,
+      endsAt: explicitEnd && explicitEnd > at ? explicitEnd : null,
+      remainingSeconds: explicitEnd && explicitEnd > at ? Math.max(0, Math.ceil((explicitEnd.getTime() - at.getTime()) / 1000)) : null,
+      timezone: version.timezone || 'Europe/Moscow',
+    };
+  }
+
   const schedules = (version.schedules || []).filter((schedule) => schedule.isEnabled !== false);
-  if (schedules.length === 0) return true;
+  if (schedules.length === 0) {
+    const explicitEnd = version.endsAt ? new Date(version.endsAt) : null;
+    return {
+      source: 'VERSION_WINDOW',
+      startsAt: version.startsAt ? new Date(version.startsAt) : null,
+      endsAt: explicitEnd && explicitEnd > at ? explicitEnd : null,
+      remainingSeconds: explicitEnd && explicitEnd > at ? Math.max(0, Math.ceil((explicitEnd.getTime() - at.getTime()) / 1000)) : null,
+      timezone: version.timezone || 'Europe/Moscow',
+    };
+  }
+
   const local = localScheduleClock(at, version.timezone || 'Europe/Moscow');
-  if (!local) return false;
-  return schedules.some((schedule) => {
-    if (Number(schedule.dayOfWeek) !== local.dayOfWeek) return false;
-    const start = scheduleTimeSeconds(schedule.startTime);
-    const end = scheduleTimeSeconds(schedule.endTime);
+  if (!local) return null;
+  const schedule = schedules.find((row) => {
+    if (Number(row.dayOfWeek) !== local.dayOfWeek) return false;
+    const start = scheduleTimeSeconds(row.startTime);
+    const end = scheduleTimeSeconds(row.endTime);
     return start !== null && end !== null && start < end && local.seconds >= start && local.seconds < end;
   });
+  if (!schedule) return null;
+
+  const startSeconds = scheduleTimeSeconds(schedule.startTime);
+  const endSeconds = scheduleTimeSeconds(schedule.endTime);
+  const elapsedFromStart = local.seconds - startSeconds;
+  const remainingSeconds = endSeconds - local.seconds;
+  return {
+    source: 'RECURRING_SCHEDULE',
+    scheduleId: schedule.id || null,
+    dayOfWeek: local.dayOfWeek,
+    startsAt: new Date(at.getTime() - elapsedFromStart * 1000),
+    endsAt: new Date(at.getTime() + remainingSeconds * 1000),
+    remainingSeconds,
+    timezone: version.timezone || 'Europe/Moscow',
+  };
+}
+
+function isScheduleWindowActive(version, at) {
+  return Boolean(activeScheduleWindow(version, at));
 }
 
 class ActivePromotionResolver {
@@ -84,14 +124,16 @@ class ActivePromotionResolver {
       orderBy: { createdAt: 'asc' },
     });
 
-    const applicable = campaigns.filter((campaign) => {
+    const applicable = campaigns.map((campaign) => {
       const version = campaign.currentVersion;
-      if (!version || !isScheduleWindowActive(version, at)) return false;
+      const window = activeScheduleWindow(version, at);
+      if (!version || !window) return null;
       const targetOk = version.targets.some((target) => target.targetType === 'ALL_MACHINES' || (target.targetType === 'MACHINE' && target.targetId === machineId));
-      if (!targetOk) return false;
+      if (!targetOk) return null;
       const audienceOk = version.audiences.some((audience) => audience.audienceType === 'ALL' || (customerId && ['CLUB_MEMBER', 'RETURNING_CUSTOMER', 'SEGMENT', 'PERSONAL'].includes(audience.audienceType)));
-      return audienceOk;
-    });
+      if (!audienceOk) return null;
+      return { ...campaign, promotionRuntime: { activeWindow: window, serverTime: at } };
+    }).filter(Boolean);
 
     if (applicable.length === 0) return null;
     applicable.sort((a, b) => (b.currentVersion.priority || 0) - (a.currentVersion.priority || 0));
@@ -99,4 +141,10 @@ class ActivePromotionResolver {
   }
 }
 
-module.exports = { ActivePromotionResolver, isScheduleWindowActive, localScheduleClock, scheduleTimeSeconds };
+module.exports = {
+  ActivePromotionResolver,
+  activeScheduleWindow,
+  isScheduleWindowActive,
+  localScheduleClock,
+  scheduleTimeSeconds,
+};
