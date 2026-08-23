@@ -132,7 +132,7 @@ class PricingEngineService {
 
   async consumeQuote(quoteId, { orderId = null } = {}) {
     const quote = await this.getValidQuote(quoteId);
-    const consumed = await this.repository.consumeQuote(quoteId, this.clock());
+    const consumed = await this.repository.consumeQuote(quoteId, this.clock(), orderId);
     if (orderId && this.giftResolver?.consume) await this.giftResolver.consume({ quoteId, orderId });
     return { ...consumed, quote };
   }
