@@ -6,7 +6,7 @@ class FinancialDayCloseService {
 
   async getDay(reportDate) {
     const date = normalizeDate(reportDate);
-    const [reports, expectations, issues] = await Promise.all([
+    const [reports, expectations, issues, alerts] = await Promise.all([
       this.prisma.$queryRawUnsafe(
         `SELECT "id","shopId","reportDate","reportType","fileName","status","rowsTotal","rowsMatched","rowsMissingLocal","rowsMismatch","grossAmountRub","netAmountRub","commissionRub","commissionVatRub","refundAmountRub","importedAt","reconciledAt"
          FROM "YooKassaDailyReport" WHERE "reportDate"=$1::date ORDER BY "reportType","importedAt" DESC`, date,
@@ -23,6 +23,10 @@ class FinancialDayCloseService {
          WHERE r."reportDate"=$1::date AND i."status"='OPEN'
          ORDER BY CASE i."severity" WHEN 'CRITICAL' THEN 0 ELSE 1 END, i."createdAt" DESC`, date,
       ),
+      this.prisma.$queryRawUnsafe(
+        `SELECT "id","alertType","severity","title","body","actionHref","status","detectedAt","lastSeenAt","resolvedAt"
+         FROM "FinancialOpsAlert" WHERE "reportDate"=$1::date ORDER BY CASE "status" WHEN 'OPEN' THEN 0 ELSE 1 END, "detectedAt" DESC`, date,
+      ).catch(() => []),
     ]);
 
     const latestByType = {};
@@ -67,6 +71,10 @@ class FinancialDayCloseService {
         criticalIssues: issues.filter((item) => item.severity === 'CRITICAL').length,
         warningIssues: issues.filter((item) => item.severity !== 'CRITICAL').length,
         issues,
+      },
+      operationsAlerts: {
+        open: alerts.filter((item) => item.status === 'OPEN'),
+        resolved: alerts.filter((item) => item.status === 'RESOLVED'),
       },
       checks: {
         paymentsReportReceived: paymentsReceived,
