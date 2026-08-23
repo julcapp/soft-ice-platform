@@ -7,16 +7,28 @@ const { PricingEngineService } = require('../src/modules/promotion_engine/Pricin
 function promotion() {
   return {
     id: 'promo-1',
+    name: 'Час выгоды',
     currentVersion: {
       id: 'promo-v1',
       benefitType: 'PERCENT_DISCOUNT',
       benefitValue: 20,
       priceLockSeconds: 300,
+      timezone: 'Europe/Moscow',
       rules: [
         { ruleType: 'PARTIAL_BONUS_PAYMENT', value: 'FORBIDDEN' },
         { ruleType: 'TRANSFER_TO_THIRD_PARTY', value: 'FORBIDDEN' },
         { ruleType: 'MONEY_DISCOUNT_STACKING', value: 'FORBIDDEN' },
       ],
+    },
+    promotionRuntime: {
+      serverTime: new Date('2026-08-23T10:00:00Z'),
+      activeWindow: {
+        source: 'RECURRING_SCHEDULE',
+        startsAt: new Date('2026-08-23T09:00:00Z'),
+        endsAt: new Date('2026-08-23T11:00:00Z'),
+        remainingSeconds: 3600,
+        timezone: 'Europe/Moscow',
+      },
     },
   };
 }
@@ -68,6 +80,17 @@ test('Happy Hour applies 20% only to paid items after gift', async () => {
   assert.equal(quote.lockedUntil.toISOString(), '2026-08-23T10:05:00.000Z');
 });
 
+test('quote exposes server-resolved promotion countdown boundary', async () => {
+  const { service } = fixture();
+  const quote = await service.createQuote({ machineId: 'm1', channel: 'TERMINAL', items: [{ id: 'ice', unitPrice: 250 }] });
+  assert.equal(quote.promotionRuntime.name, 'Час выгоды');
+  assert.equal(quote.promotionRuntime.benefitValue, 20);
+  assert.equal(quote.promotionRuntime.serverTime.toISOString(), '2026-08-23T10:00:00.000Z');
+  assert.equal(quote.promotionRuntime.endsAt.toISOString(), '2026-08-23T11:00:00.000Z');
+  assert.equal(quote.promotionRuntime.remainingSeconds, 3600);
+  assert.equal(quote.promotionRuntime.timezone, 'Europe/Moscow');
+});
+
 test('fully gifted order bypasses payment', async () => {
   const { service } = fixture({ giftItemIds: ['ice'] });
   const quote = await service.createQuote({ customerId: 'c1', machineId: 'm1', channel: 'TERMINAL', items: [{ id: 'ice', unitPrice: 250 }] });
@@ -95,6 +118,7 @@ test('without active promotion price remains ordinary and transfer stays allowed
   assert.equal(quote.promotionDiscountAmount, 0);
   assert.equal(quote.partialBonusPaymentAllowed, true);
   assert.equal(quote.transferAllowed, true);
+  assert.equal(quote.promotionRuntime, null);
 });
 
 test('expired quote cannot be consumed', async () => {
