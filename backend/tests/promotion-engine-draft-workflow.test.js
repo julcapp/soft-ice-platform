@@ -19,7 +19,7 @@ function validCampaign() {
       targets: [{ targetType: 'ALL_MACHINES', targetId: null }], audiences: [{ audienceType: 'ALL' }],
       channels: [{ channel: 'TERMINAL', enabled: true, countdownEnabled: true }, { channel: 'MINI_APP', enabled: true, countdownEnabled: true }],
       rules: [
-        { ruleType: 'BONUS_PAYMENT', value: 'FORBIDDEN' }, { ruleType: 'THIRD_PARTY_TRANSFER', value: 'FORBIDDEN' },
+        { ruleType: 'PARTIAL_BONUS_PAYMENT', value: 'FORBIDDEN' }, { ruleType: 'TRANSFER_TO_THIRD_PARTY', value: 'FORBIDDEN' },
         { ruleType: 'MONEY_DISCOUNT_STACKING', value: 'FORBIDDEN' }, { ruleType: 'GIFT_COMPATIBILITY', value: 'PAID_ITEMS_ONLY' },
       ],
     },
