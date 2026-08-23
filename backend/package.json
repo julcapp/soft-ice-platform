@@ -13,6 +13,7 @@
     "private-channel:renewals": "node scripts/run-private-channel-renewals.js",
     "yookassa:reports:imap": "node scripts/import-yookassa-reports-from-yandex.js",
     "yookassa:reports:scheduled": "node scripts/run-yookassa-report-schedule.js",
+    "operations:escalation-delivery": "node scripts/run-admin-operations-escalation-delivery.js",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },
