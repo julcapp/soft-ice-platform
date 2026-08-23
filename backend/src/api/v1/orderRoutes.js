@@ -10,10 +10,20 @@ const { resolvePricingService } = require('./pricingRoutes');
 function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...dependencies }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
-  const quotedOrderService = new QuotedOrderService({
-    orderRuntime,
-    pricingEngineService: resolvePricingService({ authCoreService, machineRuntime, orderRuntime, ...dependencies }),
-  });
+
+  const getQuotedOrderService = () => {
+    if (!orderRuntime) {
+      const error = new Error('Order runtime is not configured.');
+      error.code = 'ORDER_RUNTIME_UNAVAILABLE';
+      error.statusCode = 503;
+      error.source = 'order';
+      throw error;
+    }
+    return new QuotedOrderService({
+      orderRuntime,
+      pricingEngineService: resolvePricingService({ authCoreService, machineRuntime, orderRuntime, ...dependencies }),
+    });
+  };
 
   router.post(
     '/',
@@ -28,9 +38,23 @@ function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...d
         actorType: 'customer',
         actorId: req.securityContext.subject_id,
       };
-      const result = request.quoteId
-        ? await quotedOrderService.createOrder(req.securityContext.subject_id, { quoteId: request.quoteId }, context)
-        : await orderRuntime.createOrder(req.securityContext.subject_id, request, context);
+      let result;
+      if (request.quoteId) {
+        result = await getQuotedOrderService().createOrder(
+          req.securityContext.subject_id,
+          { quoteId: request.quoteId },
+          context,
+        );
+      } else {
+        if (!orderRuntime) {
+          const error = new Error('Order runtime is not configured.');
+          error.code = 'ORDER_RUNTIME_UNAVAILABLE';
+          error.statusCode = 503;
+          error.source = 'order';
+          throw error;
+        }
+        result = await orderRuntime.createOrder(req.securityContext.subject_id, request, context);
+      }
 
       const dto = toOrderCreationDto(result);
       if (result.pricing) dto.pricing = result.pricing;
@@ -43,11 +67,14 @@ function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...d
     '/:id',
     authenticateCustomer,
     asyncHandler(async (req, res) => {
-      const order = await orderRuntime.getOwnOrder(
-        req.securityContext.subject_id,
-        req.params.id,
-      );
-
+      if (!orderRuntime) {
+        const error = new Error('Order runtime is not configured.');
+        error.code = 'ORDER_RUNTIME_UNAVAILABLE';
+        error.statusCode = 503;
+        error.source = 'order';
+        throw error;
+      }
+      const order = await orderRuntime.getOwnOrder(req.securityContext.subject_id, req.params.id);
       sendData(res, req, toOrderDto(order));
     }),
   );
@@ -56,11 +83,17 @@ function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...d
     '/:id/dispense',
     authenticateCustomer,
     asyncHandler(async (req, res) => {
+      if (!machineRuntime) {
+        const error = new Error('Machine runtime is not configured.');
+        error.code = 'MACHINE_RUNTIME_UNAVAILABLE';
+        error.statusCode = 503;
+        error.source = 'machine';
+        throw error;
+      }
       const dispenseRequest = await machineRuntime.getOwnOrderDispense(
         req.securityContext.subject_id,
         req.params.id,
       );
-
       sendData(res, req, toDispenseRequestDto(dispenseRequest));
     }),
   );
@@ -76,8 +109,14 @@ function createCustomerOrdersRouter({ authCoreService, orderRuntime }) {
     '/',
     authenticateCustomer,
     asyncHandler(async (req, res) => {
+      if (!orderRuntime) {
+        const error = new Error('Order runtime is not configured.');
+        error.code = 'ORDER_RUNTIME_UNAVAILABLE';
+        error.statusCode = 503;
+        error.source = 'order';
+        throw error;
+      }
       const orders = await orderRuntime.listOwnOrders(req.securityContext.subject_id);
-
       sendData(res, req, orders.map(toOrderDto));
     }),
   );
