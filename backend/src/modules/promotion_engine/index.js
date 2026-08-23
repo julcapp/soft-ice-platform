@@ -5,6 +5,7 @@ const { PromotionService } = require('./PromotionService');
 const { PricingEngineService } = require('./PricingEngineService');
 const { PricingRepository } = require('./PricingRepository');
 const { ActivePromotionResolver } = require('./ActivePromotionResolver');
+const { FiftiethPurchaseGiftResolver } = require('./FiftiethPurchaseGiftResolver');
 
 module.exports = {
   name: 'promotion_engine',
@@ -18,6 +19,7 @@ module.exports = {
     'promotion runtime safety',
     'server-side pricing quotes',
     'promotion price locks and snapshots',
+    'per-machine fiftieth-purchase gifts',
   ],
   PromotionValidationService,
   PromotionSafetyService,
@@ -26,4 +28,5 @@ module.exports = {
   PricingEngineService,
   PricingRepository,
   ActivePromotionResolver,
+  FiftiethPurchaseGiftResolver,
 };
