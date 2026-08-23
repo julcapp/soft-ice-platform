@@ -44,24 +44,77 @@ function nextScheduleWindow(version, at) {
   const timezone = version.timezone || 'Europe/Moscow'; const explicitStart = version.startsAt ? new Date(version.startsAt) : null; const explicitEnd = version.endsAt ? new Date(version.endsAt) : null;
   if (version.isManualOverride || !(version.schedules || []).length) { if (!explicitStart || explicitStart <= at || (explicitEnd && explicitEnd <= explicitStart)) return null; return { source: version.isManualOverride ? 'MANUAL_OVERRIDE' : 'VERSION_WINDOW', startsAt: explicitStart, endsAt: explicitEnd, secondsUntilStart: Math.ceil((explicitStart - at) / 1000), timezone }; }
   const local = zonedParts(at, timezone); if (!local) return null;
-  const candidates = (version.schedules || []).filter((row) => row.isEnabled !== false).map((schedule) => { const startSeconds = scheduleTimeSeconds(schedule.startTime); const endSeconds = scheduleTimeSeconds(schedule.endTime); if (startSeconds === null || endSeconds === null || startSeconds >= endSeconds) return null; let daysAhead = (Number(schedule.dayOfWeek) - local.dayOfWeek + 7) % 7; const localNowSeconds = local.hour * 3600 + local.minute * 60 + local.second; if (daysAhead === 0 && startSeconds <= localNowSeconds) daysAhead = 7; const base = new Date(Date.UTC(local.year, local.month - 1, local.day + daysAhead)); const start = wallClockToUtc({ year: base.getUTCFullYear(), month: base.getUTCMonth() + 1, day: base.getUTCDate(), hour: Math.floor(startSeconds / 3600), minute: Math.floor((startSeconds % 3600) / 60), second: startSeconds % 60 }, timezone); const end = wallClockToUtc({ year: base.getUTCFullYear(), month: base.getUTCMonth() + 1, day: base.getUTCDate(), hour: Math.floor(endSeconds / 3600), minute: Math.floor((endSeconds % 3600) / 60), second: endSeconds % 60 }, timezone); if (!start || start <= at || (explicitStart && start < explicitStart) || (explicitEnd && start >= explicitEnd)) return null; return { source: 'RECURRING_SCHEDULE', scheduleId: schedule.id || null, dayOfWeek: Number(schedule.dayOfWeek), startsAt: start, endsAt: end, secondsUntilStart: Math.ceil((start - at) / 1000), timezone }; }).filter(Boolean).sort((a, b) => a.startsAt - b.startsAt);
+  const candidates = (version.schedules || []).filter((row) => row.isEnabled !== false).map((schedule) => {
+    const startSeconds = scheduleTimeSeconds(schedule.startTime); const endSeconds = scheduleTimeSeconds(schedule.endTime); if (startSeconds === null || endSeconds === null || startSeconds >= endSeconds) return null;
+    let daysAhead = (Number(schedule.dayOfWeek) - local.dayOfWeek + 7) % 7; const localNowSeconds = local.hour * 3600 + local.minute * 60 + local.second; if (daysAhead === 0 && startSeconds <= localNowSeconds) daysAhead = 7;
+    const base = new Date(Date.UTC(local.year, local.month - 1, local.day + daysAhead));
+    const start = wallClockToUtc({ year: base.getUTCFullYear(), month: base.getUTCMonth() + 1, day: base.getUTCDate(), hour: Math.floor(startSeconds / 3600), minute: Math.floor((startSeconds % 3600) / 60), second: startSeconds % 60 }, timezone);
+    const end = wallClockToUtc({ year: base.getUTCFullYear(), month: base.getUTCMonth() + 1, day: base.getUTCDate(), hour: Math.floor(endSeconds / 3600), minute: Math.floor((endSeconds % 3600) / 60), second: endSeconds % 60 }, timezone);
+    if (!start || start <= at || (explicitStart && start < explicitStart) || (explicitEnd && start >= explicitEnd)) return null;
+    return { source: 'RECURRING_SCHEDULE', scheduleId: schedule.id || null, dayOfWeek: Number(schedule.dayOfWeek), startsAt: start, endsAt: end, secondsUntilStart: Math.ceil((start - at) / 1000), timezone };
+  }).filter(Boolean).sort((a, b) => a.startsAt - b.startsAt);
   return candidates[0] || null;
 }
 
 function isScheduleWindowActive(version, at) { return Boolean(activeScheduleWindow(version, at)); }
-function targetAudienceOk(version, { customerId, machineId }) { const targetOk = version.targets.some((target) => target.targetType === 'ALL_MACHINES' || (target.targetType === 'MACHINE' && target.targetId === machineId)); const audienceOk = version.audiences.some((audience) => audience.audienceType === 'ALL' || (customerId && ['CLUB_MEMBER','RETURNING_CUSTOMER','SEGMENT','PERSONAL'].includes(audience.audienceType))); return targetOk && audienceOk; }
+function targetAudienceOk(version, { customerId, machineId }) {
+  const targetOk = (version.targets || []).some((target) => target.targetType === 'ALL_MACHINES' || (target.targetType === 'MACHINE' && target.targetId === machineId));
+  const audienceOk = (version.audiences || []).some((audience) => audience.audienceType === 'ALL' || (customerId && ['CLUB_MEMBER','RETURNING_CUSTOMER','SEGMENT','PERSONAL'].includes(audience.audienceType)));
+  return targetOk && audienceOk;
+}
+function channelEnabled(version, channel) { return Boolean(version?.channels?.some((row) => row.channel === channel && row.enabled)); }
 
 class ActivePromotionResolver {
   constructor({ prisma } = {}) { if (!prisma) throw new Error('Prisma client is required.'); this.prisma = prisma; }
-  async _campaigns(channel, at, includeFuture = false) {
+
+  async _campaigns() {
     return this.prisma.promotionCampaign.findMany({
-      where: { status: { in: ['ACTIVE','SCHEDULED'] }, effectiveVersion: { is: { AND: [ ...(includeFuture ? [] : [{ OR: [{ startsAt: null }, { startsAt: { lte: at } }] }]), { OR: [{ endsAt: null }, { endsAt: { gt: at } }] }, { channels: { some: { channel, enabled: true } } } ] } } },
-      include: { effectiveVersion: { include: { schedules: true, targets: true, audiences: true, rules: true, channels: true } } }, orderBy: { createdAt: 'asc' },
+      where: { status: { in: ['ACTIVE','SCHEDULED'] } },
+      include: {
+        currentVersion: { include: { schedules: true, targets: true, audiences: true, rules: true, channels: true } },
+        effectiveVersion: { include: { schedules: true, targets: true, audiences: true, rules: true, channels: true } },
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
-  _asServingCampaign(campaign) { return { ...campaign, currentVersion: campaign.effectiveVersion }; }
-  async resolve({ customerId = null, machineId, channel, at = new Date() }) { const campaigns = await this._campaigns(channel, at, false); const applicable = campaigns.map((raw) => { const campaign = this._asServingCampaign(raw); const version = campaign.currentVersion; const window = activeScheduleWindow(version, at); if (!version || version.status !== 'ACTIVE' || !window || !targetAudienceOk(version, { customerId, machineId })) return null; return { ...campaign, promotionRuntime: { activeWindow: window, serverTime: at } }; }).filter(Boolean); if (!applicable.length) return null; applicable.sort((a, b) => (b.currentVersion.priority || 0) - (a.currentVersion.priority || 0)); return applicable[0]; }
-  async resolveUpcoming({ customerId = null, machineId, channel, at = new Date(), withinMinutes = 60 }) { const campaigns = await this._campaigns(channel, at, true); const limitSeconds = Math.max(1, Number(withinMinutes) || 60) * 60; const upcoming = campaigns.map((raw) => { const campaign = this._asServingCampaign(raw); const version = campaign.currentVersion; const window = nextScheduleWindow(version, at); if (!version || !['ACTIVE','SCHEDULED'].includes(version.status) || !window || window.secondsUntilStart > limitSeconds || !targetAudienceOk(version, { customerId, machineId })) return null; const channelConfig = version.channels.find((row) => row.channel === channel && row.enabled); return { ...campaign, promotionRuntime: { upcomingWindow: window, serverTime: at, preNotificationMinutes: channelConfig?.preNotificationMinutes || 30 } }; }).filter(Boolean); if (!upcoming.length) return null; upcoming.sort((a, b) => a.promotionRuntime.upcomingWindow.startsAt - b.promotionRuntime.upcomingWindow.startsAt || (b.currentVersion.priority || 0) - (a.currentVersion.priority || 0)); return upcoming[0]; }
+
+  async resolve({ customerId = null, machineId, channel, at = new Date() }) {
+    const campaigns = await this._campaigns();
+    const applicable = campaigns.map((campaign) => {
+      const version = campaign.effectiveVersion;
+      if (!version || version.status !== 'ACTIVE' || !channelEnabled(version, channel)) return null;
+      if (version.startsAt && new Date(version.startsAt) > at) return null;
+      if (version.endsAt && new Date(version.endsAt) <= at) return null;
+      const window = activeScheduleWindow(version, at);
+      if (!window || !targetAudienceOk(version, { customerId, machineId })) return null;
+      return { ...campaign, currentVersion: version, promotionRuntime: { activeWindow: window, serverTime: at } };
+    }).filter(Boolean);
+    if (!applicable.length) return null;
+    applicable.sort((a, b) => (b.currentVersion.priority || 0) - (a.currentVersion.priority || 0));
+    return applicable[0];
+  }
+
+  async resolveUpcoming({ customerId = null, machineId, channel, at = new Date(), withinMinutes = 60 }) {
+    const campaigns = await this._campaigns();
+    const limitSeconds = Math.max(1, Number(withinMinutes) || 60) * 60;
+    const candidates = [];
+    for (const campaign of campaigns) {
+      const versions = [];
+      if (campaign.effectiveVersion && ['ACTIVE','SCHEDULED'].includes(campaign.effectiveVersion.status)) versions.push(campaign.effectiveVersion);
+      if (campaign.currentVersion && campaign.currentVersion.id !== campaign.effectiveVersion?.id && campaign.currentVersion.status === 'SCHEDULED') versions.push(campaign.currentVersion);
+      if (!campaign.effectiveVersion && campaign.currentVersion?.status === 'SCHEDULED') versions.push(campaign.currentVersion);
+      for (const version of versions) {
+        if (!channelEnabled(version, channel) || !targetAudienceOk(version, { customerId, machineId })) continue;
+        const window = nextScheduleWindow(version, at);
+        if (!window || window.secondsUntilStart > limitSeconds) continue;
+        const channelConfig = version.channels.find((row) => row.channel === channel && row.enabled);
+        candidates.push({ ...campaign, currentVersion: version, promotionRuntime: { upcomingWindow: window, serverTime: at, preNotificationMinutes: channelConfig?.preNotificationMinutes || 30 } });
+      }
+    }
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => a.promotionRuntime.upcomingWindow.startsAt - b.promotionRuntime.upcomingWindow.startsAt || (b.currentVersion.priority || 0) - (a.currentVersion.priority || 0));
+    return candidates[0];
+  }
 }
 
 module.exports = { ActivePromotionResolver, activeScheduleWindow, nextScheduleWindow, isScheduleWindowActive, localScheduleClock, scheduleTimeSeconds, wallClockToUtc };
