@@ -1,11 +1,13 @@
 const { randomUUID } = require('crypto');
 
 class YooKassaReportScheduleService {
-  constructor({ prisma, ingestor, clock = () => new Date(), config = process.env }) {
+  constructor({ prisma, ingestor, financialDayCloseService = null, financialOpsAlertService = null, clock = () => new Date(), config = process.env }) {
     if (!prisma) throw new Error('prisma is required');
     if (!ingestor) throw new Error('ingestor is required');
     this.prisma = prisma;
     this.ingestor = ingestor;
+    this.financialDayCloseService = financialDayCloseService;
+    this.financialOpsAlertService = financialOpsAlertService;
     this.clock = clock;
     this.config = config;
   }
@@ -30,11 +32,19 @@ class YooKassaReportScheduleService {
     }
 
     const missing = results.filter((item) => item.status === 'MISSING');
+    let financialDay = null;
+    let alerts = null;
+    if (now >= deadline && this.financialDayCloseService && this.financialOpsAlertService) {
+      financialDay = await this.financialDayCloseService.getDay(reportDate);
+      alerts = await this.financialOpsAlertService.syncForDay(financialDay);
+    }
     return {
-      status: ingestion.status === 'BLOCKED' ? 'BLOCKED' : (ingestion.status === 'DEGRADED' || missing.length ? 'DEGRADED' : 'READY'),
+      status: ingestion.status === 'BLOCKED' ? 'BLOCKED' : (ingestion.status === 'DEGRADED' || missing.length || financialDay?.status === 'REVIEW_REQUIRED' ? 'DEGRADED' : 'READY'),
       ingestion,
       expectations: results,
       missing,
+      financialDay: financialDay ? { reportDate: financialDay.reportDate, status: financialDay.status, statusLabel: financialDay.statusLabel } : null,
+      alerts,
     };
   }
 
