@@ -23,3 +23,4 @@ export async function getBusinessDashboard({ signal, from, to } = {}) {
 }
 
 export const getFinancialReadiness = ({ signal } = {}) => request('/financial-readiness', { signal });
+export const getFinancialDayClose = ({ signal, reportDate } = {}) => request(`/financial-day-close?reportDate=${encodeURIComponent(reportDate || '')}`, { signal });
