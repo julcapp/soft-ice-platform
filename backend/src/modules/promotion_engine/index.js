@@ -6,6 +6,7 @@ const { PricingEngineService } = require('./PricingEngineService');
 const { PricingRepository } = require('./PricingRepository');
 const { ActivePromotionResolver } = require('./ActivePromotionResolver');
 const { PromotionAwarenessService } = require('./PromotionAwarenessService');
+const { PromotionChannelWebhookDispatcher, createPromotionDispatchersFromEnv } = require('./PromotionChannelWebhookDispatcher');
 const { FiftiethPurchaseGiftResolver } = require('./FiftiethPurchaseGiftResolver');
 const { ServerProductPricingResolver } = require('./ServerProductPricingResolver');
 
@@ -22,6 +23,7 @@ module.exports = {
     'server-side pricing quotes',
     'promotion price locks and snapshots',
     'promotion awareness and pre-notifications',
+    'promotion channel dispatch',
     'per-machine fiftieth-purchase gifts',
     'authoritative server product prices',
   ],
@@ -33,6 +35,8 @@ module.exports = {
   PricingRepository,
   ActivePromotionResolver,
   PromotionAwarenessService,
+  PromotionChannelWebhookDispatcher,
+  createPromotionDispatchersFromEnv,
   FiftiethPurchaseGiftResolver,
   ServerProductPricingResolver,
 };
