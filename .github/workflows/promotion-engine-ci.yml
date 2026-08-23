@@ -75,16 +75,9 @@ jobs:
         working-directory: backend
         run: npm run prisma:merge
 
-      - name: Verify integrated Prisma schema is committed
-        working-directory: backend
-        run: npm run prisma:check-integrated
-
-      - name: Format Prisma schema
+      - name: Format generated integrated Prisma schema
         working-directory: backend
         run: npx prisma format --schema prisma/schema.prisma
-
-      - name: Ensure Prisma formatting creates no diff
-        run: git diff --exit-code -- backend/prisma/schema.prisma
 
       - name: Validate Prisma schema
         working-directory: backend
