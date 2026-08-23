@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ErrorState, Skeleton, StatisticCard, StatusBadge } from './components';
 import { getBusinessDashboard } from './api/businessDashboardClient';
+import { FinancialReadinessPanel } from './FinancialReadiness';
 
 const money = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(value || 0));
 const pct = (value) => `${Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`;
@@ -16,6 +17,7 @@ export function BusinessDashboardPage({ client = getBusinessDashboard }) {
   if (state.status === 'loading' && !state.data) return <Skeleton />; if (state.status === 'error') return <ErrorState />; const data = state.data; if (!data) return null;
 
   return <div className="dashboard">
+    <FinancialReadinessPanel />
     <section className="card" aria-label="Период бизнес-статистики"><div className="card-heading"><div><h2>Период</h2><p style={{ margin: '6px 0 0' }}>Выберите даты и примените фильтр ко всем показателям ниже.</p></div><StatusBadge status="LIVE" /></div><div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}><label>С<input type="date" value={filters.from} onChange={(e) => setFilters((v) => ({ ...v, from: e.target.value }))} /></label><label>По<input type="date" value={filters.to} onChange={(e) => setFilters((v) => ({ ...v, to: e.target.value }))} /></label><button type="button" onClick={() => setApplied(filters)}>Показать</button></div><small>Фактический диапазон: {data.period.from} — {data.period.to} · {data.period.days} дн.</small></section>
 
     <section className="statistics" aria-label="Ключевые бизнес-показатели"><StatisticCard label="Пользователей в системе" value={data.users.total} detail={`Новых за период: ${data.users.newInPeriod}`} /><StatisticCard label="Участников Клуба" value={data.club.membersTotal} detail={`Вступили за период: ${data.club.joinedInPeriod}`} /><StatisticCard label="Пополнений / взносов" value={data.club.paidTopupsInPeriod} detail={money(data.club.topupAmountRubInPeriod)} /><StatisticCard label="Оплаченных покупок" value={data.sales.paidOrdersInPeriod} detail={`Завершено выдач: ${data.sales.completedOrdersInPeriod}`} /><StatisticCard label="Выручка за период" value={money(data.sales.revenueRubInPeriod)} /><StatisticCard label="Оплачено, но не забрали" value={data.sales.awaitingPickupCount} detail={money(data.sales.awaitingPickupAmountRub)} tone={data.sales.awaitingPickupCount ? 'warning' : 'neutral'} /><StatisticCard label="Принято рефералов" value={data.referrals.acceptedTotal} detail={`Активных с первой покупкой: ${data.referrals.activeTotal}`} /><StatisticCard label="Конверсия в первую покупку" value={pct(data.referrals.conversionToFirstPurchasePct)} /></section>
