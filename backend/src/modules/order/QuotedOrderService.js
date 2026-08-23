@@ -32,6 +32,9 @@ class QuotedOrderService {
 
     try {
       await this.pricingEngineService.consumeQuote(quoteId, { orderId: result.order.id });
+      if (!quote.paymentRequired && this.pricingEngineService.completePaidOrder) {
+        await this.pricingEngineService.completePaidOrder(result.order.id);
+      }
     } catch (error) {
       if (result.order.status === ORDER_STATUS.PAYMENT_PENDING) {
         await this.orderRuntime.cancelOrder(result.order.id, { ...context, customerId, reasonCode: 'pricing_quote_consume_failed' });
