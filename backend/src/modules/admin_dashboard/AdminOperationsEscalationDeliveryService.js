@@ -35,8 +35,7 @@ class AdminOperationsEscalationDeliveryService {
       await this.#record(escalation.id, 'SYSTEM', null, 'BLOCKED', 'RECIPIENT_NOT_LINKED', 'Получатель эскалации не связан с platform user.');
       return { escalationId: escalation.id, queued: 0, blocked: 1, failed: 0 };
     }
-    const profile = await this.specialistDirectory.getBySubject(recipientCustomerId);
-    const channels = await this.#eligibleChannels(recipientCustomerId, profile);
+    const channels = await this.#eligibleChannels(recipientCustomerId);
     if (!channels.length) {
       await this.#record(escalation.id, 'SYSTEM', recipientCustomerId, 'BLOCKED', 'NO_VERIFIED_CHANNEL', 'Нет подтверждённого активного Telegram/MAX канала для служебной эскалации.');
       return { escalationId: escalation.id, queued: 0, blocked: 1, failed: 0 };
@@ -66,15 +65,16 @@ class AdminOperationsEscalationDeliveryService {
     return value;
   }
 
-  async #eligibleChannels(customerId, profile) {
-    const subscriptions = await this.prisma.$queryRawUnsafe(
-      `SELECT "channelType" FROM "CustomerChannelSubscription" WHERE "customerId"=$1 AND "isSubscribed"=TRUE AND UPPER("channelType") IN ('TELEGRAM','MAX')`, customerId,
-    );
+  async #eligibleChannels(customerId) {
+    const [subscriptions, profiles, customerRows] = await Promise.all([
+      this.prisma.$queryRawUnsafe(`SELECT "channelType" FROM "CustomerChannelSubscription" WHERE "customerId"=$1 AND "isSubscribed"=TRUE AND UPPER("channelType") IN ('TELEGRAM','MAX')`, customerId),
+      this.prisma.$queryRawUnsafe(`SELECT "channelType","externalUserId","isVerified","status" FROM "CustomerExternalProfile" WHERE "customerId"=$1 AND UPPER("channelType") IN ('TELEGRAM','MAX')`, customerId),
+      this.prisma.$queryRawUnsafe(`SELECT "telegramId" FROM "Customer" WHERE "id"=$1 LIMIT 1`, customerId),
+    ]);
     const active = new Set(subscriptions.map((row) => String(row.channelType).toUpperCase()));
-    const result = [];
-    if (active.has('TELEGRAM') && profile?.channels?.telegram?.verified) result.push('TELEGRAM');
-    if (active.has('MAX') && profile?.channels?.max?.verified) result.push('MAX');
-    return result;
+    const verified = new Set(profiles.filter((row) => row.isVerified && row.externalUserId).map((row) => String(row.channelType).toUpperCase()));
+    if (customerRows[0]?.telegramId) verified.add('TELEGRAM');
+    return ['TELEGRAM', 'MAX'].filter((channel) => active.has(channel) && verified.has(channel));
   }
 
   async #queueCrm(escalation, customerId, channel) {
@@ -85,8 +85,7 @@ class AdminOperationsEscalationDeliveryService {
     const now = this.clock();
     const body = [`Эскалация L${escalation.level}: ${escalation.title}`, escalation.message, escalation.reason, escalation.deepLink ? `Раздел: ${escalation.deepLink}` : null].filter(Boolean).join('\n');
     await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "CrmNotificationDelivery" ("id","customerId","channel","subject","body","status","idempotencyKey","correlationId","createdBy","createdAt")
-       VALUES ($1,$2,$3,$4,$5,'QUEUED',$6,$7,'operations-escalation',$8)`,
+      `INSERT INTO "CrmNotificationDelivery" ("id","customerId","channel","subject","body","status","idempotencyKey","correlationId","createdBy","createdAt") VALUES ($1,$2,$3,$4,$5,'QUEUED',$6,$7,'operations-escalation',$8)`,
       id, customerId, channel, `У Тимоши · эскалация L${escalation.level}`, body, idempotencyKey, escalation.id, now,
     );
     return id;
@@ -95,9 +94,7 @@ class AdminOperationsEscalationDeliveryService {
   async #record(escalationId, channel, recipientCustomerId, status, failureCode, failureMessage, crmDeliveryId = null) {
     const now = this.clock();
     await this.prisma.$executeRawUnsafe(
-      `INSERT INTO "AdminOperationsEscalationDelivery" ("id","escalationId","recipientCustomerId","channel","status","crmDeliveryId","failureCode","failureMessage","attemptCount","lastAttemptAt","queuedAt","createdAt","updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,CASE WHEN $5='QUEUED' THEN $9 ELSE NULL END,$9,$9)
-       ON CONFLICT ("escalationId","channel") DO UPDATE SET "recipientCustomerId"=EXCLUDED."recipientCustomerId","status"=EXCLUDED."status","crmDeliveryId"=COALESCE(EXCLUDED."crmDeliveryId","AdminOperationsEscalationDelivery"."crmDeliveryId"),"failureCode"=EXCLUDED."failureCode","failureMessage"=EXCLUDED."failureMessage","attemptCount"="AdminOperationsEscalationDelivery"."attemptCount"+1,"lastAttemptAt"=EXCLUDED."lastAttemptAt","queuedAt"=COALESCE("AdminOperationsEscalationDelivery"."queuedAt",EXCLUDED."queuedAt"),"updatedAt"=EXCLUDED."updatedAt"`,
+      `INSERT INTO "AdminOperationsEscalationDelivery" ("id","escalationId","recipientCustomerId","channel","status","crmDeliveryId","failureCode","failureMessage","attemptCount","lastAttemptAt","queuedAt","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,CASE WHEN $5='QUEUED' THEN $9 ELSE NULL END,$9,$9) ON CONFLICT ("escalationId","channel") DO UPDATE SET "recipientCustomerId"=EXCLUDED."recipientCustomerId","status"=EXCLUDED."status","crmDeliveryId"=COALESCE(EXCLUDED."crmDeliveryId","AdminOperationsEscalationDelivery"."crmDeliveryId"),"failureCode"=EXCLUDED."failureCode","failureMessage"=EXCLUDED."failureMessage","attemptCount"="AdminOperationsEscalationDelivery"."attemptCount"+1,"lastAttemptAt"=EXCLUDED."lastAttemptAt","queuedAt"=COALESCE("AdminOperationsEscalationDelivery"."queuedAt",EXCLUDED."queuedAt"),"updatedAt"=EXCLUDED."updatedAt"`,
       randomUUID(), escalationId, recipientCustomerId, channel, status, crmDeliveryId, failureCode, failureMessage, now,
     );
   }
