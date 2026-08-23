@@ -2,31 +2,40 @@ const express = require('express');
 
 const { toDispenseRequestDto } = require('../../modules/machine/machineDto');
 const { toOrderCreationDto, toOrderDto } = require('../../modules/order/orderDto');
+const { QuotedOrderService } = require('../../modules/order/QuotedOrderService');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
+const { resolvePricingService } = require('./pricingRoutes');
 
-function createOrderRouter({ authCoreService, machineRuntime, orderRuntime }) {
+function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...dependencies }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
+  const quotedOrderService = new QuotedOrderService({
+    orderRuntime,
+    pricingEngineService: resolvePricingService({ authCoreService, machineRuntime, orderRuntime, ...dependencies }),
+  });
 
   router.post(
     '/',
     authenticateCustomer,
     asyncHandler(async (req, res) => {
-      const result = await orderRuntime.createOrder(
-        req.securityContext.subject_id,
-        normalizeCreateOrderRequest(req.body),
-        {
-          correlationId: req.correlationId,
-          idempotencyKey: req.get('Idempotency-Key') || null,
-          authMethod: req.securityContext.auth_method,
-          sourceChannel: 'api_v1',
-          actorType: 'customer',
-          actorId: req.securityContext.subject_id,
-        },
-      );
+      const request = normalizeCreateOrderRequest(req.body);
+      const context = {
+        correlationId: req.correlationId,
+        idempotencyKey: req.get('Idempotency-Key') || null,
+        authMethod: req.securityContext.auth_method,
+        sourceChannel: 'api_v1',
+        actorType: 'customer',
+        actorId: req.securityContext.subject_id,
+      };
+      const result = request.quoteId
+        ? await quotedOrderService.createOrder(req.securityContext.subject_id, { quoteId: request.quoteId }, context)
+        : await orderRuntime.createOrder(req.securityContext.subject_id, request, context);
 
-      sendData(res, req, toOrderCreationDto(result), 201);
+      const dto = toOrderCreationDto(result);
+      if (result.pricing) dto.pricing = result.pricing;
+      if (result.paymentBypassed) dto.payment_bypassed = true;
+      sendData(res, req, dto, 201);
     }),
   );
 
@@ -78,6 +87,7 @@ function createCustomerOrdersRouter({ authCoreService, orderRuntime }) {
 
 function normalizeCreateOrderRequest(body) {
   return {
+    quoteId: body && (body.quoteId ?? body.quote_id),
     amount: body && (body.amount ?? body.amount_rub ?? body.amountRub),
     currency: (body && body.currency) || 'RUB',
   };
