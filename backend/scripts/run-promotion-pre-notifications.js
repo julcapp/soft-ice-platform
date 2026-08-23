@@ -14,11 +14,15 @@ async function main() {
     resolver: new ActivePromotionResolver({ prisma }),
     dispatchers: createPromotionDispatchersFromEnv(process.env),
   });
-  const results = await service.dispatchDueNotifications({
+  const options = {
     machineId: process.env.PROMOTION_NOTIFICATION_MACHINE_ID || null,
     withinSeconds: Number(process.env.PROMOTION_NOTIFICATION_TOLERANCE_SECONDS || 75),
-  });
-  process.stdout.write(`${JSON.stringify({ checked_at: new Date().toISOString(), results })}\n`);
+  };
+  const [preNotifications, lifecycle] = await Promise.all([
+    service.dispatchDueNotifications(options),
+    service.dispatchDueLifecycleEvents(options),
+  ]);
+  process.stdout.write(`${JSON.stringify({ checked_at: new Date().toISOString(), preNotifications, lifecycle })}\n`);
 }
 
 main().catch((error) => {
