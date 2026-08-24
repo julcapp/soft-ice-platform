@@ -1,3 +1,5 @@
+const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
+const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
 const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
@@ -66,6 +68,12 @@ function createApp(options = {}) {
     });
   }
 
+  // Equipment Sandbox is optional. Existing application scenarios must keep
+  // working when the equipment integration service is not configured.
+  if (dependencies.equipmentIntegrationService) {
+    app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
+    app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
+  }
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {

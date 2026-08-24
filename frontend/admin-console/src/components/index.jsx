@@ -13,6 +13,7 @@ export function StatusBadge({ status }) {
     WARNING: 'Предупреждение', SUSPENDED: 'Приостановлена', ARCHIVED: 'Архив', BLOCKED: 'Заблокирована',
     INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль', VERIFIED: 'Подтверждено',
     CONTROLLED: 'Управляемый контур',
+    SANDBOX: 'Тестовый контур',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
 }
@@ -80,6 +81,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Парк автоматов', href: '#machines' },
     { label: 'Цифровой двойник автомата', href: '#machine-twins' },
     { label: 'Контур управления автоматами', href: '#machine-runtime' },
+    { label: 'Тестовый стенд оборудования', href: '#equipment-sandbox', sandbox: true },
     { label: 'Складской учёт', href: '#inventory' },
     { label: 'Рабочее место оператора', href: '#operators' },
     { label: 'Техническое обслуживание', href: '#maintenance' },
@@ -90,7 +92,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Журнал доставки', href: '#platform-events' },
     { label: 'Хранилище недоставленных событий', href: '#dead-letter' },
   ];
-  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Управление платформой</small>{items.map((item, index) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{item.managed ? <small>Управляемый модуль</small> : ![0,4].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Доступ зависит от роли и возможностей раздела</div></aside>;
+  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Управление платформой</small>{items.map((item, index) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{item.sandbox ? <small>Тестовый контур</small> : item.managed ? <small>Управляемый модуль</small> : ![0,4].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Доступ зависит от роли и возможностей раздела</div></aside>;
 }
 
 export function Header({ onMenu }) {

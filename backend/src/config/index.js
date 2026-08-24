@@ -57,6 +57,13 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       queueMaxSize: parseInteger(environment.HUAXIN_COMMAND_QUEUE_SIZE, 100, 'HUAXIN_COMMAND_QUEUE_SIZE'),
       telemetryLimit: parseInteger(environment.HUAXIN_TELEMETRY_LIMIT, 100, 'HUAXIN_TELEMETRY_LIMIT'),
     },
+    equipmentIntegration: {
+      enabled: parseBoolean(environment.EQUIPMENT_INTEGRATION_ENABLED, false),
+      apiKey: secretProvider.get('EQUIPMENT_INTEGRATION_API_KEY'),
+      testMachineId: environment.EQUIPMENT_INTEGRATION_TEST_MACHINE_ID || 'TEST-MACHINE-001',
+      telemetryLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT, 200, 'EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT'),
+      eventLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_EVENT_LIMIT, 200, 'EQUIPMENT_INTEGRATION_EVENT_LIMIT'),
+    },
     features: Object.freeze({
       paymentsEnabled: parseBoolean(environment.FEATURE_PAYMENTS_ENABLED, false),
       machineDispatchEnabled: parseBoolean(environment.FEATURE_MACHINE_DISPATCH_ENABLED, false),
@@ -71,6 +78,7 @@ function validateConfig(config) {
   const missing = [];
   if (config.isProduction && !config.database.url) missing.push('DATABASE_URL');
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
+  if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
 }
