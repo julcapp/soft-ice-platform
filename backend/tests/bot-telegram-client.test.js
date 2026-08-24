@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { TelegramBotApiClient } = require('../src/modules/bot_core/TelegramBotApiClient');
+const { BotTransportSender } = require('../src/modules/bot_core/BotTransportSender');
 const { createBotClientsFromEnv } = require('../src/modules/bot_core/createBotClientsFromEnv');
 
 function fakeTelegramFetch(calls, result = { message_id: 1 }) {
@@ -26,6 +27,25 @@ test('TelegramBotApiClient sends rendered message through Bot API contract', asy
   assert.deepEqual(calls[0].body, {
     chat_id: 123,
     text: 'Привет',
+    reply_markup: { inline_keyboard: [] },
+  });
+});
+
+test('BotTransportSender passes resolved Telegram chatId to Bot API client', async () => {
+  const calls = [];
+  const client = new TelegramBotApiClient({ token: 'test-token', fetchImpl: fakeTelegramFetch(calls) });
+  const sender = new BotTransportSender({ telegramClient: client });
+
+  await sender.send({
+    channel: 'telegram',
+    destination: { chatId: '572898079', callbackQueryId: null },
+    rendered: { text: 'Тест', reply_markup: { inline_keyboard: [] } },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, {
+    chat_id: '572898079',
+    text: 'Тест',
     reply_markup: { inline_keyboard: [] },
   });
 });
