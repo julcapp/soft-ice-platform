@@ -35,7 +35,10 @@ export class SalesTerminalService {
     return { product, configuration, recipe, pricing };
   }
 
-  createPaymentIntent({ channelId, methodId, orderPreview }) {
+  createPaymentIntent({ channelId, methodId, orderPreview, quote }) {
+    if (!quote?.id || quote.finalAmount == null) {
+      throw new Error('Server pricing quote is required before payment.');
+    }
     const channel = SALES_CHANNELS.find(({ id }) => id === channelId);
     const sequence = String(Date.now()).slice(-4);
 
@@ -46,8 +49,13 @@ export class SalesTerminalService {
       channelId,
       fulfillment: channel.fulfillment,
       methodId,
-      amount: orderPreview.pricing.finalPrice,
-      currency: orderPreview.pricing.currency,
+      amount: Number(quote.finalAmount),
+      currency: quote.currency || orderPreview.pricing.currency,
+      pricingQuoteId: quote.id,
+      campaignId: quote.campaignId || null,
+      giftAmount: Number(quote.giftAmount || 0),
+      promotionDiscountAmount: Number(quote.promotionDiscountAmount || 0),
+      paymentRequired: Boolean(quote.paymentRequired),
       status: 'pending',
     };
   }

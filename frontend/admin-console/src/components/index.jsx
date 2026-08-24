@@ -12,6 +12,7 @@ export function StatusBadge({ status }) {
     STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
     WARNING: 'Предупреждение', SUSPENDED: 'Приостановлена', ARCHIVED: 'Архив', BLOCKED: 'Заблокирована',
     INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль', VERIFIED: 'Подтверждено',
+    CONTROLLED: 'Управляемый контур',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
 }
@@ -75,6 +76,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Бизнес-статистика', href: '#business-analytics', managed: true },
     { label: 'Пользователи', href: '#users', managed: true },
     { label: 'Организации', href: '#organizations' },
+    { label: 'Promotion Engine', href: '#promotions', managed: true },
     { label: 'Парк автоматов', href: '#machines' },
     { label: 'Цифровой двойник автомата', href: '#machine-twins' },
     { label: 'Контур управления автоматами', href: '#machine-runtime' },

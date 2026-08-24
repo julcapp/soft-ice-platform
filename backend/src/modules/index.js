@@ -21,6 +21,7 @@ const eventCenter = require('./event_center');
 const organization = require('./organization');
 const saleFlow = require('./sale_flow');
 const photoVerification = require('./photo_verification');
+const promotionEngine = require('./promotion_engine');
 
 const moduleManifests = [
   customer,
@@ -46,6 +47,7 @@ const moduleManifests = [
   organization,
   saleFlow,
   photoVerification,
+  promotionEngine,
 ];
 
 module.exports = {

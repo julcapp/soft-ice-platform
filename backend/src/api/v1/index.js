@@ -53,6 +53,9 @@ const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes
 const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('./photoVerificationRoutes');
 const { createPrivateChannelRouter } = require('./privateChannelRoutes');
 const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes');
+const { createPromotionAdminRouter } = require('./promotionRoutes');
+const { createPricingRouter } = require('./pricingRoutes');
+const { createPaymentRouter } = require('./paymentRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -97,12 +100,15 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine-operations', createMachineOperationsRouter(runtimeDependencies));
   router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
   router.use('/orders', createOrderRouter(runtimeDependencies));
+  router.use('/pricing', createPricingRouter(runtimeDependencies));
+  router.use('/payments', createPaymentRouter(runtimeDependencies));
   if (runtimeDependencies.giftTransferRuntime) {
     router.use('/me', createGiftTransferRouter(runtimeDependencies));
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
   router.use('/telegram', createTelegramRouter(runtimeDependencies));
   router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
+  router.use('/admin/promotions', createPromotionAdminRouter(runtimeDependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
   router.use('/admin/platform-events', createPlatformEventRouter(runtimeDependencies));
