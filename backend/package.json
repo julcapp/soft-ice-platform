@@ -19,7 +19,8 @@
     "operations:escalation-delivery": "node scripts/run-admin-operations-escalation-delivery.js",
     "crm:direct-delivery": "node scripts/run-crm-direct-message-delivery.js",
     "dev": "node src/main.js",
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "bot:test:configure": "node scripts/configure-telegram-test-bot.js"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

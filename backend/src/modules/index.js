@@ -22,6 +22,9 @@ const organization = require('./organization');
 const saleFlow = require('./sale_flow');
 const photoVerification = require('./photo_verification');
 const promotionEngine = require('./promotion_engine');
+const botCore = require('./bot_core');
+const referral = require('./referral');
+const welcomeBonus = require('./welcome_bonus');
 
 const moduleManifests = [
   customer,
@@ -48,6 +51,9 @@ const moduleManifests = [
   saleFlow,
   photoVerification,
   promotionEngine,
+  botCore,
+  referral,
+  welcomeBonus,
 ];
 
 module.exports = {
