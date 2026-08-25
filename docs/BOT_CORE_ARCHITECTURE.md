@@ -36,6 +36,8 @@ Telegram and MAX webhooks use separate handlers but share Bot Runtime. Telegram 
 
 `BOT_WEBHOOKS_ENABLED=false` is the default production safety boundary. Existing Telegram/YooKassa production behavior is not replaced until the Bot Core rollout is explicitly enabled.
 
+Telegram Bot API 10.3 capabilities are controlled separately by `TELEGRAM_RICH_MESSAGES_ENABLED`, `TELEGRAM_EPHEMERAL_MESSAGES_ENABLED` and `TELEGRAM_DISABLED_BUTTONS_ENABLED`. All three default to `false`; their adoption and noncritical-delivery boundary are defined in ADR-046.
+
 ## CI readiness gate
 
 Bot Core CI is mandatory before production enablement and runs:

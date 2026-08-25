@@ -57,7 +57,10 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
 
   return new BotRuntime({
     adapters: { telegram: new TelegramAdapter(clients.telegram), max: new MaxAdapter(clients.max) },
-    renderers: { telegram: new TelegramRenderer(), max: new MaxRenderer() },
+    renderers: {
+      telegram: new TelegramRenderer({ features: clients.telegram?.features }),
+      max: new MaxRenderer(),
+    },
     actionRouter: new BotActionRouter({ customerExperienceService }),
     onboardingService,
     customerResolver,

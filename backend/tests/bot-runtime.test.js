@@ -36,6 +36,7 @@ test('Telegram callback is normalized, routed and rendered', async () => {
   assert.equal(routed[0].action, 'club');
   assert.equal(routed[0].customerId, 'customer-1');
   assert.equal(result.destination.chatId, '20');
+  assert.equal(result.destination.userId, '10');
   assert.equal(result.rendered.reply_markup.inline_keyboard[0][0].callback_data, 'action:menu');
   assert.equal(result.result.sent, false);
 });

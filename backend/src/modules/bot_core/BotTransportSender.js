@@ -19,7 +19,22 @@ class BotTransportSender {
 
     if (this.telegramClient.sendMessageContract === 'telegram_bot_api') {
       if (!destination?.chatId) throw new Error('Telegram destination chatId is required.');
-      return this.telegramClient.sendMessage(destination.chatId, rendered.text, { reply_markup: rendered.reply_markup });
+      const options = { reply_markup: rendered.reply_markup };
+      const ephemeral = buildEphemeralParameters({
+        destination,
+        delivery: rendered.delivery,
+        enabled: this.telegramClient.features?.ephemeralMessages === true,
+      });
+      if (ephemeral) options.ephemeral_message_parameters = ephemeral;
+
+      if (rendered.rich_message && this.telegramClient.features?.richMessages === true) {
+        if (typeof this.telegramClient.sendRichMessage !== 'function') {
+          throw new Error('telegramClient.sendRichMessage is required when rich messages are enabled.');
+        }
+        return this.telegramClient.sendRichMessage(destination.chatId, rendered.rich_message, options);
+      }
+
+      return this.telegramClient.sendMessage(destination.chatId, rendered.text, options);
     }
 
     // Compatibility contract for transport fakes/legacy adapters that accept
@@ -34,4 +49,23 @@ class BotTransportSender {
   }
 }
 
-module.exports = { BotTransportSender };
+function buildEphemeralParameters({ destination, delivery, enabled }) {
+  if (!enabled || delivery?.mode !== 'ephemeral' || delivery?.critical !== false) return null;
+  const receiverUserId = telegramInteger(destination?.userId);
+  if (receiverUserId === null) return null;
+  const parameters = { receiver_user_id: receiverUserId };
+  if (destination.callbackQueryId) parameters.callback_query_id = destination.callbackQueryId;
+  if (delivery.replaceCallbackQueryMessage === true) parameters.replace_callback_query_message = true;
+  return parameters;
+}
+
+function telegramInteger(value) {
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+module.exports = { BotTransportSender, buildEphemeralParameters };
