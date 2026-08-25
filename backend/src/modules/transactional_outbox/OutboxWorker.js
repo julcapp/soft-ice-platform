@@ -4,9 +4,9 @@ class RetryPolicy {
 }
 class OutboxWorker {
   constructor({ repository, publisher, workerId, clock=()=>new Date(), batchSize=50, leaseMs=60000, retryPolicy=new RetryPolicy() }) { Object.assign(this,{repository,publisher,workerId,clock,batchSize,leaseMs,retryPolicy}); }
-  async runOnce({ organizationId } = {}) {
+  async runOnce({ organizationId, eventTypes } = {}) {
     const now=this.clock(); await this.repository.releaseExpiredLocks({before:new Date(now.getTime()-this.leaseMs),now});
-    const events=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:this.batchSize,now,organizationId});
+    const events=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:this.batchSize,now,organizationId,eventTypes});
     const results=[];
     for(const event of events){
       try { await this.publisher.publish(toEnvelope(event)); }

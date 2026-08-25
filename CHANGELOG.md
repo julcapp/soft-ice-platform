@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-25 — Machine/Inventory crash-restart verification hardening
+
+- PostgreSQL Machine suite расширен до полной 12-point failure-injection/crash-restart matrix с доказательством отсутствия physical resend и повторных Inventory/Order/Sale Flow/terminal Machine effects.
+- PostgreSQL Inventory suite получил отдельные 20x reservation, consume, release и competing проверки persisted invariants без oversell, double consume и lost update.
+- Sale Flow recovery теперь безопасно перечитывает flow после ожидаемого optimistic concurrency conflict с owning operation и не обрывает остальной recovery batch.
+
+## 2026-08-24 — Machine callback recovery и test actor validation
+
+- Callback lease получил монотонную версию ownership; claim, физический результат, Inventory/Order/Sale Flow/Outbox и Inbox finalization теперь проверяют ownership и фиксируются одной PostgreSQL-транзакцией.
+- `OPERATOR_TEST`/`MAINTENANCE_TEST` выводят actor только из server `securityContext`, затем подтверждают active membership и фактическую роль в PostgreSQL; payload actor/roles/organizationMember игнорируются.
+- Append-only migration добавляет локальные CHECK constraints для temporal lifecycle `MachineDispenseAttempt`, `MachineCallbackInbox` и resolved reconciliation.
+- Добавлен durable lease/reclaim для callback Inbox в `PROCESSING` и безопасная restart-finalization без повторных физических или доменных эффектов.
+- Test dispense теперь fail-closed проверяет доверенный actor type, активную организационную роль и tenant membership.
+- Добавлены PostgreSQL regression/concurrency/failure-injection сценарии для 20 recovery workers и crash перед Inbox finalization.
+
 ## 2026-08-23 — Payment Lifecycle & Reconciliation v1
 
 - Устранены три HIGH-дефекта повторной ревизии: create-idempotency теперь сверяет persisted server-side fingerprint и fail-closed отклоняет изменённый Order/amount/currency/provider, включая concurrent race и restart.
@@ -474,6 +489,23 @@
 - Для исторической ответственности за аппарат заменено конфликтующее удаление FK `SET NULL` на `RESTRICT` отдельной корректирующей миграцией.
 - Добавлены регрессионная проверка Prisma-схемы и сценарий сохранности machine responsibility history.
 # 2026-08-17 — Сквозной сценарий продажи Soft ICE v1
+# 2026-08-24 — Machine Lifecycle / Dispense Runtime v1 internal recovery hardening
+
+- Production Payment success атомарно создаёт durable Machine attempt, stable command identity и существующий Transactional Outbox intent.
+- Добавлены фильтрованный Machine Command Worker и lease-based Recovery Worker без blind resend после `DISPATCHING`.
+- Restart recovery охватывает все незавершённые состояния; test-workflow idempotency включает reason/service context.
+- Усилены PostgreSQL ownership/terminal/reconciliation constraints и Admin observability с безопасной audited-классификацией.
+- Реальные Huaxin API, hardware adapter, callback authentication и provider-state query остаются fail-closed `BLOCKED_EXTERNAL`.
+
+# 2026-08-23 — Machine Lifecycle / Dispense Runtime v1
+
+- Устранены CRITICAL/HIGH дефекты независимой ревизии: durable `DISPATCHING` claim исключает конкурентный provider send, callback identity защищена immutable fingerprint и retry claim, PostgreSQL ownership усилен составными ограничениями, production composition больше не вызывает legacy `DispenseRequest` lifecycle.
+
+- Добавлены durable attempt, deny-by-default state machine, callback Inbox, audit и reconciliation.
+- Команда ставится в существующий Transactional Outbox; `commandId` защищает at-least-once delivery от double dispense.
+- `DISPENSED` объединяет Machine, Inventory, Order, Sale Flow и Outbox в PostgreSQL-транзакции; timeout/неизвестный расход направляются в reconciliation.
+- Добавлен русскоязычный read-only раздел «Выдачи аппаратов» без опасной команды повторной выдачи.
+
 
 - Добавлен application orchestration-слой продажи без дублирования существующих доменов.
 - Добавлены заменяемые симуляторы оплаты и аппарата, явная state machine, одноразовое разрешение и идемпотентные эффекты.

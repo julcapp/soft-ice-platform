@@ -14,6 +14,7 @@ import { getGiftTransfers } from './api/giftTransferClient';
 import { OrganizationsPage } from './Organizations';
 import { TransactionalOutboxPage } from './TransactionalOutbox';
 import { PaymentsPage } from './Payments';
+import { MachineDispensesPage } from './MachineDispenses';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -80,6 +81,8 @@ export function App({ client = getDashboard }) {
   const organizationRoute = route === 'organizations' || route.startsWith('organizations/');
   const outboxRoute = route === 'transactional-outbox';
   const paymentsRoute = route === 'payments';
+  const machineDispensesRoute = route === 'machine-dispenses';
+  if (machineDispensesRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Автоматы" title="Выдачи аппаратов" copy="Физические операции, callback и сверка. Только чтение; опасного повтора выдачи нет." /><MachineDispensesPage /></AppShell>;
   if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PaymentsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;
   if (organizationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Организация 360" title={route.includes('/') ? 'Карточка организации' : 'Организации'} copy="Единый организационный контекст подразделений, сотрудников, точек, аппаратов и ответственности." /><OrganizationsPage route={route} /></AppShell>;

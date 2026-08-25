@@ -1,0 +1,2 @@
+import React from'react';import{describe,it,expect}from'vitest';import{renderToStaticMarkup}from'react-dom/server';import{MachineDispensesPage}from'./MachineDispenses';
+describe('Выдачи аппаратов',()=>{it('не содержит опасной команды повторной выдачи',()=>{const html=renderToStaticMarkup(<MachineDispensesPage client={async()=>[]}/>);expect(html).not.toContain('Повторить выдачу');expect(html).not.toContain('Отправить команду');});});

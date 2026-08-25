@@ -16,20 +16,24 @@ class MachineRuntime {
   }
 
   async requestDispenseForPaidOrder(order, context) {
-    return this.machineService.requestDispenseForPaidOrder(order, context);
+    throw legacyDisabled();
   }
 
   async receiveDispenseCommand(dispenseRequestId, context) {
-    return this.machineService.receiveDispenseCommand(dispenseRequestId, context);
+    throw legacyDisabled();
   }
 
   async completeDispense(dispenseRequestId, context) {
-    return this.machineService.completeDispense(dispenseRequestId, context);
+    throw legacyDisabled();
   }
 
   async failDispense(dispenseRequestId, reasonCode, context) {
-    return this.machineService.failDispense(dispenseRequestId, reasonCode, context);
+    throw legacyDisabled();
   }
+}
+
+function legacyDisabled() {
+  return Object.assign(new Error('Legacy DispenseRequest доступен только для чтения; физической выдачей владеет MachineDispenseService.'), { code: 'LEGACY_DISPENSE_RUNTIME_DISABLED', statusCode: 410 });
 }
 
 module.exports = {

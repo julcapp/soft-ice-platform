@@ -28,6 +28,7 @@ const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
+const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -85,6 +86,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
   if (dependencies.paymentRepository) router.use('/admin/payments', createPaymentRouter(dependencies));
   if (dependencies.paymentService) router.use('/webhooks/payments', createPaymentWebhookRouter(dependencies));
+  if (dependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(dependencies));
+  if (dependencies.machineDispenseService) router.use('/webhooks/machines', createMachineCallbackRouter(dependencies));
 
   router.use((req, res, next) => {
     next(

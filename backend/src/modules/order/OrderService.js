@@ -263,39 +263,12 @@ class OrderService {
   }
 
   async prepareMachineDispenseIntegration(order, context) {
-    if (
-      this.machineRuntime &&
-      typeof this.machineRuntime.requestDispenseForPaidOrder === 'function'
-    ) {
-      const result = await this.machineRuntime.requestDispenseForPaidOrder(order, {
-        ...context,
-        actorType: context.actorType || 'system',
-        actorId: context.actorId || 'order_runtime',
-      });
-
-      return {
-        service: 'MachineRuntime',
-        status: 'requested',
-        applied: true,
-        created: result.created,
-        order_id: order.id,
-        machine_id: result.dispenseRequest.machineId,
-        dispense_request_id: result.dispenseRequest.id,
-        command_id: result.dispenseRequest.commandId,
-        state: result.dispenseRequest.state,
-      };
-    }
-
     return {
-      service: 'MachineRuntime',
+      service: 'MachineDispenseService',
       status: 'prepared',
       applied: false,
       order_id: order.id,
-      future_capabilities: [
-        'dispense_request',
-        'machine_command_delivery',
-        'machine_execution_events',
-      ],
+      fulfillment_owner: 'MachineDispenseService',
     };
   }
 

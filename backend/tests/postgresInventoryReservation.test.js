@@ -53,3 +53,44 @@ pg('one invalid item rolls back the complete multi-item quantity transaction', a
   await assert.rejects(() => prisma.$transaction(async (tx) => { await tx.inventoryRuntimeReservationItem.update({ where: { id: first.id }, data: { consumedQuantity: 1 } }); await tx.inventoryRuntimeReservationItem.update({ where: { id: second.id }, data: { consumedQuantity: 2 } }); }));
   const rows = await prisma.inventoryRuntimeReservationItem.findMany({ where: { reservationId: held.reservation.reservationId } }); assert.ok(rows.every((row) => row.consumedQuantity === 0));
 });
+
+pg('20x concurrent reservation has no oversell or lost update', async () => {
+  const f = await fixture({ quantity: 10 });
+  const results = await Promise.all(Array.from({ length: 20 }, (_, index) => { const c = command(f, `reserve20_${index}_${crypto.randomUUID()}`); return f.service.reserve(c.request, c.context); }));
+  assert.equal(results.filter((result) => result.reservation.status === 'RESERVED').length, 10);
+  assert.equal(results.filter((result) => result.reservation.status === 'FAILED').length, 10);
+  const stock = await prisma.inventoryRuntimeStock.findFirst({ where: f.scope });
+  assert.deepEqual([stock.physicalQuantity, stock.activeReservedQuantity], [10, 10]);
+});
+
+for (const action of ['consume', 'release']) pg(`20x concurrent ${action} has one logical terminal effect`, async () => {
+  const f = await fixture(); const c = command(f, `${action}20_${crypto.randomUUID()}`); const held = await f.service.reserve(c.request, c.context);
+  const results = await Promise.all(Array.from({ length: 20 }, (_, index) => f.service[action](held.reservation.reservationId, {}, { organizationId: f.scope.organizationId, actorType: 'SYSTEM', actorId: 'test', idempotencyKey: `${action}20_${index}_${crypto.randomUUID()}` })));
+  assert.equal(results.filter((result) => !result.idempotentReplay).length, 1);
+  assert.equal(results.filter((result) => result.idempotentReplay).length, 19);
+  const [stock, items, movements] = await Promise.all([
+    prisma.inventoryRuntimeStock.findFirst({ where: f.scope }),
+    prisma.inventoryRuntimeReservationItem.findMany({ where: { reservationId: held.reservation.reservationId } }),
+    prisma.inventoryRuntimeMovement.count({ where: { sourceId: held.reservation.reservationId } }),
+  ]);
+  assert.deepEqual([stock.physicalQuantity, stock.activeReservedQuantity], action === 'consume' ? [0, 0] : [1, 0]);
+  assert.equal(movements, action === 'consume' ? 1 : 0);
+  assert.ok(items.every((item) => item.consumedQuantity + item.releasedQuantity <= item.reservedQuantity && item.reservedQuantity <= item.quantity));
+  assert.ok(items.every((item) => [item.quantity, item.reservedQuantity, item.consumedQuantity, item.releasedQuantity].every((value) => value >= 0)));
+});
+
+pg('20x competing reservation consume release has one winner and preserves all invariants', async () => {
+  const f = await fixture(); const c = command(f, `competing20_${crypto.randomUUID()}`); const held = await f.service.reserve(c.request, c.context);
+  const actions = Array.from({ length: 20 }, (_, index) => index % 2 ? 'consume' : 'release');
+  const settled = await Promise.allSettled(actions.map((action, index) => f.service[action](held.reservation.reservationId, {}, { organizationId: f.scope.organizationId, actorType: 'SYSTEM', actorId: 'test', idempotencyKey: `competing20_${action}_${index}_${crypto.randomUUID()}` })));
+  const reservation = await prisma.inventoryRuntimeReservation.findUnique({ where: { reservationId: held.reservation.reservationId }, include: { items: true } });
+  const stock = await prisma.inventoryRuntimeStock.findFirst({ where: f.scope });
+  const movements = await prisma.inventoryRuntimeMovement.count({ where: { sourceId: held.reservation.reservationId } });
+  assert.ok(['CONSUMED', 'RELEASED'].includes(reservation.status));
+  assert.equal(settled.filter((result) => result.status === 'fulfilled' && !result.value.idempotentReplay).length, 1);
+  assert.equal(stock.activeReservedQuantity, 0);
+  assert.equal(stock.physicalQuantity, reservation.status === 'CONSUMED' ? 0 : 1);
+  assert.equal(movements, reservation.status === 'CONSUMED' ? 1 : 0);
+  assert.ok(reservation.items.every((item) => item.consumedQuantity + item.releasedQuantity <= item.reservedQuantity && item.reservedQuantity <= item.quantity));
+  assert.ok(reservation.items.every((item) => [item.quantity, item.reservedQuantity, item.consumedQuantity, item.releasedQuantity].every((value) => value >= 0)));
+});

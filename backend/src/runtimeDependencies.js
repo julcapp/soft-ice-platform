@@ -40,6 +40,7 @@ const { OrganizationRepository, OrganizationService, OrganizationRuntime } = req
 const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
 const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
+const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const prisma = getPrismaClient();
@@ -51,6 +52,8 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const paymentRepository = new PaymentRepository(prisma);
   const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
+  const machineDispenseRepository = new MachineDispenseRepository(prisma);
+  const machineProvider = new BlockedExternalMachineProviderAdapter();
   const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
   const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
   const customerRepository = new CustomerRepository(prisma);
@@ -164,7 +167,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     auditRepository,
     domainEventPublisher,
     clubAccountService: clubAccountRuntime,
-    machineRuntime,
+    // Legacy DispenseRequest must not own a second physical lifecycle.
+    // New customer fulfillment is orchestrated only through MachineDispenseService.
+    machineRuntime: null,
     machineOperationsRuntime,
     machineGateway,
   });
@@ -176,6 +181,10 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const paymentAdapter = new BlockedExternalPaymentAdapter();
   const machineAdapter = new BlockedExternalMachineAdapter();
   const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
+  const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
+  paymentService.machineDispense = machineDispenseService;
+  const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
+  const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
@@ -283,6 +292,11 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     paymentService,
     paymentReconciliationService,
     paymentInboxWorker,
+    machineDispenseRepository,
+    machineDispenseService,
+    machineCommandWorker,
+    machineRecoveryWorker,
+    machineProvider,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

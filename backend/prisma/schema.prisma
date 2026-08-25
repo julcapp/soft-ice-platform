@@ -724,6 +724,8 @@ model Machine {
   connectivityEvents           MachineConnectivityEvent[]
   organizationAssignments      OrganizationMachineAssignment[]
   organizationResponsibilities OrganizationResponsibility[]
+  dispenseAttempts             MachineDispenseAttempt[]
+  dispenseInboxEvents          MachineCallbackInbox[]
 }
 
 model Organization {
@@ -883,6 +885,7 @@ model OrganizationMachineAssignment {
   serviceSpecialist    OrganizationMember?   @relation("OrganizationMachineService", fields: [serviceSpecialistId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@index([organizationId, unassignedAt])
+  @@unique([id, organizationId, machineId, locationId], map: "OrgMachineAssignment_dispense_scope_key")
   @@index([machineId, unassignedAt])
   @@index([locationId, unassignedAt])
 }
@@ -1073,9 +1076,9 @@ model InventoryRuntimeItem {
   createdAt DateTime                     @default(now())
   updatedAt DateTime                     @updatedAt
 
-  movements    InventoryRuntimeMovement[]
+  movements        InventoryRuntimeMovement[]
   reservationItems InventoryRuntimeReservationItem[]
-  stocks       InventoryRuntimeStock[]
+  stocks           InventoryRuntimeStock[]
 }
 
 model InventoryRuntimeLocation {
@@ -1136,7 +1139,7 @@ model InventoryRuntimeReservation {
   organizationId String
   locationId     String
   status         InventoryRuntimeReservationStatus @default(PENDING)
-  operationType  InventoryOperationType             @default(CUSTOMER_SALE)
+  operationType  InventoryOperationType            @default(CUSTOMER_SALE)
   actorType      String
   actorId        String
   correlationId  String
@@ -1150,9 +1153,13 @@ model InventoryRuntimeReservation {
   createdAt      DateTime                          @default(now())
   updatedAt      DateTime                          @updatedAt
 
-  location InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  items    InventoryRuntimeReservationItem[]
+  location                InventoryRuntimeLocation          @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items                   InventoryRuntimeReservationItem[]
+  machineDispenseAttempts MachineDispenseAttempt[]
 
+  @@unique([organizationId, reservationId])
+  @@unique([organizationId, reservationId, machineId, locationId], map: "InventoryReservation_machine_scope_key")
+  @@unique([organizationId, reservationId, machineId, locationId, orderId, saleFlowId], map: "InventoryReservation_dispense_scope_key")
   @@index([organizationId, status, createdAt])
   @@index([machineId, status])
   @@index([locationId, status])
@@ -1162,39 +1169,39 @@ model InventoryRuntimeReservation {
 }
 
 model InventoryRuntimeReservationItem {
-  id                 String                         @id @default(uuid())
-  reservationId      String
-  inventoryItemId    String
-  ingredientType     String
-  quantity           Float
-  unit               String
-  status             InventoryReservationItemStatus @default(PENDING)
-  reservedQuantity   Float                          @default(0)
-  consumedQuantity   Float                          @default(0)
-  releasedQuantity   Float                          @default(0)
-  createdAt          DateTime                       @default(now())
-  updatedAt          DateTime                       @updatedAt
-  reservation        InventoryRuntimeReservation    @relation(fields: [reservationId], references: [reservationId], onDelete: Restrict)
-  inventoryItem      InventoryRuntimeItem            @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  id               String                         @id @default(uuid())
+  reservationId    String
+  inventoryItemId  String
+  ingredientType   String
+  quantity         Float
+  unit             String
+  status           InventoryReservationItemStatus @default(PENDING)
+  reservedQuantity Float                          @default(0)
+  consumedQuantity Float                          @default(0)
+  releasedQuantity Float                          @default(0)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+  reservation      InventoryRuntimeReservation    @relation(fields: [reservationId], references: [reservationId], onDelete: Restrict)
+  inventoryItem    InventoryRuntimeItem           @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
   @@unique([reservationId, inventoryItemId])
   @@index([inventoryItemId, status])
 }
 
 model InventoryRuntimeStock {
-  id                 String                   @id @default(uuid())
-  organizationId     String
-  machineId          String
-  locationId         String
-  inventoryItemId    String
-  physicalQuantity   Float                    @default(0)
-  activeReservedQuantity Float                @default(0)
-  lowStockThreshold  Float?
-  version            Int                      @default(0)
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  location           InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  inventoryItem      InventoryRuntimeItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  machineId              String
+  locationId             String
+  inventoryItemId        String
+  physicalQuantity       Float                    @default(0)
+  activeReservedQuantity Float                    @default(0)
+  lowStockThreshold      Float?
+  version                Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  location               InventoryRuntimeLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryItem          InventoryRuntimeItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, machineId, locationId, inventoryItemId])
   @@index([organizationId, locationId])
@@ -1549,13 +1556,14 @@ model Order {
   activePickupCodeHash String?
   cancelledToBalanceAt DateTime?
 
-  customer          Customer           @relation(fields: [customerId], references: [id])
-  machine           Machine?           @relation(fields: [machineId], references: [id])
-  dispenseRequest   DispenseRequest?
-  bonusTransactions BonusTransaction[]
-  photoChallenge    PhotoChallenge?
-  birthdayReward    BirthdayReward?
-  payment           Payment?
+  customer                Customer                 @relation(fields: [customerId], references: [id])
+  machine                 Machine?                 @relation(fields: [machineId], references: [id])
+  dispenseRequest         DispenseRequest?
+  bonusTransactions       BonusTransaction[]
+  photoChallenge          PhotoChallenge?
+  birthdayReward          BirthdayReward?
+  payment                 Payment?
+  machineDispenseAttempts MachineDispenseAttempt[]
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
@@ -1789,39 +1797,40 @@ enum PaymentReconciliationStatus {
 }
 
 model Payment {
-  id String @id @default(uuid())
-  organizationId String
-  orderId String @unique
-  saleFlowId String
-  customerId String?
-  clubTopupId String? @unique
-  provider String
-  providerPaymentId String?
-  idempotencyKey String
-  requestFingerprint String
-  status PaymentStatus @default(CREATED)
-  amount Decimal @db.Decimal(18, 2)
-  currency String @default("RUB")
-  providerStatus String?
-  description String?
-  metadata Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  pendingAt DateTime?
-  authorizedAt DateTime?
-  succeededAt DateTime?
-  failedAt DateTime?
-  canceledAt DateTime?
-  refundedAt DateTime?
-  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  saleFlow SaleFlow @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
-  customer Customer? @relation(fields: [customerId], references: [id])
-  clubTopup ClubTopup? @relation(fields: [clubTopupId], references: [id])
-  refunds PaymentRefund[]
-  inboxEvents PaymentProviderInbox[]
-  operations PaymentOperation[]
+  id                  String                  @id @default(uuid())
+  organizationId      String
+  orderId             String                  @unique
+  saleFlowId          String
+  customerId          String?
+  clubTopupId         String?                 @unique
+  provider            String
+  providerPaymentId   String?
+  idempotencyKey      String
+  requestFingerprint  String
+  status              PaymentStatus           @default(CREATED)
+  amount              Decimal                 @db.Decimal(18, 2)
+  currency            String                  @default("RUB")
+  providerStatus      String?
+  description         String?
+  metadata            Json?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  pendingAt           DateTime?
+  authorizedAt        DateTime?
+  succeededAt         DateTime?
+  failedAt            DateTime?
+  canceledAt          DateTime?
+  refundedAt          DateTime?
+  order               Order                   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  saleFlow            SaleFlow                @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
+  customer            Customer?               @relation(fields: [customerId], references: [id])
+  clubTopup           ClubTopup?              @relation(fields: [clubTopupId], references: [id])
+  refunds             PaymentRefund[]
+  inboxEvents         PaymentProviderInbox[]
+  operations          PaymentOperation[]
   reconciliationItems PaymentReconciliation[]
-  auditEntries PaymentAuditEntry[]
+  auditEntries        PaymentAuditEntry[]
+
   @@unique([organizationId, id])
   @@unique([organizationId, orderId, saleFlowId])
   @@unique([organizationId, idempotencyKey])
@@ -1833,61 +1842,64 @@ model Payment {
 }
 
 model PaymentOperation {
-  id String @id @default(uuid())
-  organizationId String
-  paymentId String
-  operationType String
-  idempotencyKey String
-  requestHash String
+  id              String    @id @default(uuid())
+  organizationId  String
+  paymentId       String
+  operationType   String
+  idempotencyKey  String
+  requestHash     String
   resultReference String?
-  createdAt DateTime @default(now())
-  completedAt DateTime?
-  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  payment         Payment   @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+
   @@unique([organizationId, operationType, idempotencyKey])
   @@index([organizationId, paymentId, createdAt])
 }
 
 model PaymentRefund {
-  id String @id @default(uuid())
-  organizationId String
-  paymentId String
+  id               String       @id @default(uuid())
+  organizationId   String
+  paymentId        String
   providerRefundId String?
-  idempotencyKey String
-  status RefundStatus @default(REQUESTED)
-  amount Decimal @db.Decimal(18, 2)
-  currency String @default("RUB")
-  reason String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  requestedAt DateTime @default(now())
-  pendingAt DateTime?
-  succeededAt DateTime?
-  failedAt DateTime?
-  failureCode String?
-  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  idempotencyKey   String
+  status           RefundStatus @default(REQUESTED)
+  amount           Decimal      @db.Decimal(18, 2)
+  currency         String       @default("RUB")
+  reason           String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  requestedAt      DateTime     @default(now())
+  pendingAt        DateTime?
+  succeededAt      DateTime?
+  failedAt         DateTime?
+  failureCode      String?
+  payment          Payment      @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+
   @@unique([organizationId, idempotencyKey])
   @@unique([organizationId, providerRefundId])
   @@index([organizationId, paymentId, status])
 }
 
 model PaymentProviderInbox {
-  id String @id @default(uuid())
-  organizationId String
-  paymentId String?
-  provider String
+  id              String             @id @default(uuid())
+  organizationId  String
+  paymentId       String?
+  provider        String
   providerEventId String
-  eventType String
-  payload Json
-  status PaymentInboxStatus @default(RECEIVED)
-  receivedAt DateTime @default(now())
-  processedAt DateTime?
-  attemptCount Int @default(0)
-  maxAttempts Int @default(10)
+  eventType       String
+  payload         Json
+  status          PaymentInboxStatus @default(RECEIVED)
+  receivedAt      DateTime           @default(now())
+  processedAt     DateTime?
+  attemptCount    Int                @default(0)
+  maxAttempts     Int                @default(10)
   lastFailureCode String?
-  nextAttemptAt DateTime?
-  lockedAt DateTime?
-  lockedBy String?
-  payment Payment? @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  nextAttemptAt   DateTime?
+  lockedAt        DateTime?
+  lockedBy        String?
+  payment         Payment?           @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+
   @@unique([provider, providerEventId])
   @@unique([organizationId, id])
   @@index([status, nextAttemptAt, receivedAt])
@@ -1895,39 +1907,41 @@ model PaymentProviderInbox {
 }
 
 model PaymentReconciliation {
-  id String @id @default(uuid())
-  organizationId String
-  paymentId String?
-  provider String
+  id                String                      @id @default(uuid())
+  organizationId    String
+  paymentId         String?
+  provider          String
   providerPaymentId String?
-  category String
-  fingerprint String
-  status PaymentReconciliationStatus @default(OPEN)
-  localStatus String?
-  providerStatus String?
-  localAmount Decimal? @db.Decimal(18, 2)
-  providerAmount Decimal? @db.Decimal(18, 2)
-  details Json?
-  detectedAt DateTime @default(now())
-  resolvedAt DateTime?
-  resolutionNote String?
-  payment Payment? @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  category          String
+  fingerprint       String
+  status            PaymentReconciliationStatus @default(OPEN)
+  localStatus       String?
+  providerStatus    String?
+  localAmount       Decimal?                    @db.Decimal(18, 2)
+  providerAmount    Decimal?                    @db.Decimal(18, 2)
+  details           Json?
+  detectedAt        DateTime                    @default(now())
+  resolvedAt        DateTime?
+  resolutionNote    String?
+  payment           Payment?                    @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+
   @@unique([organizationId, fingerprint])
   @@index([organizationId, status, detectedAt])
   @@index([provider, providerPaymentId])
 }
 
 model PaymentAuditEntry {
-  id String @id @default(uuid())
+  id             String   @id @default(uuid())
   organizationId String
-  paymentId String
-  action String
-  actorType String
-  actorId String?
-  correlationId String?
-  details Json?
-  occurredAt DateTime @default(now())
-  payment Payment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+  paymentId      String
+  action         String
+  actorType      String
+  actorId        String?
+  correlationId  String?
+  details        Json?
+  occurredAt     DateTime @default(now())
+  payment        Payment  @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: Restrict)
+
   @@index([organizationId, paymentId, occurredAt])
 }
 
@@ -1969,35 +1983,36 @@ enum OutboxEventStatus {
 }
 
 model SaleFlow {
-  id                                String                 @id @default(uuid())
-  flowId                            String                 @unique
-  orderId                           String                 @unique
+  id                                String                     @id @default(uuid())
+  flowId                            String                     @unique
+  orderId                           String                     @unique
   customerId                        String
   machineId                         String
   organizationId                    String
   locationId                        String
-  correlationId                     String                 @unique
-  currentState                      SaleFlowState           @default(CREATED)
+  correlationId                     String                     @unique
+  currentState                      SaleFlowState              @default(CREATED)
   paymentReference                  String?
   fulfillmentAuthorizationReference String?
   inventoryReservationReference     String?
   loyaltyOperationReference         String?
   refundRequirementReference        String?
-  completionOperationId             String?                @unique
-  startedAt                         DateTime                @default(now())
-  updatedAt                         DateTime                @updatedAt
+  completionOperationId             String?                    @unique
+  startedAt                         DateTime                   @default(now())
+  updatedAt                         DateTime                   @updatedAt
   completedAt                       DateTime?
   expiresAt                         DateTime?
   retentionUntil                    DateTime?
-  version                           Int                     @default(0)
+  version                           Int                        @default(0)
   lastProcessedEventId              String?
   lastErrorCode                     String?
   lastErrorAt                       DateTime?
-  recoveryStatus                    SaleFlowRecoveryStatus @default(NONE)
+  recoveryStatus                    SaleFlowRecoveryStatus     @default(NONE)
   metadata                          Json?
   idempotencyKeys                   SaleFlowIdempotencyKey[]
   outboxEvents                      TransactionalOutboxEvent[]
   payment                           Payment?
+  machineDispenseAttempts           MachineDispenseAttempt[]
 
   @@unique([organizationId, orderId, flowId])
   @@index([orderId])
@@ -2008,6 +2023,167 @@ model SaleFlow {
   @@index([customerId])
   @@index([organizationId])
   @@index([updatedAt])
+}
+
+enum MachineDispenseStatus {
+  CREATED
+  AUTHORIZED
+  QUEUED
+  DISPATCHING
+  SENT
+  ACCEPTED
+  DISPENSING
+  DISPENSED
+  FAILED
+  TIMED_OUT
+  CANCELED
+  RECONCILIATION_REQUIRED
+}
+
+enum MachineDispenseOperationType {
+  CUSTOMER_SALE
+  OPERATOR_TEST
+  MAINTENANCE_TEST
+}
+
+enum MachineCallbackInboxStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum MachineReconciliationStatus {
+  OPEN
+  MANUAL_REVIEW
+  RESOLVED
+}
+
+model MachineDispenseAttempt {
+  id                     String                       @id @default(uuid())
+  dispenseAttemptId      String                       @unique
+  organizationId         String
+  machineId              String
+  locationId             String
+  orderId                String?
+  saleFlowId             String?
+  inventoryReservationId String
+  operationType          MachineDispenseOperationType @default(CUSTOMER_SALE)
+  commandId              String                       @unique
+  idempotencyKey         String
+  status                 MachineDispenseStatus        @default(CREATED)
+  requestedAt            DateTime                     @default(now())
+  sentAt                 DateTime?
+  acceptedAt             DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  failedAt               DateTime?
+  timedOutAt             DateTime?
+  provider               String
+  providerCommandId      String?
+  providerEventId        String?
+  failureCode            String?
+  failureMessageSafe     String?
+  correlationId          String
+  causationId            String?
+  requestedByActorType   String?
+  requestedByActorId     String?
+  operationReason        String?
+  serviceContextSafe     Json?
+  recoveryLockedAt       DateTime?
+  recoveryLockedBy       String?
+  recoveryAttemptCount   Int                          @default(0)
+  version                Int                          @default(0)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  machine                Machine                      @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  order                  Order?                       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  saleFlow               SaleFlow?                    @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
+  reservation            InventoryRuntimeReservation  @relation(fields: [organizationId, inventoryReservationId, machineId, locationId], references: [organizationId, reservationId, machineId, locationId], onDelete: Restrict, map: "MachineDispenseAttempt_inventory_ownership_fkey")
+  inboxEvents            MachineCallbackInbox[]
+  reconciliations        MachineReconciliation[]
+  auditEntries           MachineDispenseAuditEntry[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, id, machineId])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, orderId, saleFlowId])
+  @@index([machineId, status])
+  @@index([orderId])
+  @@index([saleFlowId])
+  @@index([status, createdAt])
+  @@unique([provider, providerCommandId])
+  @@index([correlationId])
+  @@index([status, recoveryLockedAt, updatedAt], map: "MachineDispenseAttempt_recovery_claim_idx")
+}
+
+model MachineCallbackInbox {
+  id                String                     @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String?
+  provider          String
+  providerEventId   String
+  machineId         String
+  providerCommandId String
+  receivedAt        DateTime                   @default(now())
+  processingStartedAt DateTime?
+  processedAt       DateTime?
+  failedAt          DateTime?
+  status            MachineCallbackInboxStatus @default(RECEIVED)
+  attemptCount      Int                        @default(0)
+  payloadSafe       Json
+  payloadFingerprint String
+  callbackStatus     String
+  correlationId     String?
+  lastFailureCode   String?
+  callbackFailureCode String?
+  callbackFailureMessageSafe String?
+  physicalConsumptionUnknown Boolean?
+  processingLockedAt DateTime?
+  processingLockedBy String?
+  processingLeaseVersion Int                   @default(0)
+  attempt           MachineDispenseAttempt?    @relation(fields: [organizationId, dispenseAttemptId, machineId], references: [organizationId, id, machineId], onDelete: Restrict, map: "MachineCallbackInbox_attempt_machine_fkey")
+  machine           Machine                    @relation(fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, machineId, receivedAt])
+  @@index([status, receivedAt])
+  @@index([status, processingLockedAt, receivedAt], map: "MachineCallbackInbox_processing_claim_idx")
+  @@index([provider, providerCommandId])
+}
+
+model MachineReconciliation {
+  id                String                      @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  category          String
+  fingerprint       String
+  status            MachineReconciliationStatus @default(OPEN)
+  localStatus       String
+  providerStatus    String?
+  detailsSafe       Json?
+  detectedAt        DateTime                    @default(now())
+  resolvedAt        DateTime?
+  resolutionNote    String?
+  attempt           MachineDispenseAttempt      @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, detectedAt])
+}
+
+model MachineDispenseAuditEntry {
+  id                String                 @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  action            String
+  actorType         String
+  actorId           String?
+  correlationId     String?
+  detailsSafe       Json?
+  occurredAt        DateTime               @default(now())
+  attempt           MachineDispenseAttempt @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, dispenseAttemptId, occurredAt])
 }
 
 model TransactionalOutboxEvent {
@@ -2046,19 +2222,19 @@ model TransactionalOutboxEvent {
 }
 
 model SaleFlowIdempotencyKey {
-  id              String                       @id @default(uuid())
+  id              String                    @id @default(uuid())
   flowId          String
-  key             String                       @unique
+  key             String                    @unique
   operationType   String
   source          String
   externalEventId String?
   requestHash     String
-  status          SaleFlowIdempotencyStatus    @default(STARTED)
+  status          SaleFlowIdempotencyStatus @default(STARTED)
   resultReference String?
-  createdAt       DateTime                     @default(now())
+  createdAt       DateTime                  @default(now())
   completedAt     DateTime?
   expiresAt       DateTime?
-  flow            SaleFlow                     @relation(fields: [flowId], references: [flowId], onDelete: Restrict)
+  flow            SaleFlow                  @relation(fields: [flowId], references: [flowId], onDelete: Restrict)
 
   @@index([flowId])
   @@index([externalEventId])

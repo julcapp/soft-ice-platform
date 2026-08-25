@@ -55,6 +55,8 @@ let app;
 
 let server;
 let paymentInboxTimer;
+let machineCommandTimer;
+let machineRecoveryTimer;
 
 function startServer() {
   if (server) {
@@ -68,6 +70,15 @@ function startServer() {
   if (paymentInboxWorker && !paymentInboxTimer) {
     paymentInboxTimer = setInterval(() => paymentInboxWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('payment.inbox.worker.failed', { code: error.code || 'PAYMENT_INBOX_WORKER_FAILED' })), 5000);
     paymentInboxTimer.unref();
+  }
+  const { machineCommandWorker, machineRecoveryWorker } = getApp().locals.platform.dependencies;
+  if (machineCommandWorker && !machineCommandTimer) {
+    machineCommandTimer = setInterval(() => machineCommandWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.command.worker.failed', { code: error.code || 'MACHINE_COMMAND_WORKER_FAILED' })), 5000);
+    machineCommandTimer.unref();
+  }
+  if (machineRecoveryWorker && !machineRecoveryTimer) {
+    machineRecoveryTimer = setInterval(() => machineRecoveryWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.recovery.worker.failed', { code: error.code || 'MACHINE_RECOVERY_WORKER_FAILED' })), 15000);
+    machineRecoveryTimer.unref();
   }
 
   return server;
@@ -89,6 +100,8 @@ async function shutdown(signal, options = {}) {
     server = undefined;
   }
   if (paymentInboxTimer) { clearInterval(paymentInboxTimer); paymentInboxTimer = undefined; }
+  if (machineCommandTimer) { clearInterval(machineCommandTimer); machineCommandTimer = undefined; }
+  if (machineRecoveryTimer) { clearInterval(machineRecoveryTimer); machineRecoveryTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();

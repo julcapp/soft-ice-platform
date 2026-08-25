@@ -242,3 +242,6 @@ Sale Flow persistence: `IMPLEMENTED` (PostgreSQL/Prisma, optimistic concurrency,
 # Обновление 2026-08-21 — Inventory Reservation & Locking v1
 
 Durable PostgreSQL reservation, row locking, atomic Outbox, idempotent consume/release/expire и Admin observability реализованы. Покомпонентное аппаратное подтверждение, внешний scheduler, ERP и hardware reconciliation остаются `FOUNDATION_ONLY`.
+# Machine Lifecycle / Dispense Runtime v1 — IMPLEMENTED (2026-08-23)
+
+Durable PostgreSQL attempt, callback Inbox, Outbox delivery contract, physical-result completion и reconciliation реализованы. Huaxin и реальная callback authentication — `BLOCKED_EXTERNAL`.

@@ -24,12 +24,14 @@ class PrismaOutboxRepository {
     const rows = await this.prisma.transactionalOutboxEvent.groupBy({ by: ['status'], where: tenantWhere(scope), _count: { _all: true } });
     return Object.fromEntries(rows.map((row) => [row.status, row._count._all]));
   }
-  async claimPendingEvents({ workerId, batchSize = 50, now = new Date(), organizationId } = {}) {
+  async claimPendingEvents({ workerId, batchSize = 50, now = new Date(), organizationId, eventTypes } = {}) {
     if (!workerId) throw invalid('workerId обязателен.');
+    const types = Array.isArray(eventTypes) && eventTypes.length ? eventTypes : null;
     const tenantClause = organizationId ? this.prisma.$queryRaw`
       WITH candidates AS (
         SELECT "id" FROM "TransactionalOutboxEvent"
         WHERE "status" IN ('PENDING','RETRY') AND "availableAt" <= ${now} AND "organizationId" = ${organizationId}
+          AND (${types}::text[] IS NULL OR "eventType" = ANY(${types}::text[]))
         ORDER BY "availableAt", "createdAt" FOR UPDATE SKIP LOCKED LIMIT ${batchSize}
       )
       UPDATE "TransactionalOutboxEvent" e SET "status"='PROCESSING', "lockedAt"=${now}, "lockedBy"=${workerId}, "updatedAt"=${now}
@@ -37,6 +39,7 @@ class PrismaOutboxRepository {
       WITH candidates AS (
         SELECT "id" FROM "TransactionalOutboxEvent"
         WHERE "status" IN ('PENDING','RETRY') AND "availableAt" <= ${now}
+          AND (${types}::text[] IS NULL OR "eventType" = ANY(${types}::text[]))
         ORDER BY "availableAt", "createdAt" FOR UPDATE SKIP LOCKED LIMIT ${batchSize}
       )
       UPDATE "TransactionalOutboxEvent" e SET "status"='PROCESSING', "lockedAt"=${now}, "lockedBy"=${workerId}, "updatedAt"=${now}
@@ -68,7 +71,7 @@ class InMemoryOutboxRepository {
   async getPendingCount(scope = {}) { return [...this.store.values()].filter((x) => allowed(x, scope) && CLAIMABLE.includes(x.status)).length; }
   async list(filters = {}, scope = {}) { return [...this.store.values()].filter((x) => allowed(x, scope) && ['status','eventType','organizationId','machineId'].every((k) => !filters[k] || x[k] === filters[k])); }
   async counts(scope = {}) { return [...this.store.values()].filter((x) => allowed(x, scope)).reduce((a,x) => ({ ...a, [x.status]: (a[x.status] || 0) + 1 }), {}); }
-  async claimPendingEvents({ workerId, batchSize = 50, now = new Date(), organizationId } = {}) { const claimed = [...this.store.values()].filter((x) => CLAIMABLE.includes(x.status) && x.availableAt <= now && (!organizationId || x.organizationId === organizationId)).slice(0,batchSize); for (const x of claimed) Object.assign(x,{status:'PROCESSING',lockedAt:now,lockedBy:workerId,updatedAt:now}); return claimed; }
+  async claimPendingEvents({ workerId, batchSize = 50, now = new Date(), organizationId, eventTypes } = {}) { const claimed = [...this.store.values()].filter((x) => CLAIMABLE.includes(x.status) && x.availableAt <= now && (!organizationId || x.organizationId === organizationId) && (!eventTypes?.length || eventTypes.includes(x.eventType))).slice(0,batchSize); for (const x of claimed) Object.assign(x,{status:'PROCESSING',lockedAt:now,lockedBy:workerId,updatedAt:now}); return claimed; }
   async transition(id, workerId, data) { const row=this.store.get(id); if(!row || row.status!=='PROCESSING' || row.lockedBy!==workerId) throw conflict('OUTBOX_LEASE_LOST','Outbox lock потерян или событие уже обработано.'); const inc=data.attemptCount?.increment||0; Object.assign(row,data,{attemptCount:row.attemptCount+inc,updatedAt:new Date()}); return row; }
   markPublished(id,w,now=new Date()){return this.transition(id,w,{status:'PUBLISHED',publishedAt:now,lockedAt:null,lockedBy:null,lastError:null,attemptCount:{increment:1}});}
   scheduleRetry(id,w,{availableAt,error}){return this.transition(id,w,{status:'RETRY',availableAt,lastError:safeError(error),lockedAt:null,lockedBy:null,attemptCount:{increment:1}});}

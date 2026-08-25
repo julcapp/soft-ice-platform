@@ -1,5 +1,13 @@
 # TEST_SCENARIOS
 
+## Machine callback PROCESSING recovery и test actor validation
+
+- persisted `PROCESSING` callback после crash/restart и истечения lease reclaim-ится ровно одним из 20 PostgreSQL workers;
+- duplicate и late callback сохраняют один terminal fact и по одному Inventory/Order/Sale Flow effect;
+- crash после business commit до Inbox finalization восстанавливает Inbox в `PROCESSED` без повторного dispense/consume/completion;
+- `OPERATOR_TEST` принимает активного `ORGANIZATION_MEMBER` с `OPERATOR`/`MACHINE_RESPONSIBLE`, `MAINTENANCE_TEST` — с `SERVICE_SPECIALIST`;
+- customer, missing/spoofed actor type, неподходящая/отозванная роль и cross-tenant member отклоняются server-side.
+
 ## Payment Lifecycle & Reconciliation v1
 
 - Создание Payment читает authoritative amount/currency из Order; client amount mismatch отклоняется без записи.
@@ -452,6 +460,28 @@ Service restart остаётся непроверяемым до durable reposit
 - Legacy migration fixtures покрывают `ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`, single-item и multi-item; terminal rows сохраняют `reservedQuantity = quantity`, а невосстановимое ownership приводит к abort всей migration transaction.
 
 # Payment Lifecycle & Reconciliation v1 — повторная ревизия 2026-08-23
+
+# Machine Lifecycle / Dispense Runtime v1
+
+- Stale callback owner: claim A → expiry → claim B → A fail/finalize даёт no-op; после B completion terminal Inbox immutable.
+- 20 callback recovery workers для одного expired `PROCESSING` получают ровно одного effective owner; crash до processing, внутри business transaction и перед callback finalization допускают reclaim без partial domain effects.
+- Test authorization: anonymous/customer/inactive/wrong-role/cross-tenant отклоняются; payload role/member/actorId игнорируются; server-authenticated operator и maintenance member разрешаются только по PostgreSQL membership.
+- Direct SQL отклоняет callback `PROCESSING/PROCESSED/FAILED` и command `SENT/ACCEPTED/DISPENSING/DISPENSED/FAILED/TIMED_OUT` без обязательных timestamps; `RESOLVED` reconciliation требует `resolvedAt`.
+- Проверить атомарное создание attempt/command/outbox при production Payment success и rollback всех фактов при ошибке.
+- Проверить 20x command claim через Transactional Outbox: один lease, один stable commandId, не более одной provider dispatch authorization.
+- Проверить crash `commit -> delivery`, `send -> acknowledgement`, callback/finalization failures и restart для `QUEUED`, `DISPATCHING`, `SENT`, `ACCEPTED`, `DISPENSING`, `TIMED_OUT`, `RECONCILIATION_REQUIRED`.
+- Проверить concurrent recovery workers: одна lease-классификация и отсутствие physical resend.
+- Выполнить 12/12 crash/restart matrix для command persistence, Outbox persistence/claim/delivery boundary, callback persistence/claim/`PROCESSING`, Inventory consume, Order completion, Sale Flow completion, callback finalization и recovery/reconciliation. После каждого terminal recovery: physical command `<= 1`, Inventory/Order/Sale Flow/terminal Machine fact ровно `1`, permanent `PROCESSING` отсутствует.
+- Выполнить PostgreSQL Inventory suite 10 раз последовательно без retry после FAILED, затем отдельные 20x reservation/consume/release/competing сценарии с persisted invariants `consumed + released <= reserved <= quantity` и всеми quantities `>= 0`.
+- Проверить conflict idempotency `OPERATOR_TEST`/`MAINTENANCE_TEST` при изменении reason/service context.
+- Admin Console не содержит повторной выдачи; безопасная классификация требует tenant scope, reason и создаёт audit trail.
+
+- authoritative Payment/Reservation/Sale Flow и machine assignment разрешают единственную durable попытку; отрицательные варианты отклоняются;
+- конкурентные create/send и повторная доставка Outbox сохраняют один attempt/command/physical result;
+- `ACCEPTED` не consume Inventory и не завершает Sale Flow;
+- `DISPENSED` атомарно выполняет attempt, Inventory consume, Order/Sale Flow completion и Outbox; failure injection не оставляет partial state;
+- duplicate callback, concurrent callback stress, timeout и поздние `DISPENSED`/`FAILED` обрабатываются идемпотентно без повторной выдачи;
+- tenant/machine isolation, restart persistence, reconciliation mismatch и operator test проверяются на PostgreSQL 17.
 
 - Provider webhook ingress проверяет signature boundary до persistence, выводит tenant из `provider + providerPaymentId` и глобально дедуплицирует `provider + providerEventId`.
 - Durable Inbox worker использует claim/lease/retry, переживает restart и повторно применяет command через persistent idempotency.

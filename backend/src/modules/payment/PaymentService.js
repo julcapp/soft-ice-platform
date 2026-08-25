@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const { assertPaymentTransition, money, sameMoney, error } = require('./PaymentModels');
 
 class PaymentService {
-  constructor({ repository, providers = {}, inventory = null, clock = () => new Date() }) { Object.assign(this, { repository, providers, inventory, clock }); }
+  constructor({ repository, providers = {}, inventory = null, machineDispense = null, clock = () => new Date() }) { Object.assign(this, { repository, providers, inventory, machineDispense, clock }); }
 
   async createPayment(request, context = {}) {
     required(request, ['organizationId', 'orderId', 'provider', 'idempotencyKey']);
@@ -67,7 +67,7 @@ class PaymentService {
       const stamp = { PENDING: 'pendingAt', AUTHORIZED: 'authorizedAt', SUCCEEDED: 'succeededAt', FAILED: 'failedAt', CANCELED: 'canceledAt', REFUNDED: 'refundedAt' }[request.to];
       const changed = await tx.payment.updateMany({ where: { id: payment.id, organizationId: payment.organizationId, status: payment.status }, data: { status: request.to, providerPaymentId: request.providerPaymentId || payment.providerPaymentId, providerStatus: request.providerStatus || request.to, ...(stamp && { [stamp]: now }) } });
       if (changed.count !== 1) throw error('PAYMENT_CONCURRENT_TRANSITION', 'Payment изменён конкурентно.', 409);
-      if (request.to === 'SUCCEEDED') await this.applySuccess(tx, payment, now);
+      if (request.to === 'SUCCEEDED') await this.applySuccess(tx, payment, now, context);
       if (['FAILED', 'CANCELED'].includes(request.to)) await this.applyFailure(tx, payment, request.to, now);
       const operation = await repo.createOperation({ organizationId: payment.organizationId, paymentId: payment.id, operationType, idempotencyKey: request.idempotencyKey, requestHash: hash(request), completedAt: now, resultReference: payment.id });
       const updated = await tx.payment.findUnique({ where: { id: payment.id } });
@@ -82,12 +82,13 @@ class PaymentService {
     }
   }
 
-  async applySuccess(tx, payment, now) {
+  async applySuccess(tx, payment, now, context = {}) {
     const orderChanged = await tx.order.updateMany({ where: { id: payment.orderId, status: { in: ['CREATED', 'PAYMENT_PENDING'] } }, data: { status: 'PAID', paymentStatus: 'paid', amountPaidRub: Number(payment.amount), paidAt: now } });
     if (orderChanged.count !== 1) throw error('PAYMENT_ORDER_TRANSITION_FAILED', 'Order не может быть подтверждён.', 409);
     const flow = await tx.saleFlow.findFirst({ where: { flowId: payment.saleFlowId, organizationId: payment.organizationId } });
     if (!flow || flow.currentState !== 'AWAITING_PAYMENT') throw error('PAYMENT_SALE_FLOW_TRANSITION_FAILED', 'Sale Flow не ожидает оплату.', 409);
-    await tx.saleFlow.update({ where: { flowId: flow.flowId }, data: { currentState: 'PAID', paymentReference: payment.id, version: { increment: 1 }, recoveryStatus: 'SAFE_TO_RESUME', updatedAt: now } });
+    const paidFlow=await tx.saleFlow.update({ where: { flowId: flow.flowId }, data: { currentState: 'PAID', paymentReference: payment.id, version: { increment: 1 }, recoveryStatus: 'SAFE_TO_RESUME', updatedAt: now } });
+    if (this.machineDispense) await this.machineDispense.createAuthorizedFromPaidFlow(tx,paidFlow,payment,context);
   }
 
   async applyFailure(tx, payment, status, now) {

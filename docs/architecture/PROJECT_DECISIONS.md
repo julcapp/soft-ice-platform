@@ -1,5 +1,29 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-071 — Machine Callback Mutation Requires Durable Ownership
+
+**Date:** 2026-08-24
+
+**Status:** Accepted
+
+Callback business processing и Inbox finalization используют один PostgreSQL transaction client после row lock и проверки монотонной версии lease. Истёкший или reclaimed owner не может записать failure/terminal state. Test dispense identity поступает только из server authentication context, а membership, active status, role и tenant подтверждаются authoritative Organization данными. Локальные temporal state invariants защищены append-only PostgreSQL CHECK constraints.
+
+# Decision: DECISION-070 — Machine Command Delivery Reuses Transactional Outbox
+
+**Date:** 2026-08-24
+
+**Status:** Accepted
+
+Payment confirmation, Sale Flow authorization, stable Machine command identity и durable command intent фиксируются одной PostgreSQL-транзакцией. Machine Command Worker использует существующий Transactional Outbox lease/`SKIP LOCKED`; recovery worker не инициирует физическую выдачу. `DISPATCHING` после crash означает неоднозначный внешний результат и обязательную reconciliation без blind resend. Admin recovery ограничен безопасной классификацией с audit trail.
+
+# Decision: DECISION-069 — Machine Runtime Owns Physical Dispense Evidence
+
+**Date:** 2026-08-23
+
+**Status:** Accepted
+
+Machine Runtime владеет lifecycle команды, callback и физическим результатом. `ACCEPTED != DISPENSED`; timeout запрещает автоматический повтор. Подтверждённый `DISPENSED` атомарно завершает Inventory, Order, Sale Flow и Outbox. Подробности: `docs/architecture/ADR/ADR-045-machine-lifecycle-dispense-runtime-v1.md`.
+
 # Decision: DECISION-068 — Payment Is the Authoritative Monetary Lifecycle
 
 **Date:** 2026-08-23
