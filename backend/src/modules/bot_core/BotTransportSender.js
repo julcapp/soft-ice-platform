@@ -17,11 +17,14 @@ class BotTransportSender {
     }
     if (typeof this.telegramClient.sendMessage !== 'function') throw new Error('telegramClient.sendMessage is required.');
 
-    if (this.telegramClient.sendMessage.length <= 2) {
-      return this.telegramClient.sendMessage(destination, rendered);
+    if (this.telegramClient.sendMessageContract === 'telegram_bot_api') {
+      if (!destination?.chatId) throw new Error('Telegram destination chatId is required.');
+      return this.telegramClient.sendMessage(destination.chatId, rendered.text, { reply_markup: rendered.reply_markup });
     }
 
-    return this.telegramClient.sendMessage(destination.chatId, rendered.text, { reply_markup: rendered.reply_markup });
+    // Compatibility contract for transport fakes/legacy adapters that accept
+    // one destination object plus one rendered payload object.
+    return this.telegramClient.sendMessage(destination, rendered);
   }
 
   async sendMax(destination, rendered) {

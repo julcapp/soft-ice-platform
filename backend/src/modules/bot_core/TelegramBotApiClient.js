@@ -5,6 +5,7 @@ class TelegramBotApiClient {
     this.token = token;
     this.apiBaseUrl = apiBaseUrl.replace(/\/$/, '');
     this.fetch = fetchImpl;
+    this.sendMessageContract = 'telegram_bot_api';
   }
 
   async call(method, payload = {}) {
