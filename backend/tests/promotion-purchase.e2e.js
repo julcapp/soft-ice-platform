@@ -50,7 +50,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
         id: campaignId,
         code: `HAPPY_HOUR_E2E_${suffix}`,
         name: 'Час выгоды E2E',
-        status: 'SCHEDULED',
+        status: 'ACTIVE',
         createdBy: 'e2e',
       },
     });
@@ -59,6 +59,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
         id: versionId,
         campaignId,
         version: 1,
+        status: 'ACTIVE',
         benefitType: 'PERCENT_DISCOUNT',
         benefitValue: 20,
         priority: 100,
@@ -93,10 +94,10 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
     });
     await prisma.promotionCampaign.update({
       where: { id: campaignId },
-      data: { currentVersionId: versionId },
+      data: { currentVersionId: versionId, effectiveVersionId: versionId },
     });
 
-    const giftResolver = new FiftiethPurchaseGiftResolver({ prisma });
+    const giftResolver = new FiftiethPurchaseGiftResolver({ prisma, clock: () => now });
     const pricingService = new PricingEngineService({
       repository: new PricingRepository(prisma),
       promotionResolver: new ActivePromotionResolver({ prisma }),
