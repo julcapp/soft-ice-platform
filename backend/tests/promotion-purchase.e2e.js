@@ -97,7 +97,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
       data: { currentVersionId: versionId, effectiveVersionId: versionId },
     });
 
-    const giftResolver = new FiftiethPurchaseGiftResolver({ prisma });
+    const giftResolver = new FiftiethPurchaseGiftResolver({ prisma, clock: () => now });
     const pricingService = new PricingEngineService({
       repository: new PricingRepository(prisma),
       promotionResolver: new ActivePromotionResolver({ prisma }),
