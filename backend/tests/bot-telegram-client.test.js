@@ -31,6 +31,33 @@ test('TelegramBotApiClient sends rendered message through Bot API contract', asy
   });
 });
 
+test('TelegramBotApiClient sends Bot API 10.3 rich message payload', async () => {
+  const calls = [];
+  const client = new TelegramBotApiClient({
+    token: 'test-token',
+    fetchImpl: fakeTelegramFetch(calls),
+    features: { richMessages: true },
+  });
+  const richMessage = { markdown: '**Спасибо за добро!**' };
+
+  await client.sendRichMessage(123, richMessage, { reply_markup: { inline_keyboard: [] } });
+
+  assert.equal(calls[0].url, 'https://api.telegram.org/bottest-token/sendRichMessage');
+  assert.deepEqual(calls[0].body, {
+    chat_id: 123,
+    rich_message: richMessage,
+    reply_markup: { inline_keyboard: [] },
+  });
+});
+
+test('TelegramBotApiClient enforces the official InputRichMessage one-content-field contract', () => {
+  const client = new TelegramBotApiClient({ token: 'test-token', fetchImpl: fakeTelegramFetch([]) });
+  assert.throws(
+    () => client.sendRichMessage(123, { markdown: '**Текст**', html: '<b>Текст</b>' }),
+    /exactly one of html, markdown or blocks/,
+  );
+});
+
 test('BotTransportSender passes resolved Telegram chatId to Bot API client', async () => {
   const calls = [];
   const client = new TelegramBotApiClient({ token: 'test-token', fetchImpl: fakeTelegramFetch(calls) });
@@ -48,6 +75,69 @@ test('BotTransportSender passes resolved Telegram chatId to Bot API client', asy
     text: 'Тест',
     reply_markup: { inline_keyboard: [] },
   });
+});
+
+test('BotTransportSender uses rich message only behind feature flag and keeps text fallback', async () => {
+  const richCalls = [];
+  const richClient = new TelegramBotApiClient({
+    token: 'test-token',
+    fetchImpl: fakeTelegramFetch(richCalls),
+    features: { richMessages: true },
+  });
+  const rendered = {
+    text: 'Обычная версия',
+    rich_message: { markdown: '**Расширенная версия**' },
+    reply_markup: { inline_keyboard: [] },
+  };
+  await new BotTransportSender({ telegramClient: richClient }).send({
+    channel: 'telegram', destination: { chatId: '10' }, rendered,
+  });
+  assert.match(richCalls[0].url, /sendRichMessage$/);
+
+  const fallbackCalls = [];
+  const fallbackClient = new TelegramBotApiClient({ token: 'test-token', fetchImpl: fakeTelegramFetch(fallbackCalls) });
+  await new BotTransportSender({ telegramClient: fallbackClient }).send({
+    channel: 'telegram', destination: { chatId: '10' }, rendered,
+  });
+  assert.match(fallbackCalls[0].url, /sendMessage$/);
+  assert.equal(fallbackCalls[0].body.text, 'Обычная версия');
+});
+
+test('ephemeral confirmation is opt-in, recipient-bound and never used for critical content', async () => {
+  const calls = [];
+  const client = new TelegramBotApiClient({
+    token: 'test-token',
+    fetchImpl: fakeTelegramFetch(calls),
+    features: { ephemeralMessages: true },
+  });
+  const sender = new BotTransportSender({ telegramClient: client });
+
+  await sender.send({
+    channel: 'telegram',
+    destination: { chatId: '20', userId: '10', callbackQueryId: 'cb-1' },
+    rendered: {
+      text: 'Спасибо отправлено',
+      reply_markup: { inline_keyboard: [] },
+      delivery: { mode: 'ephemeral', critical: false, replaceCallbackQueryMessage: true },
+    },
+  });
+  assert.deepEqual(calls[1].body.ephemeral_message_parameters, {
+    receiver_user_id: 10,
+    callback_query_id: 'cb-1',
+    replace_callback_query_message: true,
+  });
+
+  await sender.send({
+    channel: 'telegram',
+    destination: { chatId: '20', userId: '10' },
+    rendered: {
+      text: 'Код получения: 123456',
+      reply_markup: { inline_keyboard: [] },
+      delivery: { mode: 'ephemeral', critical: true },
+    },
+  });
+  assert.equal(calls[2].body.ephemeral_message_parameters, undefined);
+  assert.equal(calls[2].body.text, 'Код получения: 123456');
 });
 
 test('TelegramBotApiClient configures webhook with secret token', async () => {
@@ -78,6 +168,23 @@ test('bot env factory uses only isolated test token and ignores existing Mini Ap
   }, { fetchImpl });
   assert.ok(withTestToken.telegram);
   assert.equal(withTestToken.telegram.token, 'isolated-test-token');
+  assert.deepEqual(withTestToken.telegram.features, {
+    richMessages: false,
+    ephemeralMessages: false,
+    disabledButtons: false,
+  });
+
+  const withBotApi103 = createBotClientsFromEnv({
+    TELEGRAM_TEST_BOT_TOKEN: 'isolated-test-token',
+    TELEGRAM_RICH_MESSAGES_ENABLED: 'true',
+    TELEGRAM_EPHEMERAL_MESSAGES_ENABLED: 'TRUE',
+    TELEGRAM_DISABLED_BUTTONS_ENABLED: 'true',
+  }, { fetchImpl });
+  assert.deepEqual(withBotApi103.telegram.features, {
+    richMessages: true,
+    ephemeralMessages: true,
+    disabledButtons: true,
+  });
 });
 
 test('TelegramBotApiClient surfaces Bot API errors without leaking token into message', async () => {

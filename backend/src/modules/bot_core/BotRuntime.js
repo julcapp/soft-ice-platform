@@ -77,7 +77,11 @@ function isStartUpdate(channel, update = {}) {
 
 function resolveDestination(channel, inbound, update = {}) {
   if (channel === 'telegram') {
-    return { chatId: inbound.metadata?.chatId, callbackQueryId: update.callback_query?.id || null };
+    return {
+      chatId: inbound.metadata?.chatId,
+      userId: inbound.externalUserId,
+      callbackQueryId: update.callback_query?.id || null,
+    };
   }
   return { chatId: inbound.metadata?.chatId || update.chat_id || null, userId: inbound.externalUserId };
 }

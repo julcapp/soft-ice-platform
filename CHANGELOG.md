@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [Unreleased] — Telegram Bot API 10.3
+
+- Добавлен Telegram-only `sendRichMessage` с обычным текстовым fallback при выключенном feature flag.
+- Добавлены персональные ephemeral-подтверждения только для явно некритичных сообщений; коды, чеки, оплаченные заказы и финансовые факты остаются обычными сообщениями.
+- Добавлен `DisabledButton` для уже завершённых действий; при выключенном флаге такое действие скрывается, а не активируется повторно.
+- Все возможности 10.3 выключены по умолчанию тремя независимыми флагами; MAX и production-конфигурация не изменены.
+- Добавлены transport, renderer, fallback и safety regression tests, а также ADR-046.
+
 ## 2026-08-21 — устранение критических дефектов Inventory Reservation & Locking v1
 
 - PostgreSQL `InventoryRuntimeStock` закреплён как единственный production source of truth; legacy in-memory runtime оставлен только как test/demo adapter без production fallback.

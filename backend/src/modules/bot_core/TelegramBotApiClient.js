@@ -1,11 +1,16 @@
 class TelegramBotApiClient {
-  constructor({ token, apiBaseUrl = 'https://api.telegram.org', fetchImpl = globalThis.fetch } = {}) {
+  constructor({ token, apiBaseUrl = 'https://api.telegram.org', fetchImpl = globalThis.fetch, features = {} } = {}) {
     if (!token) throw new Error('Telegram bot token is required.');
     if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required.');
     this.token = token;
     this.apiBaseUrl = apiBaseUrl.replace(/\/$/, '');
     this.fetch = fetchImpl;
     this.sendMessageContract = 'telegram_bot_api';
+    this.features = Object.freeze({
+      richMessages: features.richMessages === true,
+      ephemeralMessages: features.ephemeralMessages === true,
+      disabledButtons: features.disabledButtons === true,
+    });
   }
 
   async call(method, payload = {}) {
@@ -35,6 +40,17 @@ class TelegramBotApiClient {
 
   sendMessage(chatId, text, options = {}) {
     return this.call('sendMessage', { chat_id: chatId, text, ...options });
+  }
+
+  sendRichMessage(chatId, richMessage, options = {}) {
+    if (!richMessage || typeof richMessage !== 'object' || Array.isArray(richMessage)) {
+      throw new Error('Telegram richMessage object is required.');
+    }
+    const contentFields = ['html', 'markdown', 'blocks'].filter((field) => richMessage[field] !== undefined);
+    if (contentFields.length !== 1) {
+      throw new Error('Telegram richMessage requires exactly one of html, markdown or blocks.');
+    }
+    return this.call('sendRichMessage', { chat_id: chatId, rich_message: richMessage, ...options });
   }
 
   answerCallbackQuery(callbackQueryId, options = {}) {

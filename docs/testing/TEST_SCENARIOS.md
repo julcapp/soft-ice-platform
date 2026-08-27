@@ -365,6 +365,18 @@ Automated coverage includes legal/illegal transitions; purchase, test, and maint
 - Gift Redemption не начисляет purchase-бонусы и не считается first own purchase.
 - Telegram и MAX вызываются одновременно; проверяются частичный успех, оба unavailable и достоверность статусов.
 - Все события передачи имеют общий `correlationId`; Customer Timeline, роли и русские UI-тексты проверяются отдельно.
+
+# Telegram Bot API 10.3 — поэтапная приёмка
+
+- При трёх выключенных флагах Bot Core отправляет прежний `sendMessage`, не добавляет ephemeral-параметры и не передаёт `disabled` в Telegram.
+- При включённом rich-message флаге подготовленный Telegram view вызывает `sendRichMessage`; при выключенном флаге тот же view отправляет обычный текстовый fallback.
+- Rich-message ошибка не запускает автоматическую повторную отправку обычного сообщения после неопределённого результата сети, чтобы не создавать дубликат.
+- Ephemeral отправляется только при `critical=false`, известном `receiver_user_id` и включённом флаге.
+- Код получения, чек, оплаченный заказ и другое критичное сообщение всегда отправляются обычным способом, даже если view ошибочно запросил ephemeral.
+- При включённом disabled-button флаге завершённое действие отображается как `InlineKeyboardButton.disabled={}`.
+- При выключенном disabled-button флаге завершённое действие отсутствует в клавиатуре и не становится активным повторно.
+- MAX renderer для тех же shared actions не получает Telegram `disabled`, `rich_message` или `ephemeral_message_parameters`.
+- Повторный callback по завершённому действию остаётся безопасным за счёт backend-идемпотентности, независимо от вида кнопки.
 # Сквозная продажа Soft ICE v1
 
 - Happy path: заказ → PAID → AUTHORIZED → DISPENSING → DISPENSED → Inventory → Sale → CRM/Customer 360 → Loyalty → COMPLETED.
