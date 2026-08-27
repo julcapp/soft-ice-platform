@@ -35,9 +35,13 @@ const relationFields = {
     'promotionAudiences PromotionAudience[]',
   ],
   PromotionCampaign: [
+    'effectiveVersionId String?',
+    'effectiveVersion PromotionVersion? @relation("PromotionEffectiveVersion", fields: [effectiveVersionId], references: [id], onDelete: SetNull)',
     'pricingQuotes PricingQuote[]',
   ],
   PromotionVersion: [
+    'status String @default("DRAFT")',
+    'effectiveForCampaigns PromotionCampaign[] @relation("PromotionEffectiveVersion")',
     'pricingQuotes PricingQuote[]',
   ],
 };
@@ -125,6 +129,20 @@ function assertIntegrated(schema) {
   for (const [fieldName, typeExpression] of requiredFields) {
     if (!fieldRegex(fieldName, typeExpression).test(schema)) {
       throw new Error(`Integrated schema is missing required field: ${fieldName}`);
+    }
+  }
+
+  const modelFields = [
+    ['PromotionCampaign', 'effectiveVersionId', 'String\\?'],
+    ['PromotionCampaign', 'effectiveVersion', 'PromotionVersion\\?'],
+    ['PromotionVersion', 'status', 'String\\s+@default\\("DRAFT"\\)'],
+    ['PromotionVersion', 'effectiveForCampaigns', 'PromotionCampaign\\[\\]'],
+  ];
+  const models = new Map(extractModelBlocks(schema).map((block) => [block.name, block.content]));
+  for (const [modelName, fieldName, typeExpression] of modelFields) {
+    const model = models.get(modelName);
+    if (!model || !fieldRegex(fieldName, typeExpression).test(model)) {
+      throw new Error(`Integrated schema is missing required field: ${modelName}.${fieldName}`);
     }
   }
 }
