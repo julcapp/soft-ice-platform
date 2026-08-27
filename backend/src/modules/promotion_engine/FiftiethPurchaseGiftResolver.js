@@ -3,9 +3,11 @@
 const crypto = require('crypto');
 
 class FiftiethPurchaseGiftResolver {
-  constructor({ prisma, itemSelector } = {}) {
+  constructor({ prisma, itemSelector, clock = () => new Date() } = {}) {
     if (!prisma) throw new Error('Prisma client is required.');
+    if (typeof clock !== 'function') throw new Error('Clock must be a function.');
     this.prisma = prisma;
+    this.clock = clock;
     this.itemSelector = itemSelector || ((items) => items.find((item) => item.serverProductType === 'ICE_CREAM'));
   }
 
@@ -21,7 +23,7 @@ class FiftiethPurchaseGiftResolver {
     if (ordinal % 50 !== 0) return { giftItemIds: [], eligible: false, purchaseOrdinal: ordinal };
 
     const activeReservation = await this.prisma.giftRewardReservation.findFirst({
-      where: { customerId, machineId, status: 'RESERVED', expiresAt: { gt: new Date() } },
+      where: { customerId, machineId, status: 'RESERVED', expiresAt: { gt: this.clock() } },
       orderBy: { reservedAt: 'desc' },
     });
     if (activeReservation) {
@@ -40,7 +42,7 @@ class FiftiethPurchaseGiftResolver {
     if (!quoteId || !customerId || !machineId || !itemId || !purchaseOrdinal || !lockedUntil) return { reserved: false };
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const now = new Date();
+        const now = this.clock();
         await tx.giftRewardReservation.updateMany({
           where: { customerId, machineId, status: 'RESERVED', expiresAt: { lte: now } },
           data: { status: 'RELEASED' },
@@ -86,7 +88,7 @@ class FiftiethPurchaseGiftResolver {
     const reservation = await this.prisma.giftRewardReservation.findUnique({ where: { quoteId } });
     if (!reservation || reservation.status !== 'RESERVED') return null;
     return this.prisma.$transaction(async (tx) => {
-      const now = new Date();
+      const now = this.clock();
       if (reservation.expiresAt <= now) {
         await tx.giftRewardReservation.update({ where: { quoteId }, data: { status: 'RELEASED' } });
         return null;

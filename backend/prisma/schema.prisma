@@ -2260,26 +2260,30 @@ model PromotionCampaign {
   name             String
   description      String?
   status           String    @default("DRAFT")
-  currentVersionId String?
+  currentVersionId   String?
+  effectiveVersionId String?
   createdBy        String
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   archivedAt       DateTime?
 
-  currentVersion PromotionVersion?      @relation("PromotionCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
-  versions       PromotionVersion[]     @relation("PromotionVersions")
+  currentVersion   PromotionVersion? @relation("PromotionCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  effectiveVersion PromotionVersion? @relation("PromotionEffectiveVersion", fields: [effectiveVersionId], references: [id], onDelete: SetNull)
+  versions         PromotionVersion[] @relation("PromotionVersions")
   approvals      PromotionApproval[]
   events         PromotionEvent[]
   applications   PromotionApplication[]
   pricingQuotes  PricingQuote[]
 
   @@index([status, createdAt])
+  @@index([effectiveVersionId])
 }
 
 model PromotionVersion {
   id                         String    @id @default(uuid())
   campaignId                 String
   version                    Int
+  status                     String    @default("DRAFT")
   benefitType                String
   benefitValue               Decimal?  @db.Decimal(12, 4)
   priority                   Int       @default(0)
@@ -2300,8 +2304,9 @@ model PromotionVersion {
   createdBy                  String
   createdAt                  DateTime  @default(now())
 
-  campaign            PromotionCampaign      @relation("PromotionVersions", fields: [campaignId], references: [id], onDelete: Restrict)
-  currentForCampaigns PromotionCampaign[]    @relation("PromotionCurrentVersion")
+  campaign              PromotionCampaign   @relation("PromotionVersions", fields: [campaignId], references: [id], onDelete: Restrict)
+  currentForCampaigns   PromotionCampaign[] @relation("PromotionCurrentVersion")
+  effectiveForCampaigns PromotionCampaign[] @relation("PromotionEffectiveVersion")
   schedules           PromotionSchedule[]
   targets             PromotionTarget[]
   audiences           PromotionAudience[]
@@ -2314,6 +2319,7 @@ model PromotionVersion {
 
   @@unique([campaignId, version])
   @@index([campaignId, createdAt])
+  @@index([campaignId, status])
   @@index([startsAt, endsAt])
 }
 
