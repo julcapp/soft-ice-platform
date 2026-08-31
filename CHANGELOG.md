@@ -517,3 +517,23 @@
 - Production Sale Flow composition дополнена явными Payment/Machine production boundaries со статусом `BLOCKED_EXTERNAL`, без fake adapters и silent fallback.
 - Order creation и успешное завершение продажи включены в общую PostgreSQL transaction с Inventory, Sale Flow и Transactional Outbox; добавлены rollback-инъекции и multi-item success test.
 - Исправлен перенос terminal legacy reservations: `reserved`, `consumed` и `released` quantities сохраняют исторический факт; добавлены executable migration fixtures и invariant assertions.
+
+## 31.08.2026 — Gift Transfer PostgreSQL Runtime
+
+### Добавлено
+
+- производственный `PrismaGiftTransferRepository` для подарков, приглашений, claim, redemption, реферальных связей и попыток уведомлений;
+- транзакционное сохранение связанных изменений Gift Transfer;
+- миграция `OrderStatus.GIFT_TRANSFERRED`;
+- тесты Prisma-репозиторного контракта и ADR-048.
+
+### Изменено
+
+- runtime-композиция переведена с временного `Map` на PostgreSQL;
+- Gift Transfer Service, пользовательский API, административный API и Notification Orchestrator используют асинхронный репозиторный контракт;
+- in-memory-репозиторий оставлен только для изолированных тестов.
+
+### Безопасность развёртывания
+
+- реальные Telegram/MAX-отправители не включены;
+- production не изменён и требует отдельного применения миграции и приёмки.
