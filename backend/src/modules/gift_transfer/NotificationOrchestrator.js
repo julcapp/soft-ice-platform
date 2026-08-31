@@ -12,7 +12,7 @@ class NotificationOrchestrator {
       const adapter = this.adapters.get(channel); const now = this.clock();
       let result = { status: DELIVERY_STATUS.UNAVAILABLE, failureCode: 'CHANNEL_NOT_CONFIGURED' };
       try { if (adapter) result = await adapter.send(notification); } catch (error) { result = { status: DELIVERY_STATUS.FAILED, failureCode: error.code || 'PROVIDER_ERROR' }; }
-      const attempt = this.repository.saveDelivery({ id: `delivery_${crypto.randomUUID()}`, notificationId: notification.id,
+      const attempt = await this.repository.saveDelivery({ id: `delivery_${crypto.randomUUID()}`, notificationId: notification.id,
         recipientCustomerId: notification.recipientCustomerId || null, channel, providerMessageId: result.providerMessageId || null,
         status: result.status || DELIVERY_STATUS.UNKNOWN, attemptedAt: now, deliveredAt: result.status === DELIVERY_STATUS.DELIVERED ? now : null,
         openedAt: null, failedAt: result.status === DELIVERY_STATUS.FAILED ? now : null, failureCode: result.failureCode || null,
