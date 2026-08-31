@@ -1,1 +1,1 @@
-module.exports = { ...require('./GiftTransferModels'), ...require('./GiftTransferRepository'), ...require('./GiftTransferService'), ...require('./GiftTransferRuntime'), ...require('./NotificationOrchestrator') };
+module.exports = { ...require('./GiftTransferModels'), ...require('./GiftTransferRepository'), ...require('./PrismaGiftTransferRepository'), ...require('./GiftTransferService'), ...require('./GiftTransferRuntime'), ...require('./NotificationOrchestrator') };
