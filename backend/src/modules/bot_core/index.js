@@ -11,6 +11,7 @@ const { BotTransportSender } = require('./BotTransportSender');
 const { parseStartPayload } = require('./DeepLinkParser');
 const { BotOnboardingService } = require('./BotOnboardingService');
 const { BotUserFlowService } = require('./BotUserFlowService');
+const { BotGiftActionService, buildGiftAcceptAction, parseGiftAction } = require('./BotGiftActionService');
 const {
   buildClubSummary,
   buildReferralRewardNotification,
@@ -36,6 +37,7 @@ module.exports = {
     'club summary user flow',
     'referral section user flow',
     'referral qualification and reward notifications',
+    'authenticated gift list and acceptance orchestration',
     'transport-specific rendering from shared view models',
     'bot action routing without business logic duplication',
     'runtime webhook dispatch and transport sending',
@@ -55,6 +57,9 @@ module.exports = {
   resolveDestination,
   BotOnboardingService,
   BotUserFlowService,
+  BotGiftActionService,
+  buildGiftAcceptAction,
+  parseGiftAction,
   ONBOARDING_STAGE,
   buildWelcomeMessage,
   buildSubscriptionOffer,
