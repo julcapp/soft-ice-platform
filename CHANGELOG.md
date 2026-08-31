@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [Unreleased] — Bot Gift Acceptance
+
+- В меню Telegram/MAX Bot Core добавлен раздел «Мои подарки».
+- Кнопка принятия использует только канонический customer context и `GiftTransferRuntime.accept`; callback не содержит телефон, invitation token, код выдачи или финансовые данные.
+- Повторное принятие идемпотентно; просроченный подарок не принимается и возвращается отправителю.
+- Telegram показывает завершённое действие как disabled только за feature flag, MAX удаляет повторное действие.
+- Подтверждение принятия не использует ephemeral; получение кода остаётся в Mini App.
+- Добавлены backend-тесты, DECISION-068, ADR-047 и сценарии приёмки. Продакшен не изменён.
+
+
 ## [Unreleased] — Telegram Bot API 10.3
 
 - Добавлен Telegram-only `sendRichMessage` с обычным текстовым fallback при выключенном feature flag.
