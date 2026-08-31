@@ -2381,3 +2381,9 @@ Event Center is a separate bounded context subscribed to Platform Event Bus. It 
 **Status:** Accepted
 
 `sale_flow` принимает организационный контекст только через authoritative machine/location relation. Создание заказа, provider transaction, callbacks, fulfillment token и финальные эффекты имеют независимые idempotency keys. Оплаченная неуспешная выдача передаёт в Order/Payment требование `REFUND_REQUIRED`, не уничтожая payment history; Sale Flow хранит только одноимённое recovery state. Текущая in-memory реализация остаётся `FOUNDATION_ONLY`; production требует durable repository, уникальных ограничений, возобновляемого workflow и transactional outbox.
+
+## DECISION-069 — Gift Transfer Runtime хранится в PostgreSQL
+
+**Статус:** принято 31.08.2026.
+
+Производственная композиция Gift Transfer использует `PrismaGiftTransferRepository`; in-memory-репозиторий разрешён только для изолированных тестов. Передача, приглашение, claim, принятие, выдача, реферальная связь и попытки уведомлений должны переживать перезапуск backend. Статус заказа `GIFT_TRANSFERRED` закреплён в Prisma enum и миграции. Реальные отправители Telegram/MAX и production deployment остаются отдельными решениями. См. ADR-048.
