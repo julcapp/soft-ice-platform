@@ -460,3 +460,15 @@ Service restart остаётся непроверяемым до durable reposit
 - Production composition требует `organizationContext`, `orderDomain`, `priceCalculator`, `paymentAdapter`, `machineAdapter`, PostgreSQL Inventory и PostgreSQL Transactional Outbox до начала бизнес-транзакции; внешние Payment/Machine границы честно возвращают `BLOCKED_EXTERNAL`.
 - Одна Prisma/PostgreSQL transaction фиксирует Order, multi-item Inventory reservation/stock, Sale Flow и Outbox; инъекции отказа Order, Inventory, Sale Flow и Outbox дают полный rollback.
 - Legacy migration fixtures покрывают `ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`, single-item и multi-item; terminal rows сохраняют `reservedQuantity = quantity`, а невосстановимое ownership приводит к abort всей migration transaction.
+
+## Gift Transfer PostgreSQL Runtime
+
+- Создание подарка атомарно сохраняет transfer, invitation и referral link.
+- После создания нового экземпляра runtime ранее сохранённый подарок доступен отправителю и получателю.
+- Принятие сохраняет `ACCEPTED` и реферальную стадию; повторный вызов идемпотентен.
+- Claim сохраняет получателя, приглашение, claim и реферальную связь одной транзакцией репозитория.
+- Выдача сохраняет redemption и состояние подарка; хеш кода остаётся в базе, открытый код — только в ответе Mini App.
+- Попытка уведомления повторно использует уникальную пару `notificationId + channel`.
+- Пользовательский и административный API корректно ожидают асинхронные чтения Prisma.
+- Prisma schema и чистая цепочка миграций содержат `OrderStatus.GIFT_TRANSFERRED`.
+- Перезапуск backend не удаляет подарки и историю попыток доставки.
