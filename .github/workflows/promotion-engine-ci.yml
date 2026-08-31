@@ -12,6 +12,7 @@ on:
       - 'backend/scripts/merge-promotion-prisma.js'
       - 'backend/src/api/v1/**'
       - 'backend/src/modules/order/**'
+      - 'backend/src/modules/gift_transfer/**'
       - 'backend/src/modules/payment/**'
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
@@ -26,6 +27,7 @@ on:
       - 'backend/scripts/merge-promotion-prisma.js'
       - 'backend/src/api/v1/**'
       - 'backend/src/modules/order/**'
+      - 'backend/src/modules/gift_transfer/**'
       - 'backend/src/modules/payment/**'
       - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
@@ -98,6 +100,10 @@ jobs:
       - name: Run Promotion purchase PostgreSQL E2E
         working-directory: backend
         run: node --test tests/promotion-purchase.e2e.js
+
+      - name: Run Gift Transfer PostgreSQL E2E
+        working-directory: backend
+        run: node --test tests/gift-transfer-postgres.e2e.js
 
       - name: Enable Corepack
         run: corepack enable
