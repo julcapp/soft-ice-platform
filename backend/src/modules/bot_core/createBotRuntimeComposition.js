@@ -13,6 +13,7 @@ const { BotRuntime } = require('./BotRuntime');
 const { BotActionRouter } = require('./BotActionRouter');
 const { BotOnboardingService } = require('./BotOnboardingService');
 const { BotUserFlowService } = require('./BotUserFlowService');
+const { BotGiftActionService } = require('./BotGiftActionService');
 const { buildMainMenu } = require('./OnboardingPolicy');
 
 function createBotRuntimeComposition({ dependencies, env = process.env, clients = {}, logger = console } = {}) {
@@ -40,6 +41,14 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
     buildMiniAppView: () => ({ title: 'У Тимоши', text: 'Откройте приложение «У Тимоши».', actions: [{ type: 'open_mini_app', label: '📱 Открыть У Тимоши', url: miniAppUrl }] }),
   };
 
+  const giftActionService = dependencies.giftTransferRuntime
+    ? new BotGiftActionService({
+      giftTransferRuntime: dependencies.giftTransferRuntime,
+      miniAppUrl,
+      logger,
+    })
+    : null;
+
   const customerResolver = {
     async resolve({ channel, inbound }) {
       if (!inbound.externalUserId) return { customerId: null, customer: null };
@@ -61,7 +70,7 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
       telegram: new TelegramRenderer({ features: clients.telegram?.features }),
       max: new MaxRenderer(),
     },
-    actionRouter: new BotActionRouter({ customerExperienceService }),
+    actionRouter: new BotActionRouter({ customerExperienceService, giftActionService }),
     onboardingService,
     customerResolver,
     sender: new BotTransportSender({ clients, logger }),
