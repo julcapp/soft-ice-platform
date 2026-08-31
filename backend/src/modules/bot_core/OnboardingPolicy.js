@@ -60,6 +60,7 @@ function buildMainMenu({ miniAppUrl, machineId = null } = {}) {
   return [
     miniAppTarget ? { type: 'open_mini_app', label: '📱 Открыть У Тимоши', url: miniAppTarget } : null,
     { type: 'action', label: '🎁 Мой клуб', action: 'club' },
+    { type: 'action', label: '🍦 Мои подарки', action: 'gifts' },
     { type: 'action', label: '👥 Пригласить друга', action: 'referral' },
     { type: 'action', label: '📦 Мой заказ', action: 'order' },
     { type: 'action', label: '📍 Где купить', action: 'locations' },

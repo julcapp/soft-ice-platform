@@ -1,5 +1,14 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-068 — Bot Gift Acceptance Uses Gift Transfer Runtime
+
+**Date:** 2026-08-31
+
+**Status:** Accepted
+
+Bot Core показывает подарки и принимает callback только после разрешения канальной идентичности в канонический customer. Изменение состояния выполняется исключительно через идемпотентный `GiftTransferRuntime.accept`; callback не содержит телефон, invitation token, код выдачи или финансовые данные. Подтверждение не является ephemeral, Telegram disabled button остаётся только отображением серверного состояния, а MAX после успеха не показывает повторное действие. Код получения остаётся в Mini App. Подробности: `docs/architecture/ADR/ADR-047-bot-gift-accept-action.md`.
+
+
 # Decision: DECISION-067 — Sale Commit Uses One PostgreSQL Transaction
 
 **Date:** 2026-08-21
