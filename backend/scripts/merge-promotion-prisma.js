@@ -109,6 +109,11 @@ function addRelationFields(schema, modelName, fields) {
 }
 
 function assertIntegrated(schema) {
+  const orderStatus = schema.match(/enum\s+OrderStatus\s*\{([\s\S]*?)\}/);
+  if (!orderStatus || !/\bGIFT_TRANSFERRED\b/.test(orderStatus[1])) {
+    throw new Error('Integrated schema is missing OrderStatus.GIFT_TRANSFERRED.');
+  }
+
   const requiredModels = [
     'PromotionCampaign', 'PromotionVersion', 'PromotionSchedule', 'PromotionMachineGroup',
     'PromotionMachineGroupMember', 'PromotionTarget', 'PromotionAudience', 'PromotionRule',
