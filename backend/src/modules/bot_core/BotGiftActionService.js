@@ -1,7 +1,7 @@
 'use strict';
 
 const GIFT_ACCEPT_ACTION = 'gift_accept';
-const GIFT_ID_PATTERN = /^gift_[A-Za-z0-9-]{1,48}$/;
+const GIFT_ID_PATTERN = /^gift_[A-Za-z0-9-]{1,40}$/;
 const EXPECTED_GIFT_ERRORS = new Set([
   'RESOURCE_NOT_FOUND',
   'GIFT_ACCEPT_NOT_ALLOWED',
