@@ -110,6 +110,7 @@ model Customer {
   externalProfiles        CustomerExternalProfile[]
   channelSubscriptions    CustomerChannelSubscription[]
   organizationMemberships OrganizationMember[]
+  welcomeBonusGrants      WelcomeBonusGrant[]
 }
 
 model CustomerPreference {
@@ -952,10 +953,10 @@ model MachineMobilePlan {
   source                  String
   verificationStatus      String
   metadata                Json?
-  actorId                 String?
-  auditReason             String?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  actorId                  String?
+  auditReason              String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
   machine                 Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
 }
 
@@ -1726,9 +1727,44 @@ model Referral {
   milestoneBonusPaid Boolean   @default(false)
   createdAt          DateTime  @default(now())
 
-  referrer          Customer           @relation("Referrer", fields: [referrerCustomerId], references: [id])
-  referred          Customer?          @relation("Referred", fields: [referredCustomerId], references: [id])
+  referrer          Customer               @relation("Referrer", fields: [referrerCustomerId], references: [id])
+  referred          Customer?              @relation("Referred", fields: [referredCustomerId], references: [id])
   bonusTransactions BonusTransaction[]
+  qualification     ReferralQualification?
+}
+
+model ReferralQualification {
+  id            String   @id @default(uuid())
+  referralId    String   @unique
+  action        String
+  sourceEventId String?  @unique
+  occurredAt    DateTime
+  createdAt     DateTime @default(now())
+
+  referral Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@index([action, occurredAt])
+}
+
+model WelcomeBonusGrant {
+  id                String    @id @default(uuid())
+  customerId        String
+  amountGranted     Int
+  amountRemaining   Int
+  status            String    @default("ACTIVE")
+  issuedAt          DateTime  @default(now())
+  expiresAt         DateTime
+  qualifiedAt       DateTime?
+  qualifyingAction  String?
+  qualifyingEventId String?   @unique
+  convertedAt       DateTime?
+  expiredAt         DateTime?
+  metadata          Json?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@index([expiresAt, status])
 }
 
 model PhotoChallenge {
