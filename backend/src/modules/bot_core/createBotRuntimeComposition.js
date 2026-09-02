@@ -73,7 +73,9 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
     actionRouter: new BotActionRouter({ customerExperienceService, giftActionService }),
     onboardingService,
     customerResolver,
+    recipientBindingService: dependencies.botRecipientBindingService || null,
     sender: new BotTransportSender({ clients, logger }),
+    logger,
   });
 }
 

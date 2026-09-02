@@ -39,8 +39,11 @@ const { PrismaGiftTransferRepository, GiftTransferService, GiftTransferRuntime, 
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
 const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
+const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
+const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
+const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
 
-function createRuntimeDependencies({ logger, metrics, config } = {}) {
+function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
   const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
@@ -190,7 +193,33 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     }) : undefined,
   });
   const giftTransferRepository = new PrismaGiftTransferRepository(prisma);
-  const notificationOrchestrator = new NotificationOrchestrator({ repository: giftTransferRepository, adapters: [new TelegramNotificationAdapter(), new MaxNotificationAdapter()] });
+  const botRecipientBindingRepository = new BotRecipientBindingRepository(prisma);
+  const recipientEncryptionKey = config?.botNotifications?.recipientEncryptionKey;
+  const botRecipientBindingService = recipientEncryptionKey
+    ? new BotRecipientBindingService({
+      repository: botRecipientBindingRepository,
+      customerRepository,
+      codec: new AesGcmValueCodec({ key: recipientEncryptionKey }),
+      logger,
+    })
+    : null;
+  const notificationOrchestrator = new NotificationOrchestrator({
+    repository: giftTransferRepository,
+    adapters: [
+      new TelegramNotificationAdapter({
+        bindingService: botRecipientBindingService,
+        client: botClients.telegram || null,
+        enabled: config?.botNotifications?.telegramEnabled === true,
+        miniAppUrl: config?.botNotifications?.miniAppUrl,
+      }),
+      new MaxNotificationAdapter({
+        bindingService: botRecipientBindingService,
+        client: botClients.max || null,
+        enabled: config?.botNotifications?.maxEnabled === true,
+        miniAppUrl: config?.botNotifications?.miniAppUrl,
+      }),
+    ],
+  });
   const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({ repository: giftTransferRepository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher: platformEventBus, auditRepository }) });
   const crmRuntime = new CRMRuntime({ service: new CRMService({
     repository: new CRMRepository(prisma),
@@ -297,6 +326,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineRuntime,
     orderRuntime,
     giftTransferRuntime,
+    botRecipientBindingService,
     domainEventPublisher,
   };
 }

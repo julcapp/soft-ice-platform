@@ -157,7 +157,7 @@ test('TelegramBotApiClient configures webhook with secret token', async () => {
   assert.equal(calls[0].body.drop_pending_updates, true);
 });
 
-test('bot env factory uses only isolated test token and ignores existing Mini App bot token', () => {
+test('bot env factory isolates test credentials and uses production credentials only in production', () => {
   const fetchImpl = async () => { throw new Error('network should not be called'); };
   const withoutTestToken = createBotClientsFromEnv({ TELEGRAM_BOT_TOKEN: 'existing-production-token' }, { fetchImpl });
   assert.equal(withoutTestToken.telegram, undefined);
@@ -185,6 +185,16 @@ test('bot env factory uses only isolated test token and ignores existing Mini Ap
     ephemeralMessages: true,
     disabledButtons: true,
   });
+
+  const production = createBotClientsFromEnv({
+    NODE_ENV: 'production',
+    TELEGRAM_BOT_TOKEN: 'production-token',
+    TELEGRAM_TEST_BOT_TOKEN: 'isolated-test-token',
+    MAX_BOT_TOKEN: 'max-production-token',
+    MAX_TEST_BOT_TOKEN: 'max-test-token',
+  }, { fetchImpl });
+  assert.equal(production.telegram.token, 'production-token');
+  assert.equal(production.max.token, 'max-production-token');
 });
 
 test('TelegramBotApiClient surfaces Bot API errors without leaking token into message', async () => {

@@ -24,6 +24,7 @@ class TelegramAdapter extends BotAdapter {
       },
       metadata: {
         chatId: message.chat?.id ? String(message.chat.id) : null,
+        chatType: message.chat?.type || null,
         updateId: update.update_id || null,
       },
     };

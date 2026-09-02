@@ -84,12 +84,14 @@ class GiftTransferService {
       const notification = {
         id: `notification_${crypto.randomUUID()}`, giftTransferId: id, recipientCustomerId: recipient?.id || null,
         recipientPhoneNormalized: phone, channels: ['TELEGRAM','MAX'], template: 'GIFT_INVITATION',
-        title: 'Вам подарили мороженое 🎁', actionToken: token, correlationId,
+        title: 'Вам подарили мороженое 🎁', senderName: sender?.name || null, actionToken: token, correlationId,
       };
       const deliveries = await this.notificationOrchestrator.send(notification);
-      invitation.status = INVITATION_STATUS.SENT;
-      await this.repository.saveInvitation(invitation);
-      await this.emit('GIFT_INVITATION_SENT', id, correlationId, { invitationId: invitation.id, notificationId: notification.id });
+      if (deliveries.some((delivery) => ['SENT', 'DELIVERED'].includes(delivery.status))) {
+        invitation.status = INVITATION_STATUS.SENT;
+        await this.repository.saveInvitation(invitation);
+        await this.emit('GIFT_INVITATION_SENT', id, correlationId, { invitationId: invitation.id, notificationId: notification.id });
+      }
       await this.audit('GiftTransfer.Created', customerId, transfer.id, 'create', 'success', context);
       return { giftTransfer: publicGift(transfer), invitation: { id: invitation.id, giftTransferId: id, status: invitation.status, expiresAt: invitation.expiresAt }, deliveries };
     } finally {
