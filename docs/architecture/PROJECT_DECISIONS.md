@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-070 — Bot Recipient Delivery Uses Verified Encrypted Bindings
+
+**Date:** 2026-09-02
+
+**Status:** Accepted
+
+Telegram/MAX destination identifiers are learned only from trusted inbound bot webhooks after the external subject resolves to the same canonical customer. Telegram accepts only a private chat whose `chat_id` equals the sender subject; MAX delivery uses the verified inbound `user_id`. The destination is encrypted with AES-256-GCM and customer/channel associated data. Gift delivery is transactional, not marketing, but remains disabled per channel until credentials, encryption key, migration and acceptance checks are present. Invitation tokens and redemption secrets never leave the server. Details: `docs/architecture/ADR/ADR-049-safe-bot-recipient-delivery.md`.
+
 # Decision: DECISION-068 — Bot Gift Acceptance Uses Gift Transfer Runtime
 
 **Date:** 2026-08-31

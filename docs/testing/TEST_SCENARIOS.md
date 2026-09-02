@@ -1,5 +1,18 @@
 # TEST_SCENARIOS
 
+## Bot Core — безопасная доставка приглашения о подарке
+
+1. Private Telegram update binds only when canonical Customer Identity matches the sender and `chat_id == user_id`.
+2. Telegram group/supergroup/channel updates never become personal delivery bindings.
+3. MAX binding uses the verified inbound `user_id`; a subject already linked to another customer is rejected.
+4. Database contains only the subject hash and AES-256-GCM ciphertext, never a plaintext destination.
+5. Ciphertext cannot be decrypted under another customer/channel associated-data context.
+6. Both delivery flags default to false and provider clients are not called while disabled.
+7. A registered, bound recipient receives the message independently in each enabled channel.
+8. An unregistered or unbound recipient produces `UNAVAILABLE` delivery attempts without an external call.
+9. Message text and provider request contain no invitation token, phone, redemption code or payment data.
+10. `GiftInvitation.status` becomes `SENT` and emits `GIFT_INVITATION_SENT` only if at least one provider returns `SENT` or `DELIVERED`.
+
 ## Bot Core — принятие подарка
 
 1. Неаутентифицированный callback `gift_accept` не вызывает Gift Transfer Runtime и предлагает завершить вход.

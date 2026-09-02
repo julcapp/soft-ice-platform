@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [Unreleased] — Safe Bot Gift Invitation Delivery
+
+- Telegram/MAX recipient destinations are learned only from trusted inbound bot webhooks after canonical Customer Identity resolution.
+- Destinations are encrypted with AES-256-GCM and customer/channel associated data; only provider subject hashes remain searchable.
+- Real Telegram and MAX gift invitations use independent fail-closed feature flags, both disabled by default.
+- Invitation status changes to `SENT` only after an actual provider send; disabled or unbound channels remain `CREATED`.
+- Invitation tokens, phones, redemption codes and financial data are never included in provider messages.
+- Added the official MAX `POST /messages` client, migration, tests, DECISION-070 and ADR-049. Production was not changed.
+
 ## [Unreleased] — Bot Gift Acceptance
 
 - В меню Telegram/MAX Bot Core добавлен раздел «Мои подарки».

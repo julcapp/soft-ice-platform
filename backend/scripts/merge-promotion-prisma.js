@@ -17,6 +17,7 @@ const relationFields = {
     'pricingQuotes PricingQuote[]',
     'rewardCounters CustomerMachineRewardCounter[]',
     'giftRewardReservations GiftRewardReservation[]',
+    'botRecipientBindings BotRecipientBinding[]',
   ],
   Machine: [
     'promotionApplications PromotionApplication[]',
@@ -120,6 +121,7 @@ function assertIntegrated(schema) {
     'PromotionChannel', 'PromotionApproval', 'PromotionEvent', 'PromotionApplication',
     'PricingQuote', 'PricingSnapshot', 'PricingSnapshotItem', 'PaymentAttempt',
     'CustomerMachineRewardCounter', 'GiftRewardReservation',
+    'BotRecipientBinding',
   ];
   for (const name of requiredModels) {
     if (!modelRegex(name).test(schema)) throw new Error(`Integrated schema is missing model ${name}.`);

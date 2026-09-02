@@ -2,6 +2,9 @@ const { BotGateway } = require('./BotGateway');
 const { BotAdapter } = require('./BotAdapter');
 const { TelegramAdapter } = require('./TelegramAdapter');
 const { MaxAdapter } = require('./MaxAdapter');
+const { MaxBotApiClient } = require('./MaxBotApiClient');
+const { BotRecipientBindingRepository } = require('./BotRecipientBindingRepository');
+const { BotRecipientBindingService } = require('./BotRecipientBindingService');
 const { TransportRenderer } = require('./TransportRenderer');
 const { TelegramRenderer } = require('./TelegramRenderer');
 const { MaxRenderer } = require('./MaxRenderer');
@@ -46,6 +49,9 @@ module.exports = {
   BotAdapter,
   TelegramAdapter,
   MaxAdapter,
+  MaxBotApiClient,
+  BotRecipientBindingRepository,
+  BotRecipientBindingService,
   TransportRenderer,
   TelegramRenderer,
   MaxRenderer,

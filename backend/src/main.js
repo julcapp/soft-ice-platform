@@ -22,7 +22,8 @@ function createApp(options = {}) {
   const config = options.config || backendConfig;
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
-  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
+  const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
+  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
   if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
@@ -49,7 +50,6 @@ function createApp(options = {}) {
 
   const botWebhooksEnabled = options.botWebhooksEnabled ?? process.env.BOT_WEBHOOKS_ENABLED === 'true';
   if (botWebhooksEnabled) {
-    const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
     const botRuntime = options.botRuntime || createBotRuntimeComposition({ dependencies, env: process.env, clients: botClients, logger });
     const handlers = createBotWebhookHandlers({
       botRuntime,

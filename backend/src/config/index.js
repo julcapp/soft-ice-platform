@@ -64,6 +64,14 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       telemetryLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT, 200, 'EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT'),
       eventLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_EVENT_LIMIT, 200, 'EQUIPMENT_INTEGRATION_EVENT_LIMIT'),
     },
+    botNotifications: {
+      telegramEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_TELEGRAM_ENABLED, false),
+      maxEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_MAX_ENABLED, false),
+      recipientEncryptionKey: secretProvider.get('BOT_RECIPIENT_ENCRYPTION_KEY'),
+      telegramConfigured: Boolean(secretProvider.get('TELEGRAM_BOT_TOKEN') || secretProvider.get('TELEGRAM_TEST_BOT_TOKEN')),
+      maxConfigured: Boolean(secretProvider.get('MAX_BOT_TOKEN') || secretProvider.get('MAX_TEST_BOT_TOKEN')),
+      miniAppUrl: environment.BOT_MINI_APP_URL || environment.MINI_APP_URL || 'https://app.utimoshi.ru',
+    },
     features: Object.freeze({
       paymentsEnabled: parseBoolean(environment.FEATURE_PAYMENTS_ENABLED, false),
       machineDispatchEnabled: parseBoolean(environment.FEATURE_MACHINE_DISPATCH_ENABLED, false),
@@ -79,6 +87,9 @@ function validateConfig(config) {
   if (config.isProduction && !config.database.url) missing.push('DATABASE_URL');
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
+  if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
+  if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
+  if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
 }

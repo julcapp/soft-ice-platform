@@ -1,13 +1,15 @@
 const { parseStartPayload } = require('./DeepLinkParser');
 
 class BotRuntime {
-  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, sender } = {}) {
+  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, recipientBindingService = null, sender, logger = console } = {}) {
     this.adapters = adapters;
     this.renderers = renderers;
     this.actionRouter = actionRouter;
     this.onboardingService = onboardingService;
     this.customerResolver = customerResolver;
+    this.recipientBindingService = recipientBindingService;
     this.sender = sender;
+    this.logger = logger;
   }
 
   async handle(channel, rawUpdate) {
@@ -17,7 +19,7 @@ class BotRuntime {
 
     const inbound = adapter.normalizeInbound(rawUpdate);
     const callback = extractCallback(channel, rawUpdate);
-    const identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
+    let identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
 
     let view;
     if (callback?.kind === 'action') {
@@ -52,10 +54,33 @@ class BotRuntime {
       });
     }
 
+    if (!identity.customerId && isStartUpdate(channel, rawUpdate)) {
+      identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
+    }
+    await this.observeRecipientBinding({ channel, inbound, identity });
+
     const rendered = renderer.renderView(view);
     const destination = resolveDestination(channel, inbound, rawUpdate);
     const result = await this.sender.send({ channel, destination, rendered, rawUpdate });
     return { inbound, identity, callback, view, rendered, destination, result };
+  }
+
+  async observeRecipientBinding({ channel, inbound, identity }) {
+    if (!this.recipientBindingService || !identity?.customerId) return;
+    try {
+      await this.recipientBindingService.observeInbound({
+        customerId: identity.customerId,
+        channel,
+        externalUserId: inbound.externalUserId,
+        metadata: inbound.metadata,
+      });
+    } catch (error) {
+      this.logger?.warn?.('bot.recipient_binding.rejected', {
+        channel,
+        customerId: identity.customerId,
+        code: error.code || 'BOT_RECIPIENT_BINDING_FAILED',
+      });
+    }
   }
 }
 

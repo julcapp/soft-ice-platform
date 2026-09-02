@@ -52,6 +52,28 @@ test('MAX callback is normalized, routed and rendered', async () => {
   assert.equal(result.result.sent, false);
 });
 
+test('runtime observes a trusted private Telegram recipient after customer resolution', async () => {
+  const observed = [];
+  const runtime = new BotRuntime({
+    adapters: { telegram: new TelegramAdapter() },
+    renderers: { telegram: new TelegramRenderer() },
+    customerResolver: { resolve: async () => ({ customerId: 'customer-1' }) },
+    recipientBindingService: { observeInbound: async (value) => observed.push(value) },
+    actionRouter: { route: async () => ({ title: 'Меню', text: 'Тест', actions: [] }) },
+    sender: new BotTransportSender(),
+  });
+  await runtime.handle('telegram', {
+    update_id: 2,
+    message: { text: 'Меню', from: { id: 12345 }, chat: { id: 12345, type: 'private' } },
+  });
+  assert.deepEqual(observed, [{
+    customerId: 'customer-1',
+    channel: 'telegram',
+    externalUserId: '12345',
+    metadata: { chatId: '12345', chatType: 'private', updateId: 2 },
+  }]);
+});
+
 test('Webhook handler acknowledges successful update', async () => {
   const botRuntime = { handle: async (channel) => ({ channel }) };
   const handlers = createBotWebhookHandlers({ botRuntime, logger: { error() {} } });
