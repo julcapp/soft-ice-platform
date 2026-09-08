@@ -9,8 +9,11 @@ const ACTIVE_ORDER_STATUSES = ['PAID'];
 const EVENT_CODES = ['PREPAID_ORDER_CANCEL_REQUESTED','PREPAID_ORDER_CANCELLED_TO_BALANCE','GIFT_TRANSFER_CREATED','GIFT_INVITATION_CREATED','GIFT_INVITATION_SENT','GIFT_INVITATION_OPENED','GIFT_RECIPIENT_REGISTERED','GIFT_TRANSFER_AVAILABLE','GIFT_ACCEPTED','GIFT_REDEMPTION_REQUESTED','GIFT_REDEMPTION_CODE_ISSUED','GIFT_REDEEMED','GIFT_TRANSFER_CANCELLED','GIFT_EXPIRED','GIFT_RETURNED_TO_SENDER','REFERRAL_CREATED_FROM_GIFT','REFERRAL_FIRST_OWN_PURCHASE_COMPLETED'];
 
 class GiftTransferService {
-  constructor({ repository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher, auditRepository = null, clock = () => new Date(), tokenFactory = () => crypto.randomBytes(32).toString('base64url') }) {
+  constructor({ repository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher, auditRepository = null, clock = () => new Date(), tokenFactory = () => crypto.randomBytes(32).toString('base64url'), notificationDeliveryMode = 'DIRECT', outboxMaxAttempts = 5 }) {
     Object.assign(this, { repository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher, auditRepository, clock, tokenFactory });
+    if (!['DIRECT', 'OUTBOX'].includes(notificationDeliveryMode)) throw new Error('notificationDeliveryMode must be DIRECT or OUTBOX.');
+    this.notificationDeliveryMode = notificationDeliveryMode;
+    this.outboxMaxAttempts = outboxMaxAttempts;
     this.invitationAttempts = new Map();
     this.pendingOrders = new Set();
   }
@@ -71,8 +74,16 @@ class GiftTransferService {
         referrerCustomerId: customerId, referredCustomerId: recipient?.id || null, createdAt: now,
         firstOwnPurchaseAt: null, metadata: {},
       };
+      const notification = {
+        id: `notification_${id}`, giftTransferId: id, recipientCustomerId: recipient?.id || null,
+        channels: ['TELEGRAM','MAX'], template: 'GIFT_INVITATION',
+        title: 'Вам подарили мороженое 🎁', senderName: sender?.name || null, correlationId,
+      };
+      const outboxEvent = this.notificationDeliveryMode === 'OUTBOX' && recipient
+        ? buildGiftNotificationOutboxEvent({ transfer, invitation, notification, order, now, maxAttempts: this.outboxMaxAttempts })
+        : null;
       try {
-        await this.repository.createGiftBundle({ transfer, invitation, referral });
+        await this.repository.createGiftBundle({ transfer, invitation, referral, outboxEvent });
       } catch (error) {
         if (error?.code === 'P2002') throw conflict('GIFT_TRANSFER_ALREADY_EXISTS', 'Для этого заказа передача уже создавалась.');
         throw error;
@@ -81,19 +92,17 @@ class GiftTransferService {
       await this.emit('GIFT_TRANSFER_CREATED', id, correlationId, { orderId, senderCustomerId: customerId });
       await this.emit('GIFT_INVITATION_CREATED', id, correlationId, { invitationId: invitation.id });
       if (recipient) await this.emit('GIFT_TRANSFER_AVAILABLE', id, correlationId, { recipientCustomerId: recipient.id });
-      const notification = {
-        id: `notification_${crypto.randomUUID()}`, giftTransferId: id, recipientCustomerId: recipient?.id || null,
-        recipientPhoneNormalized: phone, channels: ['TELEGRAM','MAX'], template: 'GIFT_INVITATION',
-        title: 'Вам подарили мороженое 🎁', senderName: sender?.name || null, actionToken: token, correlationId,
-      };
-      const deliveries = await this.notificationOrchestrator.send(notification);
-      if (deliveries.some((delivery) => ['SENT', 'DELIVERED'].includes(delivery.status))) {
-        invitation.status = INVITATION_STATUS.SENT;
-        await this.repository.saveInvitation(invitation);
-        await this.emit('GIFT_INVITATION_SENT', id, correlationId, { invitationId: invitation.id, notificationId: notification.id });
+      let deliveries = [];
+      if (this.notificationDeliveryMode === 'DIRECT') {
+        deliveries = await this.notificationOrchestrator.send(notification);
+        if (deliveries.some((delivery) => ['SENT', 'DELIVERED'].includes(delivery.status))) {
+          invitation.status = INVITATION_STATUS.SENT;
+          await this.repository.saveInvitation(invitation);
+          await this.emit('GIFT_INVITATION_SENT', id, correlationId, { invitationId: invitation.id, notificationId: notification.id });
+        }
       }
       await this.audit('GiftTransfer.Created', customerId, transfer.id, 'create', 'success', context);
-      return { giftTransfer: publicGift(transfer), invitation: { id: invitation.id, giftTransferId: id, status: invitation.status, expiresAt: invitation.expiresAt }, deliveries };
+      return { giftTransfer: publicGift(transfer), invitation: { id: invitation.id, giftTransferId: id, status: invitation.status, expiresAt: invitation.expiresAt }, deliveries, deliveryQueued: Boolean(outboxEvent) };
     } finally {
       this.pendingOrders.delete(orderId);
     }
@@ -211,6 +220,30 @@ class GiftTransferService {
   audit(eventType, customerId, targetId, action, decision, context) { return this.auditRepository?.record({ eventType, subjectType: 'user', subjectId: customerId, targetType: 'GiftTransfer', targetId, action, decision, reasonCode: 'gift_transfer', authMethod: context.authMethod, sourceChannel: context.sourceChannel, correlationId: context.correlationId, metadata: {} }); }
 }
 
+function buildGiftNotificationOutboxEvent({ transfer, invitation, notification, order, now, maxAttempts = 5 }) {
+  return {
+    eventId: `gift-notification:${notification.id}`,
+    eventType: 'GIFT_INVITATION_DELIVERY_REQUESTED',
+    eventVersion: 1,
+    aggregateType: 'GIFT_TRANSFER',
+    aggregateId: transfer.id,
+    organizationId: null,
+    machineId: order.machineId || null,
+    payload: {
+      giftTransferId: transfer.id,
+      invitationId: invitation.id,
+      notificationId: notification.id,
+      channels: notification.channels,
+    },
+    status: 'PENDING',
+    maxAttempts,
+    availableAt: now,
+    occurredAt: now,
+    correlationId: transfer.correlationId,
+    idempotencyKey: `gift-invitation-delivery:${transfer.id}`,
+  };
+}
+
 function sha256(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 function maskPhone(value) { return value ? `${value.slice(0, 2)} *** ***-${value.slice(-4, -2)}-${value.slice(-2)}` : null; }
 function publicGift(value) { const { invitationTokenHash, recipientPhoneNormalized, ...safe } = value; return { ...safe, recipientPhoneMasked: maskPhone(recipientPhoneNormalized) }; }
@@ -218,4 +251,4 @@ function conflict(code, message) { return new ApiError({ statusCode: 409, code, 
 function notFound() { return new ApiError({ statusCode: 404, code: 'RESOURCE_NOT_FOUND', message: 'Подарок или заказ не найден.', source: 'runtime' }); }
 function validation(field, issue) { return new ApiError({ statusCode: 400, code: 'VALIDATION_FAILED', message: 'Проверьте введённые данные.', details: [{ field, issue }], source: 'api' }); }
 
-module.exports = { GiftTransferService, EVENT_CODES, sha256 };
+module.exports = { GiftTransferService, EVENT_CODES, buildGiftNotificationOutboxEvent, sha256 };

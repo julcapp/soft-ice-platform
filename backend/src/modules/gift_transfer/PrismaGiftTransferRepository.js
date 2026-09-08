@@ -1,5 +1,7 @@
 'use strict';
 
+const { PrismaOutboxRepository } = require('../transactional_outbox/OutboxRepository');
+
 const ACTIVE_GIFT_STATUSES = ['WAITING_FOR_REGISTRATION', 'AVAILABLE', 'ACCEPTED', 'REDEMPTION_READY'];
 
 class PrismaGiftTransferRepository {
@@ -58,12 +60,15 @@ class PrismaGiftTransferRepository {
     });
   }
 
-  async createGiftBundle({ transfer, invitation, referral }) {
+  async createGiftBundle({ transfer, invitation, referral, outboxEvent = null }) {
     return this.prisma.$transaction(async (tx) => {
       const createdTransfer = await tx.giftTransfer.create({ data: transferData(transfer) });
       const createdInvitation = await tx.giftInvitation.create({ data: invitationData(invitation) });
       const createdReferral = await tx.giftReferralLink.create({ data: referralData(referral) });
-      return { transfer: createdTransfer, invitation: createdInvitation, referral: createdReferral };
+      const createdOutboxEvent = outboxEvent
+        ? await new PrismaOutboxRepository(tx).createEvent(outboxEvent)
+        : null;
+      return { transfer: createdTransfer, invitation: createdInvitation, referral: createdReferral, outboxEvent: createdOutboxEvent };
     });
   }
 

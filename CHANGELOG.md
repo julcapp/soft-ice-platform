@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [Unreleased] — Durable Gift Notification Outbox
+
+- Создание подарка зарегистрированному получателю и событие доставки теперь фиксируются одной PostgreSQL-транзакцией.
+- Отдельный worker обрабатывает только `GIFT_INVITATION_DELIVERY_REQUESTED`, использует lease, экспоненциальные повторы и dead letter.
+- Частично успешная доставка не отправляет повторно уже успешный канал; просроченные и закрытые подарки пропускаются.
+- Outbox payload не содержит телефон, invitation token, provider destination или финансовые данные.
+- Добавлены миграция, fail-closed конфигурация, тесты, DECISION-072 и ADR-051. Worker и канальные флаги выключены; production не изменён.
+
 ## [Unreleased] — Unified Development Workflow v2
 
 - Добавлены канонические документы состояния проекта, разработки, PR и доменных точек входа.

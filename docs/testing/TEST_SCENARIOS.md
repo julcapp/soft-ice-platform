@@ -446,6 +446,18 @@ Service restart остаётся непроверяемым до durable reposit
 - Tenant не читает события другой организации; platform scope явный.
 - Admin retry разрешён только роли администратора и создаёт audit trail; payload не редактируется.
 - Известные secret fields в payload отклоняются.
+
+# Durable Gift Notification Outbox — 2026-09-08
+
+- Gift Transfer и `GIFT_INVITATION_DELIVERY_REQUESTED` создаются одной Prisma-транзакцией; ошибка Outbox откатывает весь bundle.
+- Только явно разрешённое платформенное событие Gift Notification может иметь `organizationId = NULL`; произвольное событие без tenant отклоняется.
+- Gift worker выбирает только свой `eventType` и не забирает Sale Flow события.
+- Временный provider failure переводит событие в `RETRY` с backoff; постоянная ошибка — сразу в `DEAD_LETTER`.
+- Если Telegram уже отправлен, а MAX временно ошибся, повтор вызывает только MAX.
+- `SENT` фиксируется лишь после реального успеха хотя бы одного канала.
+- Просроченные, отменённые и уже выданные подарки не отправляются.
+- В Outbox и provider notification отсутствуют телефон, invitation token, redemption code и платёжные данные.
+- Worker не запускается при выключенном флаге и не может быть включён без хотя бы одного разрешённого канала.
 # Transactional Outbox v1 revision defects — 2026-08-20
 
 - Рекурсивная payload validation отклоняет точные sensitive keys в корне, nested objects, arrays и objects внутри arrays без раскрытия значения в ошибке.

@@ -10,6 +10,7 @@
     "prisma:migrate": "npm run prisma:merge && prisma migrate dev",
     "prisma:validate": "npm run prisma:merge && prisma validate",
     "promotion:notifications": "node scripts/run-promotion-pre-notifications.js",
+    "gift-notifications:outbox": "node scripts/run-gift-notification-outbox.js",
     "test": "npm run prisma:merge && node --test tests/*.test.js",
     "max:resolve-chat-id": "node scripts/resolve-max-chat-id.js",
     "photo:publish-smoke": "node scripts/photo-publish-smoke.js",
