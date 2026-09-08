@@ -13,7 +13,7 @@
 - тестовый токен совпадает с production-токеном;
 - не применена миграция `20260908000100_gift_notification_outbox_v1`;
 - тестовый получатель не подтвердил получение служебного сообщения;
-- `BOT_PROVIDER_TIMEOUT_MS` не меньше `GIFT_NOTIFICATION_OUTBOX_LEASE_MS`;
+- `BOT_PROVIDER_TIMEOUT_MS × число включённых каналов` не меньше `GIFT_NOTIFICATION_OUTBOX_LEASE_MS`;
 - в логах, Outbox payload или delivery attempts обнаружен открытый телефон, токен или destination ID;
 - обязательный CI не зелёный.
 

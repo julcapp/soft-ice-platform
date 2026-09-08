@@ -100,9 +100,11 @@ function validateConfig(config) {
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');
   if (config.botNotifications.outbox.workerEnabled && !config.botNotifications.telegramEnabled && !config.botNotifications.maxEnabled) missing.push('GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED');
+  const enabledNotificationChannels = Number(config.botNotifications.telegramEnabled)
+    + Number(config.botNotifications.maxEnabled);
   if (config.botNotifications.outbox.workerEnabled
-    && config.botNotifications.providerTimeoutMs >= config.botNotifications.outbox.leaseMs) {
-    throw new Error('BOT_PROVIDER_TIMEOUT_MS must be less than GIFT_NOTIFICATION_OUTBOX_LEASE_MS.');
+    && config.botNotifications.providerTimeoutMs * enabledNotificationChannels >= config.botNotifications.outbox.leaseMs) {
+    throw new Error('Combined bot provider timeout budget must be less than GIFT_NOTIFICATION_OUTBOX_LEASE_MS.');
   }
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
