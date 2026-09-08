@@ -16,29 +16,33 @@ class MaxBotApiClient {
     for (const [key, value] of Object.entries(query)) if (value !== null && value !== undefined) url.searchParams.set(key, String(value));
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-    let response;
     try {
-      response = await this.fetch(url, {
+      const response = await this.fetch(url, {
         method,
         headers: { Authorization: this.token, 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
+      let payload;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        payload = null;
+      }
+      if (!response.ok) {
+        const error = new Error(`MAX Bot API ${method} ${path} failed: ${payload?.message || `HTTP ${response.status}`}`);
+        error.status = response.status;
+        error.maxResponse = payload;
+        throw error;
+      }
+      return payload;
     } catch (error) {
       if (controller.signal.aborted) throw providerTimeout('MAX_PROVIDER_TIMEOUT');
       throw error;
     } finally {
       clearTimeout(timeout);
     }
-    let payload;
-    try { payload = await response.json(); } catch { payload = null; }
-    if (!response.ok) {
-      const error = new Error(`MAX Bot API ${method} ${path} failed: ${payload?.message || `HTTP ${response.status}`}`);
-      error.status = response.status;
-      error.maxResponse = payload;
-      throw error;
-    }
-    return payload;
   }
 
   sendMessage({ userId = null, chatId = null, text, attachments = null, format = null, notify = true } = {}) {

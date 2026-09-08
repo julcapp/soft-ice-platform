@@ -17,37 +17,37 @@ class TelegramBotApiClient {
   async call(method, payload = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-    let response;
     try {
-      response = await this.fetch(`${this.apiBaseUrl}/bot${this.token}/${method}`, {
+      const response = await this.fetch(`${this.apiBaseUrl}/bot${this.token}/${method}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
+
+      let body;
+      try {
+        body = await response.json();
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        body = null;
+      }
+
+      if (!response.ok || !body?.ok) {
+        const description = body?.description || `HTTP ${response.status}`;
+        const error = new Error(`Telegram Bot API ${method} failed: ${description}`);
+        error.status = response.status;
+        error.telegramResponse = body;
+        throw error;
+      }
+
+      return body.result;
     } catch (error) {
       if (controller.signal.aborted) throw providerTimeout('TELEGRAM_PROVIDER_TIMEOUT');
       throw error;
     } finally {
       clearTimeout(timeout);
     }
-
-    let body;
-    try {
-      body = await response.json();
-    } catch {
-      body = null;
-    }
-
-    if (!response.ok || !body?.ok) {
-      const description = body?.description || `HTTP ${response.status}`;
-      const error = new Error(`Telegram Bot API ${method} failed: ${description}`);
-      error.status = response.status;
-      error.telegramResponse = body;
-      throw error;
-    }
-
-    return body.result;
   }
 
   sendMessage(chatId, text, options = {}) {

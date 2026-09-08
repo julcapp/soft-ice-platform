@@ -25,12 +25,16 @@ test('MAX client rejects a missing or non-numeric destination before network', a
   assert.throws(() => client.sendMessage({ userId: 'not-an-id', text: 'Подарок' }), /destination/);
 });
 
-test('MAX client aborts a provider request before the outbox lease', async () => {
+test('MAX client timeout covers the complete provider response body', async () => {
   const client = new MaxBotApiClient({
     token: 'max-secret',
     requestTimeoutMs: 5,
-    fetchImpl: async (url, { signal }) => new Promise((resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    fetchImpl: async (url, { signal }) => ({
+      ok: true,
+      status: 200,
+      json: async () => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      }),
     }),
   });
 
