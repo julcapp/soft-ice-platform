@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [Unreleased] — Unified Development Workflow v2
+
+- Добавлены канонические документы состояния проекта, разработки, PR и доменных точек входа.
+- Одна задача продолжается в одной ветке при переходе между телефоном и ПК; новые ветки не кодируют устройство.
+- `AGENTS.md` и workflow используют единые `feature/fix/docs/hotfix` соглашения.
+- `admin`, `tehnik` и `master` закреплены за одной Admin Console; backend роли приведены к `SERVICE_SPECIALIST` и `MACHINE_RESPONSIBLE`.
+- Добавлены DECISION-071 и ADR-050. Продакшен не изменён.
+
 ## [Unreleased] — Safe Bot Gift Invitation Delivery
 
 - Telegram/MAX recipient destinations are learned only from trusted inbound bot webhooks after canonical Customer Identity resolution.

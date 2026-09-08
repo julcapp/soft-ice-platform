@@ -1,5 +1,19 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-071 — One Task Branch Across Phone and PC; One Role-Scoped Admin Console
+
+**Date:** 2026-09-08
+
+**Status:** Accepted
+
+Ветка идентифицирует задачу, а не устройство: новая работа использует
+`feature/*`, `fix/*`, `docs/*` или отдельно согласованную `hotfix/*` ветку и
+продолжается в ней же при переходе телефон ↔ ПК. Прямые изменения `main` и
+`integration/*` запрещены. Административные домены используют одну Admin Console;
+полномочия выдаёт только backend RBAC. Для технического специалиста и ответственного
+за аппарат используются канонические роли `SERVICE_SPECIALIST` и
+`MACHINE_RESPONSIBLE`, а не UI-имена. Подробности: ADR-050.
+
 # Decision: DECISION-070 — Bot Recipient Delivery Uses Verified Encrypted Bindings
 
 **Date:** 2026-09-02
