@@ -13,6 +13,19 @@ test('production configuration validates required secrets and typed flags', () =
   assert.equal(config.features.paymentsEnabled, true);
 });
 
+test('gift notification worker fails closed without an enabled delivery channel', () => {
+  assert.throws(() => createConfig({ NODE_ENV: 'test', GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true' }), /GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED/);
+  const config = createConfig({
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_MAX_ENABLED: 'true',
+    MAX_TEST_BOT_TOKEN: 'test-only-token',
+    BOT_RECIPIENT_ENCRYPTION_KEY: 'test-only-encryption-key',
+  });
+  assert.equal(config.botNotifications.outbox.workerEnabled, true);
+  assert.equal(config.botNotifications.outbox.maxAttempts, 8);
+});
+
 test('health separates liveness from database and Prisma readiness', async (t) => {
   const app = express();
   app.use('/health', createHealthRouter({ databaseCheck: async () => ({ ok: false, status: 'unavailable', provider: 'postgresql' }) }));

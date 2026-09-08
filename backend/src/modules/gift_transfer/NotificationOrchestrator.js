@@ -57,7 +57,17 @@ class NotificationOrchestrator {
   constructor({ repository, adapters = [], clock = () => new Date() }) { this.repository = repository; this.adapters = new Map(adapters.map((a) => [a.channel, a])); this.clock = clock; }
   async send(notification) {
     const attempts = [];
+    const existing = this.repository.listDeliveries
+      ? await this.repository.listDeliveries(notification.id)
+      : [];
+    const completed = new Map(existing
+      .filter((row) => ['SENT', 'DELIVERED'].includes(row.status))
+      .map((row) => [row.channel, row]));
     for (const channel of notification.channels) {
+      if (completed.has(channel)) {
+        attempts.push(completed.get(channel));
+        continue;
+      }
       const adapter = this.adapters.get(channel); const now = this.clock();
       let result = unavailable('CHANNEL_NOT_CONFIGURED');
       try { if (adapter) result = await adapter.send(notification); } catch (error) { result = { status: DELIVERY_STATUS.FAILED, failureCode: error.code || `PROVIDER_HTTP_${error.status || 'ERROR'}` }; }

@@ -71,6 +71,14 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       telegramConfigured: Boolean(secretProvider.get('TELEGRAM_BOT_TOKEN') || secretProvider.get('TELEGRAM_TEST_BOT_TOKEN')),
       maxConfigured: Boolean(secretProvider.get('MAX_BOT_TOKEN') || secretProvider.get('MAX_TEST_BOT_TOKEN')),
       miniAppUrl: environment.BOT_MINI_APP_URL || environment.MINI_APP_URL || 'https://app.utimoshi.ru',
+      outbox: {
+        workerEnabled: parseBoolean(environment.GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED, false),
+        batchSize: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE, 25, 'GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE', { max: 500 }),
+        leaseMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_LEASE_MS, 60000, 'GIFT_NOTIFICATION_OUTBOX_LEASE_MS'),
+        retryBaseDelayMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_RETRY_BASE_DELAY_MS, 5000, 'GIFT_NOTIFICATION_OUTBOX_RETRY_BASE_DELAY_MS'),
+        retryMaxDelayMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_RETRY_MAX_DELAY_MS, 300000, 'GIFT_NOTIFICATION_OUTBOX_RETRY_MAX_DELAY_MS'),
+        maxAttempts: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS, 8, 'GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS', { max: 100 }),
+      },
     },
     features: Object.freeze({
       paymentsEnabled: parseBoolean(environment.FEATURE_PAYMENTS_ENABLED, false),
@@ -90,6 +98,7 @@ function validateConfig(config) {
   if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');
+  if (config.botNotifications.outbox.workerEnabled && !config.botNotifications.telegramEnabled && !config.botNotifications.maxEnabled) missing.push('GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED');
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
 }

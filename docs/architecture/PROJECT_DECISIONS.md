@@ -1,5 +1,20 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-072 — Gift Invitation Delivery Uses a Dedicated Transactional Outbox Stream
+
+**Date:** 2026-09-08
+
+**Status:** Accepted
+
+Для зарегистрированного получателя Gift Transfer создаёт подарок, приглашение,
+реферальную связь и `GIFT_INVITATION_DELIVERY_REQUESTED` в одной PostgreSQL-
+транзакции. Отдельный worker выбирает только этот тип события, повторяет временные
+ошибки с backoff и не переотправляет уже успешный канал. Платформенное событие
+может не иметь `organizationId` только через явный allow-list. Телефон, invitation
+token, provider destination и финансовые данные запрещены в Outbox payload.
+Включение worker и Telegram/MAX каналов требует отдельной приёмки. Подробности:
+ADR-051.
+
 # Decision: DECISION-071 — One Task Branch Across Phone and PC; One Role-Scoped Admin Console
 
 **Date:** 2026-09-08

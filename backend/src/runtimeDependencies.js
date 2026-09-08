@@ -35,10 +35,10 @@ const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalC
 const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
-const { PrismaGiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
+const { PrismaGiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter, GiftNotificationOutboxPublisher, EVENT_TYPE: GIFT_NOTIFICATION_EVENT_TYPE } = require('./modules/gift_transfer');
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
-const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
+const { PrismaOutboxRepository, OutboxAdminService, OutboxWorker, RetryPolicy } = require('./modules/transactional_outbox');
 const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
@@ -220,7 +220,36 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       }),
     ],
   });
-  const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({ repository: giftTransferRepository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher: platformEventBus, auditRepository }) });
+  const giftOutboxConfig = config?.botNotifications?.outbox || {};
+  const giftNotificationOutboxPublisher = new GiftNotificationOutboxPublisher({
+    repository: giftTransferRepository,
+    notificationOrchestrator,
+    eventPublisher: platformEventBus,
+    logger,
+  });
+  const giftNotificationOutboxWorker = new OutboxWorker({
+    repository: transactionalOutboxRepository,
+    publisher: giftNotificationOutboxPublisher,
+    workerId: `gift-notification-${process.pid}`,
+    eventType: GIFT_NOTIFICATION_EVENT_TYPE,
+    batchSize: giftOutboxConfig.batchSize || 25,
+    leaseMs: giftOutboxConfig.leaseMs || 60000,
+    retryPolicy: new RetryPolicy({
+      baseDelayMs: giftOutboxConfig.retryBaseDelayMs || 5000,
+      maxDelayMs: giftOutboxConfig.retryMaxDelayMs || 300000,
+    }),
+  });
+  const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({
+    repository: giftTransferRepository,
+    orderRepository,
+    customerRepository,
+    clubAccountRuntime,
+    notificationOrchestrator,
+    eventPublisher: platformEventBus,
+    auditRepository,
+    notificationDeliveryMode: config?.environment === 'production' || giftOutboxConfig.workerEnabled ? 'OUTBOX' : 'DIRECT',
+    outboxMaxAttempts: giftOutboxConfig.maxAttempts || 8,
+  }) });
   const crmRuntime = new CRMRuntime({ service: new CRMService({
     repository: new CRMRepository(prisma),
     clubAccountRuntime,
@@ -326,6 +355,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     machineRuntime,
     orderRuntime,
     giftTransferRuntime,
+    giftNotificationOutboxWorker,
     botRecipientBindingService,
     domainEventPublisher,
   };

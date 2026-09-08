@@ -12,6 +12,7 @@ test('Gift Transfer aggregate and delivery attempts survive repository recreatio
   const giftId = `gift_${suffix}`;
   const notificationId = `notification_${suffix}`;
   const correlationId = `corr_${suffix}`;
+  const outboxEventId = `gift-notification:${notificationId}`;
   const now = new Date('2026-08-31T07:00:00Z');
   const repository = new PrismaGiftTransferRepository(prisma);
   const transfer = {
@@ -32,14 +33,30 @@ test('Gift Transfer aggregate and delivery attempts survive repository recreatio
     referralSource: 'GIFT_TRANSFER', stage: 'INVITED', referrerCustomerId: `sender_${suffix}`,
     referredCustomerId: `recipient_${suffix}`, firstOwnPurchaseAt: null, createdAt: now, metadata: {},
   };
+  const outboxEvent = {
+    eventId: outboxEventId,
+    eventType: 'GIFT_INVITATION_DELIVERY_REQUESTED',
+    aggregateType: 'GIFT_TRANSFER',
+    aggregateId: giftId,
+    organizationId: null,
+    payload: { giftTransferId: giftId, invitationId: invitation.id, notificationId, channels: ['TELEGRAM', 'MAX'] },
+    occurredAt: now,
+    availableAt: now,
+    correlationId,
+    idempotencyKey: `gift-invitation-delivery:${giftId}`,
+  };
 
   try {
-    await repository.createGiftBundle({ transfer, invitation, referral });
+    await repository.createGiftBundle({ transfer, invitation, referral, outboxEvent });
 
     const restartedRepository = new PrismaGiftTransferRepository(prisma);
     const restored = await restartedRepository.findById(giftId);
     assert.equal(restored.status, 'AVAILABLE');
     assert.equal(restored.recipientCustomerId, transfer.recipientCustomerId);
+    const restoredEvent = await prisma.transactionalOutboxEvent.findUnique({ where: { eventId: outboxEventId } });
+    assert.equal(restoredEvent.aggregateId, giftId);
+    assert.equal(restoredEvent.organizationId, null);
+    assert.equal(JSON.stringify(restoredEvent.payload).includes('+79990000002'), false);
 
     restored.status = 'ACCEPTED';
     restored.acceptedAt = new Date('2026-08-31T07:01:00Z');
@@ -54,6 +71,7 @@ test('Gift Transfer aggregate and delivery attempts survive repository recreatio
     assert.equal(deliveries.length, 1);
     assert.equal(deliveries[0].status, 'DELIVERED');
   } finally {
+    await prisma.transactionalOutboxEvent.deleteMany({ where: { eventId: outboxEventId } });
     await prisma.notificationDeliveryAttempt.deleteMany({ where: { notificationId } });
     await prisma.giftRecipientClaim.deleteMany({ where: { giftTransferId: giftId } });
     await prisma.giftRedemption.deleteMany({ where: { giftTransferId: giftId } });
