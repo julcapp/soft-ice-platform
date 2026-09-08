@@ -13,6 +13,7 @@
 - тестовый токен совпадает с production-токеном;
 - не применена миграция `20260908000100_gift_notification_outbox_v1`;
 - тестовый получатель не подтвердил получение служебного сообщения;
+- `BOT_PROVIDER_TIMEOUT_MS` не меньше `GIFT_NOTIFICATION_OUTBOX_LEASE_MS`;
 - в логах, Outbox payload или delivery attempts обнаружен открытый телефон, токен или destination ID;
 - обязательный CI не зелёный.
 
@@ -35,9 +36,9 @@ Telegram и MAX принимаются независимо. Успех одно
 - `MAX_TEST_BOT_TOKEN`;
 - `MAX_TEST_RECIPIENT_ID` — только подтверждённый тестовый user ID.
 
-Переменная test runtime:
+Переменная только для MAX provider smoke:
 
-- `BOT_MINI_APP_URL` — URL тестового Mini App, не feature-ветки и не production приёмки.
+- `GIFT_NOTIFICATION_SMOKE_MINI_APP_URL` — явный HTTPS URL тестового Mini App. Production-адрес `app.utimoshi.ru` запрещён и fallback отсутствует.
 
 Секреты не выводятся в лог и не хранятся в Git. Test runtime должен быть отделён
 от production по рабочему каталогу, базе, токенам и конфигурации.
@@ -49,11 +50,22 @@ Guarded smoke запускается вручную в test runtime отдель
 destination проверен и согласован. За один запуск отправляется ровно одно явно
 помеченное тестовое сообщение; настоящий подарок, заказ и бонус не создаются.
 
-Для Telegram выполняются два запуска командой
-`npm run gift-notifications:provider-smoke`:
+Для Telegram выполняются два запуска:
 
-- `telegram_rich_message=false` — обычное сообщение и disabled button;
-- `telegram_rich_message=true` — Rich Message и disabled button.
+```bash
+GIFT_NOTIFICATION_SMOKE_CHANNEL=telegram \
+TELEGRAM_GIFT_SMOKE_RICH_MESSAGE=false \
+npm run gift-notifications:provider-smoke
+```
+
+```bash
+GIFT_NOTIFICATION_SMOKE_CHANNEL=telegram \
+TELEGRAM_GIFT_SMOKE_RICH_MESSAGE=true \
+npm run gift-notifications:provider-smoke
+```
+
+`TELEGRAM_GIFT_SMOKE_RICH_MESSAGE=false` проверяет обычное сообщение и disabled button;
+`TELEGRAM_GIFT_SMOKE_RICH_MESSAGE=true` — Rich Message и disabled button.
 
 Ожидаемый результат: команда завершилась с `ok=true`, сообщение пришло тестовому адресату, кнопка
 не выполняет действие, открытые токены/ID отсутствуют в логах.
@@ -71,7 +83,9 @@ destination проверен и согласован. За один запуск
 7. Проверить: Outbox=`PUBLISHED`, invitation=`SENT`, одна delivery attempt на канал.
 8. Повторить worker: нового provider-сообщения и второй успешной попытки быть не должно.
 9. Имитировать временный отказ второго канала: первый успешный канал не должен отправиться повторно.
-10. После теста выключить worker и оба delivery-флага, удалить тестовые секреты из runtime.
+10. Создать приглашение до recipient binding: событие должно ожидать без расходования `attemptCount`, а после входа тестового пользователя — доставиться.
+11. Отменить подарок во время искусственно задержанного provider response: `CANCELLED` не должен стать `SENT`.
+12. После теста выключить worker и оба delivery-флага, удалить тестовые секреты из runtime.
 
 ## Критерии приёмки
 

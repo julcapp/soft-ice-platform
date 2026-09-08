@@ -24,6 +24,16 @@ test('gift notification worker fails closed without an enabled delivery channel'
   });
   assert.equal(config.botNotifications.outbox.workerEnabled, true);
   assert.equal(config.botNotifications.outbox.maxAttempts, 8);
+  assert.equal(config.botNotifications.providerTimeoutMs, 15000);
+  assert.throws(() => createConfig({
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_MAX_ENABLED: 'true',
+    MAX_TEST_BOT_TOKEN: 'test-only-token',
+    BOT_RECIPIENT_ENCRYPTION_KEY: 'test-only-encryption-key',
+    BOT_PROVIDER_TIMEOUT_MS: '60000',
+    GIFT_NOTIFICATION_OUTBOX_LEASE_MS: '60000',
+  }), /BOT_PROVIDER_TIMEOUT_MS must be less/);
 });
 
 test('health separates liveness from database and Prisma readiness', async (t) => {

@@ -6,11 +6,15 @@ class OutboxWorker {
   constructor({ repository, publisher, workerId, eventType=null, clock=()=>new Date(), batchSize=50, leaseMs=60000, retryPolicy=new RetryPolicy() }) { Object.assign(this,{repository,publisher,workerId,eventType,clock,batchSize,leaseMs,retryPolicy}); }
   async runOnce({ organizationId } = {}) {
     const now=this.clock(); await this.repository.releaseExpiredLocks({before:new Date(now.getTime()-this.leaseMs),now});
-    const events=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:this.batchSize,now,organizationId,eventType:this.eventType});
     const results=[];
-    for(const event of events){
+    for(let index=0;index<this.batchSize;index+=1){
+      const [event]=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:1,now:this.clock(),organizationId,eventType:this.eventType});
+      if(!event)break;
       try { await this.publisher.publish(toEnvelope(event)); }
-      catch(error){ const nextAttempt=event.attemptCount+1; results.push(error.permanent || nextAttempt>=event.maxAttempts ? await this.repository.markDeadLetter(event.eventId,this.workerId,error) : await this.repository.scheduleRetry(event.eventId,this.workerId,{availableAt:new Date(this.clock().getTime()+this.retryPolicy.delay(nextAttempt)),error})); continue; }
+      catch(error){
+        if(error.deferWithoutAttempt){results.push(await this.repository.deferWithoutAttempt(event.eventId,this.workerId,{availableAt:error.availableAt,error}));continue;}
+        const nextAttempt=event.attemptCount+1; results.push(error.permanent || nextAttempt>=event.maxAttempts ? await this.repository.markDeadLetter(event.eventId,this.workerId,error) : await this.repository.scheduleRetry(event.eventId,this.workerId,{availableAt:new Date(this.clock().getTime()+this.retryPolicy.delay(nextAttempt)),error})); continue;
+      }
       results.push(await this.repository.markPublished(event.eventId,this.workerId,this.clock()));
     }
     return results;

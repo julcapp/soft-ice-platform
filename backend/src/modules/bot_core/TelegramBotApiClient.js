@@ -1,10 +1,11 @@
 class TelegramBotApiClient {
-  constructor({ token, apiBaseUrl = 'https://api.telegram.org', fetchImpl = globalThis.fetch, features = {} } = {}) {
+  constructor({ token, apiBaseUrl = 'https://api.telegram.org', fetchImpl = globalThis.fetch, features = {}, requestTimeoutMs = 15000 } = {}) {
     if (!token) throw new Error('Telegram bot token is required.');
     if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required.');
     this.token = token;
     this.apiBaseUrl = apiBaseUrl.replace(/\/$/, '');
     this.fetch = fetchImpl;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.sendMessageContract = 'telegram_bot_api';
     this.features = Object.freeze({
       richMessages: features.richMessages === true,
@@ -14,11 +15,22 @@ class TelegramBotApiClient {
   }
 
   async call(method, payload = {}) {
-    const response = await this.fetch(`${this.apiBaseUrl}/bot${this.token}/${method}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    let response;
+    try {
+      response = await this.fetch(`${this.apiBaseUrl}/bot${this.token}/${method}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw providerTimeout('TELEGRAM_PROVIDER_TIMEOUT');
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     let body;
     try {
@@ -79,6 +91,10 @@ class TelegramBotApiClient {
   deleteWebhook({ dropPendingUpdates = false } = {}) {
     return this.call('deleteWebhook', { drop_pending_updates: dropPendingUpdates });
   }
+}
+
+function providerTimeout(code) {
+  return Object.assign(new Error('Telegram Bot API request timed out.'), { code });
 }
 
 module.exports = { TelegramBotApiClient };

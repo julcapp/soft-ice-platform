@@ -11,6 +11,17 @@ class GiftTransferRepository {
   persistAcceptance({ transfer, referral }) { this.saveTransfer(transfer); if (referral) this.saveReferral(referral); return transfer; }
   persistRedemption({ transfer, redemption, referral = null }) { this.saveTransfer(transfer); this.saveRedemption(redemption); if (referral) this.saveReferral(referral); return transfer; }
   persistCancellation({ transfer, invitation = null }) { this.saveTransfer(transfer); if (invitation) this.saveInvitation(invitation); return transfer; }
+  markInvitationSentIfDeliverable({ invitationId, giftTransferId, now = new Date() }) {
+    const transfer = this.findById(giftTransferId);
+    const invitation = this.invitations.get(invitationId) || null;
+    const deliverable = transfer?.status === 'AVAILABLE'
+      && invitation?.giftTransferId === giftTransferId
+      && ['CREATED', 'OPENED'].includes(invitation.status)
+      && new Date(transfer.expiresAt) > now
+      && new Date(invitation.expiresAt) > now;
+    if (deliverable) invitation.status = 'SENT';
+    return { updated: deliverable, invitation };
+  }
   findById(id) { return this.transfers.get(id) || null; }
   findByOrderId(id) { return [...this.transfers.values()].find((x) => x.originalOrderId === id) || null; }
   findActiveByOrderId(id) { return [...this.transfers.values()].find((x) => x.originalOrderId === id && !['REDEEMED','EXPIRED','CANCELLED','RETURNED_TO_SENDER'].includes(x.status)) || null; }
