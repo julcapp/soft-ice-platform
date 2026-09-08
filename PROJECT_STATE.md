@@ -34,9 +34,9 @@
 
 ## Ближайшие задачи
 
-1. Проверить Gift Notification Outbox и миграции на отдельной тестовой PostgreSQL.
-2. Выполнить приёмку тестовых Telegram и MAX ботов без production-токенов.
-3. Подготовить runbook включения worker с мониторингом `RETRY`/`DEAD_LETTER`.
+1. Подготовить отдельный test runtime и подтвердить тестовых Telegram/MAX получателей.
+2. Выполнить отдельные provider smoke для Telegram standard, Telegram Rich Message и MAX.
+3. Проверить полный Gift Transfer → Outbox → provider сценарий на отдельной тестовой PostgreSQL.
 4. Провести ревизию интерфейсов и единой ролевой Admin Console.
 5. Подготовить релиз `v0.36.0` только после полной приёмки и отдельного решения о развёртывании.
 

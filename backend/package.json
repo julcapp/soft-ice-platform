@@ -11,6 +11,7 @@
     "prisma:validate": "npm run prisma:merge && prisma validate",
     "promotion:notifications": "node scripts/run-promotion-pre-notifications.js",
     "gift-notifications:outbox": "node scripts/run-gift-notification-outbox.js",
+    "gift-notifications:provider-smoke": "node scripts/smoke-test-gift-notification-provider.js",
     "test": "npm run prisma:merge && node --test tests/*.test.js",
     "max:resolve-chat-id": "node scripts/resolve-max-chat-id.js",
     "photo:publish-smoke": "node scripts/photo-publish-smoke.js",
