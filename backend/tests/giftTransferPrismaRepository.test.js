@@ -13,6 +13,7 @@ function fixture() {
     findUnique: async (args) => (calls.push([name, 'findUnique', args]), null),
     findFirst: async (args) => (calls.push([name, 'findFirst', args]), null),
     findMany: async (args) => (calls.push([name, 'findMany', args]), []),
+    updateMany: async (args) => (calls.push([name, 'updateMany', args]), { count: 1 }),
   });
   const prisma = {
     giftTransfer: delegate('giftTransfer'),
@@ -72,4 +73,17 @@ test('active gift lookup excludes terminal states through an allow-list', async 
   await repository.findActiveByOrderId('order-1');
   const query = calls.find(([name, operation]) => name === 'giftTransfer' && operation === 'findFirst')[2];
   assert.deepEqual(query.where.status.in, ['WAITING_FOR_REGISTRATION', 'AVAILABLE', 'ACCEPTED', 'REDEMPTION_READY']);
+});
+
+test('invitation SENT transition is conditional on a still-deliverable gift', async () => {
+  const { repository, calls } = fixture();
+  const now = new Date('2026-09-08T00:00:00Z');
+  const result = await repository.markInvitationSentIfDeliverable({ invitationId: 'inv-1', giftTransferId: 'gift-1', now });
+  const update = calls.find(([name, operation]) => name === 'giftInvitation' && operation === 'updateMany')[2];
+
+  assert.equal(result.updated, true);
+  assert.deepEqual(update.where.status.in, ['CREATED', 'OPENED']);
+  assert.equal(update.where.giftTransfer.is.status, 'AVAILABLE');
+  assert.equal(update.where.expiresAt.gt, now);
+  assert.equal(update.where.giftTransfer.is.expiresAt.gt, now);
 });

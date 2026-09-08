@@ -107,6 +107,23 @@ class PrismaGiftTransferRepository {
     });
   }
 
+  async markInvitationSentIfDeliverable({ invitationId, giftTransferId, now = new Date() }) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.giftInvitation.updateMany({
+        where: {
+          id: invitationId,
+          giftTransferId,
+          status: { in: ['CREATED', 'OPENED'] },
+          expiresAt: { gt: now },
+          giftTransfer: { is: { status: 'AVAILABLE', expiresAt: { gt: now } } },
+        },
+        data: { status: 'SENT' },
+      });
+      const invitation = await tx.giftInvitation.findUnique({ where: { id: invitationId } });
+      return { updated: result.count === 1, invitation };
+    });
+  }
+
   findById(id) { return this.prisma.giftTransfer.findUnique({ where: { id } }); }
   findByOrderId(originalOrderId) { return this.prisma.giftTransfer.findUnique({ where: { originalOrderId } }); }
   findActiveByOrderId(originalOrderId) { return this.prisma.giftTransfer.findFirst({ where: { originalOrderId, status: { in: ACTIVE_GIFT_STATUSES } } }); }

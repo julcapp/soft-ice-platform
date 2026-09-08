@@ -61,7 +61,13 @@ class PrismaOutboxRepository {
   }
   markPublished(eventId, workerId, now = new Date()) { return this.transition(eventId, workerId, { status: 'PUBLISHED', publishedAt: now, lockedAt: null, lockedBy: null, lastError: null, attemptCount: { increment: 1 } }); }
   scheduleRetry(eventId, workerId, { availableAt, error }) { return this.transition(eventId, workerId, { status: 'RETRY', availableAt, lastError: safeError(error), lockedAt: null, lockedBy: null, attemptCount: { increment: 1 } }); }
+  deferWithoutAttempt(eventId, workerId, { availableAt, error }) { return this.transition(eventId, workerId, { status: 'RETRY', availableAt, lastError: safeError(error), lockedAt: null, lockedBy: null }); }
   markDeadLetter(eventId, workerId, error) { return this.transition(eventId, workerId, { status: 'DEAD_LETTER', lastError: safeError(error), lockedAt: null, lockedBy: null, attemptCount: { increment: 1 } }); }
+  async renewLease(eventId, workerId, now = new Date()) {
+    const result = await this.prisma.transactionalOutboxEvent.updateMany({ where: { eventId, status: 'PROCESSING', lockedBy: workerId }, data: { lockedAt: now, updatedAt: now } });
+    if (result.count !== 1) throw conflict('OUTBOX_LEASE_LOST', 'Outbox lock потерян или событие уже обработано.');
+    return this.getByEventId(eventId, { platform: true });
+  }
   async transition(eventId, workerId, data) {
     const result = await this.prisma.transactionalOutboxEvent.updateMany({ where: { eventId, status: 'PROCESSING', lockedBy: workerId }, data });
     if (result.count !== 1) throw conflict('OUTBOX_LEASE_LOST', 'Outbox lock потерян или событие уже обработано.');
@@ -88,7 +94,9 @@ class InMemoryOutboxRepository {
   async transition(id, workerId, data) { const row=this.store.get(id); if(!row || row.status!=='PROCESSING' || row.lockedBy!==workerId) throw conflict('OUTBOX_LEASE_LOST','Outbox lock потерян или событие уже обработано.'); const inc=data.attemptCount?.increment||0; Object.assign(row,data,{attemptCount:row.attemptCount+inc,updatedAt:new Date()}); return row; }
   markPublished(id,w,now=new Date()){return this.transition(id,w,{status:'PUBLISHED',publishedAt:now,lockedAt:null,lockedBy:null,lastError:null,attemptCount:{increment:1}});}
   scheduleRetry(id,w,{availableAt,error}){return this.transition(id,w,{status:'RETRY',availableAt,lastError:safeError(error),lockedAt:null,lockedBy:null,attemptCount:{increment:1}});}
+  deferWithoutAttempt(id,w,{availableAt,error}){return this.transition(id,w,{status:'RETRY',availableAt,lastError:safeError(error),lockedAt:null,lockedBy:null});}
   markDeadLetter(id,w,error){return this.transition(id,w,{status:'DEAD_LETTER',lastError:safeError(error),lockedAt:null,lockedBy:null,attemptCount:{increment:1}});}
+  async renewLease(id,w,now=new Date()){const row=this.store.get(id);if(!row||row.status!=='PROCESSING'||row.lockedBy!==w)throw conflict('OUTBOX_LEASE_LOST','Outbox lock потерян или событие уже обработано.');Object.assign(row,{lockedAt:now,updatedAt:now});return row;}
   async releaseExpiredLocks({before,now=new Date()}){let count=0; for(const x of this.store.values())if(x.status==='PROCESSING'&&x.lockedAt<before){Object.assign(x,{status:'RETRY',availableAt:now,lockedAt:null,lockedBy:null,lastError:'WORKER_LEASE_EXPIRED'});count++;} return {count};}
   async retryDeadLetter(id,scope={}){const x=await this.getByEventId(id,scope);if(!x||x.status!=='DEAD_LETTER')throw conflict('OUTBOX_RETRY_NOT_ALLOWED','Повтор разрешён только для доступного DEAD_LETTER события.');Object.assign(x,{status:'RETRY',availableAt:new Date(),lastError:null});return x;}
 }

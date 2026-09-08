@@ -458,15 +458,18 @@ Service restart остаётся непроверяемым до durable reposit
 - Просроченные, отменённые и уже выданные подарки не отправляются.
 - В Outbox и provider notification отсутствуют телефон, invitation token, redemption code и платёжные данные.
 - Worker не запускается при выключенном флаге и не может быть включён без хотя бы одного разрешённого канала.
+- Отсутствующий Telegram/MAX binding переводит событие в отложенный `RETRY` без увеличения `attemptCount`; после появления binding доставка продолжается, а при достижении TTL приглашение завершается без отправки.
+- Поздний provider success после конкурентной отмены не перезаписывает `CANCELLED` и не создаёт `GIFT_INVITATION_SENT`.
+- Worker забирает каждое событие непосредственно перед обработкой, продлевает lease во время медленного provider-вызова и перед финальной записью; суммарный timeout включённых providers меньше lease и прерывает зависший HTTP-запрос.
 
 # Test Bot Gift Notification Acceptance — 2026-09-08
 
 - Smoke отказывается запускаться при `NODE_ENV=production`.
 - Test token не может совпадать с соответствующим production token.
-- Получатель задаётся только числовым secret ID и требует точного подтверждения `YES_TEST_RECIPIENT`.
+- Получатель задаётся только положительным числовым secret ID и требует точного подтверждения `YES_TEST_RECIPIENT`; group/supergroup chat ID Telegram отклоняется.
 - Telegram standard отправляет явно тестовый текст и disabled button.
 - Telegram Rich Message проверяется отдельным ручным запуском.
-- MAX использует отдельный test token и test user ID.
+- MAX использует отдельный test token, test user ID и обязательный HTTPS URL тестового Mini App; production URL и неявный fallback отклоняются.
 - Результат smoke не выводит token или recipient ID.
 - Каждый smoke-запуск отправляет не более одного сообщения и не создаёт подарок, заказ или бонус.
 # Transactional Outbox v1 revision defects — 2026-08-20

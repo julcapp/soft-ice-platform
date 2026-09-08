@@ -71,6 +71,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       telegramConfigured: Boolean(secretProvider.get('TELEGRAM_BOT_TOKEN') || secretProvider.get('TELEGRAM_TEST_BOT_TOKEN')),
       maxConfigured: Boolean(secretProvider.get('MAX_BOT_TOKEN') || secretProvider.get('MAX_TEST_BOT_TOKEN')),
       miniAppUrl: environment.BOT_MINI_APP_URL || environment.MINI_APP_URL || 'https://app.utimoshi.ru',
+      providerTimeoutMs: parseInteger(environment.BOT_PROVIDER_TIMEOUT_MS, 15000, 'BOT_PROVIDER_TIMEOUT_MS'),
       outbox: {
         workerEnabled: parseBoolean(environment.GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED, false),
         batchSize: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE, 25, 'GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE', { max: 500 }),
@@ -99,6 +100,12 @@ function validateConfig(config) {
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');
   if (config.botNotifications.outbox.workerEnabled && !config.botNotifications.telegramEnabled && !config.botNotifications.maxEnabled) missing.push('GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED');
+  const enabledNotificationChannels = Number(config.botNotifications.telegramEnabled)
+    + Number(config.botNotifications.maxEnabled);
+  if (config.botNotifications.outbox.workerEnabled
+    && config.botNotifications.providerTimeoutMs * enabledNotificationChannels >= config.botNotifications.outbox.leaseMs) {
+    throw new Error('Combined bot provider timeout budget must be less than GIFT_NOTIFICATION_OUTBOX_LEASE_MS.');
+  }
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
 }

@@ -216,3 +216,19 @@ test('TelegramBotApiClient surfaces Bot API errors without leaking token into me
     },
   );
 });
+
+test('TelegramBotApiClient timeout covers the complete provider response body', async () => {
+  const client = new TelegramBotApiClient({
+    token: 'test-token',
+    requestTimeoutMs: 5,
+    fetchImpl: async (url, { signal }) => ({
+      ok: true,
+      status: 200,
+      json: async () => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      }),
+    }),
+  });
+
+  await assert.rejects(() => client.getMe(), (error) => error.code === 'TELEGRAM_PROVIDER_TIMEOUT');
+});

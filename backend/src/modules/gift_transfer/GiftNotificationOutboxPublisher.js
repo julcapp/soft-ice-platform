@@ -4,17 +4,19 @@ const EVENT_TYPE = 'GIFT_INVITATION_DELIVERY_REQUESTED';
 const TERMINAL_GIFT_STATUSES = new Set(['ACCEPTED', 'REDEMPTION_READY', 'CANCELLED', 'EXPIRED', 'RETURNED_TO_SENDER', 'REDEEMED']);
 const TERMINAL_INVITATION_STATUSES = new Set(['CLAIMED', 'CANCELLED', 'EXPIRED']);
 const RETRYABLE_UNAVAILABLE_CODES = new Set([
-  'TELEGRAM_RECIPIENT_NOT_BOUND',
-  'MAX_RECIPIENT_NOT_BOUND',
   'TELEGRAM_ADAPTER_NOT_CONFIGURED',
   'MAX_ADAPTER_NOT_CONFIGURED',
   'CHANNEL_NOT_CONFIGURED',
 ]);
+const BINDING_PREREQUISITE_CODES = new Set([
+  'TELEGRAM_RECIPIENT_NOT_BOUND',
+  'MAX_RECIPIENT_NOT_BOUND',
+]);
 
 class GiftNotificationOutboxPublisher {
-  constructor({ repository, notificationOrchestrator, eventPublisher = null, clock = () => new Date(), logger = console } = {}) {
+  constructor({ repository, notificationOrchestrator, eventPublisher = null, clock = () => new Date(), logger = console, bindingRetryDelayMs = 300000 } = {}) {
     if (!repository || !notificationOrchestrator) throw new Error('repository and notificationOrchestrator are required.');
-    Object.assign(this, { repository, notificationOrchestrator, eventPublisher, clock, logger });
+    Object.assign(this, { repository, notificationOrchestrator, eventPublisher, clock, logger, bindingRetryDelayMs });
   }
 
   async publish(envelope) {
@@ -51,9 +53,15 @@ class GiftNotificationOutboxPublisher {
     const attempts = await this.notificationOrchestrator.send(notification);
     const sent = attempts.some((row) => ['SENT', 'DELIVERED'].includes(row.status));
     if (sent && invitation.status !== 'SENT') {
-      invitation.status = 'SENT';
-      await this.repository.saveInvitation(invitation);
-      await this.emitSent(gift, invitation, notification);
+      const marked = await this.repository.markInvitationSentIfDeliverable({
+        invitationId: invitation.id,
+        giftTransferId: gift.id,
+        now: this.clock(),
+      });
+      if (!marked.updated) {
+        return { skipped: true, reason: 'GIFT_INVITATION_STATE_CHANGED', attempts };
+      }
+      await this.emitSent(gift, marked.invitation, notification);
     }
 
     const retryable = attempts.filter((row) => row.status === 'FAILED'
@@ -62,6 +70,20 @@ class GiftNotificationOutboxPublisher {
       const error = new Error('Gift invitation delivery requires retry.');
       error.code = 'GIFT_NOTIFICATION_DELIVERY_RETRY';
       error.channels = retryable.map((row) => row.channel);
+      throw error;
+    }
+    const waitingForBinding = attempts.filter((row) => row.status === 'UNAVAILABLE'
+      && BINDING_PREREQUISITE_CODES.has(row.failureCode));
+    if (waitingForBinding.length) {
+      const now = this.clock();
+      const error = new Error('Gift invitation recipient binding is not available yet.');
+      error.code = 'GIFT_NOTIFICATION_BINDING_PENDING';
+      error.channels = waitingForBinding.map((row) => row.channel);
+      error.deferWithoutAttempt = true;
+      error.availableAt = new Date(Math.min(
+        now.getTime() + this.bindingRetryDelayMs,
+        new Date(invitation.expiresAt).getTime(),
+      ));
       throw error;
     }
     return { skipped: false, attempts };
@@ -105,4 +127,4 @@ function permanent(code) {
   return error;
 }
 
-module.exports = { GiftNotificationOutboxPublisher, EVENT_TYPE, RETRYABLE_UNAVAILABLE_CODES };
+module.exports = { GiftNotificationOutboxPublisher, EVENT_TYPE, RETRYABLE_UNAVAILABLE_CODES, BINDING_PREREQUISITE_CODES };

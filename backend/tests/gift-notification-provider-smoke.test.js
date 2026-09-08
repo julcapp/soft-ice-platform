@@ -20,6 +20,7 @@ test('provider smoke refuses production and token reuse', () => {
 test('provider smoke requires explicit test recipient confirmation', () => {
   assert.throws(() => validateEnvironment({ ...telegramEnv, GIFT_NOTIFICATION_SMOKE_CONFIRM: 'NO' }), /TEST_RECIPIENT_CONFIRMATION_REQUIRED/);
   assert.throws(() => validateEnvironment({ ...telegramEnv, TELEGRAM_TEST_RECIPIENT_ID: 'group-name' }), /TELEGRAM_TEST_RECIPIENT_ID_INVALID/);
+  assert.throws(() => validateEnvironment({ ...telegramEnv, TELEGRAM_TEST_RECIPIENT_ID: '-1001234567890' }), /TELEGRAM_TEST_RECIPIENT_ID_INVALID/);
 });
 
 test('Telegram smoke sends a non-production message with a disabled button', async () => {
@@ -54,10 +55,26 @@ test('MAX smoke uses only the configured test user id', async () => {
     GIFT_NOTIFICATION_SMOKE_CHANNEL: 'max',
     MAX_TEST_BOT_TOKEN: 'max-test-token',
     MAX_TEST_RECIPIENT_ID: '987654',
+    GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'https://app-test.utimoshi.ru/gifts',
   }, {
     maxClient: { async sendMessage(value) { calls.push(value); return { message: { mid: '1' } }; } },
     write: () => {},
   });
   assert.equal(calls[0].userId, '987654');
   assert.equal(calls[0].text.includes('Настоящий подарок не создан'), true);
+  assert.equal(calls[0].attachments[0].payload.buttons[0][0].url, 'https://app-test.utimoshi.ru/gifts');
+});
+
+test('MAX smoke fails closed without an explicit non-production Mini App URL', () => {
+  const maxEnv = {
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_SMOKE_CONFIRM: 'YES_TEST_RECIPIENT',
+    GIFT_NOTIFICATION_SMOKE_CHANNEL: 'max',
+    MAX_TEST_BOT_TOKEN: 'max-test-token',
+    MAX_TEST_RECIPIENT_ID: '987654',
+  };
+  assert.throws(() => validateEnvironment(maxEnv), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
+  assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'https://app.utimoshi.ru' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
+  assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'https://app.utimoshi.ru./gifts' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
+  assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'http://app-test.utimoshi.ru' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
 });

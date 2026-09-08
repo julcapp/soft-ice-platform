@@ -67,3 +67,65 @@ test('invalid aggregate references are permanent and never reach a provider', as
   await assert.rejects(publisher.publish(envelope), (error) => error.code === 'GIFT_NOTIFICATION_EVENT_INVALID' && error.permanent === true);
   assert.equal(telegram.calls, 0);
 });
+
+test('missing recipient binding defers delivery without consuming provider retry budget', async () => {
+  const { repository, envelope, invitation } = fixture();
+  const telegram = new SequenceAdapter('TELEGRAM', [{ status: 'UNAVAILABLE', failureCode: 'TELEGRAM_RECIPIENT_NOT_BOUND' }]);
+  const publisher = new GiftNotificationOutboxPublisher({
+    repository,
+    notificationOrchestrator: new NotificationOrchestrator({ repository, adapters: [telegram] }),
+    clock: () => new Date('2026-09-08T00:00:00Z'),
+    bindingRetryDelayMs: 60000,
+  });
+
+  await assert.rejects(publisher.publish({ ...envelope, payload: { ...envelope.payload, channels: ['TELEGRAM'] } }), (error) => {
+    assert.equal(error.code, 'GIFT_NOTIFICATION_BINDING_PENDING');
+    assert.equal(error.deferWithoutAttempt, true);
+    assert.equal(error.availableAt.toISOString(), '2026-09-08T00:01:00.000Z');
+    return true;
+  });
+  assert.equal(invitation.status, 'CREATED');
+});
+
+test('delivery resumes after recipient binding becomes available', async () => {
+  const { repository, envelope, invitation } = fixture();
+  const telegram = new SequenceAdapter('TELEGRAM', [
+    { status: 'UNAVAILABLE', failureCode: 'TELEGRAM_RECIPIENT_NOT_BOUND' },
+    { status: 'SENT', providerMessageId: 'tg-after-binding' },
+  ]);
+  const publisher = new GiftNotificationOutboxPublisher({
+    repository,
+    notificationOrchestrator: new NotificationOrchestrator({ repository, adapters: [telegram] }),
+    clock: () => new Date('2026-09-08T00:00:00Z'),
+  });
+  const telegramEnvelope = { ...envelope, payload: { ...envelope.payload, channels: ['TELEGRAM'] } };
+
+  await assert.rejects(publisher.publish(telegramEnvelope), (error) => error.deferWithoutAttempt === true);
+  await publisher.publish(telegramEnvelope);
+
+  assert.equal(invitation.status, 'SENT');
+  assert.equal(telegram.calls, 2);
+});
+
+test('provider success cannot overwrite a concurrent gift cancellation', async () => {
+  const { repository, envelope, gift, invitation } = fixture();
+  const emitted = [];
+  const telegram = new SequenceAdapter('TELEGRAM', [{ status: 'SENT', providerMessageId: 'tg-late' }]);
+  telegram.send = async () => {
+    gift.status = 'CANCELLED';
+    invitation.status = 'CANCELLED';
+    return { status: 'SENT', providerMessageId: 'tg-late' };
+  };
+  const publisher = new GiftNotificationOutboxPublisher({
+    repository,
+    notificationOrchestrator: new NotificationOrchestrator({ repository, adapters: [telegram] }),
+    eventPublisher: { async publish(event) { emitted.push(event); } },
+    clock: () => new Date('2026-09-08T00:00:00Z'),
+  });
+
+  const result = await publisher.publish({ ...envelope, payload: { ...envelope.payload, channels: ['TELEGRAM'] } });
+
+  assert.equal(result.reason, 'GIFT_INVITATION_STATE_CHANGED');
+  assert.equal(invitation.status, 'CANCELLED');
+  assert.equal(emitted.length, 0);
+});
