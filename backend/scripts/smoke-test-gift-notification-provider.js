@@ -68,7 +68,8 @@ function positiveIntegerId(value) { const normalized = String(value || ''); retu
 function testMiniAppUrl(value) {
   try {
     const url = new URL(String(value || ''));
-    return url.protocol === 'https:' && url.hostname !== 'app.utimoshi.ru' ? url.toString() : null;
+    const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
+    return url.protocol === 'https:' && hostname !== 'app.utimoshi.ru' ? url.toString() : null;
   } catch {
     return null;
   }

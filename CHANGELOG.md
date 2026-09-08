@@ -5,6 +5,7 @@
 - Ожидание Telegram/MAX recipient binding переведено в отложенный retry без расходования provider attempt budget.
 - Переход приглашения в `SENT` сделан условным и больше не может перезаписать конкурентную отмену подарка.
 - Worker забирает события непосредственно перед обработкой; Telegram/MAX HTTP-вызовы получили abort timeout меньше outbox lease.
+- Активный outbox lease продлевается во время provider-вызова и перед финальной записью, оставляя время для БД-операций.
 - Provider smoke принимает только положительный private user ID и требует отдельный HTTPS URL тестового Mini App для MAX без production fallback.
 - Исправлены точные имена переменных Rich Message в runbook; production и delivery-флаги не изменены.
 

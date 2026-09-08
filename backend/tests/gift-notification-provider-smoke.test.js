@@ -75,5 +75,6 @@ test('MAX smoke fails closed without an explicit non-production Mini App URL', (
   };
   assert.throws(() => validateEnvironment(maxEnv), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
   assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'https://app.utimoshi.ru' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
+  assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'https://app.utimoshi.ru./gifts' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
   assert.throws(() => validateEnvironment({ ...maxEnv, GIFT_NOTIFICATION_SMOKE_MINI_APP_URL: 'http://app-test.utimoshi.ru' }), /GIFT_NOTIFICATION_SMOKE_MINI_APP_URL_INVALID/);
 });

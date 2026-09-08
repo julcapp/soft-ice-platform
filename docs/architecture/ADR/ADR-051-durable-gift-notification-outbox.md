@@ -23,7 +23,8 @@
 4. Платформенное событие без организации разрешено только через закрытый allow-list.
    Tenant API по-прежнему не видит `organizationId = NULL`.
 5. Отдельный worker claim фильтрует `eventType` и забирает по одному событию непосредственно
-   перед обработкой. Суммарный timeout всех включённых providers обязан быть меньше lease; временные ошибки используют
+   перед обработкой, продлевает активный lease во время provider-вызовов и перед финальной
+   записью. Суммарный timeout всех включённых providers обязан быть меньше lease; временные ошибки используют
    exponential backoff, max attempts и dead letter. Постоянные ошибки dead-lettered сразу.
 6. `NotificationOrchestrator` читает сохранённые delivery attempts и не вызывает
    повторно канал со статусом `SENT` или `DELIVERED`.
