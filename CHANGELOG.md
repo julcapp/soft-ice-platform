@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [Unreleased] — Test Bot Gift Notification Acceptance
+
+- Добавлен guarded smoke-скрипт для одного явно помеченного сообщения тестовому Telegram или MAX получателю.
+- Smoke-скрипт запрещает production, совпадение test/production token, неподтверждённый или некорректный destination.
+- Telegram обычное сообщение, Rich Message и disabled button принимаются отдельно; MAX имеет независимый запуск.
+- Добавлен runbook полного Gift Transfer → Outbox → provider сценария и production gate. Никакие сообщения автоматически не отправляются; workflow в integration намеренно не создаётся, поскольку GitHub разрешает ручной dispatch только из `main`.
+
 ## [Unreleased] — Durable Gift Notification Outbox
 
 - Создание подарка зарегистрированному получателю и событие доставки теперь фиксируются одной PostgreSQL-транзакцией.
