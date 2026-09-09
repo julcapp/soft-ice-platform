@@ -10,7 +10,7 @@
     "prisma:migrate": "npm run prisma:merge && prisma migrate dev",
     "prisma:validate": "npm run prisma:merge && prisma validate",
     "promotion:notifications": "node scripts/run-promotion-pre-notifications.js",
-    "test": "npm run prisma:merge && node --test tests/*.test.js",
+    "test": "npm run prisma:merge && node --test",
     "dev": "node src/main.js",
     "start": "node src/main.js"
   },
