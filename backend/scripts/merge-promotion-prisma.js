@@ -36,9 +36,12 @@ const relationFields = {
   ],
   PromotionCampaign: [
     'pricingQuotes PricingQuote[]',
+    'effectiveVersionId String?',
+    'effectiveVersion PromotionVersion? @relation("PromotionEffectiveVersion", fields: [effectiveVersionId], references: [id], onDelete: SetNull)',
   ],
   PromotionVersion: [
     'pricingQuotes PricingQuote[]',
+    'effectiveForCampaigns PromotionCampaign[] @relation("PromotionEffectiveVersion")',
   ],
 };
 
@@ -121,6 +124,9 @@ function assertIntegrated(schema) {
     ['giftRewardReservation', 'GiftRewardReservation\\?'],
     ['paymentAttempts', 'PaymentAttempt\\[\\]'],
     ['promotionGroupMemberships', 'PromotionMachineGroupMember\\[\\]'],
+    ['effectiveVersionId', 'String\\?'],
+    ['effectiveVersion', 'PromotionVersion\\?'],
+    ['effectiveForCampaigns', 'PromotionCampaign\\[\\]'],
   ];
   for (const [fieldName, typeExpression] of requiredFields) {
     if (!fieldRegex(fieldName, typeExpression).test(schema)) {
