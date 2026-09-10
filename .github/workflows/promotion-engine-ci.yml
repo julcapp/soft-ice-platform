@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/promotion-engine-v1
+      - integration/unified-v0.36.0-main-sync
     paths:
       - '.github/workflows/promotion-engine-ci.yml'
       - 'backend/package.json'
@@ -14,11 +15,16 @@ on:
       - 'backend/src/modules/order/**'
       - 'backend/src/modules/gift_transfer/**'
       - 'backend/src/modules/transactional_outbox/**'
+      - 'backend/src/modules/inventory/**'
+      - 'backend/src/modules/machine/**'
+      - 'backend/src/modules/machine_dispense/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/payment_profile/**'
+      - 'backend/src/modules/sale_flow/**'
+      - 'backend/src/modules/promotion_engine/**'
       - 'backend/src/runtimeDependencies.js'
       - 'backend/src/config/**'
       - 'backend/scripts/run-gift-notification-outbox.js'
-      - 'backend/src/modules/payment/**'
-      - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
       - 'frontend/miniapp/**'
       - 'frontend/admin-console/**'
@@ -33,14 +39,20 @@ on:
       - 'backend/src/modules/order/**'
       - 'backend/src/modules/gift_transfer/**'
       - 'backend/src/modules/transactional_outbox/**'
+      - 'backend/src/modules/inventory/**'
+      - 'backend/src/modules/machine/**'
+      - 'backend/src/modules/machine_dispense/**'
+      - 'backend/src/modules/payment/**'
+      - 'backend/src/modules/payment_profile/**'
+      - 'backend/src/modules/sale_flow/**'
+      - 'backend/src/modules/promotion_engine/**'
       - 'backend/src/runtimeDependencies.js'
       - 'backend/src/config/**'
       - 'backend/scripts/run-gift-notification-outbox.js'
-      - 'backend/src/modules/payment/**'
-      - 'backend/src/modules/promotion_engine/**'
       - 'backend/tests/**'
       - 'frontend/miniapp/**'
       - 'frontend/admin-console/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
