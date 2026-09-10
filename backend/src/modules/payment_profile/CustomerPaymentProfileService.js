@@ -43,7 +43,7 @@ class CustomerPaymentProfileService {
       ),
       this.prisma.$queryRawUnsafe(
         `SELECT "id","paymentSourceType","paymentSourceId","orderId","subscriptionId","provider","providerRefundId","status","amountRub","currency","reason","requestedAt","succeededAt","failedAt","createdAt"
-         FROM "PaymentRefund" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
+         FROM "PaymentProfileRefund" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
         customerId,
       ),
       this.prisma.$queryRawUnsafe(

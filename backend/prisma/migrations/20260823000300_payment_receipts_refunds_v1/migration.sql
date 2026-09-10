@@ -32,7 +32,7 @@ CREATE INDEX "PaymentReceipt_customer_created_idx"
 CREATE INDEX "PaymentReceipt_source_idx"
   ON "PaymentReceipt"("paymentSourceType", "paymentSourceId");
 
-CREATE TABLE "PaymentRefund" (
+CREATE TABLE "PaymentProfileRefund" (
   "id" TEXT PRIMARY KEY,
   "customerId" TEXT NOT NULL REFERENCES "Customer"("id") ON DELETE RESTRICT,
   "paymentSourceType" TEXT NOT NULL,
@@ -54,12 +54,12 @@ CREATE TABLE "PaymentRefund" (
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX "PaymentRefund_provider_refund_key"
-  ON "PaymentRefund"("provider", "providerRefundId")
+CREATE UNIQUE INDEX "PaymentProfileRefund_provider_refund_key"
+  ON "PaymentProfileRefund"("provider", "providerRefundId")
   WHERE "providerRefundId" IS NOT NULL;
-CREATE UNIQUE INDEX "PaymentRefund_idempotency_key"
-  ON "PaymentRefund"("idempotencyKey");
-CREATE INDEX "PaymentRefund_customer_created_idx"
-  ON "PaymentRefund"("customerId", "createdAt" DESC);
-CREATE INDEX "PaymentRefund_source_idx"
-  ON "PaymentRefund"("paymentSourceType", "paymentSourceId");
+CREATE UNIQUE INDEX "PaymentProfileRefund_idempotency_key"
+  ON "PaymentProfileRefund"("idempotencyKey");
+CREATE INDEX "PaymentProfileRefund_customer_created_idx"
+  ON "PaymentProfileRefund"("customerId", "createdAt" DESC);
+CREATE INDEX "PaymentProfileRefund_source_idx"
+  ON "PaymentProfileRefund"("paymentSourceType", "paymentSourceId");

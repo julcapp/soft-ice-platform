@@ -130,13 +130,9 @@ test('payment confirmation changes order state and generates OrderPaid event', a
     'deposit_usage',
     'loyalty_rules',
   ]);
-  assert.equal(result.machineDispenseIntegration.service, 'MachineRuntime');
-  assert.equal(result.machineDispenseIntegration.applied, true);
-  assert.equal(result.machineDispenseIntegration.state, 'REQUESTED');
-  assert.match(
-    result.machineDispenseIntegration.dispense_request_id,
-    /^dispense_/,
-  );
+  assert.equal(result.machineDispenseIntegration.service, 'MachineDispenseService');
+  assert.equal(result.machineDispenseIntegration.applied, false);
+  assert.equal(result.machineDispenseIntegration.fulfillment_owner, 'MachineDispenseService');
 
   const events = dependencies.domainEventPublisher.getPublishedEvents({
     name: 'OrderPaid',

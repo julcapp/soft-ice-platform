@@ -4,11 +4,11 @@ class RetryPolicy {
 }
 class OutboxWorker {
   constructor({ repository, publisher, workerId, eventType=null, clock=()=>new Date(), batchSize=50, leaseMs=60000, retryPolicy=new RetryPolicy() }) { Object.assign(this,{repository,publisher,workerId,eventType,clock,batchSize,leaseMs,retryPolicy}); }
-  async runOnce({ organizationId } = {}) {
+  async runOnce({ organizationId, eventTypes } = {}) {
     const now=this.clock(); await this.repository.releaseExpiredLocks({before:new Date(now.getTime()-this.leaseMs),now});
-    const results=[];
+    const results=[]; const types=Array.isArray(eventTypes)&&eventTypes.length?eventTypes:(this.eventType?[this.eventType]:undefined);
     for(let index=0;index<this.batchSize;index+=1){
-      const [event]=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:1,now:this.clock(),organizationId,eventType:this.eventType});
+      const [event]=await this.repository.claimPendingEvents({workerId:this.workerId,batchSize:1,now:this.clock(),organizationId,eventTypes:types});
       if(!event)break;
       try { await this.publishWithLeaseHeartbeat(event); }
       catch(error){

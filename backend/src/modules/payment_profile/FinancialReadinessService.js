@@ -20,12 +20,12 @@ class FinancialReadinessService {
     try {
       const rows = await this.prisma.$queryRawUnsafe(`SELECT
         to_regclass('public."PaymentReceipt"') IS NOT NULL AS receipts,
-        to_regclass('public."PaymentRefund"') IS NOT NULL AS refunds,
+        to_regclass('public."PaymentProfileRefund"') IS NOT NULL AS refunds,
         to_regclass('public."PaymentProviderCost"') IS NOT NULL AS costs,
         to_regclass('public."YooKassaDailyReport"') IS NOT NULL AS daily_reports,
         to_regclass('public."YooKassaReconciliationIssue"') IS NOT NULL AS reconciliation_issues`);
       const row = rows[0] || {};
-      checks.push(check('PAYMENT_LEDGER_TABLES', Boolean(row.receipts && row.refunds && row.costs && row.daily_reports && row.reconciliation_issues), 'BLOCKED', 'Финансовые ledger-таблицы', 'Примените migrations PaymentReceipt / PaymentRefund / PaymentProviderCost / YooKassaDailyReport.'));
+      checks.push(check('PAYMENT_LEDGER_TABLES', Boolean(row.receipts && row.refunds && row.costs && row.daily_reports && row.reconciliation_issues), 'BLOCKED', 'Финансовые ledger-таблицы', 'Примените migrations PaymentReceipt / PaymentProfileRefund / PaymentProviderCost / YooKassaDailyReport.'));
     } catch (error) {
       checks.push({ code: 'PAYMENT_LEDGER_TABLES', status: 'BLOCKED', title: 'Финансовые ledger-таблицы', detail: 'Не удалось проверить PostgreSQL.', errorCode: error.code || error.message });
     }

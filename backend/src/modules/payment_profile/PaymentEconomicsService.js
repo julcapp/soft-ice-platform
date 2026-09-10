@@ -49,7 +49,7 @@ class PaymentEconomicsService {
                 COUNT(*) FILTER (WHERE "isFinal"=FALSE)::int AS provisional_count
          FROM "PaymentProviderCost" WHERE "occurredAt">=$1 AND "occurredAt"<$2`, from, toExclusive),
       this.prisma.$queryRawUnsafe(
-        `SELECT COALESCE(SUM("amountRub"),0)::float8 AS refunded FROM "PaymentRefund" WHERE "status"='SUCCEEDED' AND "succeededAt">=$1 AND "succeededAt"<$2`, from, toExclusive),
+        `SELECT COALESCE(SUM("amountRub"),0)::float8 AS refunded FROM "PaymentProfileRefund" WHERE "status"='SUCCEEDED' AND "succeededAt">=$1 AND "succeededAt"<$2`, from, toExclusive),
     ]);
     const cost = Number(costRows[0]?.cost || 0);
     const commission = Number(costRows[0]?.commission || 0);

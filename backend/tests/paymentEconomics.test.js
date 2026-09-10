@@ -12,7 +12,7 @@ function fixture() {
         return rows.has(key) ? [rows.get(key)] : [];
       }
       if (sql.includes('FROM "PaymentProviderCost" WHERE "occurredAt"')) return [{ gross: 206, net: 199, cost: 7, commission: 5.8, commission_vat: 1.2, provisional_count: 1 }];
-      if (sql.includes('FROM "PaymentRefund"')) return [{ refunded: 96 }];
+      if (sql.includes('FROM "PaymentProfileRefund"')) return [{ refunded: 96 }];
       return [];
     },
     $executeRawUnsafe: async (sql, ...args) => {

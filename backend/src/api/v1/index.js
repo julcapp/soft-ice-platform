@@ -56,6 +56,7 @@ const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes
 const { createPromotionAdminRouter } = require('./promotionRoutes');
 const { createPricingRouter } = require('./pricingRoutes');
 const { createPaymentRouter } = require('./paymentRoutes');
+const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: paymentwebhookrouter } = require('./paymentlifecycleroutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
@@ -103,14 +104,16 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/orders', createOrderRouter(runtimeDependencies));
   router.use('/pricing', createPricingRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
-  router.use('/admin/payments', adminpaymentrouter(runtimeependencies));
-  router.use('/webhooks/payments', paymentwebhookrouter(runtimeependencies));
+  router.use('/admin/payments', adminpaymentrouter(runtimeDependencies));
+  router.use('/webhooks/payments', paymentwebhookrouter(runtimeDependencies));
+  if (runtimeDependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(runtimeDependencies));
+  if (runtimeDependencies.machineDispenseService) router.use('/webhooks/machines', createMachineCallbackRouter(runtimeDependencies));
   if (runtimeDependencies.giftTransferRuntime) {
     router.use('/me', createGiftTransferRouter(runtimeDependencies));
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
   router.use('/telegram', createTelegramRouter(runtimeDependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
   router.use('/admin/promotions', createPromotionAdminRouter(runtimeDependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));

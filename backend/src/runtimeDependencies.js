@@ -43,6 +43,7 @@ const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipie
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
+const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -54,6 +55,8 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const paymentRepository = new PaymentRepository(prisma);
   const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
+  const machineDispenseRepository = new MachineDispenseRepository(prisma);
+  const machineProvider = new BlockedExternalMachineProviderAdapter();
   const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
   const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
   const customerRepository = new CustomerRepository(prisma);
@@ -167,7 +170,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     domainEventPublisher,
     clubAccountService: clubAccountRuntime,
-    machineRuntime,
+    // Legacy DispenseRequest must not own a second physical lifecycle.
+    // New customer fulfillment is orchestrated only through MachineDispenseService.
+    machineRuntime: null,
     machineOperationsRuntime,
     machineGateway,
   });
@@ -179,6 +184,10 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const paymentAdapter = new BlockedExternalPaymentAdapter();
   const machineAdapter = new BlockedExternalMachineAdapter();
   const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
+  const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
+  paymentService.machineDispense = machineDispenseService;
+  const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
+  const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
@@ -341,6 +350,11 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     paymentService,
     paymentReconciliationService,
     paymentInboxWorker,
+    machineDispenseRepository,
+    machineDispenseService,
+    machineCommandWorker,
+    machineRecoveryWorker,
+    machineProvider,
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

@@ -759,6 +759,8 @@ model Machine {
   pricingQuotes                PricingQuote[]
   rewardCounters               CustomerMachineRewardCounter[]
   giftRewardReservations       GiftRewardReservation[]
+  machineDispenseAttempts      MachineDispenseAttempt[]
+  machineCallbackInboxes       MachineCallbackInbox[]
 }
 
 model Organization {
@@ -1188,6 +1190,9 @@ model InventoryRuntimeReservation {
   location InventoryRuntimeLocation          @relation(fields: [locationId], references: [id], onDelete: Restrict)
   items    InventoryRuntimeReservationItem[]
 
+  machineDispenseAttempts MachineDispenseAttempt[]
+
+  @@unique([organizationId, reservationId, machineId, locationId], map: "InventoryReservation_machine_scope_key")
   @@index([organizationId, status, createdAt])
   @@index([machineId, status])
   @@index([locationId, status])
@@ -1595,6 +1600,8 @@ model Order {
   pricingSnapshot       PricingSnapshot?
   paymentAttempts       PaymentAttempt[]
   payment               Payment?
+
+  machineDispenseAttempts MachineDispenseAttempt[]
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
@@ -2198,6 +2205,8 @@ model SaleFlow {
   idempotencyKeys                   SaleFlowIdempotencyKey[]
   outboxEvents                      TransactionalOutboxEvent[]
   payment                           Payment?
+
+  machineDispenseAttempts MachineDispenseAttempt[]
 
   @@unique([organizationId, orderId, flowId])
   @@index([orderId])
@@ -2815,4 +2824,165 @@ model GiftRewardReservation {
   machine         Machine      @relation(fields: [machineId], references: [id], onDelete: Cascade)
 
   @@index([customerId, machineId, status, expiresAt])
+}
+
+model MachineCallbackInbox {
+  id                         String                     @id @default(uuid())
+  organizationId             String
+  dispenseAttemptId          String?
+  provider                   String
+  providerEventId            String
+  machineId                  String
+  providerCommandId          String
+  receivedAt                 DateTime                   @default(now())
+  processingStartedAt        DateTime?
+  processedAt                DateTime?
+  failedAt                   DateTime?
+  status                     MachineCallbackInboxStatus @default(RECEIVED)
+  attemptCount               Int                        @default(0)
+  payloadSafe                Json
+  payloadFingerprint         String
+  callbackStatus             String
+  correlationId              String?
+  lastFailureCode            String?
+  callbackFailureCode        String?
+  callbackFailureMessageSafe String?
+  physicalConsumptionUnknown Boolean?
+  processingLockedAt         DateTime?
+  processingLockedBy         String?
+  processingLeaseVersion     Int                        @default(0)
+  attempt                    MachineDispenseAttempt?    @relation(fields: [organizationId, dispenseAttemptId, machineId], references: [organizationId, id, machineId], onDelete: Restrict, map: "MachineCallbackInbox_attempt_machine_fkey")
+  machine                    Machine                    @relation(fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, machineId, receivedAt])
+  @@index([status, receivedAt])
+  @@index([status, processingLockedAt, receivedAt], map: "MachineCallbackInbox_processing_claim_idx")
+  @@index([provider, providerCommandId])
+}
+
+enum MachineCallbackInboxStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model MachineDispenseAttempt {
+  id                     String                       @id @default(uuid())
+  dispenseAttemptId      String                       @unique
+  organizationId         String
+  machineId              String
+  locationId             String
+  orderId                String?
+  saleFlowId             String?
+  inventoryReservationId String
+  operationType          MachineDispenseOperationType @default(CUSTOMER_SALE)
+  commandId              String                       @unique
+  idempotencyKey         String
+  status                 MachineDispenseStatus        @default(CREATED)
+  requestedAt            DateTime                     @default(now())
+  sentAt                 DateTime?
+  acceptedAt             DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  failedAt               DateTime?
+  timedOutAt             DateTime?
+  provider               String
+  providerCommandId      String?
+  providerEventId        String?
+  failureCode            String?
+  failureMessageSafe     String?
+  correlationId          String
+  causationId            String?
+  requestedByActorType   String?
+  requestedByActorId     String?
+  operationReason        String?
+  serviceContextSafe     Json?
+  recoveryLockedAt       DateTime?
+  recoveryLockedBy       String?
+  recoveryAttemptCount   Int                          @default(0)
+  version                Int                          @default(0)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  machine                Machine                      @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  order                  Order?                       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  saleFlow               SaleFlow?                    @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
+  reservation            InventoryRuntimeReservation  @relation(fields: [organizationId, inventoryReservationId, machineId, locationId], references: [organizationId, reservationId, machineId, locationId], onDelete: Restrict, map: "MachineDispenseAttempt_inventory_ownership_fkey")
+  inboxEvents            MachineCallbackInbox[]
+  reconciliations        MachineReconciliation[]
+  auditEntries           MachineDispenseAuditEntry[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, id, machineId])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, orderId, saleFlowId])
+  @@unique([provider, providerCommandId])
+  @@index([machineId, status])
+  @@index([orderId])
+  @@index([saleFlowId])
+  @@index([status, createdAt])
+  @@index([correlationId])
+  @@index([status, recoveryLockedAt, updatedAt], map: "MachineDispenseAttempt_recovery_claim_idx")
+}
+
+model MachineDispenseAuditEntry {
+  id                String                 @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  action            String
+  actorType         String
+  actorId           String?
+  correlationId     String?
+  detailsSafe       Json?
+  occurredAt        DateTime               @default(now())
+  attempt           MachineDispenseAttempt @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, dispenseAttemptId, occurredAt])
+}
+
+enum MachineDispenseOperationType {
+  CUSTOMER_SALE
+  OPERATOR_TEST
+  MAINTENANCE_TEST
+}
+
+enum MachineDispenseStatus {
+  CREATED
+  AUTHORIZED
+  QUEUED
+  DISPATCHING
+  SENT
+  ACCEPTED
+  DISPENSING
+  DISPENSED
+  FAILED
+  TIMED_OUT
+  CANCELED
+  RECONCILIATION_REQUIRED
+}
+
+model MachineReconciliation {
+  id                String                      @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  category          String
+  fingerprint       String
+  status            MachineReconciliationStatus @default(OPEN)
+  localStatus       String
+  providerStatus    String?
+  detailsSafe       Json?
+  detectedAt        DateTime                    @default(now())
+  resolvedAt        DateTime?
+  resolutionNote    String?
+  attempt           MachineDispenseAttempt      @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, detectedAt])
+}
+
+enum MachineReconciliationStatus {
+  OPEN
+  MANUAL_REVIEW
+  RESOLVED
 }

@@ -70,7 +70,7 @@ class YooKassaDailyReconciliationService {
           local.id, row.grossAmountRub, row.netAmountRub, row.providerCostRub, row.commissionRub, row.commissionVatRub, rate, this.clock(),
         );
       } else {
-        const localRows = await this.prisma.$queryRawUnsafe('SELECT * FROM "PaymentRefund" WHERE "provider"=\'YOOKASSA\' AND "providerRefundId"=$1 LIMIT 1', row.refundId);
+        const localRows = await this.prisma.$queryRawUnsafe('SELECT * FROM "PaymentProfileRefund" WHERE "provider"=\'YOOKASSA\' AND "providerRefundId"=$1 LIMIT 1', row.refundId);
         const local = localRows[0];
         if (!local) { missingLocal += 1; issues.push(issue('MISSING_LOCAL_REFUND', row.refundId, row.paymentId, null, row)); continue; }
         const amountDiff = Math.abs(Number(local.amountRub || 0) - row.refundAmountRub) > 0.009;

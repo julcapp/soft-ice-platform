@@ -31,7 +31,7 @@ test('creates partial refund, records receipt state and significant notification
   assert.equal(result.status, 'SUCCEEDED');
   assert.equal(result.remainingAfterRub, 40);
   assert.equal(f.getRefundCalls(), 1);
-  assert.equal(f.executed.some((args) => String(args[0]).includes('INSERT INTO "PaymentRefund"')), true);
+  assert.equal(f.executed.some((args) => String(args[0]).includes('INSERT INTO "PaymentProfileRefund"')), true);
   assert.equal(f.executed.some((args) => String(args[0]).includes('INSERT INTO "PaymentReceipt"')), true);
   assert.equal(f.notifications.some((item) => item.type === 'PAYMENT_REFUND_SUCCEEDED' && item.significant), true);
 });

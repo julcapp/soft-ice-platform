@@ -71,7 +71,7 @@ async function create(f, suffix = `${++sequence}`) {
 
 test.before(async () => {
   if (!hasDatabase) return;
-  const flows = await prisma.saleFlow.findMany({ where: { flowId: { startsWith: 'flow_' }, organizationId: 'org_pg' }, select: { flowId: true } });
+  const flows = await prisma.saleFlow.findMany({ where: { organizationId: 'org_pg' }, select: { flowId: true } });
   const flowIds = flows.map((flow) => flow.flowId);
   await prisma.transactionalOutboxEvent.deleteMany({ where: { saleFlowId: { in: flowIds } } });
   await prisma.saleFlowIdempotencyKey.deleteMany({ where: { flowId: { in: flowIds } } });

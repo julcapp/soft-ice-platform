@@ -5,11 +5,13 @@ const ACTIVE = ['PENDING', 'RESERVED'];
 const TERMINAL = ['CONSUMED', 'RELEASED', 'EXPIRED', 'FAILED'];
 
 class PostgresInventoryReservationService {
-  constructor({ prisma, clock = () => new Date(), defaultTtlMs = 5 * 60 * 1000, priceCalculator = null }) {
+  constructor({ prisma, clock = () => new Date(), defaultTtlMs = 5 * 60 * 1000, priceCalculator = null, transactionMaxWaitMs = 15000, transactionTimeoutMs = 30000 }) {
     this.prisma = prisma;
     this.clock = clock;
     this.defaultTtlMs = defaultTtlMs;
     this.priceCalculator = priceCalculator;
+    this.transactionMaxWaitMs = transactionMaxWaitMs;
+    this.transactionTimeoutMs = transactionTimeoutMs;
     this.persistenceMode = 'POSTGRESQL';
     this.implementationKind = 'PRODUCTION';
   }
@@ -35,9 +37,8 @@ class PostgresInventoryReservationService {
         const requested = normalizeItems(request.items);
         const stocks = [];
         for (const item of [...requested].sort((a, b) => a.inventoryItemId.localeCompare(b.inventoryItemId))) {
-          const stock = await tx.inventoryRuntimeStock.findUnique({ where: { organizationId_machineId_locationId_inventoryItemId: { organizationId: request.organizationId, machineId: request.machineId, locationId: request.locationId, inventoryItemId: item.inventoryItemId } } });
-          if (!stock) throw problem('INVENTORY_STOCK_NOT_FOUND', 409, 'Остаток для позиции не найден.');
-          const [locked] = await tx.$queryRaw`SELECT * FROM "InventoryRuntimeStock" WHERE "id"=${stock.id} FOR UPDATE`;
+          const [locked] = await tx.$queryRaw`SELECT * FROM "InventoryRuntimeStock" WHERE "organizationId"=${request.organizationId} AND "machineId"=${request.machineId} AND "locationId"=${request.locationId} AND "inventoryItemId"=${item.inventoryItemId} FOR UPDATE`;
+          if (!locked) throw problem('INVENTORY_STOCK_NOT_FOUND', 409, 'Остаток для позиции не найден.');
           stocks.push({ item, stock: locked });
         }
         const insufficient = stocks.find(({ item, stock }) => Number(stock.physicalQuantity) - Number(stock.activeReservedQuantity) < item.quantity);
@@ -56,7 +57,7 @@ class PostgresInventoryReservationService {
         await createOutbox(tx, status === 'RESERVED' ? 'INVENTORY_RESERVED' : 'INVENTORY_RESERVATION_FAILED', reservation, context.idempotencyKey);
         return { reservation, available: !insufficient, failureCode: insufficient ? 'INSUFFICIENT_STOCK' : null };
       };
-      return transactionClient ? await operation(transactionClient) : await this.prisma.$transaction(operation, { isolationLevel: 'ReadCommitted' });
+      return transactionClient ? await operation(transactionClient) : await this.prisma.$transaction(operation, { isolationLevel: 'ReadCommitted', maxWait: this.transactionMaxWaitMs, timeout: this.transactionTimeoutMs });
     } catch (error) {
       if (error.code === 'P2002') {
         const duplicate = await this.prisma.inventoryRuntimeReservation.findUnique({ where: { idempotencyKey: context.idempotencyKey }, include: { items: true } });
@@ -108,7 +109,7 @@ class PostgresInventoryReservationService {
       await createOutbox(tx, target === 'CONSUMED' ? 'INVENTORY_CONSUMED' : target === 'EXPIRED' ? 'INVENTORY_RESERVATION_EXPIRED' : 'INVENTORY_RESERVATION_RELEASED', reservation, context.idempotencyKey || `${target}:${reservationId}`);
       return { reservation, idempotentReplay: false };
     };
-    return context.transactionClient ? operation(context.transactionClient) : this.prisma.$transaction(operation);
+    return context.transactionClient ? operation(context.transactionClient) : this.prisma.$transaction(operation, { maxWait: this.transactionMaxWaitMs, timeout: this.transactionTimeoutMs });
   }
 
   expireDue({ organizationId, limit = 100 } = {}) {

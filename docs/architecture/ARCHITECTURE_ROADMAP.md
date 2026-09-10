@@ -154,3 +154,8 @@ region-scoped `REGIONAL_MANAGER` boundary remain `FOUNDATION_ONLY`.
 # Обновление 2026-08-21
 
 Inventory Reservation & Locking v1 реализован как production-grade PostgreSQL foundation. Следующие внешние этапы: production scheduler expiration, component-level machine confirmations, ERP и hardware reconciliation.
+# Machine Runtime
+
+- [x] Durable Machine Lifecycle / Dispense Runtime v1.
+- [ ] `BLOCKED_EXTERNAL`: подтверждённый Huaxin protocol, production adapter и callback authentication.
+- [ ] `FOUNDATION_ONLY`: component-level evidence и hardware certification.
