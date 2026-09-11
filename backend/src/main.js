@@ -4,15 +4,18 @@ const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
+const { createAdminAuthRouter, createAdminBearerContextMiddleware } = require('./api/v1/adminAuthRoutes');
 const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
 const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
 const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
 const { createHealthRouter } = require('./common/http/healthRouter');
-const { disconnectDatabase } = require('./common/database');
+const { getPrismaClient, disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
 const { moduleManifests } = require('./modules');
 const { createRuntimeDependencies } = require('./runtimeDependencies');
 const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime');
+const { AuditRepository } = require('./platform/audit/AuditRepository');
+const { AdminAuthService } = require('./platform/security/AdminAuthService');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
 const { METRICS, MetricsRegistry } = require('./platform/observability/MetricsRegistry');
@@ -26,6 +29,13 @@ function createApp(options = {}) {
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
   if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
+
+  const prisma = getPrismaClient();
+  const adminAuthService = options.adminAuthService || new AdminAuthService({
+    prisma,
+    auditRepository: new AuditRepository(prisma),
+  });
+  dependencies.adminAuthService = adminAuthService;
 
   app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
   app.use(attachCorrelationId);
@@ -74,6 +84,9 @@ function createApp(options = {}) {
     app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   }
+
+  app.use('/api/v1/admin/auth', createAdminAuthRouter({ adminAuthService }));
+  app.use('/api/v1', createAdminBearerContextMiddleware(adminAuthService));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {
