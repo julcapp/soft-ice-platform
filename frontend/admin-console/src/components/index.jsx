@@ -81,7 +81,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Парк автоматов', href: '#machines' },
     { label: 'Цифровой двойник автомата', href: '#machine-twins' },
     { label: 'Контур управления автоматами', href: '#machine-runtime' },
-    { label: '����� ���������', href: '#machine-dispenses', managed: true },
+    { label: 'Выдачи аппаратов', href: '#machine-dispenses', managed: true },
     { label: 'Тестовый стенд оборудования', href: '#equipment-sandbox', sandbox: true },
     { label: 'Складской учёт', href: '#inventory' },
     { label: 'Рабочее место оператора', href: '#operators' },
