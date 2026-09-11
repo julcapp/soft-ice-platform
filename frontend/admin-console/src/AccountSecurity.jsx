@@ -19,6 +19,7 @@ const eventLabels = {
   'Admin.PasswordChangeCodeDeliveryFailed': 'Ошибка отправки кода',
   'Admin.PasswordChangeRejected': 'Смена пароля отклонена',
   'Admin.PasswordChanged': 'Пароль изменён',
+  'Admin.MaxSecurityLinked': 'MAX подключён к безопасности',
 };
 
 async function api(path, options = {}) {
@@ -38,6 +39,11 @@ function deviceLabel(value) {
   if (/Safari/i.test(value)) return 'Safari';
   return value.slice(0, 42);
 }
+function maxIdentity(candidate) {
+  const name = [candidate.firstName, candidate.lastName].filter(Boolean).join(' ').trim();
+  const username = candidate.username ? `@${candidate.username}` : '';
+  return [name, username].filter(Boolean).join(' · ') || `MAX ID ${candidate.maxUserId}`;
+}
 
 export function AccountSecurityPage() {
   const auth = useAdminAuth();
@@ -46,8 +52,10 @@ export function AccountSecurityPage() {
   const [sessions, setSessions] = useState([]);
   const [audit, setAudit] = useState([]);
   const [securityProfile, setSecurityProfile] = useState({ channels: {} });
+  const [maxCandidates, setMaxCandidates] = useState([]);
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
+  const [maxLinkBusy, setMaxLinkBusy] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', repeatPassword: '', channel: 'MAX' });
@@ -58,14 +66,16 @@ export function AccountSecurityPage() {
   async function load() {
     setStatus('loading');
     try {
-      const [sessionRows, auditRows, profile] = await Promise.all([
+      const [sessionRows, auditRows, profile, candidates] = await Promise.all([
         api('/api/v1/admin/auth/sessions'),
         api('/api/v1/admin/auth/audit'),
         api('/api/v1/admin/auth/security-profile'),
+        api('/api/v1/admin/max-security/candidates'),
       ]);
       setSessions(sessionRows || []);
       setAudit(auditRows || []);
       setSecurityProfile(profile || { channels: {} });
+      setMaxCandidates(candidates || []);
       setStatus('ready');
     } catch (error) {
       setMessage(error.message);
@@ -82,6 +92,23 @@ export function AccountSecurityPage() {
       setMessage('Все другие административные сессии завершены.');
       await load();
     } catch (error) { setMessage(error.message); }
+  }
+
+  async function confirmMaxCandidate(candidate) {
+    const identity = maxIdentity(candidate);
+    if (!window.confirm(`Подтвердить привязку MAX к учётной записи владельца?\n\n${identity}`)) return;
+    setMaxLinkBusy(true);
+    setMessage('');
+    try {
+      await api('/api/v1/admin/max-security/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidateId: candidate.id }),
+      });
+      setMessage(`MAX успешно подключён: ${identity}.`);
+      await load();
+    } catch (error) { setMessage(error.message); }
+    finally { setMaxLinkBusy(false); }
   }
 
   function updatePasswordField(key, value) {
@@ -184,6 +211,13 @@ export function AccountSecurityPage() {
       <section className="card">
         <div className="card-heading"><h2>Каналы подтверждения</h2></div>
         <p><strong>MAX:</strong> {maxChannel.verified ? `подтверждён (${maxChannel.destination})` : 'не настроен или не подтверждён'}.</p>
+        {!maxChannel.verified && <>
+          <p>Откройте бота «Soft_ICE Безопасность» в MAX и нажмите «Начать». После получения события ваш профиль появится ниже.</p>
+          {maxCandidates.length === 0 ? <p><small>Ожидаем запуск бота из вашего аккаунта MAX.</small></p> : maxCandidates.map((candidate) => <div key={candidate.id} style={{ borderTop: '1px solid var(--border-color, #ddd)', paddingTop: 10, marginTop: 10 }}>
+            <p style={{ margin: '0 0 8px' }}><strong>{maxIdentity(candidate)}</strong><br /><small>Запуск: {when(candidate.startedAt || candidate.createdAt)}</small></p>
+            <button type="button" className="text-button" disabled={maxLinkBusy} onClick={() => confirmMaxCandidate(candidate)}>{maxLinkBusy ? 'Подтверждаем…' : 'Это мой аккаунт MAX — подключить'}</button>
+          </div>)}
+        </>}
         <p><strong>Электронная почта:</strong> {emailChannel.verified ? `подтверждена (${emailChannel.destination})` : 'не настроена или не подтверждена'}.</p>
         <p style={{ marginBottom: 0 }}>До подтверждения канала пароль не изменяется. Код действует 10 минут, доступно не более 5 попыток.</p>
       </section>
