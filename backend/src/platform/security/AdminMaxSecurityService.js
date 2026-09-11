@@ -50,8 +50,11 @@ class AdminMaxSecurityService {
       Number(timestamp || Date.now()),
     );
 
-    await this.sendMaxMessage(maxUserId, 'Запрос на подключение MAX к безопасности Soft ICE получен. Вернитесь в личный кабинет владельца и подтвердите привязку.');
-    return { accepted: true, candidateId: rows[0]?.id || null };
+    const deliveryOk = await this.safeSendMaxMessage(
+      maxUserId,
+      'Запрос на подключение MAX к безопасности Soft ICE получен. Вернитесь в личный кабинет владельца и подтвердите привязку.',
+    );
+    return { accepted: true, candidateId: rows[0]?.id || null, deliveryOk };
   }
 
   async listCandidates(securityContext) {
@@ -111,8 +114,23 @@ class AdminMaxSecurityService {
       });
     }
 
-    await this.sendMaxMessage(candidate.maxUserId, 'MAX успешно подключён к безопасности Soft ICE. Теперь сюда будут приходить коды подтверждения административных операций.');
-    return { linked: true, maxUserId: candidate.maxUserId, username: candidate.username || null };
+    const deliveryOk = await this.safeSendMaxMessage(
+      candidate.maxUserId,
+      'MAX успешно подключён к безопасности Soft ICE. Теперь сюда будут приходить коды подтверждения административных операций.',
+    );
+    return { linked: true, maxUserId: candidate.maxUserId, username: candidate.username || null, deliveryOk };
+  }
+
+  async safeSendMaxMessage(userId, text) {
+    try {
+      return await this.sendMaxMessage(userId, text);
+    } catch (error) {
+      console.error('admin.max_security.delivery_failed', {
+        message: error?.message || String(error),
+        code: error?.cause?.code || error?.code || null,
+      });
+      return false;
+    }
   }
 
   async sendMaxMessage(userId, text) {
