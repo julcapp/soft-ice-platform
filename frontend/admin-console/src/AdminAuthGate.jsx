@@ -3,15 +3,19 @@ import React,{createContext,useContext,useEffect,useMemo,useState}from'react';
 const TOKEN_KEY='softice_admin_access_token';
 const AuthContext=createContext(null);
 let fetchInstalled=false;
-const nativeFetch=window.fetch.bind(window);
+const hasWindow=typeof window!=='undefined';
+const browserWindow=hasWindow?window:null;
+const nativeFetch=hasWindow&&typeof window.fetch==='function'?window.fetch.bind(window):(typeof globalThis.fetch==='function'?globalThis.fetch.bind(globalThis):null);
+
+function storage(){return hasWindow?window.sessionStorage:null}
 
 function installAuthenticatedFetch(){
-  if(fetchInstalled)return;
+  if(fetchInstalled||!hasWindow||!nativeFetch)return;
   fetchInstalled=true;
   window.fetch=(input,init={})=>{
     const url=typeof input==='string'?input:input?.url||'';
     const sameOrigin=url.startsWith('/')||url.startsWith(window.location.origin);
-    const token=sessionStorage.getItem(TOKEN_KEY);
+    const token=storage()?.getItem(TOKEN_KEY);
     if(!sameOrigin||!url.includes('/api/')||!token)return nativeFetch(input,init);
     const headers=new Headers(init.headers||(typeof input!=='string'?input.headers:undefined)||{});
     if(!headers.has('Authorization'))headers.set('Authorization',`Bearer ${token}`);
@@ -21,7 +25,9 @@ function installAuthenticatedFetch(){
 installAuthenticatedFetch();
 
 async function api(path,options={}){
-  const response=await window.fetch(path,{...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
+  const fetcher=hasWindow?window.fetch:nativeFetch;
+  if(!fetcher)throw new Error('HTTP-клиент недоступен.');
+  const response=await fetcher(path,{...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(new Error(body?.error?.message||'Ошибка аутентификации.'),{status:response.status,body});
@@ -32,8 +38,8 @@ export function useAdminAuth(){return useContext(AuthContext)}
 
 export function AdminAuthGate({children}){
   const[state,setState]=useState({status:'loading',user:null,error:''});
-  useEffect(()=>{let active=true;const token=sessionStorage.getItem(TOKEN_KEY);if(!token){setState({status:'anonymous',user:null,error:''});return()=>{active=false}};api('/api/v1/admin/auth/me').then(user=>active&&setState({status:'ready',user,error:''})).catch(()=>{sessionStorage.removeItem(TOKEN_KEY);active&&setState({status:'anonymous',user:null,error:''})});return()=>{active=false}},[]);
-  const value=useMemo(()=>({user:state.user,async login(login,password){setState(s=>({...s,status:'loading',error:''}));try{const data=await api('/api/v1/admin/auth/login',{method:'POST',body:JSON.stringify({login,password})});sessionStorage.setItem(TOKEN_KEY,data.token);setState({status:'ready',user:data.user,error:''});}catch(error){setState({status:'anonymous',user:null,error:error.message||'Не удалось войти.'});}},async logout(){try{await api('/api/v1/admin/auth/logout',{method:'POST'})}finally{sessionStorage.removeItem(TOKEN_KEY);setState({status:'anonymous',user:null,error:''})}}}),[state.user]);
+  useEffect(()=>{let active=true;const store=storage();const token=store?.getItem(TOKEN_KEY);if(!token){setState({status:'anonymous',user:null,error:''});return()=>{active=false}};api('/api/v1/admin/auth/me').then(user=>active&&setState({status:'ready',user,error:''})).catch(()=>{store?.removeItem(TOKEN_KEY);active&&setState({status:'anonymous',user:null,error:''})});return()=>{active=false}},[]);
+  const value=useMemo(()=>({user:state.user,async login(login,password){setState(s=>({...s,status:'loading',error:''}));try{const data=await api('/api/v1/admin/auth/login',{method:'POST',body:JSON.stringify({login,password})});storage()?.setItem(TOKEN_KEY,data.token);setState({status:'ready',user:data.user,error:''});}catch(error){setState({status:'anonymous',user:null,error:error.message||'Не удалось войти.'});}},async logout(){try{await api('/api/v1/admin/auth/logout',{method:'POST'})}finally{storage()?.removeItem(TOKEN_KEY);setState({status:'anonymous',user:null,error:''})}}}),[state.user]);
   if(state.status==='loading')return <div className="admin-auth-screen"><div className="admin-auth-card"><strong>Soft ICE</strong><p>Проверяем административную сессию…</p></div></div>;
   if(state.status!=='ready')return <LoginForm error={state.error} onLogin={value.login}/>;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
