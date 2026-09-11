@@ -12,8 +12,7 @@ export function StatusBadge({ status }) {
     STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
     WARNING: 'Предупреждение', SUSPENDED: 'Приостановлена', ARCHIVED: 'Архив', BLOCKED: 'Заблокирована',
     INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль', VERIFIED: 'Подтверждено',
-    CONTROLLED: 'Управляемый контур',
-    SANDBOX: 'Тестовый контур',
+    CONTROLLED: 'Управляемый контур', SANDBOX: 'Тестовый контур',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
 }
@@ -97,7 +96,7 @@ export function Sidebar({ open, onClose }) {
 }
 
 export function Header({ onMenu }) {
-  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><AdminNotificationBell /><div className="user-menu"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></div></div></header>;
+  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><AdminNotificationBell /><a className="user-menu" href="#account-security" aria-label="Открыть личный кабинет владельца"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></a></div></header>;
 }
 
 export function PageHeader() {
