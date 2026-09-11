@@ -14,20 +14,22 @@ const eventLabels = {
   'Admin.LoginFailed': 'Неудачная попытка входа',
   'Admin.SessionRevoked': 'Завершение сессии',
   'Admin.OtherSessionsRevoked': 'Завершение других сессий',
+  'Admin.PasswordChangeCodeSent': 'Код смены пароля отправлен',
+  'Admin.PasswordChangeCodeRejected': 'Неверный код смены пароля',
+  'Admin.PasswordChangeCodeDeliveryFailed': 'Ошибка отправки кода',
+  'Admin.PasswordChangeRejected': 'Смена пароля отклонена',
+  'Admin.PasswordChanged': 'Пароль изменён',
 };
 
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
   if (response.status === 204) return null;
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body?.error?.message || 'Не удалось получить данные.');
+  if (!response.ok) throw new Error(body?.error?.message || 'Не удалось выполнить операцию.');
   return body.data;
 }
 
-function when(value) {
-  return value ? new Date(value).toLocaleString('ru-RU') : '—';
-}
-
+function when(value) { return value ? new Date(value).toLocaleString('ru-RU') : '—'; }
 function deviceLabel(value) {
   if (!value) return 'Не определён';
   if (/Edg/i.test(value)) return 'Microsoft Edge';
@@ -43,21 +45,27 @@ export function AccountSecurityPage() {
   const roles = user.roles || [];
   const [sessions, setSessions] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [securityProfile, setSecurityProfile] = useState({ channels: {} });
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', repeatPassword: '', channel: 'MAX' });
   const [passwordMessage, setPasswordMessage] = useState('');
+  const [challenge, setChallenge] = useState(null);
+  const [otpCode, setOtpCode] = useState('');
 
   async function load() {
     setStatus('loading');
     try {
-      const [sessionRows, auditRows] = await Promise.all([
+      const [sessionRows, auditRows, profile] = await Promise.all([
         api('/api/v1/admin/auth/sessions'),
         api('/api/v1/admin/auth/audit'),
+        api('/api/v1/admin/auth/security-profile'),
       ]);
       setSessions(sessionRows || []);
       setAudit(auditRows || []);
+      setSecurityProfile(profile || { channels: {} });
       setStatus('ready');
     } catch (error) {
       setMessage(error.message);
@@ -73,9 +81,7 @@ export function AccountSecurityPage() {
       await api('/api/v1/admin/auth/sessions/revoke-others', { method: 'POST' });
       setMessage('Все другие административные сессии завершены.');
       await load();
-    } catch (error) {
-      setMessage(error.message);
-    }
+    } catch (error) { setMessage(error.message); }
   }
 
   function updatePasswordField(key, value) {
@@ -83,14 +89,49 @@ export function AccountSecurityPage() {
     setPasswordMessage('');
   }
 
-  function beginPasswordConfirmation(event) {
+  async function requestPasswordCode(event) {
     event.preventDefault();
     const { currentPassword, newPassword, repeatPassword, channel } = passwordForm;
     if (!currentPassword) return setPasswordMessage('Введите текущий пароль.');
     if (newPassword.length < 6 || newPassword.length > 12) return setPasswordMessage('Новый пароль должен содержать от 6 до 12 символов.');
     if (newPassword !== repeatPassword) return setPasswordMessage('Повтор нового пароля не совпадает.');
-    setPasswordMessage(`Данные проверены. Следующий шаг — отправка одноразового кода через ${channel === 'MAX' ? 'MAX' : 'электронную почту'}. Канал подтверждения должен быть предварительно привязан и подтверждён.`);
+    setPasswordBusy(true);
+    setPasswordMessage('');
+    try {
+      const data = await api('/api/v1/admin/auth/password-change/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword, channel }),
+      });
+      setChallenge(data);
+      setOtpCode('');
+      setPasswordMessage(`Код отправлен через ${data.channel === 'MAX' ? 'MAX' : 'электронную почту'}: ${data.destination}. Код действует до ${when(data.expiresAt)}.`);
+    } catch (error) { setPasswordMessage(error.message); }
+    finally { setPasswordBusy(false); }
   }
+
+  async function confirmPasswordCode(event) {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(otpCode)) return setPasswordMessage('Введите шестизначный код подтверждения.');
+    setPasswordBusy(true);
+    try {
+      await api('/api/v1/admin/auth/password-change/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId: challenge.challengeId, code: otpCode }),
+      });
+      setPasswordMessage('Пароль изменён. Все другие административные сессии завершены.');
+      setChallenge(null);
+      setOtpCode('');
+      setPasswordForm({ currentPassword: '', newPassword: '', repeatPassword: '', channel: 'MAX' });
+      await load();
+    } catch (error) { setPasswordMessage(error.message); }
+    finally { setPasswordBusy(false); }
+  }
+
+  const channels = securityProfile.channels || {};
+  const maxChannel = channels.MAX || {};
+  const emailChannel = channels.EMAIL || {};
 
   const sessionColumns = [
     { key: 'current', label: 'Сессия', render: (value) => value ? <StatusBadge status="ACTIVE" /> : 'Другая' },
@@ -101,7 +142,6 @@ export function AccountSecurityPage() {
     { key: 'expiresAt', label: 'Истекает', render: when },
     { key: 'revokedAt', label: 'Состояние', render: (value, row) => value ? 'Завершена' : new Date(row.expiresAt) < new Date() ? 'Истекла' : 'Активна' },
   ];
-
   const auditColumns = [
     { key: 'occurredAt', label: 'Дата и время', render: when },
     { key: 'eventType', label: 'Событие', render: (value) => eventLabels[value] || value },
@@ -111,16 +151,7 @@ export function AccountSecurityPage() {
   ];
 
   return <div className="dashboard">
-    <section className="card">
-      <div className="card-heading">
-        <div>
-          <h2>Личный кабинет владельца</h2>
-          <p style={{ margin: '6px 0 0' }}>Учётная запись, безопасность, подтверждения и административные сессии.</p>
-        </div>
-        <StatusBadge status={user.status || 'ACTIVE'} />
-      </div>
-      {message && <p>{message}</p>}
-    </section>
+    <section className="card"><div className="card-heading"><div><h2>Личный кабинет владельца</h2><p style={{ margin: '6px 0 0' }}>Учётная запись, безопасность, подтверждения и административные сессии.</p></div><StatusBadge status={user.status || 'ACTIVE'} /></div>{message && <p>{message}</p>}</section>
 
     <section className="statistics" aria-label="Сведения об учётной записи">
       <article className="card statistic-card"><p>Имя</p><strong>{user.display_name || user.displayName || '—'}</strong></article>
@@ -134,37 +165,34 @@ export function AccountSecurityPage() {
         <div className="card-heading"><h2>Безопасность</h2></div>
         <p>Пароль: от 6 до 12 символов. Смена пароля подтверждается одноразовым кодом через MAX или электронную почту.</p>
         <p><strong>После подтверждённой смены пароля:</strong> остальные административные сессии будут завершены.</p>
-        <button className="text-button" type="button" onClick={() => { setPasswordOpen((value) => !value); setPasswordMessage(''); }}>{passwordOpen ? 'Отменить смену пароля' : 'Сменить пароль'}</button>
-        {passwordOpen && <form onSubmit={beginPasswordConfirmation} style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}>
+        <button className="text-button" type="button" onClick={() => { setPasswordOpen((value) => !value); setPasswordMessage(''); setChallenge(null); }}>{passwordOpen ? 'Отменить смену пароля' : 'Сменить пароль'}</button>
+        {passwordOpen && !challenge && <form onSubmit={requestPasswordCode} style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}>
           <label>Текущий пароль<input type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => updatePasswordField('currentPassword', event.target.value)} required /></label>
           <label>Новый пароль<input type="password" minLength={6} maxLength={12} autoComplete="new-password" value={passwordForm.newPassword} onChange={(event) => updatePasswordField('newPassword', event.target.value)} required /></label>
           <label>Повторите новый пароль<input type="password" minLength={6} maxLength={12} autoComplete="new-password" value={passwordForm.repeatPassword} onChange={(event) => updatePasswordField('repeatPassword', event.target.value)} required /></label>
-          <label>Канал подтверждения<select value={passwordForm.channel} onChange={(event) => updatePasswordField('channel', event.target.value)}><option value="MAX">MAX</option><option value="EMAIL">Электронная почта</option></select></label>
-          <button type="submit" className="text-button">Продолжить и получить код</button>
-          {passwordMessage && <p role="status" style={{ margin: 0 }}>{passwordMessage}</p>}
+          <label>Канал подтверждения<select value={passwordForm.channel} onChange={(event) => updatePasswordField('channel', event.target.value)}><option value="MAX" disabled={!maxChannel.verified}>MAX{maxChannel.verified ? ` — ${maxChannel.destination}` : ' — не настроен'}</option><option value="EMAIL" disabled={!emailChannel.verified}>Электронная почта{emailChannel.verified ? ` — ${emailChannel.destination}` : ' — не настроена'}</option></select></label>
+          <button type="submit" className="text-button" disabled={passwordBusy || !(maxChannel.verified || emailChannel.verified)}>{passwordBusy ? 'Отправляем…' : 'Получить код'}</button>
         </form>}
+        {passwordOpen && challenge && <form onSubmit={confirmPasswordCode} style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 420 }}>
+          <label>Код подтверждения<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus required /></label>
+          <button type="submit" className="text-button" disabled={passwordBusy}>{passwordBusy ? 'Проверяем…' : 'Подтвердить смену пароля'}</button>
+          <button type="button" className="text-button" onClick={() => { setChallenge(null); setOtpCode(''); setPasswordMessage(''); }}>Запросить новый код</button>
+        </form>}
+        {passwordMessage && <p role="status" style={{ marginTop: 12 }}>{passwordMessage}</p>}
       </section>
 
       <section className="card">
         <div className="card-heading"><h2>Каналы подтверждения</h2></div>
-        <p>MAX — основной канал безопасности.</p>
-        <p>Электронная почта — резервный канал.</p>
-        <p style={{ marginBottom: 0 }}>До подтверждения канала пароль не изменяется. Это защищает учётную запись даже при открытой административной сессии.</p>
+        <p><strong>MAX:</strong> {maxChannel.verified ? `подтверждён (${maxChannel.destination})` : 'не настроен или не подтверждён'}.</p>
+        <p><strong>Электронная почта:</strong> {emailChannel.verified ? `подтверждена (${emailChannel.destination})` : 'не настроена или не подтверждена'}.</p>
+        <p style={{ marginBottom: 0 }}>До подтверждения канала пароль не изменяется. Код действует 10 минут, доступно не более 5 попыток.</p>
       </section>
     </section>
 
     {status === 'error' ? <section className="card"><p>Не удалось загрузить сведения безопасности.</p></section> : <>
-      <section className="card">
-        <div className="card-heading"><div><h2>Активные административные сессии</h2><p style={{ margin: '6px 0 0' }}>IP, браузер, начало и последняя активность фиксируются сервером.</p></div><button type="button" className="text-button" onClick={revokeOthers}>Завершить все другие сессии</button></div>
-      </section>
+      <section className="card"><div className="card-heading"><div><h2>Активные административные сессии</h2><p style={{ margin: '6px 0 0' }}>IP, браузер, начало и последняя активность фиксируются сервером.</p></div><button type="button" className="text-button" onClick={revokeOthers}>Завершить все другие сессии</button></div></section>
       <DataTable title="Сессии" rows={sessions.map((row) => ({ ...row, id: row.id }))} columns={sessionColumns} />
       <DataTable title="Журнал входов и действий" rows={audit.map((row) => ({ ...row, id: row.id }))} columns={auditColumns} emptyTitle="Записей аудита пока нет" />
     </>}
-
-    <section className="card">
-      <div className="card-heading"><h2>Выход</h2></div>
-      <p>Выход завершит текущую административную сессию и запишет событие в журнал аудита.</p>
-      <button type="button" className="text-button" onClick={() => auth?.logout?.()}>Выйти из личного кабинета</button>
-    </section>
   </div>;
 }
