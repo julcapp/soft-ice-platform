@@ -66,6 +66,25 @@ class AdminAuthService {
     return { subject_type: 'administrator', subject_id: row.adminUserId, session_id: row.id, roles: row.roles || [], auth_method: 'password', display_name: row.displayName, login: row.login, correlation_id: correlationId || null };
   }
 
+  async listSessions(securityContext) {
+    const rows = await this.prisma.$queryRawUnsafe(`SELECT "id","ipAddress","userAgent","createdAt","lastSeenAt","expiresAt","revokedAt","revokedReason" FROM "AdminSession" WHERE "adminUserId"=$1::uuid ORDER BY "createdAt" DESC LIMIT 50`, securityContext.subject_id);
+    return rows.map((row) => ({ ...row, current: row.id === securityContext.session_id }));
+  }
+
+  async revokeOtherSessions(securityContext, context = {}) {
+    await this.prisma.$executeRawUnsafe(`UPDATE "AdminSession" SET "revokedAt"=NOW(), "revokedReason"='owner_revoke_others' WHERE "adminUserId"=$1::uuid AND "id"<>$2::uuid AND "revokedAt" IS NULL`, securityContext.subject_id, securityContext.session_id);
+    await this.audit.record({ eventType: 'Admin.OtherSessionsRevoked', subjectType: 'administrator', subjectId: securityContext.subject_id, targetType: 'AdminSession', targetId: securityContext.session_id, action: 'revoke_other_sessions', decision: 'success', reasonCode: 'owner_requested', authMethod: securityContext.auth_method, sourceChannel: 'admin_console', correlationId: context.correlationId, metadata: { ip_address: context.ipAddress || null, user_agent: context.userAgent || null } });
+  }
+
+  async listAuditEvents(securityContext) {
+    const rows = await this.prisma.auditEvent.findMany({
+      where: { subjectId: securityContext.subject_id },
+      orderBy: { occurredAt: 'desc' },
+      take: 100,
+    });
+    return rows;
+  }
+
   async logout(token, context = {}) {
     if (!token) return;
     const hash = sha256(token);
