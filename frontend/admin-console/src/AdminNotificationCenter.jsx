@@ -28,6 +28,19 @@ export function AdminNotificationBell() {
     return () => { controller.abort(); window.clearInterval(timer); };
   }, []);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        setDispatchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
+
   const unread = state.unreadCount;
   const visible = useMemo(() => state.items.slice(0, 30), [state.items]);
 
@@ -42,6 +55,7 @@ export function AdminNotificationBell() {
     }
     if (navigate && item.deepLink) {
       setOpen(false);
+      setDispatchOpen(false);
       window.location.hash = item.deepLink.replace(/^#/, '');
     }
   }
@@ -52,11 +66,11 @@ export function AdminNotificationBell() {
   }
 
   return <div className="admin-notification-shell">
-    <button className="notification" aria-label={`Уведомления администратора: ${unread} непрочитанных`} onClick={() => setOpen((value) => !value)}>
+    <button className="notification" aria-label={`Уведомления администратора: ${unread} непрочитанных`} title="Уведомления · Esc — закрыть" onClick={() => { setOpen((value) => !value); if (open) setDispatchOpen(false); }}>
       ♢{unread > 0 && <i>{unread > 99 ? '99+' : unread}</i>}
     </button>
-    {open && <div className={`card admin-notification-dialog${dispatchOpen ? ' admin-notification-dialog-dispatch' : ''}`} role="dialog" aria-label="Центр уведомлений администратора">
-      <div className="card-heading admin-notification-heading"><div><h2>{dispatchOpen ? 'Операционная диспетчерская' : 'Уведомления'}</h2><p>{dispatchOpen ? 'Инциденты, ответственные и история обработки' : 'Операционные события платформы'}</p></div><div className="admin-notification-actions"><button type="button" className="text-button" onClick={() => setDispatchOpen((value) => !value)}>{dispatchOpen ? 'К уведомлениям' : 'Открыть диспетчерскую'}</button>{!dispatchOpen && unread > 0 && <button type="button" className="text-button" onClick={readAll}>Прочитать все</button>}</div></div>
+    {open && <div className={`card admin-notification-dialog${dispatchOpen ? ' admin-notification-dialog-dispatch' : ''}`} role="dialog" aria-modal="false" aria-label="Центр уведомлений администратора">
+      <div className="card-heading admin-notification-heading"><div><h2>{dispatchOpen ? 'Операционная диспетчерская' : 'Уведомления'}</h2><p>{dispatchOpen ? 'Инциденты, ответственные и история обработки' : 'Операционные события платформы'} · Esc — закрыть</p></div><div className="admin-notification-actions"><button type="button" className="text-button" onClick={() => setDispatchOpen((value) => !value)}>{dispatchOpen ? 'К уведомлениям' : 'Открыть диспетчерскую'}</button>{!dispatchOpen && unread > 0 && <button type="button" className="text-button" onClick={readAll}>Прочитать все</button>}</div></div>
       {dispatchOpen ? <AdminOperationsDispatch compact /> : <>
         {state.status === 'error' && <p>Не удалось загрузить уведомления.</p>}
         {state.status !== 'error' && visible.length === 0 && <p>Активных уведомлений нет.</p>}
