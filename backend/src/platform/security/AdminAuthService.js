@@ -44,15 +44,15 @@ class AdminAuthService {
     if (!ok) {
       const next = Number(user.failedLoginCount || 0) + 1;
       const lockedUntil = next >= MAX_FAILED_ATTEMPTS ? new Date(now.getTime() + LOCK_MS) : null;
-      await this.prisma.$executeRawUnsafe('UPDATE "AdminUser" SET "failedLoginCount"=$2, "lockedUntil"=$3, "updatedAt"=NOW() WHERE "id"=$1', user.id, next, lockedUntil);
+      await this.prisma.$executeRawUnsafe('UPDATE "AdminUser" SET "failedLoginCount"=$2, "lockedUntil"=$3, "updatedAt"=NOW() WHERE "id"=$1::uuid', user.id, next, lockedUntil);
       await this.recordLoginAudit(user, false, { ipAddress, userAgent, correlationId, reasonCode: lockedUntil ? 'admin_locked_after_failures' : 'invalid_credentials' });
       throw invalidCredentials();
     }
     const token = this.tokenFactory();
     const tokenHash = sha256(token);
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-    const sessions = await this.prisma.$queryRawUnsafe('INSERT INTO "AdminSession" ("adminUserId","tokenHash","ipAddress","userAgent","expiresAt") VALUES ($1,$2,$3,$4,$5) RETURNING *', user.id, tokenHash, ipAddress || null, userAgent || null, expiresAt);
-    await this.prisma.$executeRawUnsafe('UPDATE "AdminUser" SET "failedLoginCount"=0, "lockedUntil"=NULL, "lastLoginAt"=NOW(), "updatedAt"=NOW() WHERE "id"=$1', user.id);
+    const sessions = await this.prisma.$queryRawUnsafe('INSERT INTO "AdminSession" ("adminUserId","tokenHash","ipAddress","userAgent","expiresAt") VALUES ($1::uuid,$2,$3,$4,$5) RETURNING *', user.id, tokenHash, ipAddress || null, userAgent || null, expiresAt);
+    await this.prisma.$executeRawUnsafe('UPDATE "AdminUser" SET "failedLoginCount"=0, "lockedUntil"=NULL, "lastLoginAt"=NOW(), "updatedAt"=NOW() WHERE "id"=$1::uuid', user.id);
     await this.recordLoginAudit(user, true, { ipAddress, userAgent, correlationId, sessionId: sessions[0].id, reasonCode: 'admin_login_success' });
     return { token, expiresAt, user: presentUser(user) };
   }
@@ -62,7 +62,7 @@ class AdminAuthService {
     const rows = await this.prisma.$queryRawUnsafe(`SELECT s.*, u."login", u."displayName", u."roles", u."status" AS "userStatus" FROM "AdminSession" s JOIN "AdminUser" u ON u."id"=s."adminUserId" WHERE s."tokenHash"=$1 AND s."revokedAt" IS NULL AND s."expiresAt">NOW() LIMIT 1`, sha256(token));
     const row = rows[0];
     if (!row || row.userStatus !== 'ACTIVE') throw authRequired();
-    await this.prisma.$executeRawUnsafe('UPDATE "AdminSession" SET "lastSeenAt"=NOW() WHERE "id"=$1', row.id);
+    await this.prisma.$executeRawUnsafe('UPDATE "AdminSession" SET "lastSeenAt"=NOW() WHERE "id"=$1::uuid', row.id);
     return { subject_type: 'administrator', subject_id: row.adminUserId, session_id: row.id, roles: row.roles || [], auth_method: 'password', display_name: row.displayName, login: row.login, correlation_id: correlationId || null };
   }
 
@@ -72,7 +72,7 @@ class AdminAuthService {
     const rows = await this.prisma.$queryRawUnsafe('SELECT s.*, u."login", u."displayName", u."roles" FROM "AdminSession" s JOIN "AdminUser" u ON u."id"=s."adminUserId" WHERE s."tokenHash"=$1 LIMIT 1', hash);
     const row = rows[0];
     if (!row) return;
-    await this.prisma.$executeRawUnsafe('UPDATE "AdminSession" SET "revokedAt"=NOW(), "revokedReason"=$2 WHERE "id"=$1 AND "revokedAt" IS NULL', row.id, 'logout');
+    await this.prisma.$executeRawUnsafe('UPDATE "AdminSession" SET "revokedAt"=NOW(), "revokedReason"=$2 WHERE "id"=$1::uuid AND "revokedAt" IS NULL', row.id, 'logout');
     await this.audit.record({ eventType: 'Admin.SessionRevoked', subjectType: 'administrator', subjectId: row.adminUserId, targetType: 'AdminSession', targetId: row.id, action: 'logout', decision: 'success', reasonCode: 'admin_logout', authMethod: 'password', sourceChannel: 'admin_console', correlationId: context.correlationId, metadata: { ip_address: context.ipAddress || null, user_agent: context.userAgent || null } });
   }
 
