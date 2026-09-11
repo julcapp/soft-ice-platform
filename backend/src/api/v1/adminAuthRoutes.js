@@ -22,6 +22,32 @@ function createAdminAuthRouter({ adminAuthService }) {
     res.json({ data: req.securityContext });
   });
 
+  router.get('/security-profile', requireBearer(adminAuthService), async (req, res, next) => {
+    try { res.json({ data: await adminAuthService.getSecurityProfile(req.securityContext) }); }
+    catch (error) { next(error); }
+  });
+
+  router.post('/password-change/request', requireBearer(adminAuthService), async (req, res, next) => {
+    try {
+      const data = await adminAuthService.requestPasswordChange(req.securityContext, {
+        currentPassword: req.body?.currentPassword,
+        newPassword: req.body?.newPassword,
+        channel: req.body?.channel,
+      }, requestContext(req));
+      res.status(201).json({ data });
+    } catch (error) { next(error); }
+  });
+
+  router.post('/password-change/confirm', requireBearer(adminAuthService), async (req, res, next) => {
+    try {
+      const data = await adminAuthService.confirmPasswordChange(req.securityContext, {
+        challengeId: req.body?.challengeId,
+        code: req.body?.code,
+      }, requestContext(req));
+      res.json({ data });
+    } catch (error) { next(error); }
+  });
+
   router.get('/sessions', requireBearer(adminAuthService), async (req, res, next) => {
     try { res.json({ data: await adminAuthService.listSessions(req.securityContext) }); }
     catch (error) { next(error); }
