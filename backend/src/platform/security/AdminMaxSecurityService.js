@@ -19,10 +19,20 @@ class AdminMaxSecurityService {
 
   async handleUpdate(update = {}) {
     const type = String(update.update_type || '');
-    if (type !== 'bot_started') return { accepted: true, ignored: true };
+    if (type !== 'bot_started' && type !== 'message_created') {
+      return { accepted: true, ignored: true };
+    }
 
-    const maxUserId = update.user?.user_id != null ? String(update.user.user_id) : '';
+    const user = type === 'bot_started' ? update.user : update.message?.sender;
+    const maxUserId = user?.user_id != null ? String(user.user_id) : '';
     if (!maxUserId) return { accepted: true, ignored: true };
+
+    const chatId = type === 'bot_started'
+      ? update.chat_id
+      : (update.message?.recipient?.chat_id ?? update.chat_id ?? null);
+    const timestamp = type === 'bot_started'
+      ? update.timestamp
+      : (update.message?.timestamp ?? update.timestamp);
 
     await this.prisma.$executeRawUnsafe(
       'UPDATE "AdminMaxLinkCandidate" SET "consumedAt"=NOW() WHERE "maxUserId"=$1 AND "consumedAt" IS NULL',
@@ -33,11 +43,11 @@ class AdminMaxSecurityService {
       `INSERT INTO "AdminMaxLinkCandidate" ("maxUserId","chatId","firstName","lastName","username","startedAt")
        VALUES ($1,$2,$3,$4,$5,TO_TIMESTAMP($6 / 1000.0)) RETURNING *`,
       maxUserId,
-      update.chat_id != null ? String(update.chat_id) : null,
-      update.user?.first_name || update.user?.name || null,
-      update.user?.last_name || null,
-      update.user?.username || null,
-      Number(update.timestamp || Date.now()),
+      chatId != null ? String(chatId) : null,
+      user?.first_name || user?.name || null,
+      user?.last_name || null,
+      user?.username || null,
+      Number(timestamp || Date.now()),
     );
 
     await this.sendMaxMessage(maxUserId, 'Запрос на подключение MAX к безопасности Soft ICE получен. Вернитесь в личный кабинет владельца и подтвердите привязку.');
