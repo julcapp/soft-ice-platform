@@ -1,5 +1,6 @@
 import React from 'react';
 import { AdminNotificationBell } from '../AdminNotificationCenter';
+import { useAdminAuth } from '../AdminAuthGate';
 
 export function StatusBadge({ status }) {
   const labels = {
@@ -96,7 +97,11 @@ export function Sidebar({ open, onClose }) {
 }
 
 export function Header({ onMenu }) {
-  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><AdminNotificationBell /><a className="user-menu" href="#account-security" aria-label="Открыть личный кабинет владельца"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></a></div></header>;
+  const auth = useAdminAuth();
+  const user = auth?.user || {};
+  const displayName = user.display_name || user.displayName || 'Владелец платформы';
+  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'ВП';
+  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><AdminNotificationBell /><a className="user-menu" href="#account-security" aria-label="Открыть личный кабинет владельца"><span>{initials}</span><div><strong>{displayName}</strong><small>Владелец платформы</small></div></a><button type="button" className="text-button header-logout" onClick={() => auth?.logout?.()} title="Завершить текущую административную сессию">Выйти</button></div></header>;
 }
 
 export function PageHeader() {
