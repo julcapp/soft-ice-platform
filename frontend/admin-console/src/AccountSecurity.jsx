@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from './AdminAuthGate';
-import { StatusBadge } from './components';
+import { DataTable, StatusBadge } from './components';
 
 const roleLabels = {
   PLATFORM_OWNER: 'Владелец платформы',
@@ -9,10 +9,89 @@ const roleLabels = {
   OPERATOR: 'Оператор',
 };
 
+const eventLabels = {
+  'Admin.LoginSucceeded': 'Успешный вход',
+  'Admin.LoginFailed': 'Неудачная попытка входа',
+  'Admin.SessionRevoked': 'Завершение сессии',
+  'Admin.OtherSessionsRevoked': 'Завершение других сессий',
+};
+
+async function api(path, options = {}) {
+  const response = await fetch(path, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+  if (response.status === 204) return null;
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body?.error?.message || 'Не удалось получить данные.');
+  return body.data;
+}
+
+function when(value) {
+  return value ? new Date(value).toLocaleString('ru-RU') : '—';
+}
+
+function deviceLabel(value) {
+  if (!value) return 'Не определён';
+  if (/Chrome/i.test(value)) return 'Chrome';
+  if (/Firefox/i.test(value)) return 'Firefox';
+  if (/Edg/i.test(value)) return 'Microsoft Edge';
+  if (/Safari/i.test(value)) return 'Safari';
+  return value.slice(0, 42);
+}
+
 export function AccountSecurityPage() {
   const auth = useAdminAuth();
   const user = auth?.user || {};
   const roles = user.roles || [];
+  const [sessions, setSessions] = useState([]);
+  const [audit, setAudit] = useState([]);
+  const [status, setStatus] = useState('loading');
+  const [message, setMessage] = useState('');
+
+  async function load() {
+    setStatus('loading');
+    try {
+      const [sessionRows, auditRows] = await Promise.all([
+        api('/api/v1/admin/auth/sessions'),
+        api('/api/v1/admin/auth/audit'),
+      ]);
+      setSessions(sessionRows || []);
+      setAudit(auditRows || []);
+      setStatus('ready');
+    } catch (error) {
+      setMessage(error.message);
+      setStatus('error');
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function revokeOthers() {
+    setMessage('');
+    try {
+      await api('/api/v1/admin/auth/sessions/revoke-others', { method: 'POST' });
+      setMessage('Все другие административные сессии завершены.');
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  const sessionColumns = [
+    { key: 'current', label: 'Сессия', render: (value) => value ? <StatusBadge status="ACTIVE" /> : 'Другая' },
+    { key: 'ipAddress', label: 'IP-адрес' },
+    { key: 'userAgent', label: 'Браузер', render: deviceLabel },
+    { key: 'createdAt', label: 'Создана', render: when },
+    { key: 'lastSeenAt', label: 'Последняя активность', render: when },
+    { key: 'expiresAt', label: 'Истекает', render: when },
+    { key: 'revokedAt', label: 'Состояние', render: (value, row) => value ? 'Завершена' : new Date(row.expiresAt) < new Date() ? 'Истекла' : 'Активна' },
+  ];
+
+  const auditColumns = [
+    { key: 'occurredAt', label: 'Дата и время', render: when },
+    { key: 'eventType', label: 'Событие', render: (value) => eventLabels[value] || value },
+    { key: 'action', label: 'Действие' },
+    { key: 'decision', label: 'Результат', render: (value) => value === 'success' ? 'Успешно' : value === 'deny' ? 'Отклонено' : value },
+    { key: 'reasonCode', label: 'Причина' },
+  ];
 
   return <div className="dashboard">
     <section className="card">
@@ -23,6 +102,7 @@ export function AccountSecurityPage() {
         </div>
         <StatusBadge status={user.status || 'ACTIVE'} />
       </div>
+      {message && <p>{message}</p>}
     </section>
 
     <section className="statistics" aria-label="Сведения об учётной записи">
@@ -35,7 +115,7 @@ export function AccountSecurityPage() {
     <section className="tables" style={{ alignItems: 'start' }}>
       <section className="card">
         <div className="card-heading"><h2>Безопасность</h2></div>
-        <p>Пароль: от 6 до 12 символов. Смена пароля будет подтверждаться одноразовым кодом через MAX или электронную почту.</p>
+        <p>Пароль: от 6 до 12 символов. Смена пароля подтверждается одноразовым кодом через MAX или электронную почту.</p>
         <p><strong>После подтверждённой смены пароля:</strong> остальные административные сессии будут завершены.</p>
         <button className="text-button" type="button" disabled title="Подключаем подтверждение MAX / email следующим этапом">Сменить пароль</button>
       </section>
@@ -46,18 +126,20 @@ export function AccountSecurityPage() {
         <p>Электронная почта — резервный канал.</p>
         <p style={{ marginBottom: 0 }}>До подтверждения канала операции смены и восстановления пароля не будут разрешены.</p>
       </section>
+    </section>
 
+    {status === 'error' ? <section className="card"><p>Не удалось загрузить сведения безопасности.</p></section> : <>
       <section className="card">
-        <div className="card-heading"><h2>Активные сессии</h2></div>
-        <p>Текущая сессия активна. Сервер уже хранит идентификатор сессии, IP, браузер, время создания и последнее обращение.</p>
-        <p style={{ marginBottom: 0 }}>Просмотр всех сессий и команда «Завершить другие сессии» подключаются к этому разделу следующим этапом.</p>
+        <div className="card-heading"><div><h2>Активные административные сессии</h2><p style={{ margin: '6px 0 0' }}>IP, браузер, начало и последняя активность фиксируются сервером.</p></div><button type="button" className="text-button" onClick={revokeOthers}>Завершить все другие сессии</button></div>
       </section>
+      <DataTable title="Сессии" rows={sessions.map((row) => ({ ...row, id: row.id }))} columns={sessionColumns} />
+      <DataTable title="Журнал входов и действий" rows={audit.map((row) => ({ ...row, id: row.id }))} columns={auditColumns} emptyTitle="Записей аудита пока нет" />
+    </>}
 
-      <section className="card">
-        <div className="card-heading"><h2>Действия</h2></div>
-        <p>Выход завершит текущую административную сессию и запишет событие в журнал аудита.</p>
-        <button type="button" className="text-button" onClick={() => auth?.logout?.()}>Выйти из личного кабинета</button>
-      </section>
+    <section className="card">
+      <div className="card-heading"><h2>Выход</h2></div>
+      <p>Выход завершит текущую административную сессию и запишет событие в журнал аудита.</p>
+      <button type="button" className="text-button" onClick={() => auth?.logout?.()}>Выйти из личного кабинета</button>
     </section>
   </div>;
 }
