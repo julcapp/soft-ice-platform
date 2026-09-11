@@ -30,9 +30,9 @@ function when(value) {
 
 function deviceLabel(value) {
   if (!value) return 'Не определён';
+  if (/Edg/i.test(value)) return 'Microsoft Edge';
   if (/Chrome/i.test(value)) return 'Chrome';
   if (/Firefox/i.test(value)) return 'Firefox';
-  if (/Edg/i.test(value)) return 'Microsoft Edge';
   if (/Safari/i.test(value)) return 'Safari';
   return value.slice(0, 42);
 }
@@ -45,6 +45,9 @@ export function AccountSecurityPage() {
   const [audit, setAudit] = useState([]);
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', repeatPassword: '', channel: 'MAX' });
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   async function load() {
     setStatus('loading');
@@ -73,6 +76,20 @@ export function AccountSecurityPage() {
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  function updatePasswordField(key, value) {
+    setPasswordForm((current) => ({ ...current, [key]: value }));
+    setPasswordMessage('');
+  }
+
+  function beginPasswordConfirmation(event) {
+    event.preventDefault();
+    const { currentPassword, newPassword, repeatPassword, channel } = passwordForm;
+    if (!currentPassword) return setPasswordMessage('Введите текущий пароль.');
+    if (newPassword.length < 6 || newPassword.length > 12) return setPasswordMessage('Новый пароль должен содержать от 6 до 12 символов.');
+    if (newPassword !== repeatPassword) return setPasswordMessage('Повтор нового пароля не совпадает.');
+    setPasswordMessage(`Данные проверены. Следующий шаг — отправка одноразового кода через ${channel === 'MAX' ? 'MAX' : 'электронную почту'}. Канал подтверждения должен быть предварительно привязан и подтверждён.`);
   }
 
   const sessionColumns = [
@@ -117,14 +134,22 @@ export function AccountSecurityPage() {
         <div className="card-heading"><h2>Безопасность</h2></div>
         <p>Пароль: от 6 до 12 символов. Смена пароля подтверждается одноразовым кодом через MAX или электронную почту.</p>
         <p><strong>После подтверждённой смены пароля:</strong> остальные административные сессии будут завершены.</p>
-        <button className="text-button" type="button" disabled title="Подключаем подтверждение MAX / email следующим этапом">Сменить пароль</button>
+        <button className="text-button" type="button" onClick={() => { setPasswordOpen((value) => !value); setPasswordMessage(''); }}>{passwordOpen ? 'Отменить смену пароля' : 'Сменить пароль'}</button>
+        {passwordOpen && <form onSubmit={beginPasswordConfirmation} style={{ display: 'grid', gap: 12, marginTop: 16, maxWidth: 520 }}>
+          <label>Текущий пароль<input type="password" autoComplete="current-password" value={passwordForm.currentPassword} onChange={(event) => updatePasswordField('currentPassword', event.target.value)} required /></label>
+          <label>Новый пароль<input type="password" minLength={6} maxLength={12} autoComplete="new-password" value={passwordForm.newPassword} onChange={(event) => updatePasswordField('newPassword', event.target.value)} required /></label>
+          <label>Повторите новый пароль<input type="password" minLength={6} maxLength={12} autoComplete="new-password" value={passwordForm.repeatPassword} onChange={(event) => updatePasswordField('repeatPassword', event.target.value)} required /></label>
+          <label>Канал подтверждения<select value={passwordForm.channel} onChange={(event) => updatePasswordField('channel', event.target.value)}><option value="MAX">MAX</option><option value="EMAIL">Электронная почта</option></select></label>
+          <button type="submit" className="text-button">Продолжить и получить код</button>
+          {passwordMessage && <p role="status" style={{ margin: 0 }}>{passwordMessage}</p>}
+        </form>}
       </section>
 
       <section className="card">
         <div className="card-heading"><h2>Каналы подтверждения</h2></div>
         <p>MAX — основной канал безопасности.</p>
         <p>Электронная почта — резервный канал.</p>
-        <p style={{ marginBottom: 0 }}>До подтверждения канала операции смены и восстановления пароля не будут разрешены.</p>
+        <p style={{ marginBottom: 0 }}>До подтверждения канала пароль не изменяется. Это защищает учётную запись даже при открытой административной сессии.</p>
       </section>
     </section>
 
