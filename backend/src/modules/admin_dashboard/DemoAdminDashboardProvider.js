@@ -4,7 +4,7 @@ class DemoAdminDashboardProvider {
     const generatedAt = this.clock().toISOString();
     return {
       generatedAt,
-      freshness: { status: 'DEMO', source: 'DEMO_READ_MODEL', generatedAt, isDemo: true, message: 'Live reporting integrations are not connected. Values are demonstration data.' },
+      freshness: { status: 'DEMO', source: 'DEMO_READ_MODEL', generatedAt, isDemo: true, message: 'Рабочие интеграции отчётности пока не подключены. Показаны демонстрационные данные.' },
       summary: {
         revenueToday: { value: 128450, currency: 'RUB' }, salesToday: 486,
         machinesOnline: 42, machinesTotal: 48, machinesRequiringAttention: 6,
@@ -12,13 +12,13 @@ class DemoAdminDashboardProvider {
       },
       machineStatus: { distribution: [{ status: 'ONLINE', count: 42 }, { status: 'ATTENTION', count: 4 }, { status: 'OFFLINE', count: 2 }] },
       inventoryAlerts: [
-        { id: 'inventory_demo_1', machine: 'TM-014', item: 'Cups 200 ml', level: 12, severity: 'CRITICAL' },
-        { id: 'inventory_demo_2', machine: 'TM-027', item: 'Vanilla mix', level: 18, severity: 'WARNING' },
+        { id: 'inventory_demo_1', machine: 'TM-014', item: 'Стаканчики 200 мл', level: 12, severity: 'CRITICAL' },
+        { id: 'inventory_demo_2', machine: 'TM-027', item: 'Ванильная смесь', level: 18, severity: 'WARNING' },
       ],
       operatorSummary: { active: 9, pendingServiceApprovals: 4 },
       maintenanceSummary: [
-        { id: 'maintenance_demo_1', machine: 'TM-008', activity: 'Scheduled cleaning', status: 'COMPLETED', occurredAt: generatedAt },
-        { id: 'maintenance_demo_2', machine: 'TM-021', activity: 'Cooling inspection', status: 'IN_REVIEW', occurredAt: generatedAt },
+        { id: 'maintenance_demo_1', machine: 'TM-008', activity: 'Плановая очистка', status: 'COMPLETED', occurredAt: generatedAt },
+        { id: 'maintenance_demo_2', machine: 'TM-021', activity: 'Проверка системы охлаждения', status: 'IN_REVIEW', occurredAt: generatedAt },
       ],
       paymentSummary: {
         recent: [
@@ -29,8 +29,8 @@ class DemoAdminDashboardProvider {
         revenueTrend: [13200, 15800, 14900, 18800, 17600, 21900, 26300],
       },
       recentEvents: [
-        { id: 'event_demo_1', type: 'Machine.AttentionRequired', description: 'TM-014 cup stock is critical', severity: 'CRITICAL', occurredAt: generatedAt },
-        { id: 'event_demo_2', type: 'Maintenance.ReportSubmitted', description: 'TM-021 service report awaits review', severity: 'INFO', occurredAt: generatedAt },
+        { id: 'event_demo_1', type: 'Machine.AttentionRequired', description: 'TM-014: критически низкий остаток стаканчиков', severity: 'CRITICAL', occurredAt: generatedAt },
+        { id: 'event_demo_2', type: 'Maintenance.ReportSubmitted', description: 'TM-021: отчёт по обслуживанию ожидает проверки', severity: 'INFO', occurredAt: generatedAt },
       ],
     };
   }
