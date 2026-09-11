@@ -16,6 +16,7 @@ const { createRuntimeDependencies } = require('./runtimeDependencies');
 const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime');
 const { AuditRepository } = require('./platform/audit/AuditRepository');
 const { AdminAuthService } = require('./platform/security/AdminAuthService');
+const { AdminSecurityDelivery } = require('./platform/security/AdminSecurityDelivery');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
 const { METRICS, MetricsRegistry } = require('./platform/observability/MetricsRegistry');
@@ -34,6 +35,8 @@ function createApp(options = {}) {
   const adminAuthService = options.adminAuthService || new AdminAuthService({
     prisma,
     auditRepository: new AuditRepository(prisma),
+    securityDelivery: options.adminSecurityDelivery || new AdminSecurityDelivery({ env: process.env }),
+    otpSecret: process.env.ADMIN_SECURITY_OTP_SECRET,
   });
   dependencies.adminAuthService = adminAuthService;
 
@@ -78,8 +81,6 @@ function createApp(options = {}) {
     });
   }
 
-  // Equipment Sandbox is optional. Existing application scenarios must keep
-  // working when the equipment integration service is not configured.
   if (dependencies.equipmentIntegrationService) {
     app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
@@ -95,22 +96,17 @@ function createApp(options = {}) {
   });
 
   app.locals.platform = { config, dependencies, logger, metrics };
-
   return app;
 }
 
 let app;
-
 let server;
 let paymentInboxTimer;
 let machineCommandTimer;
 let machineRecoveryTimer;
 
 function startServer() {
-  if (server) {
-    return server;
-  }
-
+  if (server) return server;
   server = getApp().listen(backendConfig.http.port, backendConfig.http.host, () => {
     getApp().locals.platform.logger.info('application.started', { host: backendConfig.http.host, port: backendConfig.http.port, environment: backendConfig.environment });
   });
@@ -128,15 +124,11 @@ function startServer() {
     machineRecoveryTimer = setInterval(() => machineRecoveryWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.recovery.worker.failed', { code: error.code || 'MACHINE_RECOVERY_WORKER_FAILED' })), 15000);
     machineRecoveryTimer.unref();
   }
-
   return server;
 }
 
 function getApp() {
-  if (!app) {
-    app = createApp();
-  }
-
+  if (!app) app = createApp();
   return app;
 }
 
@@ -157,20 +149,12 @@ async function shutdown(signal, options = {}) {
 
 if (require.main === module) {
   startServer();
-
-  process.on('SIGINT', () => {
-    shutdown('SIGINT').then(() => process.exit(0)).catch(() => process.exit(1));
-  });
-
-  process.on('SIGTERM', () => {
-    shutdown('SIGTERM').then(() => process.exit(0)).catch(() => process.exit(1));
-  });
+  process.on('SIGINT', () => { shutdown('SIGINT').then(() => process.exit(0)).catch(() => process.exit(1)); });
+  process.on('SIGTERM', () => { shutdown('SIGTERM').then(() => process.exit(0)).catch(() => process.exit(1)); });
 }
 
 module.exports = {
-  get app() {
-    return getApp();
-  },
+  get app() { return getApp(); },
   createApp,
   startServer,
   shutdown,
