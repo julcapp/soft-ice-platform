@@ -15,8 +15,19 @@ import { ReferralCenter } from '../profile/ReferralCenter.jsx';
 import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
 import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
 
+function resolveAppMode() {
+  const explicitMode = new URLSearchParams(window.location.search).get('mode');
+  if (explicitMode) return explicitMode;
+
+  const hostname = String(window.location.hostname || '').toLowerCase();
+  if (hostname === 'display.utimoshi.ru') return 'terminal';
+  if (hostname === 'tehnik.utimoshi.ru') return 'operator';
+
+  return null;
+}
+
 export function App() {
-  const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
+  const appMode = useMemo(() => resolveAppMode(), []);
   const source = useMemo(() => getInitialSource(), []);
   const [settings, setSettings] = useState(() => readUserSettings());
   const [screen, setScreen] = useState('home');
