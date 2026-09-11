@@ -5,6 +5,8 @@ const express = require('express');
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
 const { createAdminAuthRouter, createAdminBearerContextMiddleware } = require('./api/v1/adminAuthRoutes');
+const { createAdminMaxSecurityRouter } = require('./api/v1/adminMaxSecurityRoutes');
+const { createAdminMaxSecurityWebhookRouter } = require('./api/v1/adminMaxSecurityWebhookRoutes');
 const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
 const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
 const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
@@ -17,6 +19,7 @@ const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime')
 const { AuditRepository } = require('./platform/audit/AuditRepository');
 const { AdminAuthService } = require('./platform/security/AdminAuthService');
 const { AdminSecurityDelivery } = require('./platform/security/AdminSecurityDelivery');
+const { AdminMaxSecurityService } = require('./platform/security/AdminMaxSecurityService');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
 const { METRICS, MetricsRegistry } = require('./platform/observability/MetricsRegistry');
@@ -32,13 +35,20 @@ function createApp(options = {}) {
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
   const prisma = getPrismaClient();
+  const auditRepository = new AuditRepository(prisma);
   const adminAuthService = options.adminAuthService || new AdminAuthService({
     prisma,
-    auditRepository: new AuditRepository(prisma),
+    auditRepository,
     securityDelivery: options.adminSecurityDelivery || new AdminSecurityDelivery({ env: process.env }),
     otpSecret: process.env.ADMIN_SECURITY_OTP_SECRET,
   });
+  const adminMaxSecurityService = options.adminMaxSecurityService || new AdminMaxSecurityService({
+    prisma,
+    auditRepository,
+    env: process.env,
+  });
   dependencies.adminAuthService = adminAuthService;
+  dependencies.adminMaxSecurityService = adminMaxSecurityService;
 
   app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
   app.use(attachCorrelationId);
@@ -86,7 +96,9 @@ function createApp(options = {}) {
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   }
 
+  app.use('/api/v1/admin/max/webhook', createAdminMaxSecurityWebhookRouter({ adminMaxSecurityService }));
   app.use('/api/v1/admin/auth', createAdminAuthRouter({ adminAuthService }));
+  app.use('/api/v1/admin/max-security', createAdminMaxSecurityRouter({ adminAuthService, adminMaxSecurityService }));
   app.use('/api/v1', createAdminBearerContextMiddleware(adminAuthService));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
