@@ -22,13 +22,26 @@ function createAdminAuthRouter({ adminAuthService }) {
     res.json({ data: req.securityContext });
   });
 
+  router.get('/sessions', requireBearer(adminAuthService), async (req, res, next) => {
+    try { res.json({ data: await adminAuthService.listSessions(req.securityContext) }); }
+    catch (error) { next(error); }
+  });
+
+  router.post('/sessions/revoke-others', requireBearer(adminAuthService), async (req, res, next) => {
+    try {
+      await adminAuthService.revokeOtherSessions(req.securityContext, requestContext(req));
+      res.status(204).end();
+    } catch (error) { next(error); }
+  });
+
+  router.get('/audit', requireBearer(adminAuthService), async (req, res, next) => {
+    try { res.json({ data: await adminAuthService.listAuditEvents(req.securityContext) }); }
+    catch (error) { next(error); }
+  });
+
   router.post('/logout', requireBearer(adminAuthService), async (req, res, next) => {
     try {
-      await adminAuthService.logout(req.adminAccessToken, {
-        correlationId: req.correlationId,
-        ipAddress: requestIp(req),
-        userAgent: req.get('user-agent') || null,
-      });
+      await adminAuthService.logout(req.adminAccessToken, requestContext(req));
       res.status(204).end();
     } catch (error) { next(error); }
   });
@@ -68,6 +81,10 @@ function bearer(req) {
 function requestIp(req) {
   const forwarded = req.get('x-forwarded-for');
   return forwarded ? forwarded.split(',')[0].trim() : req.ip || req.socket?.remoteAddress || null;
+}
+
+function requestContext(req) {
+  return { correlationId: req.correlationId, ipAddress: requestIp(req), userAgent: req.get('user-agent') || null };
 }
 
 module.exports = { createAdminAuthRouter, createAdminBearerContextMiddleware };
