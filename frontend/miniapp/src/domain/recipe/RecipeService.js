@@ -16,6 +16,9 @@ const hasAllowedId = (allowedIds, selectedId) =>
   allowedIds.length > 0 &&
   allowedIds.includes(selectedId);
 
+const isNoComponent = (selectedId) =>
+  selectedId === 'syrup_none' || selectedId === 'topping_none';
+
 const hasIngredientDefinition = (ingredient) =>
   isRecord(ingredient) &&
   isNonEmptyString(ingredient.id) &&
@@ -174,18 +177,22 @@ export class RecipeService {
   }
 
   validateIngredientDefinitions(recipeDefinition, configuration, errors) {
-    const baseIngredient = recipeDefinition.ingredients.base;
-    const syrupIngredient =
-      recipeDefinition.ingredients.syrups[configuration.syrupId];
-    const toppingIngredient =
-      recipeDefinition.ingredients.toppings[configuration.toppingId];
+    const checks = [
+      ['ingredients.base', recipeDefinition.ingredients.base, false],
+      [
+        `ingredients.syrups.${configuration.syrupId}`,
+        recipeDefinition.ingredients.syrups[configuration.syrupId],
+        isNoComponent(configuration.syrupId),
+      ],
+      [
+        `ingredients.toppings.${configuration.toppingId}`,
+        recipeDefinition.ingredients.toppings[configuration.toppingId],
+        isNoComponent(configuration.toppingId),
+      ],
+    ];
 
-    [
-      ['ingredients.base', baseIngredient],
-      [`ingredients.syrups.${configuration.syrupId}`, syrupIngredient],
-      [`ingredients.toppings.${configuration.toppingId}`, toppingIngredient],
-    ].forEach(([field, ingredient]) => {
-      if (!hasIngredientDefinition(ingredient)) {
+    checks.forEach(([field, ingredient, optionalNone]) => {
+      if (!optionalNone && !hasIngredientDefinition(ingredient)) {
         errors.push({
           code: 'recipe.ingredient_missing',
           field,
@@ -210,12 +217,16 @@ export class RecipeService {
   createRecipeFromDefinition(recipeDefinition, configuration) {
     const ingredients = [
       recipeDefinition.ingredients.base,
-      recipeDefinition.ingredients.syrups[configuration.syrupId],
-      recipeDefinition.ingredients.toppings[configuration.toppingId],
+      isNoComponent(configuration.syrupId)
+        ? null
+        : recipeDefinition.ingredients.syrups[configuration.syrupId],
+      isNoComponent(configuration.toppingId)
+        ? null
+        : recipeDefinition.ingredients.toppings[configuration.toppingId],
       ...configuration.extras.map(
         (extraId) => recipeDefinition.ingredients.extras[extraId],
       ),
-    ];
+    ].filter(Boolean);
 
     return createRecipeEntity({
       id: recipeDefinition.id,
