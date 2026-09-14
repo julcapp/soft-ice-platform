@@ -6,6 +6,7 @@ import { TerminalPromotionHero } from '../promotion/PromotionAwareness.jsx';
 import { resolveMachineId } from '../promotion/PricingQuoteApi.js';
 import { usePricingQuote } from '../promotion/usePricingQuote.js';
 import { usePromotionAwareness } from '../promotion/usePromotionAwareness.js';
+import { BASE_PRODUCT_IMAGE } from './baseProductImage.js';
 import { salesTerminalService } from './SalesTerminalService.js';
 import { PAYMENT_METHODS, SALES_CHANNELS } from './salesChannelData.js';
 
@@ -23,8 +24,21 @@ function ChoiceCard({ active, children, onClick }) {
   return <button className={active ? 'terminal-choice is-selected' : 'terminal-choice'} type="button" onClick={onClick}>{children}<span className="choice-check" aria-hidden="true">{active ? '✓' : ''}</span></button>;
 }
 
-function ProductArtwork({ syrupId, toppingId }) {
-  return <div className={`terminal-artwork ${syrupId}`} aria-label="Ванильное мягкое мороженое"><span className="soft-serve">●</span><span className="soft-serve middle">●</span><span className="soft-serve top">●</span><span className="sprinkles">{toppingId === 'topping_oreo' ? '●  ●' : toppingId === 'topping_rainbow_sprinkles' ? '•  •  •' : '▪  ▪'}</span><span className="cup">У ТИМОШИ</span></div>;
+function ProductArtwork({ syrupId, toppingId, compact = false }) {
+  const hasSyrup = syrupId && syrupId !== 'syrup_none';
+  const hasTopping = toppingId && toppingId !== 'topping_none';
+
+  return (
+    <div className={compact ? 'terminal-product-image compact' : 'terminal-product-image'}>
+      <img src={BASE_PRODUCT_IMAGE} alt="Мягкое мороженое У Тимоши в фирменном стаканчике" />
+      {(hasSyrup || hasTopping) && (
+        <div className="terminal-product-layers" aria-label="Выбранные компоненты">
+          {hasSyrup && <span>+ сироп</span>}
+          {hasTopping && <span>+ посыпка</span>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function QrPattern() {
@@ -35,8 +49,8 @@ export function SalesTerminalPage() {
   const catalog = useMemo(() => salesTerminalService.getCatalogView(), []);
   const machineId = useMemo(() => resolveMachineId(), []);
   const [channelId, setChannelId] = useState('vending');
-  const [syrupId, setSyrupId] = useState(catalog.syrups[0].id);
-  const [toppingId, setToppingId] = useState(catalog.toppings[0].id);
+  const [syrupId, setSyrupId] = useState('syrup_none');
+  const [toppingId, setToppingId] = useState('topping_none');
   const [methodId, setMethodId] = useState('sbp');
   const [step, setStep] = useState(0);
   const [payment, setPayment] = useState(null);
@@ -47,6 +61,7 @@ export function SalesTerminalPage() {
   const selectedChannel = SALES_CHANNELS.find(({ id }) => id === channelId);
   const syrup = catalog.syrups.find(({ id }) => id === syrupId);
   const topping = catalog.toppings.find(({ id }) => id === toppingId);
+  const isBaseDessert = syrupId === 'syrup_none' && toppingId === 'topping_none';
   const serverPrice = pricing.status === 'ready' && pricing.quote && !pricing.lockExpired ? Number(pricing.quote.finalAmount) : preview.pricing.finalPrice;
   const canPay = pricing.status === 'ready' && !pricing.lockExpired;
 
@@ -55,10 +70,10 @@ export function SalesTerminalPage() {
     if (!canPay) return;
     const intent = salesTerminalService.createPaymentIntent({ channelId, methodId, orderPreview: preview, quote: pricing.quote });
     setPayment(intent); setStep(1);
-    trackEvent('TerminalPaymentStarted', { channel_id: channelId, payment_method: methodId, quote_id: pricing.quote.id, campaign_id: pricing.quote.campaignId || null, gift_applied: Number(pricing.quote.giftAmount || 0) > 0 });
+    trackEvent('TerminalPaymentStarted', { channel_id: channelId, payment_method: methodId, quote_id: pricing.quote.id, campaign_id: pricing.quote.campaignId || null, gift_applied: Number(pricing.quote.giftAmount || 0) > 0, syrup_id: syrupId, topping_id: toppingId });
   }
   function confirmDemoPayment() { const confirmed = salesTerminalService.applyDemoPaymentConfirmation(payment); setPayment(confirmed); setStep(2); trackEvent('TerminalDemoPaymentConfirmed', { channel_id: channelId, order_id: payment.orderId }); }
-  function restart() { setPayment(null); setStep(0); refreshQuote(); }
+  function restart() { setPayment(null); setStep(0); setSyrupId('syrup_none'); setToppingId('topping_none'); refreshQuote(); }
 
   return (
     <main className="terminal-shell">
@@ -72,22 +87,30 @@ export function SalesTerminalPage() {
           <section className="terminal-main">
             <div className="terminal-title"><div><p className="terminal-kicker">Мягкое мороженое</p><h1>Соберите свой десерт</h1></div><span className="terminal-price">{serverPrice} ₽</span></div>
             <PromotionPricePanel pricing={pricing} onRefresh={refreshQuote} />
-            <div className="terminal-product"><ProductArtwork syrupId={syrupId} toppingId={toppingId} /><div><span className="terminal-pill">Вкус дня</span><h2>{catalog.flavor.name.ru}</h2><p>Нежное ванильное мороженое, один сироп и один топпинг уже входят в стоимость.</p><div className="included-list"><span>✓ Стаканчик</span><span>✓ Сироп</span><span>✓ Топпинг</span></div></div></div>
+            <div className="terminal-product">
+              <ProductArtwork syrupId={syrupId} toppingId={toppingId} />
+              <div>
+                <span className="terminal-pill">Базовый десерт</span>
+                <h2>{catalog.flavor.name.ru}</h2>
+                <p>{isBaseDessert ? 'Мягкое ванильное мороженое в фирменном стаканчике. Сироп и посыпка не выбраны — десерт готов по базовой цене.' : 'Основа десерта — мягкое ванильное мороженое. Выбранные компоненты добавятся к заказу.'}</p>
+                <div className="included-list"><span>✓ Мороженое</span><span>✓ Стаканчик</span>{syrupId !== 'syrup_none' && <span>✓ Сироп</span>}{toppingId !== 'topping_none' && <span>✓ Посыпка</span>}</div>
+              </div>
+            </div>
             <div className="terminal-config">
               <section><p className="config-number">01</p><h3>Выберите сироп</h3><div className="choice-grid">{catalog.syrups.map((item) => <ChoiceCard active={syrupId === item.id} key={item.id} onClick={() => setSyrupId(item.id)}><span className={`flavor-swatch ${item.id}`} /><strong>{item.name.ru}</strong></ChoiceCard>)}</div></section>
-              <section><p className="config-number">02</p><h3>Добавьте топпинг</h3><div className="choice-grid">{catalog.toppings.map((item) => <ChoiceCard active={toppingId === item.id} key={item.id} onClick={() => setToppingId(item.id)}><span className={`topping-symbol ${item.id}`}>✦</span><strong>{item.name.ru}</strong></ChoiceCard>)}</div></section>
+              <section><p className="config-number">02</p><h3>Добавьте посыпку</h3><div className="choice-grid">{catalog.toppings.map((item) => <ChoiceCard active={toppingId === item.id} key={item.id} onClick={() => setToppingId(item.id)}><span className={`topping-symbol ${item.id}`}>{item.id === 'topping_none' ? '—' : '✦'}</span><strong>{item.name.ru}</strong></ChoiceCard>)}</div></section>
             </div>
           </section>
           <aside className="terminal-summary">
             <div><p className="terminal-kicker">Формат выдачи</p><div className="channel-switch">{SALES_CHANNELS.map((channel) => <button className={channel.id === channelId ? 'is-active' : ''} key={channel.id} type="button" onClick={() => setChannelId(channel.id)}><span>{channel.icon}</span>{channel.name}</button>)}</div><p className="channel-note">{selectedChannel.description}</p></div>
-            <div className="receipt"><p className="terminal-kicker">Ваш заказ</p><h3>{catalog.product.name.ru}</h3><dl><dt>Сироп</dt><dd>{syrup.name.ru}</dd><dt>Топпинг</dt><dd>{topping.name.ru}</dd></dl>{pricing.quote && Number(pricing.quote.giftAmount || 0) > 0 && <div className="receipt-promo">🎁 Мороженое — подарок Клуба Тимоши</div>}{pricing.quote && Number(pricing.quote.promotionDiscountAmount || 0) > 0 && <div className="receipt-promo">🔥 «Час выгоды»: −{pricing.quote.promotionDiscountAmount} ₽</div>}<div className="receipt-total"><span>К оплате</span><strong>{serverPrice} ₽</strong></div></div>
+            <div className="receipt"><p className="terminal-kicker">Ваш заказ</p><h3>{catalog.product.name.ru}</h3><dl><dt>Сироп</dt><dd>{syrup?.name.ru || 'Без сиропа'}</dd><dt>Посыпка</dt><dd>{topping?.name.ru || 'Без посыпки'}</dd></dl>{pricing.quote && Number(pricing.quote.giftAmount || 0) > 0 && <div className="receipt-promo">🎁 Мороженое — подарок Клуба Тимоши</div>}{pricing.quote && Number(pricing.quote.promotionDiscountAmount || 0) > 0 && <div className="receipt-promo">🔥 «Час выгоды»: −{pricing.quote.promotionDiscountAmount} ₽</div>}<div className="receipt-total"><span>К оплате</span><strong>{serverPrice} ₽</strong></div></div>
             <button className="terminal-cta" type="button" onClick={startPayment} disabled={!canPay}>{pricing.status === 'loading' ? 'Проверяем цену…' : pricing.lockExpired ? 'Пересчитайте цену' : serverPrice === 0 ? 'Получить подарок' : 'Перейти к оплате'} <span>→</span></button>
             <p className="safe-payment">Цена и акция подтверждаются сервером · оплата через ЮKassa</p>
           </aside>
         </div>
       )}
 
-      {step === 1 && <section className="payment-screen"><div className="payment-panel"><button className="terminal-back" type="button" onClick={restart}>← Вернуться к заказу</button><p className="terminal-kicker">Заказ {payment.orderId}</p><h1>{payment.paymentRequired ? `Оплатите ${payment.amount} ₽` : 'Подарок готов к выдаче'}</h1><p>{payment.paymentRequired ? 'Выберите удобный способ. Терминал дождётся подтверждения от платёжной системы.' : 'Для полностью подарочного заказа внешний платёж не требуется.'}</p>{payment.paymentRequired && <><div className="payment-methods">{PAYMENT_METHODS.map((method) => <ChoiceCard active={methodId === method.id} key={method.id} onClick={() => setMethodId(method.id)}><span className="method-icon">{method.icon}</span><span><strong>{method.name}</strong><small>{method.description}</small></span></ChoiceCard>)}</div><div className="payment-action">{methodId === 'sbp' ? <QrPattern /> : <div className="card-redirect">Ю<span>Касса</span></div>}<div><strong>{methodId === 'sbp' ? 'Наведите камеру телефона' : 'Откройте защищённую форму'}</strong><p>После оплаты не закрывайте экран — статус обновится автоматически.</p></div></div><div className="pending-status"><span className="status-spinner" />Ожидаем подтверждение оплаты</div></>}<button className="demo-confirm" type="button" onClick={confirmDemoPayment}>{payment.paymentRequired ? 'Демо: получить подтверждение Payment Runtime' : 'Демо: подтвердить бесплатный заказ'}</button><p className="demo-disclaimer">В рабочей системе платный заказ подтверждает webhook ЮKassa, а заказ на 0 ₽ проходит внутреннее подтверждение без платёжного шлюза.</p></div><aside className="payment-order-card"><ProductArtwork syrupId={syrupId} toppingId={toppingId} /><h2>{catalog.product.name.ru}</h2><p>{syrup.name.ru} · {topping.name.ru}</p><strong>{payment.amount} ₽</strong></aside></section>}
+      {step === 1 && <section className="payment-screen"><div className="payment-panel"><button className="terminal-back" type="button" onClick={restart}>← Вернуться к заказу</button><p className="terminal-kicker">Заказ {payment.orderId}</p><h1>{payment.paymentRequired ? `Оплатите ${payment.amount} ₽` : 'Подарок готов к выдаче'}</h1><p>{payment.paymentRequired ? 'Выберите удобный способ. Терминал дождётся подтверждения от платёжной системы.' : 'Для полностью подарочного заказа внешний платёж не требуется.'}</p>{payment.paymentRequired && <><div className="payment-methods">{PAYMENT_METHODS.map((method) => <ChoiceCard active={methodId === method.id} key={method.id} onClick={() => setMethodId(method.id)}><span className="method-icon">{method.icon}</span><span><strong>{method.name}</strong><small>{method.description}</small></span></ChoiceCard>)}</div><div className="payment-action">{methodId === 'sbp' ? <QrPattern /> : <div className="card-redirect">Ю<span>Касса</span></div>}<div><strong>{methodId === 'sbp' ? 'Наведите камеру телефона' : 'Откройте защищённую форму'}</strong><p>После оплаты не закрывайте экран — статус обновится автоматически.</p></div></div><div className="pending-status"><span className="status-spinner" />Ожидаем подтверждение оплаты</div></>}<button className="demo-confirm" type="button" onClick={confirmDemoPayment}>{payment.paymentRequired ? 'Демо: получить подтверждение Payment Runtime' : 'Демо: подтвердить бесплатный заказ'}</button><p className="demo-disclaimer">В рабочей системе платный заказ подтверждает webhook ЮKassa, а заказ на 0 ₽ проходит внутреннее подтверждение без платёжного шлюза.</p></div><aside className="payment-order-card"><ProductArtwork syrupId={syrupId} toppingId={toppingId} compact /><h2>{catalog.product.name.ru}</h2><p>{syrup?.name.ru || 'Без сиропа'} · {topping?.name.ru || 'Без посыпки'}</p><strong>{payment.amount} ₽</strong></aside></section>}
 
       {step === 2 && <section className="success-screen"><div className="success-check">✓</div><p className="terminal-kicker">{payment.paymentRequired ? 'Оплата подтверждена' : 'Подарок подтверждён'}</p><h1>{payment.fulfillment === 'machine' ? 'Начинаем готовить!' : 'Покажите код продавцу'}</h1><p>{payment.fulfillment === 'machine' ? 'Заказ передан автомату. Заберите десерт после сигнала готовности.' : 'Продавец уже получил уведомление об оплаченном заказе.'}</p>{(payment.giftAmount > 0 || payment.promotionDiscountAmount > 0) && <div className="terminal-saving">Вы сэкономили {payment.giftAmount + payment.promotionDiscountAmount} ₽</div>}<div className="sale-code"><span>Заказ</span><strong>{payment.orderId}</strong><span>Код выдачи</span><b>{payment.saleCode}</b></div><div className="fulfillment-status"><span>✓ Заказ подтверждён</span><span>{payment.fulfillment === 'machine' ? '● Команда выдачи отправлена автомату' : '● Продавец уведомлён и сверит код'}</span></div><button className="terminal-cta compact" type="button" onClick={restart}>Новый заказ</button></section>}
     </main>
