@@ -10,7 +10,7 @@ import { salesTerminalService } from './SalesTerminalService.js';
 import { PAYMENT_METHODS, SALES_CHANNELS } from './salesChannelData.js';
 
 const STEP_LABELS = ['Выбор', 'Оплата', 'Выдача'];
-const BASE_PRODUCT_IMAGE_URL = '/product-base.webp';
+const BASE_PRODUCT_IMAGE_URL = '/product-base.png';
 
 function BrandMark() {
   return <div className="terminal-brand"><span className="terminal-logo" aria-hidden="true">🍦</span><span><strong>У Тимоши</strong><small>панель продаж</small></span></div>;
