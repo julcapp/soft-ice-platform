@@ -1,20 +1,31 @@
 .terminal-product {
   background:
-    radial-gradient(circle at 18% 48%, rgba(255, 244, 223, .98), transparent 18rem),
-    linear-gradient(115deg, #fbe4c1, #fff4df 64%, #fee2da);
+    radial-gradient(ellipse at 24% 58%, rgba(255,255,255,.48) 0, rgba(255,247,228,.28) 28%, transparent 55%),
+    linear-gradient(112deg, #fce8c8 0%, #fff2dc 55%, #fee4dc 100%);
   grid-template-columns: minmax(300px, 360px) 1fr;
   min-height: 340px;
   padding: 20px 42px;
 }
 
 .terminal-product-image {
+  isolation: isolate;
   max-width: 360px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+}
+
+.terminal-product-image::before {
+  background: radial-gradient(ellipse, rgba(255,255,255,.32) 0%, rgba(255,245,222,.18) 48%, transparent 72%);
+  content: "";
+  inset: 3% -8%;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
 }
 
 .terminal-product-image img {
   background: transparent;
-  filter: drop-shadow(0 22px 28px rgba(86, 57, 37, .14));
+  filter: drop-shadow(0 22px 24px rgba(86,57,37,.12));
   max-height: 325px;
   mix-blend-mode: multiply;
   object-fit: contain;
