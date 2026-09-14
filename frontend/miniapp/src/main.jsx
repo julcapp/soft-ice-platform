@@ -4,6 +4,7 @@ import { App } from './app/App.jsx';
 import './styles/global.css';
 import './styles/operator.css';
 import './styles/terminal.css';
+import './styles/terminal-v2.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
