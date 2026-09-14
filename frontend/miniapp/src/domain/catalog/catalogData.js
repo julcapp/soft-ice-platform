@@ -14,11 +14,13 @@ const catalogData = {
       status: 'active',
       defaultFlavor: 'flavor_vanilla',
       allowedSyrups: [
+        'syrup_none',
         'syrup_strawberry',
         'syrup_chocolate',
         'syrup_caramel',
       ],
       allowedToppings: [
+        'topping_none',
         'topping_oreo',
         'topping_rainbow_sprinkles',
         'topping_chocolate_chips',
@@ -36,6 +38,12 @@ const catalogData = {
     }),
   ],
   syrups: [
+    createSyrupEntity({
+      id: 'syrup_none',
+      name: {
+        ru: 'Без сиропа',
+      },
+    }),
     createSyrupEntity({
       id: 'syrup_strawberry',
       name: {
@@ -56,6 +64,12 @@ const catalogData = {
     }),
   ],
   toppings: [
+    createToppingEntity({
+      id: 'topping_none',
+      name: {
+        ru: 'Без посыпки',
+      },
+    }),
     createToppingEntity({
       id: 'topping_oreo',
       name: {
