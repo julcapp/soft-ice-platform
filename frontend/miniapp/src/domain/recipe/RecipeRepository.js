@@ -7,11 +7,13 @@ const defaultRecipeDefinitions = [
     allowedFlavorIds: ['flavor_vanilla'],
     allowedSizeIds: ['size_cup_standard'],
     allowedSyrupIds: [
+      'syrup_none',
       'syrup_strawberry',
       'syrup_chocolate',
       'syrup_caramel',
     ],
     allowedToppingIds: [
+      'topping_none',
       'topping_oreo',
       'topping_rainbow_sprinkles',
       'topping_chocolate_chips',
