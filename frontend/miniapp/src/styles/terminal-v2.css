@@ -1,5 +1,5 @@
 .terminal-product {
-  background: linear-gradient(112deg, #fce8c8 0%, #fff2dc 55%, #fee4dc 100%);
+  background: linear-gradient(112deg, #fbefde 0%, #fbefde 50%, #fce8df 100%);
   grid-template-columns: minmax(300px, 360px) 1fr;
   min-height: 340px;
   padding: 20px 42px;
@@ -14,9 +14,8 @@
 .terminal-product-image img {
   background: transparent;
   display: block;
-  filter: drop-shadow(0 22px 24px rgba(86,57,37,.12));
+  filter: drop-shadow(0 20px 24px rgba(86,57,37,.12));
   max-height: 325px;
-  mix-blend-mode: multiply;
   object-fit: contain;
   width: 100%;
 }
