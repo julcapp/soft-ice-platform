@@ -1,5 +1,7 @@
 const PRICING_ENDPOINT = '/api/v1/pricing/quote';
 const AWARENESS_ENDPOINT = '/api/v1/pricing/promotion-awareness';
+const STAGE_DISPLAY_HOST = 'display.utimoshi.ru';
+const STAGE_DISPLAY_MACHINE_ID = 'TEST-MACHINE-001';
 
 export class PricingQuoteApiError extends Error {
   constructor(message, { code = 'PRICING_UI_REQUEST_FAILED', status = 0, details = [] } = {}) {
@@ -26,7 +28,10 @@ function authHeaders(extra = {}) {
 
 export function resolveMachineId() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('machineId') || params.get('machine_id') || null;
+  const explicit = params.get('machineId') || params.get('machine_id');
+  if (explicit) return explicit;
+  if (window.location.hostname === STAGE_DISPLAY_HOST) return STAGE_DISPLAY_MACHINE_ID;
+  return null;
 }
 
 export async function getPromotionAwareness({ machineId, channel, signal }) {
