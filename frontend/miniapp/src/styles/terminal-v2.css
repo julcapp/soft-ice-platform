@@ -10,6 +10,11 @@
 .terminal-product-image.compact { max-width: 220px; }
 .terminal-product-image.compact img { max-height: min(25vh, 220px); }
 
+/* Composition is rendered as text below the product on payment/summary screens. Never overlay labels on the cup artwork. */
+.terminal-product-layers { display: none !important; }
+.payment-order-card .terminal-product-image { margin-bottom: 10px; }
+.payment-order-card > p { line-height: 1.35; margin: 4px 0 16px; }
+
 /* Brand portrait is a replaceable public asset. Keep the markup stable so the server can swap the asset without redesigning the header. */
 .terminal-brand .terminal-logo {
   background: #ff575f url('/brand-owner.svg') center/cover no-repeat;
@@ -21,24 +26,8 @@
   overflow: hidden;
 }
 
-/* Kiosk screens are viewport-bound: customer flows must never require browser scrolling. */
-html:has(.terminal-shell),
-body:has(.terminal-shell),
-#root:has(.terminal-shell) {
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
-.terminal-shell {
-  box-sizing: border-box;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  padding-top: clamp(10px, 1.7vh, 18px);
-  padding-bottom: clamp(10px, 1.7vh, 18px);
-}
-
+html:has(.terminal-shell), body:has(.terminal-shell), #root:has(.terminal-shell) { height: 100%; margin: 0; overflow: hidden; }
+.terminal-shell { box-sizing: border-box; height: 100dvh; min-height: 0; overflow: hidden; padding-top: clamp(10px, 1.7vh, 18px); padding-bottom: clamp(10px, 1.7vh, 18px); }
 .terminal-header { margin-bottom: clamp(8px, 1.3vh, 14px); }
 .terminal-stepper { margin-bottom: clamp(8px, 1.4vh, 16px); }
 .terminal-layout { gap: clamp(16px, 2vw, 30px); }
@@ -52,13 +41,11 @@ body:has(.terminal-shell),
 .receipt h3 { margin-bottom: 12px; }
 .receipt-total { margin-top: 14px; padding-top: 14px; }
 
-/* Customer never selects the point type. It is resolved by terminal configuration. */
 .terminal-point-card { background: #f7f0e7; border: 1px solid var(--terminal-line); border-radius: 18px; padding: 14px; }
 .terminal-point-card strong { display: block; font-size: 16px; margin-bottom: 5px; }
 .terminal-point-card small { color: var(--terminal-muted); display: block; }
 .terminal-point-status { align-items: center; color: var(--terminal-green); display: flex; font-size: 12px; font-weight: 900; gap: 7px; margin-top: 7px; }
 
-/* Component selection is intentionally split into full-size touch screens. */
 .terminal-config-screen { margin: 0 auto; max-width: 1180px; }
 .terminal-config-screen-head { align-items: center; display: flex; gap: 20px; justify-content: space-between; margin-bottom: 18px; }
 .terminal-config-screen-head h1 { font-family: Georgia, serif; font-size: clamp(34px, 4vw, 56px); font-weight: 500; margin: 0; }
@@ -67,7 +54,6 @@ body:has(.terminal-shell),
 .terminal-config-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 18px; }
 .terminal-secondary { background: #fff; border: 1px solid var(--terminal-line); border-radius: 18px; color: var(--terminal-ink); cursor: pointer; font-weight: 800; min-height: 54px; padding: 0 22px; }
 
-/* Loyalty is optional and can never block payment. */
 .terminal-modal-backdrop { align-items: center; background: rgba(36,27,22,.48); display: flex; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 1000; }
 .terminal-modal { background: var(--terminal-paper); border-radius: 30px; box-shadow: 0 30px 90px rgba(36,27,22,.28); max-width: 620px; padding: clamp(28px, 5vw, 52px); width: 100%; }
 .terminal-modal h2 { font-family: Georgia, serif; font-size: clamp(30px, 4vw, 44px); font-weight: 500; margin: 8px 0 12px; }
@@ -76,7 +62,6 @@ body:has(.terminal-shell),
 .terminal-modal-actions { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .terminal-modal-actions .terminal-cta { justify-content: center; }
 
-/* Three minutes without interaction activates a local, traffic-free attract loop. */
 .terminal-idle { align-items: center; background: radial-gradient(circle at 50% 35%, #fff8ea, #f9e8d6 60%, #f8ddd8); cursor: pointer; display: flex; inset: 0; justify-content: center; overflow: hidden; position: fixed; z-index: 2000; }
 .terminal-idle-card { align-items: center; display: grid; gap: clamp(24px, 6vw, 90px); grid-template-columns: minmax(300px, 520px) minmax(300px, 620px); max-width: 1280px; padding: 5vw; width: 100%; }
 .terminal-idle-card img { filter: drop-shadow(0 30px 35px rgba(86,57,37,.16)); max-height: 68vh; object-fit: contain; width: 100%; }
@@ -84,7 +69,10 @@ body:has(.terminal-shell),
 .terminal-idle-copy p { font-size: clamp(18px, 2vw, 28px); }
 .terminal-idle-touch { background: rgba(255,255,255,.72); border-radius: 999px; display: inline-block; font-weight: 900; margin-top: 22px; padding: 14px 22px; }
 
-/* Short landscape panels (common 19–23 inch kiosk resolutions) need a denser vertical rhythm. */
+/* POS card option is a physical terminal action, not an embedded card-entry form. */
+.payment-methods .terminal-choice:nth-child(2) { border-width: 2px; }
+.payment-methods .terminal-choice:nth-child(2) strong { font-size: 16px; }
+
 @media (orientation: landscape) and (max-height: 900px) {
   .terminal-shell { padding-left: clamp(18px, 3vw, 48px); padding-right: clamp(18px, 3vw, 48px); }
   .terminal-header { margin-bottom: 7px; }
