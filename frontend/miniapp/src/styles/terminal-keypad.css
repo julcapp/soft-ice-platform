@@ -1,0 +1,12 @@
+.terminal-phone-modal { max-width: 520px; padding: 26px 34px; }
+.terminal-phone-display { background: #fff; border: 2px solid var(--terminal-line); border-radius: 18px; box-sizing: border-box; font-size: clamp(25px, 3vw, 34px); font-weight: 900; letter-spacing: .04em; margin: 16px 0; min-height: 66px; padding: 12px 18px; text-align: center; width: 100%; }
+.terminal-phone-placeholder { color: #c9beb2; font-weight: 500; }
+.terminal-keypad { display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); margin: 0 auto 16px; max-width: 360px; }
+.terminal-keypad button { background: #fff; border: 1px solid var(--terminal-line); border-radius: 16px; color: var(--terminal-ink); cursor: pointer; font-size: 28px; font-weight: 900; min-height: 58px; }
+.terminal-keypad button:active { transform: scale(.97); }
+.terminal-keypad .keypad-clear, .terminal-keypad .keypad-back { color: var(--terminal-muted); font-size: 22px; }
+.terminal-ok { background: #28a96b; border: 0; border-radius: 18px; color: #fff; cursor: pointer; font-size: 20px; font-weight: 900; min-height: 56px; padding: 0 24px; }
+.terminal-ok:disabled { cursor: not-allowed; opacity: .35; }
+.terminal-cancel-purchase { background: transparent; border: 1px solid #d6b9ad; border-radius: 16px; color: #9c4d3d; cursor: pointer; font-size: 15px; font-weight: 800; margin-top: 10px; min-height: 48px; width: 100%; }
+.terminal-cancel-confirm { background: #b84b3e; border: 0; border-radius: 18px; color: #fff; cursor: pointer; font-weight: 900; min-height: 54px; padding: 0 22px; }
+@media (orientation: landscape) and (max-height: 900px) { .terminal-phone-modal { padding: 20px 30px; } .terminal-phone-modal h2 { font-size: 32px; margin: 4px 0 8px; } .terminal-phone-modal p { margin: 6px 0; } .terminal-phone-display { margin: 10px 0; min-height: 56px; padding: 8px 14px; } .terminal-keypad { gap: 7px; margin-bottom: 10px; } .terminal-keypad button { min-height: 48px; } }
