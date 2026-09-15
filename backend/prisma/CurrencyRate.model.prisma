@@ -1,0 +1,27 @@
+// Canonical Currency Core v0.1 Prisma model fragment.
+//
+// IMPORTANT: this file is NOT loaded by Prisma while the project uses
+// backend/prisma/schema.prisma as a single-file schema. It exists only as the
+// exact reviewed model definition to be inserted into schema.prisma before
+// Currency Core can leave Draft status. The CI gate intentionally continues
+// to require `model CurrencyRate` in schema.prisma.
+
+model CurrencyRate {
+  id              String   @id @default(uuid())
+  currencyCode    String
+  requestedDate   DateTime
+  rateDate        DateTime
+  nominal         Decimal  @db.Decimal(18, 6)
+  rate            Decimal  @db.Decimal(18, 8)
+  unitRate        Decimal  @db.Decimal(18, 8)
+  source          String
+  status          String
+  rawResponseHash String?
+  receivedAt      DateTime
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  @@unique([currencyCode, requestedDate, source])
+  @@index([currencyCode, rateDate])
+  @@index([requestedDate])
+}
