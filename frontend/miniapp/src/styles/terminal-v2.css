@@ -1,14 +1,14 @@
 .terminal-product {
   background: linear-gradient(112deg, #fbefde 0%, #fbefde 50%, #fce8df 100%);
-  grid-template-columns: minmax(300px, 360px) 1fr;
-  min-height: 340px;
-  padding: 20px 42px;
+  grid-template-columns: minmax(260px, 330px) 1fr;
+  min-height: 0;
+  padding: 14px 34px;
 }
 
-.terminal-product-image { max-width: 360px; overflow: visible; position: relative; }
-.terminal-product-image img { background: transparent; display: block; filter: drop-shadow(0 20px 24px rgba(86,57,37,.12)); max-height: 325px; object-fit: contain; width: 100%; }
-.terminal-product-image.compact { max-width: 240px; }
-.terminal-product-image.compact img { max-height: 240px; }
+.terminal-product-image { max-width: 330px; overflow: visible; position: relative; }
+.terminal-product-image img { background: transparent; display: block; filter: drop-shadow(0 20px 24px rgba(86,57,37,.12)); max-height: min(29vh, 285px); object-fit: contain; width: 100%; }
+.terminal-product-image.compact { max-width: 220px; }
+.terminal-product-image.compact img { max-height: min(25vh, 220px); }
 
 /* Brand portrait is a replaceable public asset. Keep the markup stable so the server can swap the asset without redesigning the header. */
 .terminal-brand .terminal-logo {
@@ -21,20 +21,51 @@
   overflow: hidden;
 }
 
+/* Kiosk screens are viewport-bound: customer flows must never require browser scrolling. */
+html:has(.terminal-shell),
+body:has(.terminal-shell),
+#root:has(.terminal-shell) {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.terminal-shell {
+  box-sizing: border-box;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: clamp(10px, 1.7vh, 18px);
+  padding-bottom: clamp(10px, 1.7vh, 18px);
+}
+
+.terminal-header { margin-bottom: clamp(8px, 1.3vh, 14px); }
+.terminal-stepper { margin-bottom: clamp(8px, 1.4vh, 16px); }
+.terminal-layout { gap: clamp(16px, 2vw, 30px); }
+.terminal-main { padding: clamp(18px, 2.1vw, 32px); }
+.terminal-title h1 { margin: 4px 0 8px; font-size: clamp(36px, 3.5vw, 54px); line-height: .98; }
+.terminal-price { font-size: clamp(34px, 3vw, 42px); }
+.terminal-main .terminal-product { margin: clamp(12px, 1.8vh, 20px) 0; }
+.terminal-main > .terminal-cta { min-height: 54px; }
+.terminal-summary { gap: 16px; padding: 22px; top: 10px; }
+.receipt { padding: 16px 0; }
+.receipt h3 { margin-bottom: 12px; }
+.receipt-total { margin-top: 14px; padding-top: 14px; }
+
 /* Customer never selects the point type. It is resolved by terminal configuration. */
-.terminal-point-card { background: #f7f0e7; border: 1px solid var(--terminal-line); border-radius: 18px; padding: 16px; }
+.terminal-point-card { background: #f7f0e7; border: 1px solid var(--terminal-line); border-radius: 18px; padding: 14px; }
 .terminal-point-card strong { display: block; font-size: 16px; margin-bottom: 5px; }
 .terminal-point-card small { color: var(--terminal-muted); display: block; }
-.terminal-point-status { align-items: center; color: var(--terminal-green); display: flex; font-size: 12px; font-weight: 900; gap: 7px; margin-top: 9px; }
+.terminal-point-status { align-items: center; color: var(--terminal-green); display: flex; font-size: 12px; font-weight: 900; gap: 7px; margin-top: 7px; }
 
 /* Component selection is intentionally split into full-size touch screens. */
 .terminal-config-screen { margin: 0 auto; max-width: 1180px; }
-.terminal-config-screen-head { align-items: center; display: flex; gap: 20px; justify-content: space-between; margin-bottom: 24px; }
+.terminal-config-screen-head { align-items: center; display: flex; gap: 20px; justify-content: space-between; margin-bottom: 18px; }
 .terminal-config-screen-head h1 { font-family: Georgia, serif; font-size: clamp(34px, 4vw, 56px); font-weight: 500; margin: 0; }
 .terminal-config-screen .choice-grid { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
-.terminal-config-screen .terminal-choice { min-height: 150px; justify-content: center; flex-direction: column; text-align: center; }
-.terminal-config-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 26px; }
-.terminal-secondary { background: #fff; border: 1px solid var(--terminal-line); border-radius: 18px; color: var(--terminal-ink); cursor: pointer; font-weight: 800; min-height: 58px; padding: 0 22px; }
+.terminal-config-screen .terminal-choice { min-height: min(18vh, 150px); justify-content: center; flex-direction: column; text-align: center; }
+.terminal-config-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 18px; }
+.terminal-secondary { background: #fff; border: 1px solid var(--terminal-line); border-radius: 18px; color: var(--terminal-ink); cursor: pointer; font-weight: 800; min-height: 54px; padding: 0 22px; }
 
 /* Loyalty is optional and can never block payment. */
 .terminal-modal-backdrop { align-items: center; background: rgba(36,27,22,.48); display: flex; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 1000; }
@@ -53,6 +84,24 @@
 .terminal-idle-copy p { font-size: clamp(18px, 2vw, 28px); }
 .terminal-idle-touch { background: rgba(255,255,255,.72); border-radius: 999px; display: inline-block; font-weight: 900; margin-top: 22px; padding: 14px 22px; }
 
+/* Short landscape panels (common 19–23 inch kiosk resolutions) need a denser vertical rhythm. */
+@media (orientation: landscape) and (max-height: 900px) {
+  .terminal-shell { padding-left: clamp(18px, 3vw, 48px); padding-right: clamp(18px, 3vw, 48px); }
+  .terminal-header { margin-bottom: 7px; }
+  .terminal-brand .terminal-logo { height: 44px; width: 44px; }
+  .terminal-brand strong { font-size: 22px; }
+  .terminal-stepper { margin-bottom: 8px; }
+  .terminal-stepper span { height: 25px; min-width: 25px; }
+  .terminal-main { border-radius: 28px; padding: 18px 28px; }
+  .terminal-title h1 { font-size: clamp(38px, 3.2vw, 50px); }
+  .terminal-product { gap: 24px; padding: 10px 28px; }
+  .terminal-product-image img { max-height: 27vh; }
+  .terminal-product h2 { margin: 7px 0; }
+  .terminal-summary { border-radius: 26px; padding: 18px; }
+  .terminal-point-card { padding: 12px; }
+  .terminal-cta { min-height: 52px; }
+}
+
 @media (orientation: portrait) {
   .terminal-layout { grid-template-columns: 1fr; }
   .terminal-summary { position: static; }
@@ -62,13 +111,13 @@
 }
 
 @media (max-width: 1050px) {
-  .terminal-product { grid-template-columns: minmax(260px, 320px) 1fr; }
+  .terminal-product { grid-template-columns: minmax(240px, 300px) 1fr; }
   .terminal-config-screen .choice-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 760px) {
   .terminal-product { grid-template-columns: 1fr; text-align: center; }
-  .terminal-product-image { max-width: 300px; }
-  .terminal-product-image img { max-height: 280px; }
+  .terminal-product-image { max-width: 280px; }
+  .terminal-product-image img { max-height: 25vh; }
   .terminal-modal-actions { grid-template-columns: 1fr; }
 }
