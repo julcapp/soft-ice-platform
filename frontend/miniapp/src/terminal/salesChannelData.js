@@ -25,7 +25,7 @@ export const PAYMENT_METHODS = Object.freeze([
   {
     id: 'yookassa_card',
     name: 'Банковская карта',
-    description: 'Защищённая страница ЮKassa',
-    icon: '••••',
+    description: 'Оплата через POS-терминал',
+    icon: '▣',
   },
 ]);
