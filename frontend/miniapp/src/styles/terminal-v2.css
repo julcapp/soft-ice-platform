@@ -10,6 +10,17 @@
 .terminal-product-image.compact { max-width: 240px; }
 .terminal-product-image.compact img { max-height: 240px; }
 
+/* Brand portrait is a replaceable public asset. Keep the markup stable so the server can swap the asset without redesigning the header. */
+.terminal-brand .terminal-logo {
+  background: #ff575f url('/brand-owner.svg') center/cover no-repeat;
+  border: 2px solid rgba(255,255,255,.92);
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgba(86,57,37,.12);
+  color: transparent;
+  font-size: 0;
+  overflow: hidden;
+}
+
 /* Customer never selects the point type. It is resolved by terminal configuration. */
 .terminal-point-card { background: #f7f0e7; border: 1px solid var(--terminal-line); border-radius: 18px; padding: 16px; }
 .terminal-point-card strong { display: block; font-size: 16px; margin-bottom: 5px; }
