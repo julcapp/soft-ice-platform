@@ -2,6 +2,7 @@ const bonus = require('./bonus');
 const clubAccount = require('./club_account');
 const customer = require('./customer');
 const consent = require('./consent');
+const currency = require('./currency');
 const machine = require('./machine');
 const machineOperations = require('./machine_operations');
 const machineGateway = require('./machine_gateway');
@@ -27,6 +28,7 @@ const moduleManifests = [
   consent,
   clubAccount,
   bonus,
+  currency,
   payment,
   order,
   machine,
