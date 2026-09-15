@@ -1,5 +1,6 @@
 const { CurrencyRateService, SUPPORTED_CURRENCIES } = require('./CurrencyRateService');
 const { CurrencyRateRepository, InMemoryCurrencyRateRepository } = require('./CurrencyRateRepository');
+const { CbrCurrencyProvider } = require('./CbrCurrencyProvider');
 const { CurrencyError } = require('./currencyErrors');
 
 module.exports = {
@@ -9,6 +10,7 @@ module.exports = {
   CurrencyRateService,
   CurrencyRateRepository,
   InMemoryCurrencyRateRepository,
+  CbrCurrencyProvider,
   CurrencyError,
   SUPPORTED_CURRENCIES,
 };
