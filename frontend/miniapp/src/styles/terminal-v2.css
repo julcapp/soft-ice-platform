@@ -19,6 +19,8 @@
 .terminal-layout .terminal-main .terminal-title > .terminal-price { display: none; }
 .terminal-layout .terminal-main > .promotion-price-panel .promotion-price-now,
 .terminal-layout .terminal-main > .promotion-price-panel [class*='price-now'] { display: none; }
+/* The promotion panel still contains useful lock/expiry information, but its repeated current-price heading is redundant. */
+.terminal-layout .terminal-main > .promotion-price-panel > :first-child { display: none; }
 
 /* Payment screen: left side is for method choice, right side owns the final amount. */
 .payment-panel > .terminal-kicker { display: none; }
