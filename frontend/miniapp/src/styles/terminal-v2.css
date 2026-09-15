@@ -5,46 +5,59 @@
   padding: 20px 42px;
 }
 
-.terminal-product-image {
-  max-width: 360px;
-  overflow: visible;
-  position: relative;
-}
+.terminal-product-image { max-width: 360px; overflow: visible; position: relative; }
+.terminal-product-image img { background: transparent; display: block; filter: drop-shadow(0 20px 24px rgba(86,57,37,.12)); max-height: 325px; object-fit: contain; width: 100%; }
+.terminal-product-image.compact { max-width: 240px; }
+.terminal-product-image.compact img { max-height: 240px; }
 
-.terminal-product-image img {
-  background: transparent;
-  display: block;
-  filter: drop-shadow(0 20px 24px rgba(86,57,37,.12));
-  max-height: 325px;
-  object-fit: contain;
-  width: 100%;
-}
+/* Customer never selects the point type. It is resolved by terminal configuration. */
+.terminal-point-card { background: #f7f0e7; border: 1px solid var(--terminal-line); border-radius: 18px; padding: 16px; }
+.terminal-point-card strong { display: block; font-size: 16px; margin-bottom: 5px; }
+.terminal-point-card small { color: var(--terminal-muted); display: block; }
+.terminal-point-status { align-items: center; color: var(--terminal-green); display: flex; font-size: 12px; font-weight: 900; gap: 7px; margin-top: 9px; }
 
-.terminal-product-image.compact {
-  max-width: 240px;
-}
+/* Component selection is intentionally split into full-size touch screens. */
+.terminal-config-screen { margin: 0 auto; max-width: 1180px; }
+.terminal-config-screen-head { align-items: center; display: flex; gap: 20px; justify-content: space-between; margin-bottom: 24px; }
+.terminal-config-screen-head h1 { font-family: Georgia, serif; font-size: clamp(34px, 4vw, 56px); font-weight: 500; margin: 0; }
+.terminal-config-screen .choice-grid { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+.terminal-config-screen .terminal-choice { min-height: 150px; justify-content: center; flex-direction: column; text-align: center; }
+.terminal-config-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 26px; }
+.terminal-secondary { background: #fff; border: 1px solid var(--terminal-line); border-radius: 18px; color: var(--terminal-ink); cursor: pointer; font-weight: 800; min-height: 58px; padding: 0 22px; }
 
-.terminal-product-image.compact img {
-  max-height: 240px;
+/* Loyalty is optional and can never block payment. */
+.terminal-modal-backdrop { align-items: center; background: rgba(36,27,22,.48); display: flex; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 1000; }
+.terminal-modal { background: var(--terminal-paper); border-radius: 30px; box-shadow: 0 30px 90px rgba(36,27,22,.28); max-width: 620px; padding: clamp(28px, 5vw, 52px); width: 100%; }
+.terminal-modal h2 { font-family: Georgia, serif; font-size: clamp(30px, 4vw, 44px); font-weight: 500; margin: 8px 0 12px; }
+.terminal-modal p { color: var(--terminal-muted); }
+.terminal-phone { border: 2px solid var(--terminal-line); border-radius: 18px; box-sizing: border-box; font-size: 26px; font-weight: 800; letter-spacing: .03em; margin: 18px 0; min-height: 64px; padding: 0 18px; width: 100%; }
+.terminal-modal-actions { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.terminal-modal-actions .terminal-cta { justify-content: center; }
+
+/* Three minutes without interaction activates a local, traffic-free attract loop. */
+.terminal-idle { align-items: center; background: radial-gradient(circle at 50% 35%, #fff8ea, #f9e8d6 60%, #f8ddd8); cursor: pointer; display: flex; inset: 0; justify-content: center; overflow: hidden; position: fixed; z-index: 2000; }
+.terminal-idle-card { align-items: center; display: grid; gap: clamp(24px, 6vw, 90px); grid-template-columns: minmax(300px, 520px) minmax(300px, 620px); max-width: 1280px; padding: 5vw; width: 100%; }
+.terminal-idle-card img { filter: drop-shadow(0 30px 35px rgba(86,57,37,.16)); max-height: 68vh; object-fit: contain; width: 100%; }
+.terminal-idle-copy h1 { font-family: Georgia, serif; font-size: clamp(48px, 7vw, 94px); font-weight: 500; line-height: .98; margin: 10px 0 22px; }
+.terminal-idle-copy p { font-size: clamp(18px, 2vw, 28px); }
+.terminal-idle-touch { background: rgba(255,255,255,.72); border-radius: 999px; display: inline-block; font-weight: 900; margin-top: 22px; padding: 14px 22px; }
+
+@media (orientation: portrait) {
+  .terminal-layout { grid-template-columns: 1fr; }
+  .terminal-summary { position: static; }
+  .terminal-idle-card { grid-template-columns: 1fr; text-align: center; }
+  .terminal-idle-card img { max-height: 48vh; }
+  .terminal-config-screen .choice-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 1050px) {
-  .terminal-product {
-    grid-template-columns: minmax(260px, 320px) 1fr;
-  }
+  .terminal-product { grid-template-columns: minmax(260px, 320px) 1fr; }
+  .terminal-config-screen .choice-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 760px) {
-  .terminal-product {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-
-  .terminal-product-image {
-    max-width: 300px;
-  }
-
-  .terminal-product-image img {
-    max-height: 280px;
-  }
+  .terminal-product { grid-template-columns: 1fr; text-align: center; }
+  .terminal-product-image { max-width: 300px; }
+  .terminal-product-image img { max-height: 280px; }
+  .terminal-modal-actions { grid-template-columns: 1fr; }
 }
