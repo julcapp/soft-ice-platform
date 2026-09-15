@@ -5,6 +5,7 @@ import './styles/global.css';
 import './styles/operator.css';
 import './styles/terminal.css';
 import './styles/terminal-v2.css';
+import './styles/terminal-keypad.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
