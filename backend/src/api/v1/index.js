@@ -29,6 +29,7 @@ const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
+const { createCurrencyRateRouter } = require('./currencyRateRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -80,6 +81,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/customers', createExternalChannelRouter(dependencies));
   router.use('/admin/machines', createMachineConnectivityRouter(dependencies));
   router.use('/admin', createVideoSurveillanceRouter(dependencies));
+  if (dependencies.currencyRateService) router.use('/admin/currency-rates', createCurrencyRateRouter(dependencies));
   if (dependencies.eventCenterRuntime) router.use('/admin', createEventCenterRouter(dependencies));
   if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
