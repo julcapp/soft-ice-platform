@@ -15,6 +15,34 @@
 .payment-order-card .terminal-product-image { margin-bottom: 10px; }
 .payment-order-card > p { line-height: 1.35; margin: 4px 0 16px; }
 
+/* Payment screen: left side is for method choice, right side owns the final amount. */
+.payment-panel > h1 { font-size: 0; }
+.payment-panel > h1::after {
+  content: 'Выберите способ оплаты';
+  font-family: Georgia, serif;
+  font-size: clamp(38px, 4vw, 58px);
+  font-weight: 500;
+  line-height: 1;
+}
+.payment-order-card > strong {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 22px;
+}
+.payment-order-card > strong::before {
+  color: var(--terminal-muted);
+  content: 'К оплате';
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+}
+.terminal-pos-pay { font-size: 0; }
+.terminal-pos-pay::after { content: 'Оплатить картой'; font-size: 16px; }
+.keypad-clear { font-size: 0 !important; }
+.keypad-clear::after { content: 'Очистить'; font-size: 14px; }
+
 /* Brand portrait is a replaceable public asset. Keep the markup stable so the server can swap the asset without redesigning the header. */
 .terminal-brand .terminal-logo {
   background: #ff575f url('/brand-owner.svg') center/cover no-repeat;
