@@ -15,7 +15,13 @@
 .payment-order-card .terminal-product-image { margin-bottom: 10px; }
 .payment-order-card > p { line-height: 1.35; margin: 4px 0 16px; }
 
+/* Keep the customer-facing hierarchy compact: one actionable price plus one order total. */
+.terminal-layout .terminal-main .terminal-title > .terminal-price { display: none; }
+.terminal-layout .terminal-main > .promotion-price-panel .promotion-price-now,
+.terminal-layout .terminal-main > .promotion-price-panel [class*='price-now'] { display: none; }
+
 /* Payment screen: left side is for method choice, right side owns the final amount. */
+.payment-panel > .terminal-kicker { display: none; }
 .payment-panel > h1 { font-size: 0; }
 .payment-panel > h1::after {
   content: 'Выберите способ оплаты';
