@@ -11,8 +11,8 @@ export const PriceService = {
       return `${value} ${unit}`;
     }
   },
-  total(product, syrup, topping) {
-    const values = [product?.price, syrup?.price, topping?.price];
+  total(product, sprinkle, sauce) {
+    const values = [product?.price, sprinkle?.price, sauce?.price];
     return values.every(isMoney) ? values.reduce((a, b) => a + b, 0) : null;
   },
   canPay(total) {
