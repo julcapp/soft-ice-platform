@@ -6,6 +6,7 @@ import './styles.css';
 
 const FLOW = ['home', 'sprinkle', 'sauce', 'summary'];
 const NONE = { id: 'none', name: 'Без добавки', price: 0, available: true };
+const PRIMARY_ICE_IMAGE = '/media/ice/UT-ICE-Hero-001.png';
 
 function StatusBar() {
   const [now, setNow] = useState(() => new Date());
@@ -16,7 +17,7 @@ function StatusBar() {
 }
 
 function IceCreamVisual() {
-  return <div className="product-visual" aria-hidden="true"><div className="soft-serve"><span className="swirl swirl-top"/><span className="swirl swirl-middle"/><span className="swirl swirl-bottom"/></div><div className="cup"><div className="cup-brand">У Тимоши</div><div className="cup-heart">♥</div></div></div>;
+  return <div className="product-visual"><img className="product-hero-image" src={PRIMARY_ICE_IMAGE} alt="Сливочное мягкое мороженое в фирменном стаканчике У Тимоши" /></div>;
 }
 
 function Choice({ item, selected, currency, onClick }) {
