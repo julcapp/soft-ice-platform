@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { terminalContent } from './data/terminalContent.js';
 import { CatalogService } from './services/catalogService.js';
 import { PriceService } from './services/priceService.js';
