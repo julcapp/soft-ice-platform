@@ -2,3 +2,1697 @@
 /* Approved start screen: large transparent-looking hero, shifted right; compact purchase panel */
 .home .left-hero{left:76px;top:165px;bottom:70px;width:31vw;height:auto;justify-content:center;align-items:center}.home .left-hero img{width:100%;height:100%;max-height:none;object-fit:contain;mix-blend-mode:multiply;filter:drop-shadow(0 20px 22px #8d756030)}.home .left-hero small{position:absolute;left:0;bottom:-12px;font-size:15px}.home>section:last-child{left:55%;right:44px;top:45%;transform:translateY(-10%);gap:16px}.home>section:last-child .pill{align-self:stretch;text-align:left;padding:11px 22px}.home h1{font-size:52px;margin:6px 0 14px}.home>section:last-child>p{margin:0 0 12px;font-size:17px}.home .pink{height:74px;border-radius:20px}.home-club{height:82px;border-radius:20px}.home-club strong{margin-top:-28px}
 @media(max-height:800px){.choice-grid>button{height:295px}.choice-grid .food-art{height:145px}.left-hero small{bottom:88px}.back{bottom:14px}.next{bottom:8px}.time-question{bottom:6px}.home .left-hero{top:125px;bottom:62px}.home .left-hero small{bottom:-8px}.home>section:last-child{top:44%}}
+/* =========================================================
+   PORTRAIT TERMINAL 1080x1920
+   Вертикальная версия терминала
+   Landscape НЕ изменяем
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* --- Основной экран --- */
+  .home {
+    min-height: 100vh !important;
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    overflow: hidden !important;
+  }
+
+  /* --- Фото мороженого --- */
+  .home .left-hero {
+    position: absolute !important;
+    left: 50% !important;
+    top: 210px !important;
+    bottom: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    width: 760px !important;
+    height: 760px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent !important;
+  }
+
+  .home .left-hero img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+
+    mix-blend-mode: multiply !important;
+  }
+
+  /* подпись под изображением */
+  .home .left-hero small {
+    position: absolute !important;
+    left: 20px !important;
+    bottom: -30px !important;
+    font-size: 20px !important;
+    white-space: nowrap !important;
+  }
+
+  /* --- Правая часть горизонтального экрана
+         превращается в нижний блок --- */
+  .home > section:last-child {
+    position: absolute !important;
+
+    left: 70px !important;
+    right: 70px !important;
+    top: 1010px !important;
+
+    width: auto !important;
+
+    transform: none !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+
+    gap: 24px !important;
+
+    text-align: left !important;
+  }
+
+  /* Сегодня в аппарате */
+  .home > section:last-child .pill {
+    align-self: stretch !important;
+
+    width: auto !important;
+
+    padding: 16px 28px !important;
+
+    border-radius: 32px !important;
+
+    font-size: 28px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Сливочное */
+  .home h1 {
+    font-size: 72px !important;
+    line-height: 1.02 !important;
+    margin: 8px 0 0 !important;
+  }
+
+  /* описание */
+  .home > section:last-child > p {
+    font-size: 25px !important;
+    line-height: 1.35 !important;
+    margin: 0 0 12px !important;
+  }
+
+  /* Собери свой вкус */
+  .home .pink {
+    width: 100% !important;
+    height: 100px !important;
+
+    border-radius: 30px !important;
+
+    font-size: 34px !important;
+    font-weight: 800 !important;
+
+    margin: 0 !important;
+  }
+
+  /* Клуб Тимоши */
+  .home .home-club {
+    width: 100% !important;
+    min-height: 110px !important;
+
+    border-radius: 28px !important;
+
+    padding: 20px 28px !important;
+    margin: 0 !important;
+
+    font-size: 22px !important;
+  }
+
+  .home .home-club strong {
+    font-size: 25px !important;
+  }
+
+  /* Шапка */
+  .terminal-header {
+    height: 170px !important;
+  }
+
+  .brand-left {
+    left: 32px !important;
+    top: 28px !important;
+  }
+
+  .terminal-info {
+    right: 32px !important;
+    top: 28px !important;
+  }
+
+  .weather-center {
+    top: 100px !important;
+  }
+
+}
+
+
+/* =========================================================
+   PORTRAIT 1080x1920 — CHOICE SCREENS
+   Посыпки / топпинги
+   Landscape НЕ изменяем
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* Основная область экрана выбора */
+  .choice {
+    min-height: 100vh !important;
+    width: 100% !important;
+    padding: 190px 65px 190px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Заголовочная часть */
+  .choice > h1 {
+    font-size: 64px !important;
+    line-height: 1.05 !important;
+    text-align: center !important;
+    margin: 15px 0 8px !important;
+  }
+
+  .choice > h1 + p {
+    font-size: 26px !important;
+    text-align: center !important;
+    margin: 0 0 32px !important;
+  }
+
+  .choice > .pill {
+    display: table !important;
+    margin: 0 auto 18px !important;
+    padding: 14px 28px !important;
+    font-size: 27px !important;
+    border-radius: 30px !important;
+  }
+
+  /* Таймер */
+  .timer {
+    position: absolute !important;
+    top: 185px !important;
+    left: 38px !important;
+
+    width: 125px !important;
+    height: 125px !important;
+
+    font-size: 23px !important;
+    z-index: 20 !important;
+  }
+
+  .timer b {
+    font-size: 32px !important;
+  }
+
+  /* Стаканчик */
+  .choice .left-hero {
+    position: absolute !important;
+
+    left: 50% !important;
+    top: 500px !important;
+    bottom: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    width: 430px !important;
+    height: 430px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent !important;
+  }
+
+  .choice .left-hero img {
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: none !important;
+    max-height: none !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+  }
+
+  .choice .left-hero small {
+    position: absolute !important;
+    left: 50% !important;
+    bottom: -15px !important;
+
+    transform: translateX(-50%) !important;
+
+    width: max-content !important;
+
+    font-size: 19px !important;
+  }
+
+  /* Карточки выбора */
+  .choice-grid {
+    position: absolute !important;
+
+    left: 65px !important;
+    right: 65px !important;
+    top: 960px !important;
+
+    width: auto !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 22px !important;
+
+    margin: 0 !important;
+  }
+
+  .choice-grid > button {
+    width: 100% !important;
+    height: 245px !important;
+    min-height: 245px !important;
+
+    padding: 18px 14px !important;
+
+    border-radius: 30px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 22px !important;
+  }
+
+  .choice-grid .food-art {
+    width: 105px !important;
+    height: 105px !important;
+
+    margin: 0 auto 10px !important;
+  }
+
+  .choice-grid > button span {
+    font-size: 20px !important;
+  }
+
+  /* Последняя нечётная карточка по центру */
+  .choice-grid > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+    width: calc(50% - 11px) !important;
+    justify-self: center !important;
+  }
+
+  /* Нижняя навигация */
+  .choice .back {
+    position: absolute !important;
+
+    left: 65px !important;
+    bottom: 55px !important;
+
+    width: 260px !important;
+    height: 90px !important;
+
+    border-radius: 28px !important;
+
+    font-size: 28px !important;
+
+    z-index: 30 !important;
+  }
+
+  .choice .next {
+    position: absolute !important;
+
+    right: 65px !important;
+    bottom: 55px !important;
+
+    width: 470px !important;
+    height: 90px !important;
+
+    border-radius: 28px !important;
+
+    font-size: 30px !important;
+
+    z-index: 30 !important;
+  }
+
+}
+
+
+/* =========================================================
+   PORTRAIT CHOICE FINAL v2
+   1080x1920
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* Сам экран */
+  .choice {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+
+    padding: 185px 55px 180px !important;
+    margin: 0 !important;
+
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Верхняя плашка */
+  .choice > .pill {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+
+    align-self: center !important;
+
+    width: auto !important;
+    max-width: 650px !important;
+
+    margin: 0 auto 18px !important;
+    padding: 12px 28px !important;
+
+    font-size: 26px !important;
+    line-height: 1.2 !important;
+
+    text-align: center !important;
+    border-radius: 30px !important;
+  }
+
+  /* Заголовок */
+  .choice > h1 {
+    position: relative !important;
+
+    width: 100% !important;
+
+    margin: 0 0 8px !important;
+
+    font-size: 58px !important;
+    line-height: 1.08 !important;
+
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .choice > h1 + p {
+    position: relative !important;
+
+    width: 100% !important;
+
+    margin: 0 0 28px !important;
+
+    font-size: 25px !important;
+    line-height: 1.25 !important;
+
+    text-align: center !important;
+  }
+
+  /* Таймер */
+  .timer {
+    position: absolute !important;
+
+    top: 185px !important;
+    left: 38px !important;
+
+    width: 125px !important;
+    height: 125px !important;
+
+    z-index: 50 !important;
+  }
+
+  /* Фото продукта */
+  .choice .left-hero {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    width: 390px !important;
+    height: 390px !important;
+
+    margin: 15px auto 25px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .choice .left-hero img {
+    display: block !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: 100% !important;
+    max-height: 100% !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+  }
+
+  .choice .left-hero small {
+    position: absolute !important;
+
+    left: 50% !important;
+    bottom: -10px !important;
+
+    transform: translateX(-50%) !important;
+
+    width: max-content !important;
+
+    font-size: 18px !important;
+    text-align: center !important;
+  }
+
+  /* Сетка */
+  .choice-grid {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: 900px !important;
+
+    margin: 10px auto 0 !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 20px !important;
+
+    box-sizing: border-box !important;
+  }
+
+  /* Карточка */
+  .choice-grid > button {
+    position: relative !important;
+
+    width: 100% !important;
+    max-width: none !important;
+
+    height: 230px !important;
+    min-height: 230px !important;
+
+    margin: 0 !important;
+    padding: 16px !important;
+
+    box-sizing: border-box !important;
+
+    border-radius: 28px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+
+    overflow: hidden !important;
+  }
+
+  /* Иллюстрация ингредиента */
+  .choice-grid .food-art {
+    position: relative !important;
+
+    width: 92px !important;
+    height: 92px !important;
+
+    margin: 0 auto 8px !important;
+
+    flex: 0 0 auto !important;
+  }
+
+  .choice-grid > button span {
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+  }
+
+  /* 5-я карточка */
+  .choice-grid > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+
+    width: calc(50% - 10px) !important;
+
+    justify-self: center !important;
+  }
+
+  /* Кнопки управления */
+  .choice .back {
+    position: absolute !important;
+
+    left: 55px !important;
+    bottom: 45px !important;
+
+    width: 250px !important;
+    height: 86px !important;
+
+    font-size: 27px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+  .choice .next {
+    position: absolute !important;
+
+    right: 55px !important;
+    bottom: 45px !important;
+
+    width: 440px !important;
+    height: 86px !important;
+
+    font-size: 29px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+}
+
+
+/* =========================================================
+   PORTRAIT CHOICE FINAL v2
+   1080x1920
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* Сам экран */
+  .choice {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+
+    padding: 185px 55px 180px !important;
+    margin: 0 !important;
+
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  /* Верхняя плашка */
+  .choice > .pill {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+
+    align-self: center !important;
+
+    width: auto !important;
+    max-width: 650px !important;
+
+    margin: 0 auto 18px !important;
+    padding: 12px 28px !important;
+
+    font-size: 26px !important;
+    line-height: 1.2 !important;
+
+    text-align: center !important;
+    border-radius: 30px !important;
+  }
+
+  /* Заголовок */
+  .choice > h1 {
+    position: relative !important;
+
+    width: 100% !important;
+
+    margin: 0 0 8px !important;
+
+    font-size: 58px !important;
+    line-height: 1.08 !important;
+
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .choice > h1 + p {
+    position: relative !important;
+
+    width: 100% !important;
+
+    margin: 0 0 28px !important;
+
+    font-size: 25px !important;
+    line-height: 1.25 !important;
+
+    text-align: center !important;
+  }
+
+  /* Таймер */
+  .timer {
+    position: absolute !important;
+
+    top: 185px !important;
+    left: 38px !important;
+
+    width: 125px !important;
+    height: 125px !important;
+
+    z-index: 50 !important;
+  }
+
+  /* Фото продукта */
+  .choice .left-hero {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    width: 390px !important;
+    height: 390px !important;
+
+    margin: 15px auto 25px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .choice .left-hero img {
+    display: block !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: 100% !important;
+    max-height: 100% !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+  }
+
+  .choice .left-hero small {
+    position: absolute !important;
+
+    left: 50% !important;
+    bottom: -10px !important;
+
+    transform: translateX(-50%) !important;
+
+    width: max-content !important;
+
+    font-size: 18px !important;
+    text-align: center !important;
+  }
+
+  /* Сетка */
+  .choice-grid {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: 900px !important;
+
+    margin: 10px auto 0 !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 20px !important;
+
+    box-sizing: border-box !important;
+  }
+
+  /* Карточка */
+  .choice-grid > button {
+    position: relative !important;
+
+    width: 100% !important;
+    max-width: none !important;
+
+    height: 230px !important;
+    min-height: 230px !important;
+
+    margin: 0 !important;
+    padding: 16px !important;
+
+    box-sizing: border-box !important;
+
+    border-radius: 28px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+
+    overflow: hidden !important;
+  }
+
+  /* Иллюстрация ингредиента */
+  .choice-grid .food-art {
+    position: relative !important;
+
+    width: 92px !important;
+    height: 92px !important;
+
+    margin: 0 auto 8px !important;
+
+    flex: 0 0 auto !important;
+  }
+
+  .choice-grid > button span {
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+  }
+
+  /* 5-я карточка */
+  .choice-grid > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+
+    width: calc(50% - 10px) !important;
+
+    justify-self: center !important;
+  }
+
+  /* Кнопки управления */
+  .choice .back {
+    position: absolute !important;
+
+    left: 55px !important;
+    bottom: 45px !important;
+
+    width: 250px !important;
+    height: 86px !important;
+
+    font-size: 27px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+  .choice .next {
+    position: absolute !important;
+
+    right: 55px !important;
+    bottom: 45px !important;
+
+    width: 440px !important;
+    height: 86px !important;
+
+    font-size: 29px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+}
+
+
+/* ==========================================================
+   UTIMOSHI PORTRAIT CHOICE — FINAL GRID LAYOUT
+   Target: 1080 x 1920 portrait terminal
+   IMPORTANT: keep this block LAST
+   ========================================================== */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* ---------- SCREEN ---------- */
+
+  .choice {
+    position: relative !important;
+
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows:
+      auto
+      auto
+      auto
+      430px
+      auto
+      1fr !important;
+
+    justify-items: center !important;
+    align-items: start !important;
+
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+
+    height: 100vh !important;
+    min-height: 100vh !important;
+
+    margin: 0 !important;
+    padding: 175px 60px 145px !important;
+
+    box-sizing: border-box !important;
+
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+
+  /* ---------- TOP PILL ---------- */
+
+  .choice > .pill {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    width: auto !important;
+    max-width: 700px !important;
+
+    margin: 0 auto 12px !important;
+    padding: 12px 30px !important;
+
+    justify-self: center !important;
+
+    font-size: 25px !important;
+    line-height: 1.2 !important;
+
+    text-align: center !important;
+
+    border-radius: 30px !important;
+  }
+
+
+  /* ---------- TITLE ---------- */
+
+  .choice > h1 {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: 900px !important;
+
+    margin: 0 auto 8px !important;
+
+    justify-self: center !important;
+
+    font-size: 56px !important;
+    line-height: 1.08 !important;
+
+    text-align: center !important;
+    white-space: normal !important;
+
+    overflow: visible !important;
+  }
+
+
+  /* ---------- SUBTITLE ---------- */
+
+  .choice > h1 + p {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: 850px !important;
+
+    margin: 0 auto 20px !important;
+
+    justify-self: center !important;
+
+    font-size: 24px !important;
+    line-height: 1.25 !important;
+
+    text-align: center !important;
+  }
+
+
+  /* ---------- PRODUCT HERO ---------- */
+
+  .choice .left-hero {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    align-self: center !important;
+    justify-self: center !important;
+
+    width: 420px !important;
+    height: 420px !important;
+
+    margin: 0 auto !important;
+
+    background: transparent !important;
+
+    box-shadow: none !important;
+
+    overflow: visible !important;
+  }
+
+
+  .choice .left-hero img {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    display: block !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: 100% !important;
+    max-height: 100% !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+
+    mix-blend-mode: multiply !important;
+  }
+
+
+  .choice .left-hero small {
+    position: absolute !important;
+
+    left: 50% !important;
+    bottom: -5px !important;
+
+    transform: translateX(-50%) !important;
+
+    width: max-content !important;
+
+    font-size: 17px !important;
+
+    text-align: center !important;
+  }
+
+
+  /* ---------- OPTIONS GRID ---------- */
+
+  .choice-grid {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    display: grid !important;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    grid-auto-rows: 215px !important;
+
+    column-gap: 22px !important;
+    row-gap: 18px !important;
+
+    width: 100% !important;
+    max-width: 900px !important;
+
+    min-width: 0 !important;
+
+    margin: 15px auto 0 !important;
+    padding: 0 !important;
+
+    justify-self: center !important;
+    align-self: start !important;
+
+    box-sizing: border-box !important;
+
+    overflow: visible !important;
+  }
+
+
+  /* ---------- OPTION CARD ---------- */
+
+  .choice-grid > button {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 100% !important;
+    max-width: none !important;
+
+    height: 215px !important;
+    min-height: 215px !important;
+
+    margin: 0 !important;
+    padding: 14px 16px !important;
+
+    box-sizing: border-box !important;
+
+    border-radius: 28px !important;
+
+    overflow: hidden !important;
+  }
+
+
+  .choice-grid .food-art {
+    position: relative !important;
+
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+
+    transform: none !important;
+
+    width: 86px !important;
+    height: 86px !important;
+
+    min-width: 86px !important;
+    min-height: 86px !important;
+
+    margin: 0 auto 8px !important;
+
+    flex: 0 0 86px !important;
+  }
+
+
+  .choice-grid > button span {
+    display: block !important;
+
+    max-width: 100% !important;
+
+    font-size: 20px !important;
+    line-height: 1.12 !important;
+
+    text-align: center !important;
+
+    white-space: normal !important;
+  }
+
+
+  /* ---------- FIFTH CARD ---------- */
+
+  .choice-grid > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+
+    width: calc(50% - 11px) !important;
+
+    justify-self: center !important;
+  }
+
+
+  /* ---------- TIMER ---------- */
+
+  .timer {
+    position: absolute !important;
+
+    top: 175px !important;
+    left: 40px !important;
+
+    width: 125px !important;
+    height: 125px !important;
+
+    z-index: 50 !important;
+  }
+
+
+  /* ---------- NAVIGATION ---------- */
+
+  .choice .back {
+    position: absolute !important;
+
+    left: 60px !important;
+    bottom: 45px !important;
+
+    width: 250px !important;
+    height: 82px !important;
+
+    margin: 0 !important;
+
+    font-size: 27px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+
+  .choice .next {
+    position: absolute !important;
+
+    right: 60px !important;
+    bottom: 45px !important;
+
+    width: 450px !important;
+    height: 82px !important;
+
+    margin: 0 !important;
+
+    font-size: 29px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+}
+
+
+/* =========================================================
+   UTIMOSHI — PORTRAIT CHOOSE FIX v3
+   REAL DOM:
+   main.approved
+     Timer
+     Hero.left-hero
+     section.choice
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width:700px) {
+
+  /* ---------- ROOT ---------- */
+
+  main.approved {
+    position: relative !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+
+  /* =======================================================
+     HERO — прямой потомок approved, НЕ потомок choice
+     ======================================================= */
+
+  main.approved > .left-hero {
+    position: absolute !important;
+
+    left: 50% !important;
+    right: auto !important;
+    top: 390px !important;
+    bottom: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    width: 440px !important;
+    height: 440px !important;
+
+    margin: 0 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+
+    z-index: 5 !important;
+  }
+
+  main.approved > .left-hero img {
+    display: block !important;
+
+    width: 100% !important;
+    height: 100% !important;
+
+    max-width: 100% !important;
+    max-height: 100% !important;
+
+    object-fit: contain !important;
+    object-position: center !important;
+
+    transform: none !important;
+
+    mix-blend-mode: multiply !important;
+  }
+
+  main.approved > .left-hero small {
+    position: absolute !important;
+
+    left: 50% !important;
+    bottom: -12px !important;
+
+    transform: translateX(-50%) !important;
+
+    width: max-content !important;
+
+    font-size: 17px !important;
+  }
+
+
+  /* =======================================================
+     CHOICE SECTION
+     ======================================================= */
+
+  main.approved > .choice {
+    position: absolute !important;
+
+    left: 50% !important;
+    right: auto !important;
+
+    top: 180px !important;
+    bottom: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    display: block !important;
+
+    width: calc(100vw - 110px) !important;
+    max-width: 970px !important;
+
+    height: auto !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    box-sizing: border-box !important;
+
+    overflow: visible !important;
+
+    z-index: 10 !important;
+  }
+
+
+  /* ---------- PILL ---------- */
+
+  main.approved > .choice > .pill {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    display: block !important;
+
+    width: max-content !important;
+    max-width: 700px !important;
+
+    margin: 0 auto 14px !important;
+    padding: 12px 30px !important;
+
+    font-size: 25px !important;
+    line-height: 1.2 !important;
+
+    text-align: center !important;
+
+    border-radius: 30px !important;
+  }
+
+
+  /* ---------- TITLE ---------- */
+
+  main.approved > .choice > h1 {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    display: block !important;
+
+    width: 100% !important;
+    max-width: 900px !important;
+
+    margin: 0 auto 8px !important;
+
+    font-size: 55px !important;
+    line-height: 1.08 !important;
+
+    text-align: center !important;
+
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+
+  main.approved > .choice > h1 + p {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    width: 100% !important;
+
+    margin: 0 auto !important;
+
+    font-size: 23px !important;
+    line-height: 1.25 !important;
+
+    text-align: center !important;
+  }
+
+
+  /* =======================================================
+     OPTIONS — располагаем ниже фотографии
+     ======================================================= */
+
+  main.approved > .choice > .choice-grid {
+    position: absolute !important;
+
+    left: 50% !important;
+    right: auto !important;
+
+    top: 680px !important;
+    bottom: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    display: grid !important;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    grid-auto-rows: 220px !important;
+
+    gap: 20px !important;
+
+    width: 900px !important;
+    max-width: calc(100vw - 120px) !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    box-sizing: border-box !important;
+
+    overflow: visible !important;
+  }
+
+
+  main.approved > .choice > .choice-grid > button {
+    position: relative !important;
+
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+
+    transform: none !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 100% !important;
+    max-width: none !important;
+
+    height: 220px !important;
+    min-height: 220px !important;
+
+    margin: 0 !important;
+    padding: 14px !important;
+
+    box-sizing: border-box !important;
+
+    border-radius: 28px !important;
+
+    overflow: hidden !important;
+  }
+
+
+  main.approved > .choice > .choice-grid .food-art {
+    position: relative !important;
+
+    width: 88px !important;
+    height: 88px !important;
+
+    margin: 0 auto 8px !important;
+
+    flex: 0 0 88px !important;
+  }
+
+
+  main.approved > .choice > .choice-grid > button span {
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+
+  /* Пятый вариант по центру */
+
+  main.approved >
+  .choice >
+  .choice-grid >
+  button:last-child:nth-child(odd) {
+
+    grid-column: 1 / -1 !important;
+
+    width: calc(50% - 10px) !important;
+
+    justify-self: center !important;
+  }
+
+
+  /* =======================================================
+     TIMER
+     ======================================================= */
+
+  main.approved > .timer {
+    position: absolute !important;
+
+    left: 42px !important;
+    top: 175px !important;
+
+    width: 125px !important;
+    height: 125px !important;
+
+    z-index: 30 !important;
+  }
+
+
+  /* =======================================================
+     NAVIGATION
+     ======================================================= */
+
+  main.approved > .choice > .back {
+    position: fixed !important;
+
+    left: 60px !important;
+    bottom: 50px !important;
+
+    width: 250px !important;
+    height: 84px !important;
+
+    font-size: 27px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+
+  main.approved > .choice > .next {
+    position: fixed !important;
+
+    right: 60px !important;
+    left: auto !important;
+
+    bottom: 50px !important;
+
+    width: 450px !important;
+    height: 84px !important;
+
+    font-size: 29px !important;
+
+    border-radius: 26px !important;
+
+    z-index: 100 !important;
+  }
+
+}
+
+
+/* ===== REAL TOPPING IMAGES 2026-09-17 ===== */
+
+.choice-product-image {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center !important;
+}
+
+.choice .food-art:has(.choice-product-image) {
+    width: 150px !important;
+    height: 110px !important;
+    margin: 0 auto 8px !important;
+    background: transparent !important;
+    overflow: hidden !important;
+}
+
+
+/* =========================================================
+   CHOICE SCREEN — BOTTOM NAVIGATION
+   Назад и Продолжить на одной линии внизу
+   ========================================================= */
+
+.choice .back,
+.choice .next {
+    position: absolute !important;
+    bottom: 28px !important;
+    top: auto !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    border-radius: 20px !important;
+    z-index: 200 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 22px !important;
+    font-weight: 700 !important;
+
+    margin: 0 !important;
+    transform: none !important;
+}
+
+/* Назад — слева */
+.choice .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+}
+
+/* Продолжить — справа */
+.choice .next {
+    right: 42px !important;
+    left: auto !important;
+    width: 360px !important;
+}
+
+/* Оставляем место снизу под навигацию */
+.choice {
+    padding-bottom: 125px !important;
+}
+
+
+/* =========================================================
+   FINAL FIX — CHOICE BOTTOM NAVIGATION
+   2026-09-17
+   ========================================================= */
+
+main.approved > .choice > .back,
+main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    border-radius: 20px !important;
+    margin: 0 !important;
+    transform: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    z-index: 300 !important;
+}
+
+/* НАЗАД — нижний левый угол */
+main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+}
+
+/* ПРОДОЛЖИТЬ — нижний правый угол */
+main.approved > .choice > .next {
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+}
+
