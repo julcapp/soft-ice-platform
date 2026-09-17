@@ -4,75 +4,53 @@ import { CatalogService } from './services/catalogService.js';
 import { PriceService } from './services/priceService.js';
 import './styles.css';
 
-const FLOW = ['home', 'sprinkle', 'sauce', 'summary', 'payment'];
-const NONE = { id: 'none', name: 'Без добавки', price: 0, available: true };
-const PRIMARY_ICE_IMAGE = '/media/ice/UT-ICE-Hero-001.png';
-const BRAND_OWNER_IMAGE = '/media/brand/owner.jpg';
+const NONE_SPRINKLE={id:'none',name:'Без посыпки',price:0,available:true};
+const NONE_SAUCE={id:'none',name:'Без топпинга',price:0,available:true};
+const ICE='/media/ice/UT-ICE-Hero-001.png';
+const OWNER='/media/brand/owner.jpg';
+const POS='/media/payment/pos-terminal.png';
+const IDLE_SECONDS=60;
 
-function StatusBar() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const id = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(id); }, []);
-  const date = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
-  const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
-  return <div className="status-bar" aria-label="Дата, время и погода"><span>{date}</span><strong>{time}</strong><span className="weather-slot" data-weather-state="pending">Погода —</span></div>;
+function StatusBar(){
+ const [now,setNow]=useState(new Date()); const [weather,setWeather]=useState('Погода —');
+ useEffect(()=>{const id=setInterval(()=>setNow(new Date()),30000);return()=>clearInterval(id)},[]);
+ useEffect(()=>{if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(async p=>{try{const {latitude,longitude}=p.coords;const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&timezone=auto`);const j=await r.json();if(Number.isFinite(j?.current?.temperature_2m))setWeather(`${Math.round(j.current.temperature_2m)}°C`)}catch{}},()=>{}, {timeout:5000,maximumAge:600000})},[]);
+ const date=new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long'}).format(now); const time=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(now);
+ return <div className="status-bar"><span>{date}</span><strong>{time}</strong><span>{weather}</span></div>
 }
+function BrandMark(){return <div className="brand-mark"><img src={OWNER} alt="Владелец бренда"/></div>}
+function Ice(){return <div className="product-visual"><img src={ICE} className="product-hero-image" alt="Сливочное мягкое мороженое в фирменном стаканчике"/></div>}
+function Shell({children,back,onHome}){return <main className="terminal-shell flow-shell"><StatusBar/><header className="flow-header"><BrandMark/><div className="flow-header-spacer"/></header>{children}{back&&<button className="bottom-back" onClick={back}>← Назад</button>}{onHome&&<button className="bottom-home" onClick={onHome}>На главный экран</button>}</main>}
+function fmt(value,currency='RUB'){return Number.isFinite(value)?PriceService.format(value,currency):'Цена уточняется'}
 
-function IceCreamVisual() { return <div className="product-visual"><img className="product-hero-image" src={PRIMARY_ICE_IMAGE} alt="Сливочное мягкое мороженое в фирменном стаканчике У Тимоши" /></div>; }
-function BrandMark() { const [failed,setFailed]=useState(false); return <div className="brand-mark">{!failed?<img src={BRAND_OWNER_IMAGE} alt="Владелец бренда" onError={()=>setFailed(true)}/>:<span>Т</span>}</div>; }
-function Choice({ item, selected, currency, onClick }) { return <button type="button" className={`option-card ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={onClick}><strong>{item.name}</strong>{item.description && <small>{item.description}</small>}<span>{item.id === 'none' ? 'Без доплаты' : PriceService.format(item.price, currency)}</span></button>; }
-function FlowHeader({ onBack }) { return <><StatusBar/><header className="flow-header"><BrandMark/><div className="flow-header-spacer"/></header></>; }
+function IdleGuard({active,onReset,children}){const [left,setLeft]=useState(IDLE_SECONDS);const [ask,setAsk]=useState(false);useEffect(()=>{if(!active||ask)return;const id=setInterval(()=>setLeft(v=>{if(v<=1){clearInterval(id);setAsk(true);return 0}return v-1}),1000);return()=>clearInterval(id)},[active,ask]);const touch=()=>{if(active&&!ask)setLeft(IDLE_SECONDS)};return <div className="idle-wrap" onPointerDown={touch} onKeyDown={touch}><div className="idle-timer">Осталось на выбор: <strong>00:{String(left).padStart(2,'0')}</strong></div>{children}{ask&&<div className="idle-modal"><div><h2>Вам требуется ещё время для выбора?</h2><div><button onClick={()=>{setAsk(false);setLeft(IDLE_SECONDS)}}>Да</button><button className="secondary" onClick={onReset}>Нет</button></div></div></div>}</div>}
+function Choice({item,selected,onClick,currency}){return <button className={`option-card ${selected?'selected':''}`} onClick={onClick}><strong>{item.name}</strong>{item.shortDescription&&<small>{item.shortDescription}</small>}<span>{item.id==='none'?'Без доплаты':fmt(item.price,currency)}</span></button>}
+function Selection({kind,items,selected,onSelect,onNext,onBack,onReset,currency}){const sprinkle=kind==='sprinkle';return <Shell back={onBack}><IdleGuard active onReset={onReset}><section className="selection-panel"><div className="selection-title"><div className="eyebrow">Соберите своё мороженое</div><h1>{sprinkle?'Выберите посыпку':'Выберите топпинг'}</h1><p className="subtitle">Можно продолжить {sprinkle?'без посыпки':'без топпинга'}</p></div><Ice/><div className="option-grid">{items.filter(x=>x.available!==false).map(x=><Choice key={x.id} item={x} selected={selected?.id===x.id} onClick={()=>onSelect(x)} currency={currency}/>)}</div><button className="primary-action selection-next" onClick={onNext}>Продолжить <span>→</span></button></section></IdleGuard></Shell>}
 
-function PaymentScreen({ product, sprinkle, sauce, total, onBack }) {
-  const [method, setMethod] = useState('sbp');
-  const [phoneMode, setPhoneMode] = useState(false);
-  const [phone, setPhone] = useState('');
-  const orderRows = [
-    { label: `Мягкое мороженое (${product.name})`, price: product.price },
-    ...(sauce?.id !== 'none' ? [{ label: `Топпинг — ${sauce.name}`, price: sauce.price }] : []),
-    ...(sprinkle?.id !== 'none' ? [{ label: `Посыпка — ${sprinkle.name}`, price: sprinkle.price }] : []),
-  ];
-  return <main className="terminal-shell payment-shell">
-    <StatusBar/>
-    <header className="payment-top"><BrandMark/><button className="payment-back" type="button" onClick={onBack}>← Назад</button></header>
-    <div className="payment-slogan">Счастье<br/>в одном стаканчике! ♡</div>
-    <section className="payment-layout">
-      <aside className="payment-order-card">
-        <h2>Ваш заказ</h2>
-        <div className="payment-product"><IceCreamVisual/></div>
-        <div className="payment-order-lines">{orderRows.map((row, index)=><div className="payment-order-line" key={`${row.label}-${index}`}><span>{row.label}</span><strong>{PriceService.format(row.price, product.currency)}</strong></div>)}</div>
-        <div className="payment-total"><span>Итого к оплате</span><strong>{PriceService.format(total, product.currency)}</strong></div>
-      </aside>
-      <section className="payment-methods-card">
-        <h2>Выберите способ оплаты</h2>
-        <div className="payment-method-grid">
-          <button type="button" className={`payment-method ${method === 'sbp' ? 'selected' : ''}`} onClick={()=>{setMethod('sbp');setPhoneMode(false);}}>
-            <span className="method-icon">▰</span><span><strong>Оплата по СБП</strong><small>Быстро и удобно</small></span>{method === 'sbp' && <b>✓</b>}
-          </button>
-          <button type="button" className={`payment-method ${method === 'card' ? 'selected' : ''}`} onClick={()=>{setMethod('card');setPhoneMode(false);}}>
-            <span className="method-icon">▣</span><span><strong>Банковская карта</strong><small>Visa · Mastercard · Мир</small></span>{method === 'card' && <b>✓</b>}
-          </button>
-        </div>
-        {method === 'sbp' && <div className="sbp-stage">
-          <div className="sbp-copy"><strong>Оплата QR-кодом</strong><span>Откройте приложение вашего банка и отсканируйте QR-код</span><ol><li>Откройте приложение банка</li><li>Отсканируйте QR-код</li><li>Подтвердите оплату</li></ol></div>
-          <div className="qr-placeholder"><strong>QR СБП</strong><span>появится после создания платежа</span></div>
-        </div>}
-        {method === 'card' && <div className="card-stage"><div className="pos-placeholder"><span className="contactless">)))</span><strong>К оплате<br/>{PriceService.format(total, product.currency)}</strong></div><div><h3>Оплата банковской картой</h3><p>После запуска платежа терминал предложит приложить или вставить карту.</p></div></div>}
-        {method === 'sbp' && !phoneMode && <button className="send-phone-action" type="button" onClick={()=>setPhoneMode(true)}>Отправить мне на телефон</button>}
-        {method === 'sbp' && phoneMode && <div className="phone-payment"><label htmlFor="payment-phone">Номер телефона для ссылки на оплату</label><div><span>+7</span><input id="payment-phone" inputMode="numeric" maxLength={10} value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="___ ___-__-__"/><button type="button" disabled={phone.length !== 10}>Отправить ссылку</button></div><button className="phone-cancel" type="button" onClick={()=>{setPhoneMode(false);setPhone('');}}>Отмена</button></div>}
-      </section>
-    </section>
-  </main>;
+function Summary({product,sprinkle,sauce,total,onEdit,onPay,onBack}){return <Shell back={onBack}><section className="order-panel"><div><div className="eyebrow">Ваше мороженое</div><h1>Вы собрали своё мороженое</h1></div><Ice/><div className="summary-card"><button onClick={()=>onEdit('sprinkle')}><span>Посыпка: {sprinkle.name}</span><b>Изменить</b></button><button onClick={()=>onEdit('sauce')}><span>Топпинг: {sauce.name}</span><b>Изменить</b></button><div className="summary-total"><span>Итого</span><strong>{fmt(total,product.currency)}</strong></div></div><button className="primary-action" onClick={onPay}>Перейти к оплате <span>→</span></button></section></Shell>}
+
+function ClubGate({onContinue,onBack}){const [phone,setPhone]=useState('');const [confirmed,setConfirmed]=useState(false);const [code,setCode]=useState('');const valid=phone.length===10;return <Shell back={onBack}><section className="club-gate"><div className="eyebrow">Клуб Тимоши</div><h1>Получите свою скидку</h1><p>Введите номер телефона или продолжите покупку без авторизации. Мы не задерживаем оплату.</p>{!confirmed?<><label>Номер телефона</label><div className="phone-entry"><span>+7</span><input inputMode="numeric" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="___ ___-__-__"/></div><button className="primary-action" disabled={!valid} onClick={()=>setConfirmed(true)}>Продолжить <span>→</span></button></>:<div className="confirm-phone"><h2>Вы уверены, что номер введён правильно?</h2><strong>+7 {phone}</strong><div><button onClick={()=>setCode('sent')}>Да</button><button onClick={()=>setConfirmed(false)}>Нет, исправить</button></div>{code==='sent'&&<div className="code-box"><p>Если код доставлен в доступный канал, введите его. Если связи нет — продолжите без кода.</p><input inputMode="numeric" maxLength={6} placeholder="Код"/><button onClick={onContinue}>Продолжить</button></div>}</div>}<button className="text-action" onClick={onContinue}>Продолжить оплату без кода</button></section></Shell>}
+
+function OrderAside({product,sprinkle,sauce,total}){return <aside className="payment-order-card"><h2>Ваш заказ</h2><Ice/><div className="payment-order-lines"><div className="payment-order-line"><span>Мягкое мороженое ({product.name})</span><strong>{fmt(product.price,product.currency)}</strong></div>{sauce.id!=='none'&&<div className="payment-order-line"><span>Топпинг — {sauce.name}</span><strong>{fmt(sauce.price,product.currency)}</strong></div>}{sprinkle.id!=='none'&&<div className="payment-order-line"><span>Посыпка — {sprinkle.name}</span><strong>{fmt(sprinkle.price,product.currency)}</strong></div>}</div><div className="payment-total"><span>Итого к оплате</span><strong>{fmt(total,product.currency)}</strong></div></aside>}
+function Payment({product,sprinkle,sauce,total,onSelect,onBack}){return <Shell back={onBack}><section className="payment-layout"><OrderAside {...{product,sprinkle,sauce,total}}/><section className="payment-methods-card"><h2>Выберите способ оплаты</h2><div className="payment-method-grid"><button className="payment-method" onClick={()=>onSelect('sbp')}><span className="method-icon">▰</span><span><strong>Оплата по СБП</strong><small>QR-код или ссылка на телефон</small></span><b>→</b></button><button className="payment-method" onClick={()=>onSelect('card')}><span className="method-icon">▣</span><span><strong>Банковская карта</strong><small>Visa · Mastercard · Мир</small></span><b>→</b></button></div><p className="payment-note">Оплата бонусами на терминале не используется.</p></section></section></Shell>}
+function Sbp({total,currency,onWait,onBack}){const [phone,setPhone]=useState('');const [showPhone,setShowPhone]=useState(false);return <Shell back={onBack}><section className="pay-detail"><h1>Оплата QR-кодом</h1><div className="sbp-stage"><div><h2>СБП</h2><ol><li>Откройте приложение вашего банка</li><li>Отсканируйте QR-код</li><li>Подтвердите оплату</li></ol><strong>К оплате: {fmt(total,currency)}</strong></div><div className="qr-placeholder"><strong>QR СБП</strong><span>Здесь отображается QR, полученный от платёжного провайдера</span></div></div>{!showPhone?<button className="secondary-action" onClick={()=>setShowPhone(true)}>Отправить мне на телефон</button>:<div className="phone-payment"><label>Куда отправить ссылку для оплаты</label><div><span>+7</span><input inputMode="numeric" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))}/><button disabled={phone.length!==10}>Отправить ссылку</button></div></div>}<button className="primary-action" onClick={onWait}>Я перешёл к оплате <span>→</span></button></section></Shell>}
+function CardPay({total,currency,onWait,onBack}){return <Shell back={onBack}><section className="pay-detail"><h1>Оплата банковской картой</h1><div className="card-stage"><img src={POS} alt="POS-терминал" onError={e=>{e.currentTarget.style.display='none';e.currentTarget.nextElementSibling.style.display='grid'}}/><div className="pos-fallback"><span>)))</span><strong>К оплате<br/>{fmt(total,currency)}</strong></div><div><h2>Оплата банковской картой</h2><p>Приложите карту к терминалу или вставьте её в считыватель.</p></div></div><button className="primary-action" onClick={onWait}>Оплата начата <span>→</span></button></section></Shell>}
+function Waiting({onBack}){return <Shell back={onBack}><section className="state-screen"><div className="state-spinner"/><h1>Ожидаем подтверждение оплаты от банка</h1><p>Приготовление начнётся только после подтверждённого статуса «оплачено» от платёжного провайдера.</p></section></Shell>}
+function Preparing(){return <Shell><section className="state-screen"><Ice/><div className="eyebrow">Оплата подтверждена</div><h1>Готовим ваше мороженое</h1><p>Пожалуйста, дождитесь завершения приготовления и выдачи.</p></section></Shell>}
+function PaymentError({onRetry,onOther}){return <Shell><section className="state-screen"><h1>Оплата не подтверждена</h1><p>Заказ сохранён. Приготовление не запущено.</p><div className="state-actions"><button onClick={onRetry}>Попробовать снова</button><button onClick={onOther}>Выбрать другой способ оплаты</button></div></section></Shell>}
+
+export default function App(){
+ const catalog=useMemo(()=>CatalogService.getSnapshot(),[]);const product=catalog.product;const [screen,setScreen]=useState('home');const [sprinkle,setSprinkle]=useState(NONE_SPRINKLE);const [sauce,setSauce]=useState(NONE_SAUCE);const total=PriceService.total(product,sprinkle,sauce);const home=()=>{setScreen('home');setSprinkle(NONE_SPRINKLE);setSauce(NONE_SAUCE)};
+ if(screen==='home')return <main className="terminal-shell"><StatusBar/><header className="brand-header"><BrandMark/></header><section className="hero"><div className="hero-copy"><div className="eyebrow">Сегодня в аппарате</div><h1>{product.name}</h1><p className="subtitle">Мягкое мороженое в фирменном стаканчике</p></div><Ice/><p className="flavor-note">{terminalContent.flavorNote}</p></section><section className="actions"><button className="primary-action" onClick={()=>setScreen('sprinkle')}>Начать покупку <span>→</span></button><button className="club-card"><span className="club-icon">♥</span><span className="club-copy"><strong>Клуб Тимоши</strong><small>Каждая 50-я покупка — в подарок</small></span><span className="club-cta">Получить свою скидку</span></button></section><footer className="terminal-footer">Оплата картой или СБП <span className="status-dot"/> Аппарат готов к заказу</footer></main>;
+ if(screen==='sprinkle')return <Selection kind="sprinkle" items={[NONE_SPRINKLE,...catalog.sprinkles.filter(x=>x.id!=='none')]} selected={sprinkle} onSelect={setSprinkle} currency={product.currency} onNext={()=>setScreen('sauce')} onBack={home} onReset={home}/>;
+ if(screen==='sauce')return <Selection kind="sauce" items={[NONE_SAUCE,...catalog.sauces.filter(x=>x.id!=='none')]} selected={sauce} onSelect={setSauce} currency={product.currency} onNext={()=>setScreen('summary')} onBack={()=>setScreen('sprinkle')} onReset={home}/>;
+ if(screen==='summary')return <Summary {...{product,sprinkle,sauce,total}} onEdit={setScreen} onPay={()=>setScreen('club')} onBack={()=>setScreen('sauce')}/>;
+ if(screen==='club')return <ClubGate onContinue={()=>setScreen('payment')} onBack={()=>setScreen('summary')}/>;
+ if(screen==='payment')return <Payment {...{product,sprinkle,sauce,total}} onSelect={m=>setScreen(m)} onBack={()=>setScreen('club')}/>;
+ if(screen==='sbp')return <Sbp total={total} currency={product.currency} onWait={()=>setScreen('waiting')} onBack={()=>setScreen('payment')}/>;
+ if(screen==='card')return <CardPay total={total} currency={product.currency} onWait={()=>setScreen('waiting')} onBack={()=>setScreen('payment')}/>;
+ if(screen==='waiting')return <Waiting onBack={()=>setScreen('payment')}/>;
+ if(screen==='preparing')return <Preparing/>;
+ if(screen==='payment-error')return <PaymentError onRetry={()=>setScreen('waiting')} onOther={()=>setScreen('payment')}/>;
+ return null;
 }
-
-export default function App() {
-  const catalog = useMemo(() => CatalogService.getSnapshot(), []);
-  const [screen, setScreen] = useState('home'); const [sprinkle, setSprinkle] = useState(NONE); const [sauce, setSauce] = useState(NONE);
-  const product = catalog.product; const total = PriceService.total(product, sprinkle, sauce); const commercialCatalogReady = catalog.source !== 'local-placeholder'; const canPay = commercialCatalogReady && product.available !== false && PriceService.canPay(total);
-  const back = () => { const index = FLOW.indexOf(screen); if (index > 0) setScreen(FLOW[index - 1]); };
-  if (screen === 'home') return <main className="terminal-shell"><StatusBar/><header className="brand-header"><BrandMark/><div><div className="brand-name">{terminalContent.brand}</div><div className="brand-caption">{terminalContent.eyebrow}</div></div></header><section className="hero"><div className="hero-copy"><div className="eyebrow">Сегодня в аппарате</div><h1>{product.name}</h1><p className="subtitle">Мягкое мороженое в фирменном стаканчике</p></div><IceCreamVisual/><p className="flavor-note">{terminalContent.flavorNote}</p></section><section className="actions"><button className="primary-action" type="button" disabled={product.available === false} onClick={() => setScreen('sprinkle')}>{product.available === false ? 'Временно недоступно' : 'Начать покупку'}<span>→</span></button><button className="club-card" type="button"><span className="club-icon">♥</span><span className="club-copy"><strong>{terminalContent.clubTitle}</strong><small>{terminalContent.clubText}</small></span><span className="club-cta">{terminalContent.clubAction}</span></button></section><footer className="terminal-footer"><span>Оплата картой или СБП</span><span className="status-dot"/><span>{product.available === false ? 'Мороженое временно недоступно' : 'Аппарат готов к заказу'}</span></footer></main>;
-  if (screen === 'sprinkle') return <Selection title="Выберите посыпку" subtitle="Можно продолжить без посыпки" items={[{...NONE,name:'Без посыпки'}, ...catalog.sprinkles]} selected={sprinkle} currency={product.currency} onSelect={setSprinkle} onBack={back} onNext={() => setScreen('sauce')} />;
-  if (screen === 'sauce') return <Selection title="Выберите топпинг" subtitle="Можно продолжить без топпинга" items={[{...NONE,name:'Без топпинга'}, ...catalog.sauces]} selected={sauce} currency={product.currency} onSelect={setSauce} onBack={back} onNext={() => setScreen('summary')} />;
-  if (screen === 'payment') return <PaymentScreen product={product} sprinkle={sprinkle} sauce={sauce} total={total} onBack={back}/>;
-  return <main className="terminal-shell flow-shell"><FlowHeader onBack={back}/><section className="order-panel"><div><div className="eyebrow">Ваше мороженое</div><h1>Вы собрали своё мороженое</h1></div><IceCreamVisual/><div className="summary-card"><div><span>{product.name}</span><strong>{PriceService.format(product.price, product.currency)}</strong></div><div><span>Посыпка: {sprinkle.name}</span><strong>{PriceService.format(sprinkle.price, product.currency)}</strong></div><div><span>Топпинг: {sauce.name}</span><strong>{PriceService.format(sauce.price, product.currency)}</strong></div><div className="summary-total"><span>Итого</span><strong>{PriceService.format(total, product.currency)}</strong></div></div>{!commercialCatalogReady && <p className="notice">Продажа станет доступна после публикации утверждённого прайса на аппарат.</p>}<button className="primary-action" type="button" disabled={!canPay} onClick={()=>setScreen('payment')}>Перейти к оплате <span>→</span></button></section></main>;
-}
-function Selection({ title, subtitle, items, selected, currency, onSelect, onBack, onNext }) { return <main className="terminal-shell flow-shell"><FlowHeader onBack={onBack}/><section className="selection-panel"><div className="selection-title"><div className="eyebrow">Соберите своё мороженое</div><h1>{title}</h1><p className="subtitle">{subtitle}</p></div><IceCreamVisual/><div className="option-grid">{items.filter(item => item.available !== false).map(item => <Choice key={item.id} item={item} selected={selected?.id === item.id} currency={currency} onClick={() => onSelect(item)}/>)}</div><button className="primary-action selection-next" type="button" onClick={onNext}>Продолжить <span>→</span></button></section></main>; }
