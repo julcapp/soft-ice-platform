@@ -35,3 +35,9 @@ backup_git_conflict/
 
 # Isolated local PostgreSQL cluster and credentials used by Sale Flow audits.
 /.tmp/durable-sale-flow-audit/
+
+# ===== TERMINAL LOCAL/GENERATED FILES =====
+frontend/terminal/dist/
+frontend/terminal/src/*.backup*
+frontend/terminal/src/*backup*
+frontend/terminal/*.backup*
