@@ -7,7 +7,7 @@ import './styles.css';
 const FLOW = ['home', 'sprinkle', 'sauce', 'summary'];
 const NONE = { id: 'none', name: 'Без добавки', price: 0, available: true };
 const PRIMARY_ICE_IMAGE = '/media/ice/UT-ICE-Hero-001.png';
-const BRAND_OWNER_IMAGE = '/media/brand/owner.png';
+const BRAND_OWNER_IMAGE = '/media/brand/owner.jpg';
 
 function StatusBar() {
   const [now, setNow] = useState(() => new Date());
