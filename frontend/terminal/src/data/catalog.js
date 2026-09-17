@@ -9,6 +9,7 @@ export const TERMINAL_CATALOG = {
     { id: 'none', name: 'Без посыпки', price: 0, available: true, media: null },
     { id: 'nut_crumb', name: 'Ореховая крошка', price: 35, available: true, media: { id: 'UT-SPR-001', role: 'OVERLAY', preview: null }, allergens: ['nuts','peanut'] },
     { id: 'confetti', name: 'Конфетти', price: 35, available: true, media: { id: 'UT-SPR-002', role: 'OVERLAY', preview: null } },
+    { id: 'chocolate_crumb', name: 'Шоколадная крошка', price: 45, available: true, media: { id: 'UT-SPR-004', role: 'OVERLAY', preview: null } },
     { id: 'wafer_crumb', name: 'Вафельная крошка', price: 35, available: true, media: { id: 'UT-SPR-003', role: 'OVERLAY', preview: null } }
   ],
   sauces: [
