@@ -10,26 +10,73 @@ function Shell({children,back=true,onBack}){return <main className="approved"><T
 function Hero(){return <div className="left-hero" style={{left:'4.5%',width:'31vw',background:'transparent'}}><img src={ICE} style={{mixBlendMode:'multiply',background:'transparent',transform:'translateX(8%) scale(1.06)',transformOrigin:'center bottom'}}/><small>* Вкус дня может быть изменен</small></div>}
 function Timer({reset}){const[l,setL]=useState(35),[ask,setAsk]=useState(false);useEffect(()=>{if(ask)return;let i=setInterval(()=>setL(x=>{if(x<=1){clearInterval(i);setAsk(true);return 0}return x-1}),1000);return()=>clearInterval(i)},[ask]);return <><div className="timer"><small>Осталось</small><b>{`00:${String(l).padStart(2,'0')}`}</b></div>{ask&&<div className="time-question"><span>◷</span><b>Вам требуется еще время для выбора?</b><small>Экран вернётся на начальную страницу после вашего выбора.</small><div><button onClick={reset}>Нет</button><button onClick={()=>{setAsk(false);setL(35)}}>Да</button></div></div>}</>}
 const art=id=>id==='none'?'⊘':id==='nut_crumb'?'🥜':id==='confetti'?'🍬':id==='wafer_crumb'?'🧇':id==='chocolate'?'🍫':id==='strawberry'?'🍓':'🍮';
-function Choose({type,items,value,setValue,next,back,home}){let sprinkle=type==='sprinkle';return <Shell onBack={back}><Timer reset={home}/><Hero/><section className="choice"><div className="pill">Соберите своё мороженое</div><h1>{sprinkle?'Выберите посыпку':'Выберите топпинг'}</h1><p>Можно продолжить {sprinkle?'без посыпки':'без топпинга'}</p><div className="choice-grid">{items.map(x=><button className={value.id===x.id?'picked':''} onClick={()=>setValue(x)} key={x.id}><div className="food-art">
-{type === 'sprinkle' ? (
-  <img
-    className="choice-product-image"
-    src={
-      x.id === 'none' ? '/media/toppings/NO4.png' :
-      x.name.includes('Орех') ? '/media/toppings/nuts.png' :
-      x.name.includes('Конфетти') ? '/media/toppings/confetti.png' :
-      x.name.includes('Шоколад') ? '/media/toppings/chocolate.png' :
-      x.name.includes('Вафель') ? '/media/toppings/wafer.png' :
-      '/media/toppings/NO4.png'
+function Choose({type,items,value,setValue,next,back,home}){
+  const sprinkle=type==='sprinkle';
+
+  const imageFor=(x)=>{
+    if(sprinkle){
+      if(x.id==='none') return '/media/toppings/NO4.png';
+      if(x.id==='nut_crumb') return '/media/toppings/nuts.png';
+      if(x.id==='confetti') return '/media/toppings/confetti.png';
+      if(x.id==='chocolate_crumb') return '/media/toppings/chocolate.png';
+      if(x.id==='wafer_crumb') return '/media/toppings/wafer.png';
+      return '/media/toppings/NO4.png';
     }
-    alt={x.name}
-  />
-) : art(x.id)}
-</div><b>{x.name}</b><span>{x.price?`+ ${x.price} ₽`:'Бесплатно'}</span><i>{value.id===x.id?'✓':''}</i></button>)}</div><button className="pink next" onClick={next}>Продолжить　→</button></section></Shell>}
+
+    if(x.id==='none') return '/media/sauces/NO.png';
+    if(x.id==='strawberry') return '/media/sauces/strawberry.png';
+    if(x.id==='chocolate') return '/media/sauces/chocolate.png';
+    if(x.id==='caramel') return '/media/sauces/caramel.png';
+
+    return '/media/sauces/NO.png';
+  };
+
+  return <Shell onBack={back}>
+    <Timer reset={home}/>
+    <Hero/>
+
+    <section className="choice">
+      <div className="pill">Соберите своё мороженое</div>
+
+      <h1>{sprinkle?'Выберите посыпку':'Выберите топпинг'}</h1>
+
+      <p>
+        Можно продолжить {sprinkle?'без посыпки':'без топпинга'}
+      </p>
+
+      <div className="choice-grid">
+        {items.map(x=>
+          <button
+            className={value.id===x.id?'picked':''}
+            onClick={()=>setValue(x)}
+            key={x.id}
+          >
+            <div className="food-art">
+              <img
+                className="choice-product-image"
+                src={imageFor(x)}
+                alt={x.name}
+              />
+            </div>
+
+            <b>{x.name}</b>
+            <span>{x.price?`+ ${x.price} ₽`:'Бесплатно'}</span>
+            <i>{value.id===x.id?'✓':''}</i>
+          </button>
+        )}
+      </div>
+
+      <button className="pink next" onClick={next}>
+        Продолжить&nbsp;&nbsp;→
+      </button>
+    </section>
+  </Shell>
+}
+
 function Summary({p,s,t,total,edit,pay,back}){return <Shell onBack={back}><Hero/><section className="summary"><div className="pill">Проверьте ваш заказ</div><h1>Вы собрали своё мороженое</h1><p>Проверьте состав и при необходимости измените</p><div className="sum-grid"><article><h3>Мороженое</h3><img src={ICE}/><b>{p.name}</b><span>{money(p.price,p.currency)}</span></article><article><h3>Топпинг</h3><div className="food-art">{art(t.id)}</div><b>{t.name}</b><span>{t.price?`+ ${t.price} ₽`:'0 ₽'}</span><button onClick={()=>edit('topping')}>✎ Изменить</button></article><article><h3>Посыпка</h3><div className="food-art">{art(s.id)}</div><b>{s.name}</b><span>{s.price?`+ ${s.price} ₽`:'0 ₽'}</span><button onClick={()=>edit('sprinkle')}>✎ Изменить</button></article><article className="total"><h2>Итого<br/><strong>{money(total,p.currency)}</strong></h2><hr/><p>Мороженое — {money(p.price,p.currency)}</p><p>Топпинг — {money(t.price,p.currency)}</p><p>Посыпка — {money(s.price,p.currency)}</p></article></div><button className="pink pay-next" onClick={pay}>Перейти к оплате　→</button></section></Shell>}
 function Club({next,back}){const[ph,setPh]=useState(''),[confirm,setConfirm]=useState(false),[sent,setSent]=useState(false),[code,setCode]=useState('');let ok=ph.length===10;let fmt=ok?`+7 (${ph.slice(0,3)}) ${ph.slice(3,6)}-${ph.slice(6,8)}-${ph.slice(8)}`:'+7 (___) ___-__-__';return <Shell onBack={back}><Hero/><section className="club"><div className="pill">Клуб Тимоши</div><h1>Получите свою скидку</h1><p>Введите номер телефона, чтобы стать участником<br/>Клуба Тимоши и получать специальные предложения</p><div className="phone"><span>+7</span><input autoFocus inputMode="numeric" value={ph} onChange={e=>setPh(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="(___) ___-__-__"/></div><div className="keys">{[1,2,3,4,5,6,7,8,9,0].map(n=><button key={n} onClick={()=>setPh((ph+n).slice(0,10))}>{n}</button>)}<button onClick={()=>setPh(ph.slice(0,-1))}>⌫</button></div><button className="code" disabled={!ok} onClick={()=>setConfirm(true)}>Получить код</button><button className="skip" onClick={next}>Продолжить без скидки<small>Купить мороженое без регистрации</small></button></section>{confirm&&<div className="modal"><div><button className="x" onClick={()=>setConfirm(false)}>×</button><span className="phone-icon">☎</span><h2>Вы уверены,<br/>что номер введён правильно?</h2><strong>{fmt}</strong><p>На этот номер мы отправим код для подтверждения<br/>или ссылку на подписку в Telegram / MAX</p><div className="modal-actions"><button onClick={()=>setConfirm(false)}>Нет, изменить</button><button className="pink" onClick={()=>setSent(true)}>Да, отправить код</button></div>{sent&&<div className="code-entry"><input inputMode="numeric" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="Введите код"/><button className="pink" onClick={next}>Подтвердить</button><button onClick={next}>Продолжить без кода</button></div>}<small>Если код не придёт, вы всегда можете продолжить покупку без скидки.</small></div></div>}</Shell>}
 function Order({p,s,t,total}){return <aside className="order"><h2>Ваш заказ</h2><div><img src={ICE}/><span>Мягкое мороженое<br/><b>({p.name})</b></span><strong>{p.price} ₽</strong></div>{t.id!=='none'&&<div><div className="mini-art">{art(t.id)}</div><span>Топпинг<br/><b>{t.name}</b></span><strong>{t.price} ₽</strong></div>}{s.id!=='none'&&<div><div className="mini-art">{art(s.id)}</div><span>Посыпка<br/><b>{s.name}</b></span><strong>{s.price} ₽</strong></div>}<footer><b>Итого к оплате</b><strong>{total} ₽</strong></footer></aside>}
 function Payment({p,s,t,total,card,back}){const[phone,setPhone]=useState('');return <Shell onBack={back}><div className="payment"><Order {...{p,s,t,total}}/><section className="methods"><h1>Выберите способ оплаты</h1><div className="method-row"><button className="selected"><b>◆ Оплата по СБП</b><small>Быстро и удобно</small><i>✓</i></button><button onClick={card}><b>▣ Банковская карта</b><small>Visa · Mastercard · Мир</small><i>○</i></button></div><div className="sbp"><div className="qr">▦<small>QR СБП<br/>от платёжного провайдера</small></div><div><h2>Оплатите через<br/>приложение вашего банка</h2><ol><li>Откройте приложение банка</li><li>Отсканируйте QR-код</li><li>Подтвердите оплату</li></ol></div><div className="send"><b>➤ Отправить ссылку<br/>на оплату на телефон</b><input value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="+7 ___ ___-__-__"/><button disabled={phone.length!==10}>Отправить ссылку</button></div></div><small className="reg-note">ⓘ Ввод номера телефона здесь не является регистрацией в «Клубе Тимоши»</small></section></div></Shell>}
 function Card({total,wait,back}){return <Shell onBack={back}><section className="card-pay"><h1>Оплата банковской картой</h1><div><div><h2>Банковская карта</h2><p>К оплате <strong>{total} ₽</strong></p></div><img src={POS}/><p>Приложите карту к терминалу<br/>или вставьте в считыватель</p></div><button className="pink" onClick={wait}>Оплата начата</button></section></Shell>}
 function Waiting(){return <Shell back={false}><section className="waiting"><div className="spinner"/><h1>Ожидаем подтверждение оплаты от банка</h1><p>Пожалуйста, не закрывайте экран.</p></section></Shell>}
-export default function App(){const c=useMemo(()=>CatalogService.getSnapshot(),[]),p=c.product;const[screen,setScreen]=useState('home'),[s,setS]=useState(NONE_S),[t,setT]=useState(NONE_T);let total=PriceService.total(p,s,t),home=()=>{setScreen('home');setS(NONE_S);setT(NONE_T)};if(screen==='home')return <main className="approved home"><Top/><Hero/><section><div className="pill">Сегодня в аппарате</div><h1>{p.name}</h1><p>Мягкое мороженое в фирменном стаканчике</p><button className="pink" onClick={()=>setScreen('sprinkle')}>Собери свой вкус　→</button><button className="home-club">♥　<b>Клуб Тимоши</b><small>Каждая 50-я покупка — в подарок</small><strong>Получить свою скидку</strong></button></section></main>;if(screen==='sprinkle')return <Choose type="sprinkle" items={[NONE_S,...c.sprinkles.filter(x=>x.id!=='none')]} value={s} setValue={setS} next={()=>setScreen('topping')} back={home} home={home}/>;if(screen==='topping')return <Choose type="topping" items={[NONE_T,...c.sauces.filter(x=>x.id!=='none')]} value={t} setValue={setT} next={()=>setScreen('summary')} back={()=>setScreen('sprinkle')} home={home}/>;if(screen==='summary')return <Summary {...{p,s,t,total}} edit={setScreen} pay={()=>setScreen('club')} back={()=>setScreen('topping')}/>;if(screen==='club')return <Club next={()=>setScreen('payment')} back={()=>setScreen('summary')}/>;if(screen==='payment')return <Payment {...{p,s,t,total}} card={()=>setScreen('card')} back={()=>setScreen('club')}/>;if(screen==='card')return <Card total={total} wait={()=>setScreen('waiting')} back={()=>setScreen('payment')}/>;if(screen==='waiting')return <Waiting/>;return null}
+export default function App(){const c=useMemo(()=>CatalogService.getSnapshot(),[]),p=c.product;const[screen,setScreen]=useState('home'),[s,setS]=useState(NONE_S),[t,setT]=useState(NONE_T);let total=PriceService.total(p,s,t),home=()=>{setScreen('home');setS(NONE_S);setT(NONE_T)};if(screen==='home')return <main className="approved home"><Top/><Hero/><section className="home-content"><div className="pill">Сегодня в аппарате</div><h1>{p.name}</h1><p>Мягкое мороженое в фирменном стаканчике</p><button className="pink" onClick={()=>setScreen('topping')}>Собери свой вкус　→</button><button className="home-club">♥　<b>Клуб Тимоши</b><small>Каждая 50-я покупка — в подарок</small><strong>Получить свою скидку</strong></button></section></main>;if(screen==='sprinkle')return <Choose type="sprinkle" items={[NONE_S,...c.sprinkles.filter(x=>x.id!=='none')]} value={s} setValue={setS} next={()=>setScreen('summary')} back={()=>setScreen('topping')} home={home}/>;if(screen==='topping')return <Choose type="topping" items={[NONE_T,...c.sauces.filter(x=>x.id!=='none')]} value={t} setValue={setT} next={()=>setScreen('sprinkle')} back={home} home={home}/>;if(screen==='summary')return <Summary {...{p,s,t,total}} edit={setScreen} pay={()=>setScreen('club')} back={()=>setScreen('sprinkle')}/>;if(screen==='club')return <Club next={()=>setScreen('payment')} back={()=>setScreen('summary')}/>;if(screen==='payment')return <Payment {...{p,s,t,total}} card={()=>setScreen('card')} back={()=>setScreen('club')}/>;if(screen==='card')return <Card total={total} wait={()=>setScreen('waiting')} back={()=>setScreen('payment')}/>;if(screen==='waiting')return <Waiting/>;return null}

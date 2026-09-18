@@ -1,0 +1,409 @@
+/*
+ * ============================================================
+ * TERMINAL PORTRAIT UI
+ * Canonical vertical kiosk layout
+ * Target: 1080 x 1920
+ * 2026-09-18
+ * ============================================================
+ */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /* ---------- CHOICE SCREEN ---------- */
+
+  main.approved > .choice {
+    position: relative !important;
+    box-sizing: border-box !important;
+    min-height: 100vh !important;
+    padding-bottom: 150px !important;
+  }
+
+  /*
+   * Bottom navigation.
+   * Both controls use the same baseline and geometry.
+   */
+
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    margin: 0 !important;
+    transform: none !important;
+
+    border-radius: 20px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 22px !important;
+    font-weight: 700 !important;
+
+    z-index: 500 !important;
+  }
+
+  /* Назад — слева */
+
+  main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  /* Продолжить — справа */
+
+  main.approved > .choice > .next {
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+  }
+}
+
+/*
+ * ============================================================
+ * PORTRAIT PRODUCT IMAGE + CHOICE NAVIGATION
+ * Approved 2026-09-18
+ * ============================================================
+ */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  /*
+   * Product image:
+   * keep approved size, remove white card/background.
+   */
+  main.approved .left-hero,
+  main.approved .left-hero small {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  main.approved .left-hero img {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /*
+   * Choice screen image.
+   * Do not enlarge it — only remove the white substrate.
+   */
+  main.approved > .choice .left-hero,
+  main.approved > .choice .left-hero img {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /*
+   * Reserve bottom navigation area.
+   */
+  main.approved > .choice {
+    position: relative !important;
+    padding-bottom: 140px !important;
+  }
+
+  /*
+   * Both navigation buttons on the same baseline.
+   */
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    margin: 0 !important;
+    transform: none !important;
+    border-radius: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 999 !important;
+  }
+
+  main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  main.approved > .choice > .next {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+  }
+}
+
+/* ==========================================================
+   TOPPING / SAUCE SCREEN
+   approved vertical kiosk structure
+   2026-09-18
+   ========================================================== */
+
+main.approved > .choice .sauce-picture {
+    width: 92px;
+    height: 72px;
+    margin: 0 auto 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+main.approved > .choice .sauce-drop {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50% 50% 50% 12%;
+    transform: rotate(-45deg);
+    border: 3px solid rgba(90,60,40,.12);
+    box-shadow: 0 6px 14px rgba(70,40,20,.10);
+}
+
+main.approved > .choice .sauce-none .sauce-drop {
+    background:
+      linear-gradient(135deg,
+        transparent 44%,
+        #d6b56d 45%,
+        #d6b56d 55%,
+        transparent 56%);
+    border: 4px solid #d6b56d;
+}
+
+main.approved > .choice .sauce-strawberry .sauce-drop {
+    background: #ef4d68;
+}
+
+main.approved > .choice .sauce-chocolate .sauce-drop {
+    background: #6b3525;
+}
+
+main.approved > .choice .sauce-caramel .sauce-drop {
+    background: #dc8c27;
+}
+
+/* Image itself must not introduce a white card/background */
+main.approved > .choice .choice-product-image {
+    background: transparent !important;
+}
+
+/* Bottom navigation */
+main.approved > .choice > .back,
+main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    border-radius: 20px !important;
+    margin: 0 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    font-size: 22px !important;
+    font-weight: 700 !important;
+
+    z-index: 400 !important;
+}
+
+main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+}
+
+main.approved > .choice > .next {
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+}
+
+main.approved > .choice {
+    padding-bottom: 125px !important;
+}
+
+
+/* ==========================================================
+   PORTRAIT CHOICE NAVIGATION — APPROVED FIX
+   Back = bottom left
+   Continue = bottom right
+   ========================================================== */
+
+@media (orientation: portrait) {
+
+  main.approved > .choice {
+    position: relative !important;
+    min-height: calc(100vh - 110px) !important;
+    padding-bottom: 120px !important;
+    box-sizing: border-box !important;
+  }
+
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 500 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  main.approved > .choice > .next {
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+  }
+}
+
+/* ==========================================================
+   FINAL PORTRAIT NAVIGATION
+   Keep navigation fully inside 1080x1920 viewport
+   ========================================================== */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 42px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    margin: 0 !important;
+    transform: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    z-index: 1000 !important;
+  }
+
+  main.approved > .choice > .back {
+    left: calc(50% - 498px) !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  main.approved > .choice > .next {
+    left: auto !important;
+    right: calc(50% - 498px) !important;
+    width: 360px !important;
+  }
+}
+
+/* =========================================================
+   DEFINITIVE PORTRAIT CHOICE NAVIGATION
+   1080x1920 kiosk
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  main.approved > .choice {
+    position: relative !important;
+    padding-bottom: 120px !important;
+  }
+
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 28px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    margin: 0 !important;
+    transform: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1000 !important;
+  }
+
+  main.approved > .choice > .back {
+    left: 42px !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  main.approved > .choice > .next {
+    left: auto !important;
+    right: 42px !important;
+    width: 360px !important;
+  }
+}
+
+
+/* =========================================================
+   PORTRAIT NAVIGATION — VIEWPORT SAFE FINAL
+   ========================================================= */
+
+@media (orientation: portrait) and (min-width: 700px) {
+
+  main.approved > .choice > .back,
+  main.approved > .choice > .next {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 90px !important;
+
+    height: 64px !important;
+    min-height: 64px !important;
+
+    margin: 0 !important;
+    transform: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 5000 !important;
+  }
+
+  main.approved > .choice > .back {
+    left: calc(50% - 498px) !important;
+    right: auto !important;
+    width: 230px !important;
+  }
+
+  main.approved > .choice > .next {
+    left: auto !important;
+    right: calc(50% - 498px) !important;
+    width: 360px !important;
+  }
+}
+
