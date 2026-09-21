@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CatalogService } from "./services/catalogService.js";
 import { PriceService } from "./services/priceService.js";
 import "./styles.css";
+const IDLE_TIMEOUT_MS = 120000;
 const ICE = "/media/ice/UT-ICE-Hero-001.png",
   OWNER = "/media/brand/owner.jpg",
   POS = "/media/payment/pos-terminal.png";
@@ -572,10 +573,46 @@ function Waiting() {
     </Shell>
   );
 }
+
+function IdleScreen({ onWake }) {
+  return (
+    <main
+      className="terminal-idle"
+      onClick={onWake}
+      onTouchStart={onWake}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onWake}
+    >
+      <section className="terminal-idle-visual">
+        <img src={ICE} alt="Мороженое У Тимоши" />
+      </section>
+
+      <section className="terminal-idle-copy">
+        <div className="terminal-idle-brand">У ТИМОШИ</div>
+
+        <h1>
+          Счастье в<br />
+          одном<br />
+          стаканчике
+        </h1>
+
+        <p>Мягкое мороженое — приготовим прямо сейчас.</p>
+
+        <div className="terminal-idle-start">
+          Коснитесь экрана, чтобы начать
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
   const c = useMemo(() => CatalogService.getSnapshot(), []),
     p = c.product;
   const [screen, setScreen] = useState("home"),
+    [isIdle, setIsIdle] = useState(false),
+    idleTimerRef = useRef(null),
     [s, setS] = useState(NONE_S),
     [t, setT] = useState(NONE_T);
   let total = PriceService.total(p, s, t),
@@ -584,6 +621,52 @@ export default function App() {
       setS(NONE_S);
       setT(NONE_T);
     };
+
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+    if (!isIdle) {
+      idleTimerRef.current = setTimeout(() => {
+        setIsIdle(true);
+      }, IDLE_TIMEOUT_MS);
+    }
+  };
+
+  useEffect(() => {
+    const events = ["pointerdown", "touchstart", "keydown"];
+
+    const activity = () => {
+      if (!isIdle) resetIdleTimer();
+    };
+
+    resetIdleTimer();
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, activity, { passive: true });
+    });
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, activity);
+      });
+    };
+  }, [isIdle]);
+
+  const wakeFromIdle = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+    setScreen("home");
+    setS(NONE_S);
+    setT(NONE_T);
+    setIsIdle(false);
+  };
+
+  if (isIdle) {
+    return <IdleScreen onWake={wakeFromIdle} />;
+  }
+
   if (screen === "home")
     return (
       <main className="approved home">
