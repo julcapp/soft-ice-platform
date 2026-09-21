@@ -1,5 +1,7 @@
-/* PORTRAIT HOME — approved functional composition
-   Target 1080x1920. HOME only. Idle screen is separate.
+/* APPROVED PORTRAIT HOME — У ТИМОШИ
+   Target: 1080x1920. Do not redesign without explicit approval.
+   Canonical product image: /media/ice/UT-ICE-Hero-001.png.
+   HOME only. Idle screen remains separate.
 */
 @media (orientation: portrait) and (min-width: 700px) {
   main.approved.home {
@@ -11,9 +13,13 @@
     overflow: hidden !important;
     padding: 0 !important;
     display: grid !important;
-    grid-template-rows: 150px 1fr 610px !important;
-    color: #2f211b !important;
-    background: linear-gradient(180deg,#fffaf2 0%,#fbf1e5 62%,#f7eee4 100%) !important;
+    grid-template-rows: 150px minmax(0, 1fr) 650px !important;
+    color: #4a2c22 !important;
+    background:
+      radial-gradient(circle at 18% 23%, rgba(255,255,255,.88) 0 6%, transparent 19%),
+      radial-gradient(circle at 84% 34%, rgba(255,255,255,.68) 0 5%, transparent 18%),
+      radial-gradient(circle at 72% 68%, rgba(255,214,220,.55) 0 7%, transparent 22%),
+      linear-gradient(180deg, #fff9ee 0%, #f8ead8 48%, #f7dfd8 100%) !important;
   }
 
   main.approved.home::before,
@@ -24,14 +30,17 @@
     grid-row: 1 !important;
     position: relative !important;
     inset: auto !important;
+    z-index: 10 !important;
     width: calc(100% - 64px) !important;
     height: 108px !important;
     min-height: 108px !important;
     margin: 26px 32px 0 !important;
     padding: 16px 24px !important;
-    border-radius: 26px !important;
-    background: rgba(255,255,255,.72) !important;
-    z-index: 10 !important;
+    border: 1px solid rgba(238,214,197,.72) !important;
+    border-radius: 28px !important;
+    background: rgba(255,255,255,.56) !important;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 35px rgba(94,61,39,.06) !important;
   }
 
   main.approved.home > .left-hero {
@@ -47,7 +56,7 @@
     height: 100% !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 20px 110px 10px !important;
+    padding: 8px 130px 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -65,28 +74,31 @@
     position: static !important;
     inset: auto !important;
     display: block !important;
-    width: min(72vw, 760px) !important;
-    height: min(54vh, 820px) !important;
-    max-width: 760px !important;
-    max-height: 820px !important;
+    width: min(76vw, 790px) !important;
+    height: min(66vh, 910px) !important;
+    max-width: none !important;
+    max-height: none !important;
     margin: 0 auto !important;
     object-fit: contain !important;
     object-position: center !important;
     transform: none !important;
     background: transparent !important;
+    mix-blend-mode: multiply !important;
     box-shadow: none !important;
-    filter: drop-shadow(0 24px 24px rgba(75,48,32,.12)) !important;
+    filter: drop-shadow(0 30px 28px rgba(96,61,39,.13)) !important;
   }
 
   main.approved.home > .left-hero small {
-    position: static !important;
-    inset: auto !important;
-    display: block !important;
-    width: auto !important;
-    margin: 4px auto 0 !important;
-    transform: none !important;
+    position: absolute !important;
+    left: 50% !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 8px !important;
+    width: max-content !important;
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
     color: #8b776b !important;
-    font-size: 16px !important;
+    font-size: 18px !important;
     text-align: center !important;
     background: transparent !important;
   }
@@ -96,56 +108,58 @@
     grid-row: 3 !important;
     position: relative !important;
     inset: auto !important;
+    z-index: 5 !important;
     width: calc(100% - 80px) !important;
     height: 100% !important;
     min-height: 0 !important;
     margin: 0 40px !important;
-    padding: 24px 34px 100px !important;
+    padding: 18px 36px 118px !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: stretch !important;
+    align-items: center !important;
     justify-content: flex-start !important;
-    text-align: left !important;
+    text-align: center !important;
     transform: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    z-index: 5 !important;
+    border-radius: 44px 44px 0 0 !important;
+    background: rgba(255,249,240,.76) !important;
+    box-shadow: 0 -14px 50px rgba(95,60,38,.06) !important;
   }
 
   main.approved.home .home-content .pill {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    margin: 0 0 22px !important;
-    padding: 10px 22px !important;
+    width: auto !important;
+    margin: 0 0 8px !important;
+    padding: 9px 23px !important;
     border-radius: 999px !important;
-    background: #dff4ef !important;
-    color: #008c82 !important;
-    font-size: 24px !important;
+    background: #fff0c8 !important;
+    color: #9a6b28 !important;
+    font-size: 20px !important;
     font-weight: 800 !important;
   }
 
   main.approved.home .home-content h1 {
     margin: 0 !important;
-    color: #111 !important;
-    font-family: Arial, sans-serif !important;
-    font-size: 58px !important;
-    line-height: 1.05 !important;
-    font-weight: 800 !important;
-    letter-spacing: -.025em !important;
+    color: #4a2c22 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 72px !important;
+    line-height: 1 !important;
+    font-weight: 600 !important;
+    letter-spacing: -.035em !important;
   }
 
   main.approved.home .home-content > p {
-    margin: 16px 0 28px !important;
-    color: #30251f !important;
-    font-size: 22px !important;
+    margin: 10px 0 20px !important;
+    color: #8b776b !important;
+    font-size: 21px !important;
   }
 
   main.approved.home .home-content > .pink {
     box-sizing: border-box !important;
-    width: 100% !important;
-    min-height: 92px !important;
+    width: min(100%, 760px) !important;
+    min-height: 82px !important;
     margin: 0 !important;
-    border-radius: 25px !important;
+    border-radius: 26px !important;
+    background: linear-gradient(180deg,#ff668a 0%,#f34f76 100%) !important;
+    box-shadow: 0 16px 34px rgba(239,79,118,.25) !important;
     font-size: 30px !important;
     font-weight: 900 !important;
   }
@@ -153,13 +167,19 @@
   main.approved.home .home-club {
     box-sizing: border-box !important;
     position: relative !important;
-    width: 100% !important;
-    min-height: 96px !important;
-    margin: 18px 0 0 !important;
-    padding: 16px 24px !important;
+    width: min(100%, 760px) !important;
+    min-height: 92px !important;
+    margin: 14px 0 0 !important;
+    padding: 14px 24px !important;
+    border: 1px solid rgba(237,207,211,.92) !important;
     border-radius: 24px !important;
-    background: rgba(255,255,255,.9) !important;
+    background: rgba(255,255,255,.84) !important;
+    box-shadow: 0 10px 26px rgba(92,58,40,.06) !important;
   }
+
+  main.approved.home .home-club b { font-size: 23px !important; }
+  main.approved.home .home-club small { font-size: 16px !important; }
+  main.approved.home .home-club strong { color: #ee4f77 !important; font-size: 17px !important; }
 
   main.approved.home .home-content::before {
     content: "Улыбка с каждым стаканчиком" !important;
@@ -167,6 +187,7 @@
     left: 0 !important;
     bottom: 24px !important;
     width: auto !important;
+    transform: none !important;
     color: #e85d72 !important;
     font-family: "Segoe Print", "Comic Sans MS", cursive !important;
     font-size: 20px !important;
