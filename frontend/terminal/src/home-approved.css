@@ -1,0 +1,211 @@
+/* APPROVED PORTRAIT HOME — У ТИМОШИ
+   Target: 1080x1920. Do not redesign without explicit approval.
+   Canonical product image remains /media/ice/UT-ICE-Hero-001.png.
+*/
+@media (orientation: portrait) and (min-width: 700px) {
+  .approved.home {
+    position: relative;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    padding: 0;
+    display: grid;
+    grid-template-rows: 150px minmax(0, 1fr) 650px;
+    color: #4a2c22;
+    background:
+      radial-gradient(circle at 18% 23%, rgba(255,255,255,.88) 0 6%, transparent 19%),
+      radial-gradient(circle at 84% 34%, rgba(255,255,255,.68) 0 5%, transparent 18%),
+      radial-gradient(circle at 72% 68%, rgba(255,214,220,.55) 0 7%, transparent 22%),
+      linear-gradient(180deg, #fff9ee 0%, #f8ead8 48%, #f7dfd8 100%);
+  }
+
+  .approved.home::before {
+    content: "Счастье рядом!  ♡";
+    position: absolute;
+    z-index: 3;
+    left: 7%;
+    top: 22%;
+    color: #ee6176;
+    font-family: "Segoe Print", "Comic Sans MS", cursive;
+    font-size: clamp(24px, 3.1vw, 42px);
+    font-weight: 700;
+    transform: rotate(-7deg);
+    pointer-events: none;
+  }
+
+  .approved.home::after {
+    content: "Натуральный вкус  ♡";
+    position: absolute;
+    z-index: 3;
+    right: 6%;
+    top: 39%;
+    color: #8b7468;
+    font-family: "Segoe Print", "Comic Sans MS", cursive;
+    font-size: clamp(21px, 2.6vw, 35px);
+    transform: rotate(4deg);
+    pointer-events: none;
+  }
+
+  .approved.home > .terminal-header {
+    grid-row: 1;
+    position: relative;
+    z-index: 5;
+    width: calc(100% - 64px);
+    margin: 26px 32px 0;
+    min-height: 108px;
+    padding: 16px 24px;
+    border: 1px solid rgba(238, 214, 197, .72);
+    border-radius: 28px;
+    background: rgba(255,255,255,.56);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 35px rgba(94,61,39,.06);
+  }
+
+  .approved.home > .left-hero {
+    grid-row: 2;
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 130px 0;
+    overflow: visible;
+    background: transparent !important;
+  }
+
+  .approved.home > .left-hero::before {
+    content: "♡     ✧     ♡";
+    position: absolute;
+    left: 50%;
+    top: 6%;
+    transform: translateX(-50%);
+    color: rgba(238,97,118,.38);
+    font-size: 42px;
+    letter-spacing: 38px;
+    white-space: nowrap;
+  }
+
+  .approved.home > .left-hero img {
+    width: min(76vw, 790px) !important;
+    height: min(66vh, 910px) !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: contain;
+    object-position: center;
+    background: transparent !important;
+    mix-blend-mode: multiply;
+    transform: none !important;
+    filter: drop-shadow(0 30px 28px rgba(96,61,39,.13));
+  }
+
+  .approved.home > .left-hero small {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    transform: translateX(-50%);
+    width: max-content;
+    color: #8b776b;
+    font-size: 18px;
+  }
+
+  .approved.home > .home-content {
+    grid-row: 3;
+    position: relative;
+    z-index: 4;
+    width: calc(100% - 80px);
+    height: 100%;
+    margin: 0 40px;
+    padding: 18px 36px 118px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border-radius: 44px 44px 0 0;
+    background: rgba(255,249,240,.76);
+    box-shadow: 0 -14px 50px rgba(95,60,38,.06);
+  }
+
+  .approved.home .home-content .pill {
+    margin: 0 0 8px;
+    padding: 9px 23px;
+    border-radius: 999px;
+    background: #fff0c8;
+    color: #9a6b28;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .approved.home .home-content h1 {
+    margin: 0;
+    color: #4a2c22;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 72px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -.035em;
+  }
+
+  .approved.home .home-content > p {
+    margin: 10px 0 20px;
+    color: #8b776b;
+    font-size: 21px;
+  }
+
+  .approved.home .home-content > .pink {
+    width: min(100%, 760px);
+    min-height: 82px;
+    margin: 0;
+    border-radius: 26px;
+    background: linear-gradient(180deg,#ff668a 0%,#f34f76 100%);
+    box-shadow: 0 16px 34px rgba(239,79,118,.25);
+    font-size: 30px;
+    font-weight: 900;
+  }
+
+  .approved.home .home-club {
+    width: min(100%, 760px);
+    min-height: 92px;
+    margin-top: 14px;
+    padding: 14px 24px;
+    border: 1px solid rgba(237,207,211,.92);
+    border-radius: 24px;
+    background: rgba(255,255,255,.84);
+    box-shadow: 0 10px 26px rgba(92,58,40,.06);
+  }
+
+  .approved.home .home-club b { font-size: 23px; }
+  .approved.home .home-club small { font-size: 16px; }
+  .approved.home .home-club strong { color: #ee4f77; font-size: 17px; }
+
+  .approved.home .home-content::before {
+    content: "♡  С любовью к каждому   •   ✓  Натуральный вкус   •   ♡  Дарим радость";
+    position: absolute;
+    left: 50%;
+    bottom: 68px;
+    transform: translateX(-50%);
+    width: 100%;
+    color: #7e6b61;
+    font-size: 17px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .approved.home .home-content::after {
+    content: "Улыбка с каждым стаканчиком        Подари свою улыбку!";
+    position: absolute;
+    left: 50%;
+    bottom: 17px;
+    transform: translateX(-50%) rotate(-1deg);
+    width: 100%;
+    color: #e85d72;
+    font-family: "Segoe Print", "Comic Sans MS", cursive;
+    font-size: 24px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
