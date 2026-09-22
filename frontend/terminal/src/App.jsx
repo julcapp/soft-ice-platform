@@ -679,7 +679,7 @@ export default function App() {
           <button className="pink" onClick={() => setScreen("topping")}>
             Собери свой вкус　→
           </button>
-          <button className="home-club">
+          <button className="home-club" onClick={() => setScreen("club")}>
             ♥　<b>Клуб Тимоши</b>
             <small>Каждая 50-я покупка — в подарок</small>
             <strong>Получить свою скидку</strong>
