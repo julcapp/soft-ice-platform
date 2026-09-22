@@ -338,7 +338,6 @@ function Club({ next, back }) {
     : "+7 (___) ___-__-__";
   return (
     <Shell onBack={back}>
-      <Hero />
       <section className="club">
         <div className="pill">Клуб Тимоши</div>
         <h1>Получите свою скидку</h1>
