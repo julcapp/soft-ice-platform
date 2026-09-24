@@ -551,7 +551,7 @@ Service restart остаётся непроверяемым до durable reposit
 
 # Unified Display / Catalog Pricing — issue #17
 
-- Equipment Sandbox Admin Console installs with the package-manager version pinned by `frontend/admin-console/package.json`; YooKassa `PaymentOrchestrator` production composition and Promotion purchase E2E use the canonical `PaymentAttemptRepository` attempt contract without adapting the authoritative lifecycle `PaymentRepository`.
+- Equipment Sandbox Admin Console installs with the package-manager version pinned by `frontend/admin-console/package.json`; YooKassa `PaymentOrchestrator` production composition and Promotion purchase E2E use the canonical `PaymentAttemptRepository` attempt contract without adapting the authoritative lifecycle `PaymentRepository`; payment confirmation does not create a legacy `DispenseRequest`, because physical fulfillment remains owned by `MachineDispenseService`.
 - Prisma schema содержит `CatalogItem` и `MachineCatalogItem`; migration reconciliation не содержит `DROP`, не создаёт RetailPriceList/Recipe/CatalogPublication и безопасно проходит на clean DB и production-shaped fixture с уже существующими таблицами.
 - Активная коммерческая позиция без `basePrice` не попадает в display catalog и не может участвовать в quote; отрицательная цена отклоняется.
 - Явный 0 разрешён для защищённых «Без посыпки» / «Без топпинга» и осознанно бесплатной позиции; обычный товар с 0 без marker отклоняется.
