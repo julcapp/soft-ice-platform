@@ -6,6 +6,9 @@
 - Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.
 - Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.
 - Admin Console получил русскоязычный раздел «Каталог и цены» с созданием позиций, ценами, activation, machine availability и выбором текущего вкуса; коммерческие mutations аудируются.
+- Review acceptance для «Каталог и цены»: добавлены одно пакетное сохранение цен, устойчивый dirty-state, четыре статуса конфигурации, шесть фильтров, backend machine selector и customer preview из канонического display catalog.
+- Усилены catalog/pricing границы: только RUB до расширения Pricing Engine, запрет деактивации назначенного current flavor и явная validation legacy CHECK/FK constraints после reconciliation.
+- Mini App quote теперь включает выбранные добавки, а terminal idle reset очищает введённый телефон.
 - Добавлены fail-closed проверки отсутствующей цены, защищённые нулевые no-option items, unit-тесты и acceptance-сценарии четырёх terminal viewport.
 - Удалён устаревший client-priced `SalesTerminalService`; terminal UI принимает коммерческую сумму только из серверного `PricingQuote` и отклоняет неполный денежный response.
 - Production, DNS/Nginx/systemd и реальные миграции не изменялись; применение миграции требует отдельной test-DB репетиции и release approval.

@@ -116,3 +116,6 @@ product.price + syrup.price + topping.price
 - Admin Console изменяет каталог через backend API, а не напрямую через Prisma;
 - display получает machine-specific projection через `GET /api/v1/catalog/machines/:machineId`;
 - frontend-репозитории не являются источником серверной цены.
+- до расширения Pricing Engine валюта runtime-каталога ограничена `RUB`, чтобы quote не мог переименовать сумму другой валюты в рубли;
+- назначенный текущий вкус нельзя деактивировать, пока администратор не выберет другой current flavor;
+- Admin Console сохраняет несколько изменённых цен одним явным атомарным действием и строит покупательский preview из того же machine-specific projection, что и display.

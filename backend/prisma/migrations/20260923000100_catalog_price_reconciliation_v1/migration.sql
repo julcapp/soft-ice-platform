@@ -150,3 +150,13 @@ ON CONFLICT ("sku") DO UPDATE SET
   "systemItem" = true,
   "freeItem" = false,
   "updatedAt" = CURRENT_TIMESTAMP;
+
+-- Existing drift is never silently grandfathered. Validation is intentionally
+-- performed after the canonical no-option rows are reconciled; any remaining
+-- invalid legacy commercial data fails the migration for explicit correction.
+ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_nonnegative_price";
+ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_active_price_required";
+ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_zero_price_requires_reason";
+ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_system_price_is_zero";
+ALTER TABLE "MachineCatalogItem" VALIDATE CONSTRAINT "MachineCatalogItem_machineId_fkey";
+ALTER TABLE "MachineCatalogItem" VALIDATE CONSTRAINT "MachineCatalogItem_catalogItemId_fkey";

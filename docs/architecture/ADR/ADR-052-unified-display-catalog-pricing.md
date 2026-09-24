@@ -22,6 +22,8 @@ The reconciliation migration is additive-only and preserves existing tables. It 
 - Zero is allowed only for system/no-option or explicitly free items.
 - System no-option items cannot be deactivated or removed through ordinary Admin Console actions.
 - Admin catalog mutations require an administrator role and write `AuditEvent` evidence.
+- Admin price editing uses one explicit bulk action backed by an atomic audited repository transaction; unsaved UI drafts survive validation/API failures and clear only after authoritative refetch.
+- Admin machine selection and customer preview are read from backend machine/catalog projections; UUID entry and frontend-only preview catalogs are not used.
 - Editing a catalog price changes future quotes only; stored historical snapshots remain immutable.
 - Payment and physical dispense success remain owned by Payment Runtime and Machine Runtime.
 - `frontend/terminal` and `terminal.utimoshi.ru` are not introduced into the canonical branch.

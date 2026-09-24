@@ -27,7 +27,12 @@ export function ProductScreen({ onBack }) {
   const [selectedTopping, setSelectedTopping] = useState(toppings[0].id);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
   const awareness = usePromotionAwareness({ machineId, channel: 'MINI_APP' });
-  const pricing = usePricingQuote({ machineId, channel: 'MINI_APP', productId: product.id, productName: product.name, refreshKey: quoteRefreshKey });
+  const selectedItems = useMemo(() => [
+    { sku: product.sku },
+    { sku: syrups.find((item) => item.id === selectedSyrup)?.sku },
+    { sku: toppings.find((item) => item.id === selectedTopping)?.sku },
+  ].filter((item) => item.sku), [selectedSyrup, selectedTopping]);
+  const pricing = usePricingQuote({ machineId, channel: 'MINI_APP', items: selectedItems, refreshKey: quoteRefreshKey });
   const currentPrice = quotePrice(pricing);
 
   useEffect(() => {

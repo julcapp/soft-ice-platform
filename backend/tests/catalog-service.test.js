@@ -12,10 +12,13 @@ function fixture(items = [item()]) {
   const calls = [];
   const repository = {
     listAll: async () => [...saved.values()],
+    listMachines: async () => [{ id: 'a', machineCode: 'A-01', name: 'Томск' }],
     getItem: async (id) => saved.get(id) || null,
+    hasCurrentFlavorAssignments: async (id) => assignments.some((row) => row.catalogItem.id === id && row.isCurrentFlavor),
     listMachineCatalog: async (machineId) => ({ machine: { id: machineId, name: machineId }, assignments }),
     createItem: async (value) => ({ id: 'created', updatedAt: new Date(), ...value }),
     updateItem: async (id, value, context, action) => { calls.push({ id, value, context, action }); return { ...saved.get(id), ...value }; },
+    updatePrices: async (changes, context) => changes.map((change) => { calls.push({ ...change, context, action: 'CATALOG_PRICE_UPDATED' }); return { ...saved.get(change.id), ...change }; }),
     setAvailability: async (value) => value,
     setCurrentFlavor: async (value) => value,
   };
@@ -63,6 +66,33 @@ test('new catalog price changes future resolution without mutating snapshots', a
   await service.updatePrice('ice-a', { basePrice: 180, currency: 'RUB' }, { actorId: 'admin' });
   assert.deepEqual(calls[0].value, { basePrice: 180, currency: 'RUB' });
   assert.equal(calls[0].action, 'CATALOG_PRICE_UPDATED');
+});
+
+test('bulk prices validate first and update in one repository operation', async () => {
+  const topping = item({ id: 'top', sku: 'top', category: 'TOPPING', basePrice: 20 });
+  const { service, calls } = fixture([item(), topping]);
+  const updated = await service.updatePrices([{ id: 'ice-a', basePrice: 180 }, { id: 'top', basePrice: 25 }], { actorId: 'admin' });
+  assert.deepEqual(updated.map((value) => value.basePrice), [180, 25]);
+  assert.deepEqual(calls.map(({ id, basePrice }) => ({ id, basePrice })), [{ id: 'ice-a', basePrice: 180 }, { id: 'top', basePrice: 25 }]);
+  await assert.rejects(() => service.updatePrices([{ id: 'ice-a', basePrice: 170 }, { id: 'ice-a', basePrice: 175 }]), (error) => error.code === 'CATALOG_PRICE_CHANGES_INVALID');
+});
+
+test('admin status distinguishes missing prices and configuration errors', async () => {
+  const { service } = fixture([
+    item({ id: 'missing', basePrice: null, active: false }),
+    item({ id: 'currency', currency: 'USD' }),
+    item({ id: 'inactive', active: false }),
+  ]);
+  const values = await service.listAll();
+  assert.equal(values.find((value) => value.id === 'missing').configurationStatus, 'MISSING_PRICE');
+  assert.equal(values.find((value) => value.id === 'currency').configurationStatus, 'CONFIG_ERROR');
+  assert.equal(values.find((value) => value.id === 'inactive').configurationStatus, 'INACTIVE');
+});
+
+test('catalog accepts RUB only and blocks deactivation of an assigned current flavor', async () => {
+  const { service } = fixture();
+  await assert.rejects(() => service.updatePrice('ice-a', { basePrice: 180, currency: 'USD' }), (error) => error.code === 'CATALOG_CURRENCY_UNSUPPORTED');
+  await assert.rejects(() => service.updateItem('ice-a', { active: false }), (error) => error.code === 'CATALOG_CURRENT_FLAVOR_DEACTIVATION_BLOCKED');
 });
 
 test('pricing resolution ignores client price and includes configured zero options', async () => {

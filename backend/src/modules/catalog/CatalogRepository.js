@@ -13,8 +13,22 @@ class CatalogRepository {
     });
   }
 
+  listMachines() {
+    return this.prisma.machine.findMany({
+      orderBy: [{ machineCode: 'asc' }, { name: 'asc' }],
+      select: { id: true, machineCode: true, name: true, location: true, status: true },
+    });
+  }
+
   getItem(id) {
     return this.prisma.catalogItem.findUnique({ where: { id } });
+  }
+
+  hasCurrentFlavorAssignments(catalogItemId) {
+    return this.prisma.machineCatalogItem.findFirst({
+      where: { catalogItemId, isCurrentFlavor: true },
+      select: { machineId: true },
+    }).then(Boolean);
   }
 
   async getItemByIdOrSku(value, client = this.prisma) {
@@ -46,9 +60,26 @@ class CatalogRepository {
   updateItem(id, data, context, action = 'CATALOG_ITEM_UPDATED') {
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.catalogItem.findUnique({ where: { id } });
+      if (data.active === false && before?.category === 'ICE_CREAM') {
+        const assignment = await tx.machineCatalogItem.findFirst({ where: { catalogItemId: id, isCurrentFlavor: true }, select: { machineId: true } });
+        if (assignment) throw Object.assign(new Error('Select another current flavor before deactivating this item.'), { code: 'CATALOG_CURRENT_FLAVOR_DEACTIVATION_BLOCKED', statusCode: 409, source: 'catalog' });
+      }
       const item = await tx.catalogItem.update({ where: { id }, data });
       await this._audit(tx, action, context, id, { before: this._safe(before), after: this._safe(item) });
       return item;
+    });
+  }
+
+  updatePrices(changes, context) {
+    return this.prisma.$transaction(async (tx) => {
+      const updated = [];
+      for (const change of changes) {
+        const before = await tx.catalogItem.findUnique({ where: { id: change.id } });
+        const item = await tx.catalogItem.update({ where: { id: change.id }, data: { basePrice: change.basePrice, currency: change.currency } });
+        await this._audit(tx, 'CATALOG_PRICE_UPDATED', context, change.id, { before: this._safe(before), after: this._safe(item), bulk: true });
+        updated.push(item);
+      }
+      return updated;
     });
   }
 

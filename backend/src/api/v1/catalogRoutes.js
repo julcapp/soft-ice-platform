@@ -43,7 +43,9 @@ function createAdminCatalogRouter(dependencies = {}) {
   const service = resolveCatalogService(dependencies);
   router.use(createAdminAuthenticator(dependencies.adminAuth || {}));
   router.get('/items', asyncHandler(async (req, res) => sendData(res, req, await service.listAll())));
+  router.get('/machines', asyncHandler(async (req, res) => sendData(res, req, await service.listMachines())));
   router.post('/items', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.createItem(req.body, context(req)), 201)));
+  router.patch('/items/prices', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.updatePrices(req.body?.changes, context(req)))));
   router.patch('/items/:itemId', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.updateItem(req.params.itemId, req.body, context(req)))));
   router.patch('/items/:itemId/price', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.updatePrice(req.params.itemId, req.body, context(req)))));
   router.put('/machines/:machineId/items/:itemId', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.setAvailability(req.params.machineId, req.params.itemId, req.body?.available, context(req)))));

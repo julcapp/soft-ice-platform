@@ -13,6 +13,10 @@ class CatalogService {
     return items.map((item) => this._present(item));
   }
 
+  listMachines() {
+    return this.repository.listMachines();
+  }
+
   async getMachineCatalog(machineId) {
     if (!machineId) throw this._error('CATALOG_MACHINE_REQUIRED', 'machineId is required.', 400);
     const result = await this.repository.listMachineCatalog(machineId);
@@ -67,6 +71,9 @@ class CatalogService {
     if (existing.systemItem && patch.systemItem === false) throw this._error('CATALOG_SYSTEM_ITEM_PROTECTED', 'System no-option marker cannot be removed.', 409);
     if (existing.systemItem && patch.sku !== undefined && patch.sku !== existing.sku) throw this._error('CATALOG_SYSTEM_ITEM_PROTECTED', 'System no-option SKU cannot be changed.', 409);
     if (existing.systemItem && patch.category !== undefined && String(patch.category).toUpperCase() !== existing.category) throw this._error('CATALOG_SYSTEM_ITEM_PROTECTED', 'System no-option category cannot be changed.', 409);
+    if (patch.active === false && existing.category === 'ICE_CREAM' && await this.repository.hasCurrentFlavorAssignments?.(existing.id)) {
+      throw this._error('CATALOG_CURRENT_FLAVOR_DEACTIVATION_BLOCKED', 'Select another current flavor before deactivating this item.', 409);
+    }
     const data = this._validatedItem({ ...existing, ...patch }, { creating: false, patch });
     return this.repository.updateItem(id, data, context).then((item) => this._present(item));
   }
@@ -74,9 +81,23 @@ class CatalogService {
   async updatePrice(id, { basePrice, currency }, context) {
     const item = await this._required(id);
     const normalized = this._price(basePrice, item.systemItem, item.freeItem);
-    const normalizedCurrency = this._currency(currency || item.currency);
-    if (item.systemItem && normalizedCurrency !== 'RUB') throw this._error('CATALOG_SYSTEM_PRICE_INVALID', 'System no-option item must remain explicitly priced at 0 RUB.', 400);
+    const requestedCurrency = String(currency || item.currency).toUpperCase();
+    if (item.systemItem && requestedCurrency !== 'RUB') throw this._error('CATALOG_SYSTEM_PRICE_INVALID', 'System no-option item must remain explicitly priced at 0 RUB.', 400);
+    const normalizedCurrency = this._currency(requestedCurrency);
     return this.repository.updateItem(id, { basePrice: normalized, currency: normalizedCurrency }, context, 'CATALOG_PRICE_UPDATED').then((value) => this._present(value));
+  }
+
+  async updatePrices(changes, context) {
+    if (!Array.isArray(changes) || changes.length === 0) throw this._error('CATALOG_PRICE_CHANGES_REQUIRED', 'At least one price change is required.', 400);
+    const ids = changes.map((change) => String(change?.id || '').trim());
+    if (ids.some((id) => !id) || new Set(ids).size !== ids.length) throw this._error('CATALOG_PRICE_CHANGES_INVALID', 'Price changes require unique item ids.', 400);
+    const normalized = [];
+    for (let index = 0; index < changes.length; index += 1) {
+      const item = await this._required(ids[index]);
+      normalized.push({ id: item.id, basePrice: this._price(changes[index].basePrice, item.systemItem, item.freeItem, item.active), currency: this._currency(changes[index].currency || item.currency) });
+    }
+    const items = await this.repository.updatePrices(normalized, context);
+    return items.map((item) => this._present(item));
   }
 
   async setAvailability(machineId, catalogItemId, available, context) {
@@ -139,17 +160,32 @@ class CatalogService {
 
   _currency(value) {
     const currency = String(value || '').toUpperCase();
-    if (!/^[A-Z]{3}$/.test(currency)) throw this._error('CATALOG_CURRENCY_INVALID', 'Currency must be a three-letter code.', 400);
+    if (currency !== 'RUB') throw this._error('CATALOG_CURRENCY_UNSUPPORTED', 'Catalog pricing currently supports RUB only.', 400);
     return currency;
   }
 
   _present(item, assignment = null) {
+    const { status: configurationStatus, issues: configurationIssues } = this._configurationStatus(item);
     return {
       ...item,
       basePrice: item.basePrice == null ? null : Number(item.basePrice),
+      configurationStatus,
+      configurationIssues,
       available: assignment ? assignment.available : undefined,
       isCurrentFlavor: assignment ? assignment.isCurrentFlavor : undefined,
     };
+  }
+
+  _configurationStatus(item) {
+    const price = item.basePrice == null ? null : Number(item.basePrice);
+    if (price === null || !Number.isFinite(price) || price < 0) return { status: 'MISSING_PRICE', issues: ['У позиции отсутствует корректная базовая цена.'] };
+    const issues = [];
+    if (item.currency !== 'RUB') issues.push('Поддерживается только валюта RUB.');
+    if (price === 0 && !item.systemItem && !item.freeItem) issues.push('Нулевая цена требует признака системной или бесплатной позиции.');
+    if (item.systemItem && price !== 0) issues.push('Системная позиция должна иметь цену 0 RUB.');
+    if ((item.machines || []).some((entry) => entry.isCurrentFlavor && (!entry.available || item.category !== 'ICE_CREAM' || !item.active))) issues.push('Текущий вкус назначен с несовместимой конфигурацией.');
+    if (issues.length) return { status: 'CONFIG_ERROR', issues };
+    return { status: item.active ? 'ACTIVE' : 'INACTIVE', issues: [] };
   }
 
   _error(code, message, statusCode) {

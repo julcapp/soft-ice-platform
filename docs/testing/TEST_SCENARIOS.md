@@ -558,9 +558,15 @@ Service restart остаётся непроверяемым до durable reposit
 - У machine A и machine B могут быть разные текущие `ICE_CREAM`; на каждом автомате одновременно не более одного текущего вкуса.
 - Клиентские `unitPrice`, `price` и `amount` отбрасываются; quote использует PostgreSQL catalog base prices, после чего Promotion Engine применяет подарок/скидку.
 - Изменение цены в «Каталог и цены» влияет на следующий quote/display response, но не изменяет существующие `PricingQuote`, `PricingSnapshot` и `PricingSnapshotItem`.
+- Изменение нескольких цен помечает строки как несохранённые и отправляет одно явное пакетное сохранение; dirty-state очищается только после успешной backend-транзакции и повторного чтения каталога, а ошибка сохраняет введённые значения.
+- Таблица различает `Активно`, `Неактивно`, `Нет цены` и `Ошибка настройки`; платная позиция с отсутствующей/некорректной ценой не маскируется как неактивная или бесплатная.
+- Фильтры `Все позиции`, `Мороженое`, `Добавки`, `Активные`, `Без цены`, `По аппарату` возвращают ожидаемые строки; аппарат выбирается из backend-списка без ручного UUID.
+- Блок «Что увидит покупатель» читает тот же machine catalog endpoint, что и display, и показывает аппарат, текущий вкус, базовую цену и доступные добавки с пояснением про Pricing/Promotion Engine.
+- Деактивация назначенного текущего вкуса отклоняется; non-RUB catalog price отклоняется до Pricing Engine; legacy CHECK/FK constraints явно валидируются migration и не оставляют некорректные строки grandfathered.
 - Каждая create/update/price/availability/current-flavor mutation создаёт `AuditEvent` с actor и correlation ID.
 - Display fail-closed показывает недоступность покупки при отсутствующем machineId, текущем вкусе, цене или backend catalog response.
 - Один React-поток проверяется в `1920×1080`, `1280×720`, `1080×1920`, `768×1024`; layout меняется CSS media/orientation rules, дублированных экранов нет.
 - Idle возвращается через 120 секунд; сохранены утверждённые idle/home/club/phone/choice/summary/payment тексты и hero asset; phone flow можно пропустить.
+- Idle timeout очищает введённый телефон; Mini App quote включает выбранные add-on SKU и не разрешает checkout по цене только базового мороженого.
 - На payment screen нет cash/coin UI и нет кнопки, способной клиентом подтвердить оплату/выдачу; Payment Runtime и Machine Runtime остаются владельцами успеха.
 - `display.utimoshi.ru` остаётся единственной документированной vending UI точкой; `frontend/terminal` отсутствует.

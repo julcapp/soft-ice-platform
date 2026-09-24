@@ -10,9 +10,12 @@ async function request(path = '', options = {}) {
 
 export const catalogClient = {
   list: ({ signal } = {}) => request('/items', { signal }),
+  listMachines: ({ signal } = {}) => request('/machines', { signal }),
+  getMachineCatalog: (machineId, { signal } = {}) => request(`/machines/${encodeURIComponent(machineId)}`, { signal }),
   create: (item) => request('/items', { method: 'POST', body: JSON.stringify(item) }),
   update: (id, patch) => request(`/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   updatePrice: (id, value) => request(`/items/${encodeURIComponent(id)}/price`, { method: 'PATCH', body: JSON.stringify(value) }),
+  updatePrices: (changes) => request('/items/prices', { method: 'PATCH', body: JSON.stringify({ changes }) }),
   setAvailability: (machineId, itemId, available) => request(`/machines/${encodeURIComponent(machineId)}/items/${encodeURIComponent(itemId)}`, { method: 'PUT', body: JSON.stringify({ available }) }),
   setCurrentFlavor: (machineId, catalogItemId) => request(`/machines/${encodeURIComponent(machineId)}/current-flavor`, { method: 'PUT', body: JSON.stringify({ catalogItemId }) }),
 };
