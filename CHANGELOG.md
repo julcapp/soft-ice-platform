@@ -2,6 +2,7 @@
 
 ## [Unreleased] — Unified display catalog and pricing (issue #17)
 
+- CI blockers inherited from the integration base are removed: Equipment Sandbox now uses the Admin Console's pinned `pnpm@10.15.1`, and YooKassa orchestration is wired to the existing canonical `PaymentAttemptRepository` in both production composition and Promotion E2E.
 - `display.utimoshi.ru` закреплён за единым responsive `frontend/miniapp?mode=terminal`; утверждённые idle/home/club/choice/summary/payment решения и прозрачный hero asset перенесены из reference-ветки без создания второго terminal-приложения.
 - Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.
 - Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.

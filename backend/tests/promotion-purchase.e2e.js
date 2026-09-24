@@ -17,7 +17,7 @@ const { OrderRuntime } = require('../src/modules/order/OrderRuntime');
 const { MachineRepository } = require('../src/modules/machine/MachineRepository');
 const { MachineService } = require('../src/modules/machine/MachineService');
 const { MachineRuntime } = require('../src/modules/machine/MachineRuntime');
-const { PaymentRepository } = require('../src/modules/payment/PaymentRepository');
+const { PaymentAttemptRepository } = require('../src/modules/payment/PaymentAttemptRepository');
 const { PaymentOrchestrator } = require('../src/modules/payment/PaymentOrchestrator');
 
 const integrationTest = process.env.DATABASE_URL ? test : test.skip;
@@ -164,7 +164,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
       getPayment: async (id) => ({ ...providerPayment, id, status: 'succeeded', paid: true }),
     };
     const payments = new PaymentOrchestrator({
-      repository: new PaymentRepository(prisma),
+      repository: new PaymentAttemptRepository(prisma),
       adapter,
       orderRuntime,
       fiftiethPurchaseGiftResolver: giftResolver,

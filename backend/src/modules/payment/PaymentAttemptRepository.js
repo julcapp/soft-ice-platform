@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 
-class PaymentRepository {
+class PaymentAttemptRepository {
   constructor(prisma) {
     if (!prisma) throw new Error('Prisma client is required.');
     this.prisma = prisma;
@@ -59,4 +59,4 @@ class PaymentRepository {
   }
 }
 
-module.exports = { PaymentRepository };
+module.exports = { PaymentAttemptRepository };

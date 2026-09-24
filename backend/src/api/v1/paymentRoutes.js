@@ -4,7 +4,7 @@ const express = require('express');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const { getPrismaClient } = require('../../common/database');
-const { PaymentRepository, PaymentOrchestrator, YooKassaPaymentAdapter } = require('../../modules/payment');
+const { PaymentAttemptRepository, PaymentOrchestrator, YooKassaPaymentAdapter } = require('../../modules/payment');
 const { FiftiethPurchaseGiftResolver } = require('../../modules/promotion_engine');
 
 function resolvePaymentOrchestrator(dependencies = {}) {
@@ -19,7 +19,7 @@ function resolvePaymentOrchestrator(dependencies = {}) {
   const prisma = dependencies.prisma || getPrismaClient();
   const giftResolver = dependencies.giftRewardResolver || new FiftiethPurchaseGiftResolver({ prisma });
   return new PaymentOrchestrator({
-    repository: new PaymentRepository(prisma),
+    repository: new PaymentAttemptRepository(prisma),
     adapter: dependencies.yooKassaPaymentAdapter || new YooKassaPaymentAdapter(),
     orderRuntime: dependencies.orderRuntime,
     fiftiethPurchaseGiftResolver: giftResolver,

@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+const { PaymentAttemptRepository } = require('../src/modules/payment');
 const { PaymentOrchestrator } = require('../src/modules/payment/PaymentOrchestrator');
+const { resolvePaymentOrchestrator } = require('../src/api/v1/paymentRoutes');
 
 function fixture() {
   const order = { id: 'order-1', customerId: 'customer-1', machineId: 'machine-1', status: 'PAYMENT_PENDING', amount: 72, currency: 'RUB' };
@@ -50,4 +52,17 @@ test('verified amount mismatch blocks payment confirmation', async () => {
     (error) => error.code === 'YOOKASSA_AMOUNT_MISMATCH',
   );
   assert.equal(stats().confirmed, 0);
+});
+
+test('production payment orchestration uses the canonical attempt repository', () => {
+  const orchestrator = resolvePaymentOrchestrator({
+    prisma: {},
+    orderRuntime: {},
+    giftRewardResolver: {},
+    yooKassaPaymentAdapter: {},
+  });
+
+  assert.ok(orchestrator.repository instanceof PaymentAttemptRepository);
+  assert.equal(typeof orchestrator.repository.createAttempt, 'function');
+  assert.equal(typeof orchestrator.repository.findByProviderPaymentId, 'function');
 });
