@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-073 — Display Uses One UI and PostgreSQL Catalog Pricing
+
+**Date:** 2026-09-23
+
+**Status:** Accepted
+
+`display.utimoshi.ru` is the only vending-machine customer UI and uses the Mini App terminal mode with one responsive React implementation. PostgreSQL `CatalogItem` / `MachineCatalogItem` own base catalog prices, machine availability and the current flavor. Server pricing resolves those values before Promotion Engine and persists immutable quote/snapshot evidence. Existing production drift is reconciled only through an additive, test-first migration; `feature/terminal-ui-v1` remains a design reference and is not merged as a second application. Details: `docs/architecture/ADR/ADR-052-unified-display-catalog-pricing.md`.
+
 # Decision: DECISION-072 — Gift Invitation Delivery Uses a Dedicated Transactional Outbox Stream
 # Decision: DECISION-071 — Machine Callback Mutation Requires Durable Ownership
 

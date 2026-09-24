@@ -1,0 +1,32 @@
+import React, { useEffect, useState } from 'react';
+import { catalogClient } from './api/catalogClient';
+import { EmptyState, ErrorState, Skeleton, StatusBadge } from './components';
+
+const CATEGORY_LABELS = { ICE_CREAM: 'Мороженое / вкус', SPRINKLE: 'Посыпка', TOPPING: 'Топпинг' };
+const EMPTY_FORM = { category: 'ICE_CREAM', sku: '', nameRu: '', basePrice: '', currency: 'RUB', sortOrder: 0, mediaPath: '', active: true, systemItem: false, freeItem: false };
+
+export function CatalogPricesPage({ client = catalogClient }) {
+  const [state, setState] = useState({ status: 'loading', items: [] });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [machine, setMachine] = useState('');
+  const [busy, setBusy] = useState('');
+  const [notice, setNotice] = useState('');
+  const load = () => client.list().then((items) => setState({ status: 'ready', items })).catch((error) => setState({ status: 'error', items: [], error }));
+  useEffect(() => { load(); }, []);
+  async function run(key, action, success) { setBusy(key); setNotice(''); try { await action(); await load(); setNotice(success); } catch (error) { setNotice(error.message); } finally { setBusy(''); } }
+  async function submit(event) { event.preventDefault(); await run('create', () => client.create({ ...form, basePrice: form.basePrice === '' ? null : Number(form.basePrice), sortOrder: Number(form.sortOrder) }), 'Позиция добавлена и зафиксирована в аудите.'); setForm(EMPTY_FORM); }
+  if (state.status === 'loading') return <Skeleton />;
+  if (state.status === 'error') return <ErrorState />;
+  return <div className="catalog-admin">
+    {notice && <div className="catalog-notice" role="status">{notice}</div>}
+    <section className="card catalog-toolbar"><div><strong>Единый коммерческий каталог</strong><p>Базовая цена хранится в PostgreSQL. Promotion Engine применяется после неё; исторические PricingSnapshot не изменяются.</p></div><label>Machine ID для назначений<input value={machine} onChange={(event) => setMachine(event.target.value)} placeholder="UUID автомата" /></label></section>
+    <section className="card table-card"><div className="card-heading"><h2>Позиции каталога</h2><span>Записей: {state.items.length}</span></div>{!state.items.length ? <EmptyState title="Каталог пока пуст" /> : <div className="table-scroll"><table><thead><tr><th>Категория</th><th>SKU</th><th>Название</th><th>Базовая цена</th><th>Статус</th><th>Тип</th><th>Порядок</th><th>Автоматы</th><th>Изменено</th><th>Действия</th></tr></thead><tbody>{state.items.map((item) => <CatalogRow key={item.id} item={item} machine={machine} client={client} busy={busy} run={run} />)}</tbody></table></div>}</section>
+    <section className="card"><div className="card-heading"><h2>Добавить позицию</h2><span>Коммерческое изменение</span></div><form className="catalog-form" onSubmit={submit}><label>Категория<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Код / SKU<input required value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></label><label>Русское название<input required value={form.nameRu} onChange={(e) => setForm({ ...form, nameRu: e.target.value })} /></label><label>Базовая цена<input min="0" step="0.01" required value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} /></label><label>Валюта<input maxLength="3" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} /></label><label>Порядок<input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></label><label>Медиа-путь<input value={form.mediaPath} onChange={(e) => setForm({ ...form, mediaPath: e.target.value })} placeholder="/media/ice/..." /></label><label className="catalog-check"><input type="checkbox" checked={form.systemItem} onChange={(e) => setForm({ ...form, systemItem: e.target.checked })} />Системная позиция</label><label className="catalog-check"><input type="checkbox" checked={form.freeItem} onChange={(e) => setForm({ ...form, freeItem: e.target.checked })} />Осознанно бесплатная</label><button className="primary-button" disabled={busy === 'create'}>Добавить</button></form></section>
+  </div>;
+}
+
+export function CatalogRow({ item, machine, client, busy, run }) {
+  const [price, setPrice] = useState(item.basePrice ?? '');
+  const key = `item:${item.id}`;
+  return <tr><td>{CATEGORY_LABELS[item.category] || item.category}</td><td><code>{item.sku}</code></td><td>{item.nameRu}</td><td><div className="catalog-price"><input aria-label={`Цена ${item.nameRu}`} min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /><span>{item.currency}</span><button disabled={busy === key} onClick={() => run(key, () => client.updatePrice(item.id, { basePrice: Number(price), currency: item.currency }), 'Цена обновлена. Новые quotes используют новое значение.')}>Сохранить</button></div></td><td><StatusBadge status={item.active ? 'ACTIVE' : 'INACTIVE'} /></td><td>{item.systemItem ? 'Системная' : item.freeItem ? 'Бесплатная' : 'Коммерческая'}</td><td>{item.sortOrder}</td><td>{(item.machines || []).map((entry) => <div key={entry.id}>{entry.machine?.machineCode || entry.machineId} · {entry.available ? 'доступна' : 'скрыта'}{entry.isCurrentFlavor ? ' · текущий вкус' : ''}</div>)}</td><td>{item.updatedAt ? new Date(item.updatedAt).toLocaleString('ru-RU') : '—'}</td><td><div className="catalog-actions"><button disabled={item.systemItem || busy === key} onClick={() => run(key, () => client.update(item.id, { active: !item.active }), item.active ? 'Позиция деактивирована.' : 'Позиция активирована.')}>{item.active ? 'Деактивировать' : 'Активировать'}</button><button disabled={!machine || busy === key} onClick={() => run(key, () => client.setAvailability(machine, item.id, true), 'Позиция назначена автомату.')}>Назначить</button><button disabled={!machine || item.systemItem || busy === key} onClick={() => run(key, () => client.setAvailability(machine, item.id, false), 'Позиция снята с автомата.')}>Убрать</button>{item.category === 'ICE_CREAM' && <button disabled={!machine || busy === key} onClick={() => run(key, () => client.setCurrentFlavor(machine, item.id), 'Текущий вкус автомата обновлён.')}>Текущий вкус</button>}</div></td></tr>;
+}

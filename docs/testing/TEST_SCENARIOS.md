@@ -548,3 +548,19 @@ Service restart остаётся непроверяемым до durable reposit
 - Повтор reconciliation одного snapshot создаёт ровно один manual-review record, audit и outbox event; state/amount mismatch не исправляется автоматически.
 - Failure injection Payment, Order, Sale Flow, Inventory и Outbox подтверждает `NO PARTIAL STATE`.
 - Legacy migration: clean DB, полная chain, пустая legacy Payment, explicit valid mapping и unmapped row. Последняя останавливается до DDL, сохраняя строку и исходную схему.
+
+# Unified Display / Catalog Pricing — issue #17
+
+- Prisma schema содержит `CatalogItem` и `MachineCatalogItem`; migration reconciliation не содержит `DROP`, не создаёт RetailPriceList/Recipe/CatalogPublication и безопасно проходит на clean DB и production-shaped fixture с уже существующими таблицами.
+- Активная коммерческая позиция без `basePrice` не попадает в display catalog и не может участвовать в quote; отрицательная цена отклоняется.
+- Явный 0 разрешён для защищённых «Без посыпки» / «Без топпинга» и осознанно бесплатной позиции; обычный товар с 0 без marker отклоняется.
+- System item нельзя деактивировать или убрать из machine availability через обычный Admin API.
+- У machine A и machine B могут быть разные текущие `ICE_CREAM`; на каждом автомате одновременно не более одного текущего вкуса.
+- Клиентские `unitPrice`, `price` и `amount` отбрасываются; quote использует PostgreSQL catalog base prices, после чего Promotion Engine применяет подарок/скидку.
+- Изменение цены в «Каталог и цены» влияет на следующий quote/display response, но не изменяет существующие `PricingQuote`, `PricingSnapshot` и `PricingSnapshotItem`.
+- Каждая create/update/price/availability/current-flavor mutation создаёт `AuditEvent` с actor и correlation ID.
+- Display fail-closed показывает недоступность покупки при отсутствующем machineId, текущем вкусе, цене или backend catalog response.
+- Один React-поток проверяется в `1920×1080`, `1280×720`, `1080×1920`, `768×1024`; layout меняется CSS media/orientation rules, дублированных экранов нет.
+- Idle возвращается через 120 секунд; сохранены утверждённые idle/home/club/phone/choice/summary/payment тексты и hero asset; phone flow можно пропустить.
+- На payment screen нет cash/coin UI и нет кнопки, способной клиентом подтвердить оплату/выдачу; Payment Runtime и Machine Runtime остаются владельцами успеха.
+- `display.utimoshi.ru` остаётся единственной документированной vending UI точкой; `frontend/terminal` отсутствует.

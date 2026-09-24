@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [Unreleased] — Unified display catalog and pricing (issue #17)
+
+- `display.utimoshi.ru` закреплён за единым responsive `frontend/miniapp?mode=terminal`; утверждённые idle/home/club/choice/summary/payment решения и прозрачный hero asset перенесены из reference-ветки без создания второго terminal-приложения.
+- Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.
+- Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.
+- Admin Console получил русскоязычный раздел «Каталог и цены» с созданием позиций, ценами, activation, machine availability и выбором текущего вкуса; коммерческие mutations аудируются.
+- Добавлены fail-closed проверки отсутствующей цены, защищённые нулевые no-option items, unit-тесты и acceptance-сценарии четырёх terminal viewport.
+- Удалён устаревший client-priced `SalesTerminalService`; terminal UI принимает коммерческую сумму только из серверного `PricingQuote` и отклоняет неполный денежный response.
+- Production, DNS/Nginx/systemd и реальные миграции не изменялись; применение миграции требует отдельной test-DB репетиции и release approval.
+
 ## [Unreleased] — Gift Notification Outbox review hardening
 ## 2026-08-25 — Machine/Inventory crash-restart verification hardening
 

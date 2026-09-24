@@ -24,6 +24,7 @@ import { PrivateChannelRecoveryPage } from './PrivateChannelRecovery';
 import { PromotionEnginePage } from './PromotionEngine';
 import { PaymentsPage } from './Payments';
 import { MachineDispensesPage } from './MachineDispenses';
+import { CatalogPricesPage } from './CatalogPrices';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -39,6 +40,7 @@ export function Dashboard({ data }) {
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Бизнес-статистика</strong><p style={{ margin: '6px 0 0' }}>Пользователи, клуб, рефералы, подписки, продажи и незабранные заказы.</p></div><a className="text-button" href="#business-analytics">Открыть бизнес-дашборд</a></section>
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Пользователи</strong><p style={{ margin: '6px 0 0' }}>Единая таблица пользователей и глубокие карточки Customer 360°.</p></div><a className="text-button" href="#users">Открыть пользователей</a></section>
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Приватные подписки</strong><p style={{ margin: '6px 0 0' }}>Recovery автопродлений Telegram / MAX, grace period и проблемы доступа.</p></div><a className="text-button" href="#private-channel-recovery">Открыть recovery</a></section>
+    <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Каталог и цены</strong><p style={{ margin: '6px 0 0' }}>Базовые цены, вкусы и доступность ассортимента по автоматам.</p></div><a className="text-button" href="#catalog-prices">Открыть каталог</a></section>
     <section className="card" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}><div><strong>Проверка и публикация фотографий</strong><p style={{ margin: '6px 0 0' }}>AI-модерация, антидубли и публикации VK / Telegram / MAX.</p></div><div><a className="text-button" href="#photo-verification">Открыть модерацию</a> <a className="text-button" href="#photo-verification-readiness">Проверить readiness</a></div></section>
     <AlertPanel alerts={critical} />
     <section className="statistics" aria-label="Статистика за сегодня">
@@ -83,6 +85,8 @@ export function App({ client = getDashboard }) {
   const photoReadinessRoute = route === 'photo-verification-readiness';
   const businessAnalyticsRoute = route === 'business-analytics';
   const privateChannelRecoveryRoute = route === 'private-channel-recovery';
+  const catalogRoute = route === 'catalog-prices';
+  if (catalogRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Каталог и цены" copy="Единый каталог, базовые цены и доступность по автоматам. Все изменения аудируются." editable /><CatalogPricesPage /></AppShell>;
   if (machineDispensesRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="втоматы" title="ыдачи аппаратов" copy="изические операции, callback и сверка. Только чтение; опасного повтора выдачи нет." /><MachineDispensesPage /></AppShell>;
   if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PaymentsPage /></AppShell>;
   if (promotionRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Promotion Engine" copy="Управление акциями, безопасностью, согласованием, каналами и аналитикой." editable /><PromotionEnginePage /></AppShell>;
