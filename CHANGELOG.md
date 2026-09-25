@@ -625,3 +625,10 @@
 
 - реальные Telegram/MAX-отправители не включены;
 - production не изменён и требует отдельного применения миграции и приёмки.
+
+# 2026-09-25 — Catalog / price / display migration rehearsal
+
+- Added a guarded PostgreSQL rehearsal harness for `20260923000100_catalog_price_reconciliation_v1` with fixture and custom-format backup modes.
+- Added before/after schema, migration, row-count, null-price, pricing-history fingerprint, and constraint evidence collection.
+- Added full backend/Admin/Mini App verification orchestration without production access, deployment, payments, or machine dispense.
+- Added an explicit production-shaped backup contract, restore-only recovery plan, and separate GO/NO-GO report/checklist.
