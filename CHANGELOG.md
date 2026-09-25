@@ -632,3 +632,5 @@
 - Added before/after schema, migration, row-count, null-price, pricing-history fingerprint, and constraint evidence collection.
 - Added full backend/Admin/Mini App verification orchestration without production access, deployment, payments, or machine dispense.
 - Added an explicit production-shaped backup contract, restore-only recovery plan, and separate GO/NO-GO report/checklist.
+- Rehearsed the checksum-verified `utimoshi_crm_v036_stage` staging-shaped backup in an isolated PostgreSQL 16 cluster; the target migration passed while the next stage remained `NO-GO` because of three missing canonical migration directories, absent commercial catalog/current flavor data, and safety-skipped SQL-`DROP` payment tests.
+- Hardened Backup mode for pre-target databases where catalog tables do not yet exist, added machine/current-flavor fingerprints, switched frontend verification to the declared `pnpm@10.15.1`, and made safety skips explicit.

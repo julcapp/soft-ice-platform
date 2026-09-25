@@ -2,101 +2,95 @@
 
 ## Result
 
-**Fixture rehearsal: PASS. Production release: NO-GO.**
+**Migration: PASS. Next stage: NO-GO.**
 
-The canonical migration and all automated verification passed in an isolated local PostgreSQL cluster. No real pre-target production-shaped backup is present locally, so this result proves the harness and synthetic drift scenario only. Production was not contacted or changed.
+The checksum-verified staging-shaped backup from `utimoshi_crm_v036_stage` restored into an isolated local PostgreSQL 16 cluster and accepted `20260923000100_catalog_price_reconciliation_v1`. Schema/data preservation assertions, catalog/pricing integration, Admin Console tests/build, and Mini App/display build passed. The next stage remains blocked by migration-history drift, an unconfigured commercial machine catalog/current flavor, and 27 PostgreSQL payment tests that cannot run under the rehearsal's explicit no-`DROP` rule.
 
-## Environment
+Production and `78.140.15.84` were not contacted or changed. No deploy, real payment, or physical dispense occurred.
 
-- Branch: `release/display-catalog-rehearsal-v1`
-- Base/HEAD at start: `e257415ab7c81e4f17f45064e91147180f878eca`
-- PostgreSQL server: `16.15`
-- Isolated listener: `127.0.0.1:55432`
-- Successful database: `soft_ice_rehearsal_fixture_20260925_v2`
-- Evidence directory: `.tmp/catalog-rehearsal/soft_ice_rehearsal_fixture_20260925_v2/` (local and ignored)
-- Production-shaped backup: absent
-- Production/DNS/Nginx/systemd/deploy activity: none
-- Real payments / physical dispense: none
+## Backup and environment
 
-## Migrations before / after
+- Backup: external secure path supplied by the operator; not copied into Git.
+- SHA-256: `9D5D761990FDEF040FE5456BCF0B911D9C50994E18CDC01B94C9DEC42D9FA440` — PASS.
+- Archive: PostgreSQL custom format, 1075 TOC entries, gzip compression.
+- Archive created: `2026-09-22 06:16:33` from `utimoshi_crm_v036_stage`.
+- Dumped from/by PostgreSQL `16.14`; restore client/server `16.15`.
+- Branch/HEAD at start: `release/display-catalog-rehearsal-v1` / `c38d229`.
+- Successful evidence database: `soft_ice_rehearsal_stage_20260925_v3`.
+- Evidence: `.tmp/catalog-rehearsal/soft_ice_rehearsal_stage_20260925_v3/` (local, ignored, retained).
+- Earlier failed harness-evidence databases: `..._v1` and `..._v2`; retained, not reset or dropped.
 
-- Before: 63 canonical migrations, ending at `20260908000100_gift_notification_outbox_v1`.
-- Applied: `20260923000100_catalog_price_reconciliation_v1` through `prisma migrate deploy`.
-- After: 64 canonical migrations, ending at `20260923000100_catalog_price_reconciliation_v1`.
-- Result: PASS; no `db push`, reset, `DROP`, or `TRUNCATE` was used.
+## Migration chain and drift
 
-The complete timestamped before/after lists and schema-only dumps are retained in the evidence directory.
+- Backup before target: 66 completed migration rows.
+- Repository: 64 migration directories including the target.
+- Applied in rehearsal: `20260923000100_catalog_price_reconciliation_v1`.
+- After: 67 completed migration rows.
+- `prisma migrate status` reports the schema up to date, but an explicit name comparison found three applied staging migrations absent from the branch:
+  - `20260911000100_admin_owner_auth_v1`
+  - `20260911093000_admin_security_otp_v1`
+  - `20260911104500_admin_max_security_link_v1`
 
-## Row counts before / after
+This is migration-history drift. It was not repaired or marked resolved. Safe correction: locate the exact canonical SQL/checksums and source commits for these three migrations, restore those migration directories to the task branch through normal review, then repeat the rehearsal from a newly restored database. Do not edit `_prisma_migrations` or the source backup.
+
+## Before / after data
 
 | Relation | Before | After | Result |
 |---|---:|---:|---|
-| `CatalogItem` | 7 | 7 | preserved; two legacy no-option rows reconciled in place |
-| `MachineCatalogItem` | 6 | 6 | preserved |
-| `PricingQuote` | 1 | 1 | preserved |
-| `PricingSnapshot` | 1 | 1 | preserved |
-| `PricingSnapshotItem` | 3 | 3 | preserved |
+| `Machine` | 1 | 1 | row and fingerprint preserved |
+| `CatalogItem` | absent / 0 | 2 | only protected no-option rows created |
+| `MachineCatalogItem` | absent / 0 | 0 | table created; no assignment invented |
+| current-flavor assignments | 0 | 0 | unchanged; operational blocker |
+| `PricingQuote` | 33 | 33 | fingerprint unchanged |
+| `PricingSnapshot` | 33 | 33 | fingerprint unchanged |
+| `PricingSnapshotItem` | 33 | 33 | fingerprint unchanged |
 
-## Constraint and data results
+Pricing fingerprints before/after were identical:
 
-- `CatalogItem` and `MachineCatalogItem` tables reconciled successfully.
-- `sprinkle_none` and `topping_none` became active protected system items with explicit `0 RUB`.
-- The inactive commercial fixture row with `null` price remained `null`; no commercial null-to-zero substitution occurred.
-- Historical `PricingQuote`, `PricingSnapshot`, and `PricingSnapshotItem` row fingerprints were identical before/after.
-- Machine A retained vanilla as current flavor; Machine B retained chocolate as current flavor.
-- The one-current-flavor unique index is present.
-- Active `null` price and unmarked commercial zero-price inserts were rejected by validated checks.
-- Foreign keys from machine catalog to machine/catalog are validated.
+- `PricingQuote`: `fdada97446c1fa9953baf59013e6688b`
+- `PricingSnapshot`: `09a0530bc42c604af6f081be944a0d13`
+- `PricingSnapshotItem`: `1fd4cbb855289834002121d00de41f71`
+
+There were no pre-existing commercial catalog rows, so there were no commercial `null` prices to transform; the commercial-null identity set remained empty. The migration created only `sprinkle_none` and `topping_none`, both active protected system items at explicit `0 RUB`.
+
+## Schema and constraints
+
+- `CatalogCategory`, `CatalogItem`, and `MachineCatalogItem` were added.
+- Schema diff: 121 inserted lines and 2 changed lines in the schema-only snapshot.
+- All eight catalog/machine constraints are validated.
+- Foreign keys to `Machine` and `CatalogItem` are validated with `RESTRICT` delete behavior.
+- `MachineCatalogItem_one_current_flavor_idx` exists and is partial/unique.
+- Invalid active-null and unmarked commercial zero-price inserts were rejected inside rollback-safe assertion blocks.
+- Existing `Machine` and historical pricing fingerprints were unchanged.
 
 ## Tests and builds
 
 | Check | Result |
 |---|---|
-| Full backend suite on isolated PostgreSQL | PASS — 609/609 tests, 0 failed, 0 skipped |
-| Admin Console tests | PASS — 33/33 tests in 15 files |
-| Admin Console build | PASS |
-| Mini App / display build | PASS |
-| PowerShell parser for all rehearsal scripts | PASS |
+| Backend Prisma merge check | PASS |
+| Backend suite excluding the SQL-`DROP` payment file | PASS — 584/584 |
+| `postgresPayment.test.js` | SAFETY SKIP — 27/27 skipped; its cleanup executes forbidden `DROP TRIGGER/FUNCTION` |
+| PostgreSQL catalog/pricing integration | PASS — 1/1 |
+| Admin Console tests, including «Каталог и цены» | PASS — 33/33 in 15 files |
+| Admin Console build (`pnpm@10.15.1`) | PASS |
+| Mini App/display build (`pnpm@10.15.1`) | PASS |
+| Rehearsal PowerShell parser | PASS |
 
-Coverage exercised machine-specific current flavors, protected no-option rows, historical snapshot immutability, server-authoritative pricing, add-ons and Promotion Engine. Admin coverage exercised atomic bulk save, dirty state, API failure retention, explicit invalid-price validation retention, and customer preview from the backend machine catalog.
+The passing backend coverage includes server-authoritative pricing, add-ons, Promotion Engine, protected no-option behavior, machine-specific current-flavor contracts, and historical snapshot immutability. No external payment provider or equipment command was invoked.
 
-## Problems found
+## Blockers and decision
 
-1. The first fixture run correctly failed because the harness initially compared all pre-migration null-price IDs, including legacy `topping_none`, which the migration is required to reconcile from `null` to `0 RUB`. The comparison now excludes only the two protected no-option SKUs and still proves preservation of every commercial null-price row. The failed database was retained and a new database was used for the successful run.
-2. No real pre-target production-shaped backup is available locally. Fixture success cannot authorize production release.
-3. Docker Desktop was unavailable. A separate repository-local PostgreSQL 16 cluster was used instead; no existing database was reused.
+1. **Migration-history drift:** three completed staging migrations are absent from the branch migration directory.
+2. **Catalog readiness:** the staging-shaped data has one machine but no commercial catalog item and no current flavor. The migration correctly refuses to invent business assignments, so display is not operational from this data alone.
+3. **Full backend database pass incomplete:** 27 payment PostgreSQL tests are safety-skipped because executing them would violate the explicit no-`DROP` requirement.
 
-## Rollback / restore plan
+Therefore the migration execution itself is **PASS**, but the next release stage is **NO-GO**. Rehearse again only after the three canonical migration directories are restored and an approved, audited catalog/current-flavor initialization plan exists. Resolve the payment-test conflict either by Product Owner approval for those isolated `DROP TRIGGER/FUNCTION` cleanup statements or by a separately reviewed non-destructive test-harness change.
 
-1. Preserve a failed rehearsal database and its evidence unchanged.
-2. Create a new uniquely named `soft_ice_rehearsal_*` database; never reset, truncate, or drop the failed copy.
-3. Restore the same checksum-verified pre-target custom-format backup into the new database.
-4. Confirm the pre-target migration head, schema, row counts, commercial null-price IDs, and pricing-history fingerprints.
-5. Re-run the full harness and stop on any failed migration, assertion, suite, or build.
-6. A future production cutback requires separate approval and must restore into a new database/cluster with controlled application cutback. This harness never changes production.
+## Safety record
 
-## Backup required for the final rehearsal
-
-Provide an encrypted PostgreSQL custom-format backup captured by an authorized operator from a read-only production snapshot/replica immediately before the target migration. It must contain all schemas/data, `_prisma_migrations`, catalog/machine/pricing history and dependencies, plus its SHA-256 checksum, capture time, PostgreSQL version, pre-target migration head, and operator identity. Store and transfer it outside Git through an approved access-controlled channel.
-
-Exact capture and restore instructions are in `docs/testing/CATALOG_PRICE_DISPLAY_MIGRATION_REHEARSAL.md`.
-
-## Future production GO / NO-GO checklist
-
-- [ ] Real pre-target production-shaped backup obtained from an authorized read-only snapshot/replica.
-- [ ] Backup checksum, capture time, server version, migration head, and operator recorded.
-- [ ] Backup restored into access-controlled non-production PostgreSQL.
-- [ ] Canonical chain applies through `20260923000100_catalog_price_reconciliation_v1`.
-- [ ] Before/after migrations, schema, and row counts reviewed.
-- [ ] `sprinkle_none` and `topping_none` are protected `0 RUB` system items.
-- [ ] Commercial `null` prices remain `null`; no null-to-zero substitution occurred.
-- [ ] Historical `PricingQuote`, `PricingSnapshot`, and `PricingSnapshotItem` fingerprints are unchanged.
-- [ ] Different machines retain valid independent current flavors.
-- [ ] Admin bulk save, dirty-state, validation errors, and customer preview pass.
-- [ ] Server-authoritative price, add-ons, and Promotion Engine pass.
-- [ ] Full backend suite passes.
-- [ ] Admin Console tests/build pass.
-- [ ] Mini App/display build passes.
-- [ ] No real payment or physical dispense was invoked.
-- [ ] Restore/cutback drill reviewed.
-- [ ] Product Owner separately approves production release.
+- No production database connection.
+- `78.140.15.84` unchanged.
+- No `db push`, reset, database/table `DROP`, or `TRUNCATE`.
+- No deployment, real payment, or physical dispense.
+- Backup remained outside Git and unchanged.
+- Failed/superseded rehearsal databases and evidence were retained rather than repaired in place.

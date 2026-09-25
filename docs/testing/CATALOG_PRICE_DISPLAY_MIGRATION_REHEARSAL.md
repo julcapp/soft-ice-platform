@@ -52,9 +52,9 @@ The fixture applies every canonical migration before the target, creates a delib
 
 Fixture facts are synthetic and must never be described as production data. Fixture success remains `NO-GO` for production.
 
-## Final production-shaped rehearsal
+## Backup-mode rehearsal
 
-The required backup is a PostgreSQL custom-format logical backup from an authorized read-only production snapshot or replica taken immediately before the target migration. It must include:
+Use a PostgreSQL custom-format logical backup from the explicitly authorized environment. Record its environment accurately (for example, staging-shaped); do not describe a staging backup as production. It must include:
 
 - all application schemas and data, not only catalog tables;
 - `_prisma_migrations` with the complete pre-target chain;
@@ -96,6 +96,8 @@ Each run writes ignored evidence under `.tmp/catalog-rehearsal/<database-name>/`
 - migration, backend test, Admin Console test/build, and Mini App/display build logs;
 - `REHEARSAL_REPORT.md` with problems, restore plan, and GO/NO-GO checklist.
 
+Backup mode also compares completed `_prisma_migrations` names with repository migration directories before applying anything new. Any applied migration missing from the repository is written to `migration-drift.txt` and stops the run; the harness never edits the backup or `_prisma_migrations` to conceal drift.
+
 The assertions prove:
 
 1. `sprinkle_none` and `topping_none` are active protected system items with explicit `0 RUB`;
@@ -112,4 +114,6 @@ The assertions prove:
 
 Never repair a failed rehearsal database in place. Retain it and its evidence, create another uniquely named database, and restore the same verified backup again. The harness intentionally has no cleanup command because `DROP`, `TRUNCATE`, reset, and destructive rollback are outside this task.
 
-Production remains `NO-GO` until the backup-mode report is fully green, a restore/cutback drill is reviewed, and the Product Owner separately approves release. This rehearsal does not authorize merge or deployment.
+The next stage remains `NO-GO` until the backup-mode report is fully green, migration-history drift is absent, a restore/cutback drill is reviewed, and the Product Owner separately approves release. This rehearsal does not authorize merge or deployment.
+
+If a database-backed test contains `DROP` or `TRUNCATE` cleanup while the rehearsal forbids those statements, do not run it against the restored database. Record the test as a safety skip and keep the decision at `NO-GO`; do not hide the skip inside a green aggregate.

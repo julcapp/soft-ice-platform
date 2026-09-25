@@ -15,7 +15,7 @@
 11. Run the full backend suite, Admin Console tests/build, and Mini App/display build.
 12. Produce a report with PostgreSQL version, migrations/counts before/after, constraints, test results, problems, restore plan, and GO/NO-GO checklist.
 
-Expected result: fixture mode proves mechanics but remains production `NO-GO`; only a fully green backup-mode rehearsal from an authorized pre-target production-shaped snapshot can become a GO candidate for separate release approval. No production connection, deployment, real payment, or physical dispense occurs.
+Expected result: fixture mode proves mechanics but remains `NO-GO`; only a fully green backup-mode rehearsal from an accurately identified authorized environment, with no migration-history drift or safety-skipped required tests, can become a GO candidate for separate release approval. No production connection, deployment, real payment, or physical dispense occurs.
 
 ## Bot Core — безопасная доставка приглашения о подарке
 
