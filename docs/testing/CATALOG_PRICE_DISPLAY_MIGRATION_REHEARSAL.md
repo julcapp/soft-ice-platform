@@ -89,6 +89,7 @@ Each run writes ignored evidence under `.tmp/catalog-rehearsal/<database-name>/`
 - PostgreSQL server version;
 - before/after schema-only dumps;
 - before/after `_prisma_migrations` lists;
+- repository SQL SHA-256 comparison against the recorded backup migration checksums for the restored canonical Admin migrations;
 - before/after row counts;
 - before/after IDs whose catalog price is `null`;
 - immutable fingerprints for `PricingQuote`, `PricingSnapshot`, and `PricingSnapshotItem`;
@@ -96,7 +97,7 @@ Each run writes ignored evidence under `.tmp/catalog-rehearsal/<database-name>/`
 - migration, backend test, Admin Console test/build, and Mini App/display build logs;
 - `REHEARSAL_REPORT.md` with problems, restore plan, and GO/NO-GO checklist.
 
-Backup mode also compares completed `_prisma_migrations` names with repository migration directories before applying anything new. Any applied migration missing from the repository is written to `migration-drift.txt` and stops the run; the harness never edits the backup or `_prisma_migrations` to conceal drift.
+Backup mode also compares completed `_prisma_migrations` names with repository migration directories before applying anything new. Any applied migration missing from the repository is written to `migration-drift.txt` and stops the run. It then compares the repository SQL SHA-256 for `20260911000100_admin_owner_auth_v1`, `20260911093000_admin_security_otp_v1`, and `20260911104500_admin_max_security_link_v1` with the checksums already recorded in the restored backup and writes `migration-checksums.txt`. Any mismatch stops the run before the target migration; the harness never replaces SQL or edits the backup or `_prisma_migrations` to conceal drift.
 
 The assertions prove:
 

@@ -16,6 +16,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $targetMigration = '20260923000100_catalog_price_reconciliation_v1'
+$requiredBackupChecksumMigrations = @(
+  '20260911000100_admin_owner_auth_v1',
+  '20260911093000_admin_security_otp_v1',
+  '20260911104500_admin_max_security_link_v1'
+)
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $backendRoot = Join-Path $repoRoot 'backend'
 $migrationRoot = Join-Path $backendRoot 'prisma\migrations'
@@ -274,6 +279,26 @@ try {
     if ($missingFromRepository.Count) {
       throw "Backup migration history contains applied migrations missing from the repository: $($missingFromRepository -join ', '). Restore the exact canonical migration directories and rehearse in a new database; do not edit the backup or _prisma_migrations."
     }
+
+    $checksumEvidence = @("migration_name`tbackup_checksum`trepository_sha256`tmatch")
+    $checksumMismatches = @()
+    foreach ($migrationName in $requiredBackupChecksumMigrations) {
+      $migrationSqlPath = Join-Path $migrationRoot "$migrationName\migration.sql"
+      if (-not (Test-Path -LiteralPath $migrationSqlPath -PathType Leaf)) {
+        $checksumEvidence += "$migrationName`tMISSING`tMISSING`tfalse"
+        $checksumMismatches += $migrationName
+        continue
+      }
+      $backupChecksum = Invoke-PsqlScalar $DatabaseName "SELECT COALESCE((SELECT `"checksum`" FROM `"_prisma_migrations`" WHERE `"migration_name`" = '$migrationName' AND `"finished_at`" IS NOT NULL), 'MISSING');"
+      $repositoryChecksum = (Get-FileHash -LiteralPath $migrationSqlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+      $checksumMatches = $backupChecksum -eq $repositoryChecksum
+      $checksumEvidence += "$migrationName`t$backupChecksum`t$repositoryChecksum`t$($checksumMatches.ToString().ToLowerInvariant())"
+      if (-not $checksumMatches) { $checksumMismatches += $migrationName }
+    }
+    $checksumEvidence | Set-Content -Path (Join-Path $outputRoot 'migration-checksums.txt') -Encoding utf8
+    if ($checksumMismatches.Count) {
+      throw "Backup migration checksum mismatch for: $($checksumMismatches -join ', '). Stop without applying new migrations; do not replace repository SQL or edit _prisma_migrations."
+    }
   }
 
   $env:DATABASE_URL = $targetDatabaseUrl
@@ -383,6 +408,12 @@ $(Get-Content -Raw (Join-Path $outputRoot 'after-row-counts.txt'))
 - Invalid active-null and unmarked-zero inserts rejected: PASS.
 
 See constraints.txt, schema snapshots, fingerprints, and migration logs in this evidence directory.
+
+## Restored migration checksums
+
+``````text
+$(if ($Mode -eq 'Backup') { Get-Content -Raw (Join-Path $outputRoot 'migration-checksums.txt') } else { 'Not applicable in fixture mode.' })
+``````
 
 ## Tests and builds
 
