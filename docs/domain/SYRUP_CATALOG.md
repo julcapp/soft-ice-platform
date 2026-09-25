@@ -85,3 +85,7 @@ Syrup Catalog описывает сиропы, доступные для выб�
 - `docs/domain/TOPPING_CATALOG.md`
 - `docs/domain/PRODUCT_IMAGE_MODEL.md`
 - `docs/design/PHOTO_STANDARD.md`
+
+## 8. Runtime status
+
+В каноническом display v1 пользовательский выбор разделён на `SPRINKLE` и `TOPPING`. Исторический Syrup Catalog остаётся доменным справочником для будущего расширения, но не является отдельным источником цены и не публикуется в текущий machine catalog без нового согласованного значения `CatalogCategory`.

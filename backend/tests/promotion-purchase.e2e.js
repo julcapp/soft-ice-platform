@@ -17,12 +17,12 @@ const { OrderRuntime } = require('../src/modules/order/OrderRuntime');
 const { MachineRepository } = require('../src/modules/machine/MachineRepository');
 const { MachineService } = require('../src/modules/machine/MachineService');
 const { MachineRuntime } = require('../src/modules/machine/MachineRuntime');
-const { PaymentRepository } = require('../src/modules/payment/PaymentRepository');
+const { PaymentAttemptRepository } = require('../src/modules/payment/PaymentAttemptRepository');
 const { PaymentOrchestrator } = require('../src/modules/payment/PaymentOrchestrator');
 
 const integrationTest = process.env.DATABASE_URL ? test : test.skip;
 
-integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense request', async () => {
+integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook', async () => {
   const prisma = new PrismaClient();
   const suffix = crypto.randomUUID();
   const customerId = `e2e_customer_${suffix}`;
@@ -164,7 +164,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
       getPayment: async (id) => ({ ...providerPayment, id, status: 'succeeded', paid: true }),
     };
     const payments = new PaymentOrchestrator({
-      repository: new PaymentRepository(prisma),
+      repository: new PaymentAttemptRepository(prisma),
       adapter,
       orderRuntime,
       fiftiethPurchaseGiftResolver: giftResolver,
@@ -199,9 +199,7 @@ integrationTest('E2E: 50th purchase + Happy Hour + YooKassa webhook + dispense r
     assert.equal(counter.completedPurchases, 50);
     assert.equal(counter.lastCompletedOrderId, storedOrder.id);
     assert.equal(reservation.status, 'CONSUMED');
-    assert.ok(dispense);
-    assert.equal(dispense.state, 'REQUESTED');
-    assert.equal(dispense.machineId, machineId);
+    assert.equal(dispense, null, 'payment confirmation must not recreate the disabled legacy dispense path');
     assert.equal(succeededAttempt.status, 'SUCCEEDED');
   } finally {
     await prisma.$disconnect();

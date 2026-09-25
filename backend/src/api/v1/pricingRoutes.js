@@ -5,6 +5,7 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { ApiError } = require('../../platform/errors/ApiError');
 const { getPrismaClient } = require('../../common/database');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
+const { CatalogRepository, CatalogService } = require('../../modules/catalog');
 const {
   PricingEngineService,
   PricingRepository,
@@ -45,7 +46,10 @@ function resolveAnalyticsService(dependencies = {}) {
 }
 
 function resolveServerProductPricing(dependencies = {}) {
-  return dependencies.serverProductPricingResolver || new ServerProductPricingResolver();
+  if (dependencies.serverProductPricingResolver) return dependencies.serverProductPricingResolver;
+  const prisma = dependencies.prisma || getPrismaClient();
+  const catalogService = dependencies.catalogService || new CatalogService({ repository: new CatalogRepository(prisma) });
+  return new ServerProductPricingResolver({ catalogService });
 }
 
 function optionalCustomerAuth(authCoreService) {
@@ -111,7 +115,7 @@ function createPricingRouter(dependencies = {}) {
     const requestedItems = Array.isArray(req.body?.items)
       ? req.body.items.map(({ unitPrice, price, amount, serverProductType, giftEligible, ...safe }) => safe)
       : req.body?.items;
-    const serverItems = await serverProductPricing.resolveItems(requestedItems);
+    const serverItems = await serverProductPricing.resolveItems(requestedItems, { machineId: req.body?.machineId });
     const quote = await service.createQuote({ customerId, machineId: req.body?.machineId, channel: req.body?.channel, items: serverItems });
     return sendData(res, req, quote, 201);
   }));

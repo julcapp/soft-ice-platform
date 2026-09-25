@@ -26,6 +26,12 @@ enum MachineStatus {
   ERROR
 }
 
+enum CatalogCategory {
+  ICE_CREAM
+  SPRINKLE
+  TOPPING
+}
+
 enum OrganizationStatus {
   ACTIVE
   SUSPENDED
@@ -761,6 +767,44 @@ model Machine {
   giftRewardReservations       GiftRewardReservation[]
   machineDispenseAttempts      MachineDispenseAttempt[]
   machineCallbackInboxes       MachineCallbackInbox[]
+  catalogItems                 MachineCatalogItem[]
+}
+
+model CatalogItem {
+  id            String          @id @default(uuid())
+  sku           String          @unique
+  category      CatalogCategory
+  nameRu        String
+  descriptionRu String?
+  basePrice     Decimal?        @db.Decimal(12, 2)
+  currency      String          @default("RUB")
+  active        Boolean         @default(true)
+  systemItem    Boolean         @default(false)
+  freeItem      Boolean         @default(false)
+  sortOrder     Int             @default(0)
+  mediaPath     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  machines MachineCatalogItem[]
+
+  @@index([category, active, sortOrder])
+}
+
+model MachineCatalogItem {
+  id              String   @id @default(uuid())
+  machineId       String
+  catalogItemId   String
+  available       Boolean  @default(true)
+  isCurrentFlavor Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  machine     Machine     @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
+
+  @@unique([machineId, catalogItemId])
+  @@index([machineId, available])
 }
 
 model Organization {

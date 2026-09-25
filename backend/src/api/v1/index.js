@@ -55,6 +55,7 @@ const { createPrivateChannelRouter } = require('./privateChannelRoutes');
 const { createAdminPrivateChannelRouter } = require('./adminPrivateChannelRoutes');
 const { createPromotionAdminRouter } = require('./promotionRoutes');
 const { createPricingRouter } = require('./pricingRoutes');
+const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRoutes');
 const { createPaymentRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: paymentwebhookrouter } = require('./paymentlifecycleroutes');
@@ -103,6 +104,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/machine', createMachineGatewayRouter(runtimeDependencies));
   router.use('/orders', createOrderRouter(runtimeDependencies));
   router.use('/pricing', createPricingRouter(runtimeDependencies));
+  router.use('/catalog', createCatalogRouter(runtimeDependencies));
+  router.use('/admin/catalog', createAdminCatalogRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
   router.use('/admin/payments', adminpaymentrouter(runtimeDependencies));
   router.use('/webhooks/payments', paymentwebhookrouter(runtimeDependencies));

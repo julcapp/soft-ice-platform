@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## [Unreleased] — Unified display catalog and pricing (issue #17)
+
+- CI blockers inherited from the integration base are removed: Equipment Sandbox now uses the Admin Console's pinned `pnpm@10.15.1`, YooKassa orchestration is wired to the existing canonical `PaymentAttemptRepository`, and Promotion E2E no longer expects payment confirmation to recreate the disabled legacy dispense path.
+- `display.utimoshi.ru` закреплён за единым responsive `frontend/miniapp?mode=terminal`; утверждённые idle/home/club/choice/summary/payment решения и прозрачный hero asset перенесены из reference-ветки без создания второго terminal-приложения.
+- Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.
+- Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.
+- Admin Console получил русскоязычный раздел «Каталог и цены» с созданием позиций, ценами, activation, machine availability и выбором текущего вкуса; коммерческие mutations аудируются.
+- Review acceptance для «Каталог и цены»: добавлены одно пакетное сохранение цен, устойчивый dirty-state, четыре статуса конфигурации, шесть фильтров, backend machine selector и customer preview из канонического display catalog.
+- Усилены catalog/pricing границы: только RUB до расширения Pricing Engine, запрет деактивации назначенного current flavor и явная validation legacy CHECK/FK constraints после reconciliation.
+- Mini App quote теперь включает выбранные добавки, а terminal idle reset очищает введённый телефон.
+- Добавлены fail-closed проверки отсутствующей цены, защищённые нулевые no-option items, unit-тесты и acceptance-сценарии четырёх terminal viewport.
+- Удалён устаревший client-priced `SalesTerminalService`; terminal UI принимает коммерческую сумму только из серверного `PricingQuote` и отклоняет неполный денежный response.
+- Production, DNS/Nginx/systemd и реальные миграции не изменялись; применение миграции требует отдельной test-DB репетиции и release approval.
+
 ## [Unreleased] — Gift Notification Outbox review hardening
 ## 2026-08-25 — Machine/Inventory crash-restart verification hardening
 

@@ -99,3 +99,23 @@ product.price + syrup.price + topping.price
 - `docs/domain/PRODUCT_IMAGE_MODEL.md`
 - `docs/domain/MEDIA_LIBRARY_STRUCTURE.md`
 - `docs/design/PHOTO_STANDARD.md`
+
+## 9. PostgreSQL runtime contract (v0.36.0)
+
+Канонический runtime-каталог хранится в `CatalogItem` и `MachineCatalogItem`.
+
+`CatalogItem` содержит стабильный SKU, категорию `ICE_CREAM | SPRINKLE | TOPPING`, русское название, nullable базовую цену, валюту, active/system/free flags, порядок и ссылку на медиаресурс. `MachineCatalogItem` определяет доступность позиции на конкретном автомате и текущий вкус.
+
+Инварианты:
+
+- у автомата не более одного `isCurrentFlavor=true`;
+- текущий вкус — только активный `ICE_CREAM` с валидной ценой;
+- активная платная позиция без цены не публикуется;
+- «Без посыпки» и «Без топпинга» являются защищёнными системными позициями с ценой 0;
+- canonical SKU этих позиций — `sprinkle_none` и `topping_none`; migration безопасно reconciles их как `0 RUB`, а назначение автомату выполняется отдельно и аудируется;
+- Admin Console изменяет каталог через backend API, а не напрямую через Prisma;
+- display получает machine-specific projection через `GET /api/v1/catalog/machines/:machineId`;
+- frontend-репозитории не являются источником серверной цены.
+- до расширения Pricing Engine валюта runtime-каталога ограничена `RUB`, чтобы quote не мог переименовать сумму другой валюты в рубли;
+- назначенный текущий вкус нельзя деактивировать, пока администратор не выберет другой current flavor;
+- Admin Console сохраняет несколько изменённых цен одним явным атомарным действием и строит покупательский preview из того же machine-specific projection, что и display.

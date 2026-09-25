@@ -35,12 +35,14 @@ export function promotionUrgency(remainingMs) {
   return 'ACTIVE';
 }
 
-export function usePricingQuote({ machineId, channel, productId, productName, refreshKey = '' }) {
+export function usePricingQuote({ machineId, channel, items = [], productId = null, refreshKey = '' }) {
   const [state, setState] = useState({ status: 'idle', quote: null, error: null, receivedAt: null });
   const [tick, setTick] = useState(0);
+  const requestedItems = items.length ? items : productId ? [{ sku: productId }] : [];
+  const requestedItemKey = requestedItems.map((item) => item.sku).join('|');
 
   useEffect(() => {
-    if (!machineId || !productId || !channel) {
+    if (!machineId || !requestedItems.length || !channel) {
       setState({ status: 'unavailable', quote: null, error: null, receivedAt: null });
       return undefined;
     }
@@ -50,8 +52,7 @@ export function usePricingQuote({ machineId, channel, productId, productName, re
     createPricingQuote({
       machineId,
       channel,
-      productId,
-      name: productName,
+      items: requestedItems,
       signal: controller.signal,
     }).then((quote) => {
       setState({ status: 'ready', quote, error: null, receivedAt: monotonicNow() });
@@ -62,7 +63,7 @@ export function usePricingQuote({ machineId, channel, productId, productName, re
     });
 
     return () => controller.abort();
-  }, [machineId, channel, productId, productName, refreshKey]);
+  }, [machineId, channel, requestedItemKey, refreshKey]);
 
   useEffect(() => {
     if (!state.quote || state.receivedAt === null) return undefined;

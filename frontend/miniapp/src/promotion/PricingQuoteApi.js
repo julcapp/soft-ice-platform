@@ -38,7 +38,7 @@ export async function getPromotionAwareness({ machineId, channel, signal }) {
   return payload?.data || { active: null, upcoming: null };
 }
 
-export async function createPricingQuote({ machineId, channel, productId, name, signal }) {
+export async function createPricingQuote({ machineId, channel, items, signal }) {
   if (!machineId) {
     throw new PricingQuoteApiError('Не указан автомат для серверного расчёта цены.', {
       code: 'PRICING_UI_MACHINE_REQUIRED', status: 400,
@@ -51,7 +51,7 @@ export async function createPricingQuote({ machineId, channel, productId, name, 
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       signal,
-      body: JSON.stringify({ machineId, channel, items: [{ id: productId, productId, name, quantity: 1 }] }),
+      body: JSON.stringify({ machineId, channel, items: items.map((item) => ({ id: item.sku, productId: item.sku, quantity: 1 })) }),
     });
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
@@ -65,8 +65,14 @@ export async function createPricingQuote({ machineId, channel, productId, name, 
     });
   }
 
-  if (!payload?.data?.id || !payload?.data?.lockedUntil) {
+  const quote = payload?.data;
+  const moneyFields = ['baseAmount', 'giftAmount', 'promotionDiscountAmount', 'finalAmount'];
+  const invalidMoney = moneyFields.some((field) => quote?.[field] === null
+    || quote?.[field] === undefined
+    || !Number.isFinite(Number(quote[field]))
+    || Number(quote[field]) < 0);
+  if (!quote?.id || !quote?.lockedUntil || !/^[A-Z]{3}$/.test(String(quote?.currency || '')) || invalidMoney) {
     throw new PricingQuoteApiError('Сервер вернул неполный расчёт цены.', { code: 'PRICING_UI_INVALID_RESPONSE', status: response.status });
   }
-  return payload.data;
+  return quote;
 }
