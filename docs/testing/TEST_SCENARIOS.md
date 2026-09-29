@@ -590,5 +590,16 @@ Service restart остаётся непроверяемым до durable reposit
 - Один React-поток проверяется в `1920×1080`, `1280×720`, `1080×1920`, `768×1024`; layout меняется CSS media/orientation rules, дублированных экранов нет.
 - Idle возвращается через 120 секунд; сохранены утверждённые idle/home/club/phone/choice/summary/payment тексты и hero asset; phone flow можно пропустить.
 - Idle timeout очищает введённый телефон; Mini App quote включает выбранные add-on SKU и не разрешает checkout по цене только базового мороженого.
-- На payment screen нет cash/coin UI и нет кнопки, способной клиентом подтвердить оплату/выдачу; Payment Runtime и Machine Runtime остаются владельцами успеха.
+- На payment screen до получения реальной payment session нет QR или похожего на QR узора: показан явно несканируемый placeholder `QR-код появится после создания платёжной сессии`; нет кнопки, способной клиентом подтвердить оплату/выдачу; Payment Runtime и Machine Runtime остаются владельцами успеха.
 - `display.utimoshi.ru` остаётся единственной документированной vending UI точкой; `frontend/terminal` отсутствует.
+
+### Issue #22 — canonical display visual acceptance
+
+- Запустить `frontend/miniapp` через `npm run visual:acceptance` и открыть `/?mode=terminal&machineId=visual-machine`.
+- Проверить idle → home → choice → summary → payment на 1920×1080, 1280×720, 1080×1920 и 768×1024.
+- Проверить, что `catalog.currentFlavor.mediaPath` равен `/media/ice/UT-ICE-Hero-001.png`, URL возвращает настоящий `image/png`, а idle показывает полностью загруженное изображение без broken-image icon; production React не содержит SKU→path mapping.
+- Проверить отдельный home entry point `Получить оплаченный заказ` → безопасный информационный prepaid state → `Назад`; state не выдаёт код, не создаёт заказ, не сообщает об успехе и не вызывает payment/machine runtime.
+- Проверить payment state без payment session: нет fake/pseudo QR и checker/repeating pattern; видны несканируемый placeholder, текст о подтверждении через Payment Runtime, ожидание сервера и кнопка `Вернуться к заказу`.
+- Зафиксировать отсутствие горизонтального overflow, сохранение hero/цены/главного CTA и touch targets не менее 72px для terminal display.
+- Проверить `data-testid="display-idle"` и `data-testid="display-screen-*"` как устойчивые visual acceptance hooks.
+- Сохранить screenshots только из локального fixture; production, staging, hardware, payment, dispense и `frontend/terminal` runtime не использовать.
