@@ -2,6 +2,8 @@
 
 ## [Unreleased] — Unified display catalog and pricing (issue #17)
 
+- Issue #22: hardened the canonical Mini App terminal visual surface for safe-area insets, touch interaction, portrait/landscape layouts, deterministic screenshot hooks, and verified catalog-provided hero media. Added a safe bounded `Получить оплаченный заказ` entry point without code simulation, order creation, payment mutation, or dispense. The payment state now uses an explicitly non-scannable placeholder until Payment Runtime creates a real payment session; fake/pseudo QR patterns are prohibited. No `frontend/terminal` runtime was added.
+
 - CI blockers inherited from the integration base are removed: Equipment Sandbox now uses the Admin Console's pinned `pnpm@10.15.1`, YooKassa orchestration is wired to the existing canonical `PaymentAttemptRepository`, and Promotion E2E no longer expects payment confirmation to recreate the disabled legacy dispense path.
 - `display.utimoshi.ru` закреплён за единым responsive `frontend/miniapp?mode=terminal`; утверждённые idle/home/club/choice/summary/payment решения и прозрачный hero asset перенесены из reference-ветки без создания второго terminal-приложения.
 - Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.

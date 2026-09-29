@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+const publicRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const port = Number(process.env.VISUAL_ACCEPTANCE_PORT || 4178);
 const priceBySku = new Map([['flavor_vanilla', 150], ['sprinkle_none', 0], ['sprinkle_confetti', 10], ['topping_none', 0], ['topping_caramel', 15]]);
 const common = { currency: 'RUB', active: true, available: true, updatedAt: '2026-09-23T00:00:00.000Z' };
@@ -25,8 +26,11 @@ const server = http.createServer(async (request, response) => {
   }
   const urlPath = new URL(request.url || '/', 'http://localhost').pathname;
   const relative = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
-  const candidate = path.resolve(root, relative);
-  const file = candidate.startsWith(root) && fs.existsSync(candidate) && fs.statSync(candidate).isFile() ? candidate : path.join(root, 'index.html');
+  const staticRoot = urlPath.startsWith('/media/') ? publicRoot : root;
+  const candidate = path.resolve(staticRoot, relative);
+  const isStaticFile = candidate.startsWith(staticRoot + path.sep) && fs.existsSync(candidate) && fs.statSync(candidate).isFile();
+  if (urlPath.startsWith('/media/') && !isStaticFile) { response.writeHead(404); response.end(); return; }
+  const file = isStaticFile ? candidate : path.join(root, 'index.html');
   const type = file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html';
   response.writeHead(200, { 'Content-Type': type }); fs.createReadStream(file).pipe(response);
 });

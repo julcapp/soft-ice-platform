@@ -15,6 +15,8 @@ PostgreSQL `CatalogItem` and `MachineCatalogItem` are the authoritative base-cat
 
 The reconciliation migration is additive-only and preserves existing tables. It uses `CREATE ... IF NOT EXISTS`, adds missing columns and constraints, never drops or rewrites a table, and fails closed if pre-existing required identity data cannot satisfy the canonical model. It must be rehearsed on a production-shaped test database before release.
 
+The display exposes `Получить оплаченный заказ` as a separate entry point, but redemption remains an explicit integration boundary until a server-side preorder/code verification service is connected. The bounded UI may explain that limitation and return to home; it must not issue a code, create an order, claim success, or invoke Payment Runtime or Machine Runtime.
+
 ## Consequences
 
 - React does not contain commercial product prices or machine/location configuration.
@@ -26,6 +28,7 @@ The reconciliation migration is additive-only and preserves existing tables. It 
 - Admin machine selection and customer preview are read from backend machine/catalog projections; UUID entry and frontend-only preview catalogs are not used.
 - Editing a catalog price changes future quotes only; stored historical snapshots remain immutable.
 - Payment and physical dispense success remain owned by Payment Runtime and Machine Runtime.
+- Prepaid redemption cannot advance beyond its informational bounded state until authoritative preorder/code verification is integrated.
 - `frontend/terminal` and `terminal.utimoshi.ru` are not introduced into the canonical branch.
 
 ## Related
