@@ -628,3 +628,14 @@
 
 - реальные Telegram/MAX-отправители не включены;
 - production не изменён и требует отдельного применения миграции и приёмки.
+
+# 2026-09-25 — Catalog / price / display migration rehearsal
+
+- Added a guarded PostgreSQL rehearsal harness for `20260923000100_catalog_price_reconciliation_v1` with fixture and custom-format backup modes.
+- Added before/after schema, migration, row-count, null-price, pricing-history fingerprint, and constraint evidence collection.
+- Added full backend/Admin/Mini App verification orchestration without production access, deployment, payments, or machine dispense.
+- Added an explicit production-shaped backup contract, restore-only recovery plan, and separate GO/NO-GO report/checklist.
+- Rehearsed the checksum-verified `utimoshi_crm_v036_stage` staging-shaped backup in an isolated PostgreSQL 16 cluster; the target migration passed while the next stage remained `NO-GO` because of three missing canonical migration directories, absent commercial catalog/current flavor data, and safety-skipped SQL-`DROP` payment tests.
+- Hardened Backup mode for pre-target databases where catalog tables do not yet exist, added machine/current-flavor fingerprints, switched frontend verification to the declared `pnpm@10.15.1`, and made safety skips explicit.
+- Restored the exact `20260911000100_admin_owner_auth_v1`, `20260911093000_admin_security_otp_v1`, and `20260911104500_admin_max_security_link_v1` migration directories from `integration/unified-v0.36.0-main-sync` and added a fail-fast comparison with the checksums recorded in the restored backup.
+- Repeated the backup-mode rehearsal in a fresh isolated database: migration history and all three checksums matched, the target migration and application checks passed, while catalog/current-flavor readiness and the intentionally safety-skipped SQL-`DROP` payment tests kept the release decision at `NO-GO`.
