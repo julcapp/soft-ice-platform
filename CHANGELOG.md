@@ -8,6 +8,9 @@
 - Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.
 - Admin Console получил русскоязычный раздел «Каталог и цены» с созданием позиций, ценами, activation, machine availability и выбором текущего вкуса; коммерческие mutations аудируются.
 - Review acceptance для «Каталог и цены»: добавлены одно пакетное сохранение цен, устойчивый dirty-state, четыре статуса конфигурации, шесть фильтров, backend machine selector и customer preview из канонического display catalog.
+- Customer preview теперь показывает location аппарата, перечитывает display catalog после смены current flavor и fail-closed выводит «Каталог не готов / Для текущего вкуса не задана цена» вместо готового к продаже состояния.
+- Catalog API errors отображаются по-русски на основе стабильного error code; исправлена битая кодировка пункта «Выдачи аппаратов».
+- Desktop-таблица «Каталог и цены» уплотнена без изменения API: название/SKU/категория/тип/порядок/дата собраны в колонку позиции, назначения и current flavor показаны компактными badges, а действия перенесены в доступное touch/mouse-меню; внутренний overflow на `1440×900` уменьшен с `259 px` до `0 px` при zoom 100%.
 - Усилены catalog/pricing границы: только RUB до расширения Pricing Engine, запрет деактивации назначенного current flavor и явная validation legacy CHECK/FK constraints после reconciliation.
 - Mini App quote теперь включает выбранные добавки, а terminal idle reset очищает введённый телефон.
 - Добавлены fail-closed проверки отсутствующей цены, защищённые нулевые no-option items, unit-тесты и acceptance-сценарии четырёх terminal viewport.

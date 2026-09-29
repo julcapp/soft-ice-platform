@@ -4,13 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CatalogPricesPage, CatalogRow, CustomerPreview, filterCatalogItems } from './CatalogPrices';
+import { catalogErrorMessage } from './api/catalogClient';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mounted = [];
 afterEach(() => { while (mounted.length) { const { root, container } = mounted.pop(); act(() => root.unmount()); container.remove(); } });
 
 const item = (overrides = {}) => ({ id: 'ice-a', sku: 'ice-a', category: 'ICE_CREAM', nameRu: 'Пломбир', basePrice: 150, currency: 'RUB', active: true, configurationStatus: 'ACTIVE', configurationIssues: [], systemItem: false, freeItem: false, sortOrder: 1, machines: [{ id: 'a-1', machineId: 'machine-a', available: true, isCurrentFlavor: true, machine: { machineCode: 'A-01' } }], updatedAt: '2026-09-23T00:00:00.000Z', ...overrides });
-const machines = [{ id: 'machine-a', machineCode: 'A-01', name: 'Томск' }];
+const machines = [{ id: 'machine-a', machineCode: 'A-01', name: 'Тестовый аппарат', location: 'Тестовый стенд · зона A' }];
 
 async function mount(client) {
   const container = document.createElement('div'); document.body.appendChild(container);
@@ -25,6 +26,11 @@ function inputValue(input, value) {
 }
 
 describe('Каталог и цены', () => {
+  it('maps backend catalog codes to Russian copy without exposing raw messages', () => {
+    expect(catalogErrorMessage('CATALOG_CURRENT_FLAVOR_INVALID')).toContain('корректной ценой');
+    expect(catalogErrorMessage('UNKNOWN_BACKEND_CODE')).toBe('Не удалось выполнить операцию с каталогом. Повторите попытку или проверьте настройки.');
+  });
+
   it('opens as a dedicated admin section', () => {
     const html = renderToStaticMarkup(<CatalogPricesPage client={{ list: () => new Promise(() => {}) }} />);
     expect(html).toContain('Загрузка панели управления');
@@ -33,7 +39,14 @@ describe('Каталог и цены', () => {
   it('shows configuration status and protected system actions', () => {
     const system = item({ id: 'topping-none', sku: 'topping_none', category: 'TOPPING', nameRu: 'Без топпинга', basePrice: 0, systemItem: true, machines: [{ id: 'assignment-1', machineId: 'machine-a', available: true, isCurrentFlavor: false, machine: { machineCode: 'A-01' } }] });
     const html = renderToStaticMarkup(<table><tbody><CatalogRow item={system} machineId="machine-a" client={{}} busy="" run={vi.fn()} /></tbody></table>);
-    expect(html).toContain('A-01 · доступна'); expect(html).toContain('Активно'); expect(html).toContain('Системная'); expect(html).toContain('disabled');
+    expect(html).toContain('A-01'); expect(html).toContain('доступна'); expect(html).toContain('Активно'); expect(html).toContain('Системная'); expect(html).toContain('disabled');
+  });
+
+  it('fails closed in the customer preview when the current flavor has no price', () => {
+    const html = renderToStaticMarkup(<CustomerPreview catalog={{ currentFlavor: item({ basePrice: null }), sprinkles: [], toppings: [], currency: 'RUB' }} />);
+    expect(html).toContain('Каталог не готов');
+    expect(html).toContain('Для текущего вкуса не задана цена.');
+    expect(html).not.toContain('Финальная цена покупателя');
   });
 
   it('filters all, ice cream, add-ons, active, missing-price and selected-machine rows', () => {
@@ -81,12 +94,41 @@ describe('Каталог и цены', () => {
   });
 
   it('uses a backend machine selector and renders the customer preview from display catalog data', async () => {
-    const catalog = { machine: { machineCode: 'A-01', name: 'Томск' }, currentFlavor: { nameRu: 'Пломбир', basePrice: 150 }, currency: 'RUB', sprinkles: [{ id: 'spr', nameRu: 'Посыпка', basePrice: 10, currency: 'RUB' }], toppings: [] };
+    const catalog = { machine: machines[0], currentFlavor: { nameRu: 'Пломбир', basePrice: 150 }, currency: 'RUB', sprinkles: [{ id: 'spr', nameRu: 'Посыпка', basePrice: 20, currency: 'RUB' }], toppings: [] };
     const client = { list: vi.fn(async () => [item()]), listMachines: vi.fn(async () => machines), getMachineCatalog: vi.fn(async () => catalog) };
     const container = await mount(client); const select = container.querySelector('select[aria-label="Аппарат"]');
     await act(async () => { select.value = 'machine-a'; select.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(client.getMachineCatalog).toHaveBeenCalledWith('machine-a', expect.any(Object));
-    expect(container.textContent).toContain('Пломбир'); expect(container.textContent).toContain('Pricing Engine / Promotion Engine');
-    expect(renderToStaticMarkup(<CustomerPreview catalog={catalog} />)).toContain('Посыпка');
+    expect(container.textContent).toContain('Пломбир'); expect(container.textContent).toContain('Тестовый стенд · зона A'); expect(container.textContent).toContain('Pricing Engine / Promotion Engine');
+    expect(renderToStaticMarkup(<CustomerPreview catalog={catalog} />)).toContain('150 RUB');
+  });
+
+  it('renders the backend fail-closed price error in Russian for the selected current flavor', async () => {
+    const error = Object.assign(new Error('У одной из опубликованных позиций отсутствует корректная цена.'), { code: 'CATALOG_PRICE_INVALID' });
+    const missingPriceFlavor = item({ basePrice: null, configurationStatus: 'MISSING_PRICE', configurationIssues: ['MISSING_BASE_PRICE'] });
+    const client = { list: vi.fn(async () => [missingPriceFlavor]), listMachines: vi.fn(async () => machines), getMachineCatalog: vi.fn(async () => { throw error; }) };
+    const container = await mount(client); const select = container.querySelector('select[aria-label="Аппарат"]');
+    await act(async () => { select.value = 'machine-a'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    const alert = container.querySelector('.catalog-preview-error[role="alert"]');
+    expect(alert.textContent).toContain('Каталог не готов');
+    expect(alert.textContent).toContain('Для текущего вкуса не задана цена.');
+  });
+
+  it('refreshes the customer preview after switching the machine current flavor', async () => {
+    let currentFlavorId = 'ice-a';
+    const rows = [item(), item({ id: 'ice-b', sku: 'ice-b', nameRu: 'Шоколадное мороженое', machines: [{ id: 'b-1', machineId: 'machine-a', available: true, isCurrentFlavor: false, machine: { machineCode: 'A-01' } }] })];
+    const client = {
+      list: vi.fn(async () => rows),
+      listMachines: vi.fn(async () => machines),
+      getMachineCatalog: vi.fn(async () => ({ machine: machines[0], currentFlavor: rows.find((entry) => entry.id === currentFlavorId), currency: 'RUB', sprinkles: [], toppings: [] })),
+      setCurrentFlavor: vi.fn(async (_machineId, catalogItemId) => { currentFlavorId = catalogItemId; }),
+    };
+    const container = await mount(client); const select = container.querySelector('select[aria-label="Аппарат"]');
+    await act(async () => { select.value = 'machine-a'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    const chocolateRow = [...container.querySelectorAll('tbody tr')].find((row) => row.textContent.includes('Шоколадное мороженое'));
+    await act(async () => { chocolateRow.querySelector('.catalog-actions button:last-child').click(); });
+    expect(client.setCurrentFlavor).toHaveBeenCalledWith('machine-a', 'ice-b');
+    expect(client.getMachineCatalog).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('.catalog-preview').textContent).toContain('Шоколадное мороженое');
   });
 });
