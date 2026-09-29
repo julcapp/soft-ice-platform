@@ -69,6 +69,17 @@ describe('Каталог и цены', () => {
     expect(input.value).toBe('175'); expect(container.querySelectorAll('[data-dirty="true"]')).toHaveLength(1); expect(container.textContent).toContain('Сервер отклонил цену');
   });
 
+  it('blocks invalid bulk prices locally and keeps the draft dirty', async () => {
+    const client = { list: vi.fn(async () => [item()]), listMachines: vi.fn(async () => machines), getMachineCatalog: vi.fn(), updatePrices: vi.fn() };
+    const container = await mount(client); const input = container.querySelector('.catalog-price input');
+    await act(async () => { inputValue(input, 'not-a-price'); });
+    await act(async () => { container.querySelector('.catalog-save-bar button').click(); });
+    expect(client.updatePrices).not.toHaveBeenCalled();
+    expect(input.value).toBe('not-a-price');
+    expect(container.querySelectorAll('[data-dirty="true"]')).toHaveLength(1);
+    expect(container.querySelector('[role="alert"]').textContent).toContain('неотрицательные числа');
+  });
+
   it('uses a backend machine selector and renders the customer preview from display catalog data', async () => {
     const catalog = { machine: { machineCode: 'A-01', name: 'Томск' }, currentFlavor: { nameRu: 'Пломбир', basePrice: 150 }, currency: 'RUB', sprinkles: [{ id: 'spr', nameRu: 'Посыпка', basePrice: 10, currency: 'RUB' }], toppings: [] };
     const client = { list: vi.fn(async () => [item()]), listMachines: vi.fn(async () => machines), getMachineCatalog: vi.fn(async () => catalog) };

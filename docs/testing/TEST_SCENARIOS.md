@@ -1,5 +1,23 @@
 # TEST_SCENARIOS
 
+## Catalog / price / display migration rehearsal
+
+1. Create a new isolated PostgreSQL database named `soft_ice_rehearsal_*`; refuse an existing database and any production-looking host/database.
+2. Capture the pre-target schema, migration list, row counts, null-price IDs, and immutable pricing-history fingerprints.
+3. Before applying anything new in backup mode, verify that the restored canonical Admin migration SQL SHA-256 values match the checksums already recorded in `_prisma_migrations`; stop on any mismatch without replacing SQL or editing migration history.
+4. Apply the complete canonical Prisma migration chain through `20260923000100_catalog_price_reconciliation_v1` without `db push`, reset, `DROP`, or `TRUNCATE`.
+5. Verify `CatalogItem` and `MachineCatalogItem` constraints and projections.
+6. Verify `sprinkle_none` and `topping_none` are active protected system items with explicit `0 RUB`.
+7. Verify every pre-existing `null` catalog price remains `null`, rather than becoming zero.
+8. Verify `PricingQuote`, `PricingSnapshot`, and `PricingSnapshotItem` counts and fingerprints are unchanged.
+9. Verify two machines can retain different valid current flavors and one machine cannot have two current flavors.
+10. Verify Admin Console bulk save uses one request, marks edited rows dirty, retains drafts on validation/API failure, and renders customer preview from the machine catalog API.
+11. Verify client-supplied prices are ignored and the server catalog resolves base and add-on prices before Promotion Engine.
+12. Run the full backend suite, Admin Console tests/build, and Mini App/display build.
+13. Produce a report with PostgreSQL version, migrations/counts before/after, constraints, test results, problems, restore plan, and GO/NO-GO checklist.
+
+Expected result: fixture mode proves mechanics but remains `NO-GO`; only a fully green backup-mode rehearsal from an accurately identified authorized environment, with no migration-history drift or safety-skipped required tests, can become a GO candidate for separate release approval. No production connection, deployment, real payment, or physical dispense occurs.
+
 ## Bot Core — безопасная доставка приглашения о подарке
 
 1. Private Telegram update binds only when canonical Customer Identity matches the sender and `chat_id == user_id`.
