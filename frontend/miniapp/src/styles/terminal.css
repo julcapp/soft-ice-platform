@@ -46,3 +46,9 @@
   .idle-clock{justify-content:flex-start;padding-left:82px;font-size:15px}.idle-clock strong{font-size:28px}
   .idle-stage{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.idle-note{font-size:30px}.idle-note-left,.idle-note-right{transform:none}.idle-stage .display-product{grid-row:2}.idle-stage .display-product img{max-height:48dvh!important}
 }
+
+/* Idle screen refinements: real weather, compact machine badge, transparent product hero */
+.idle-clock b{font-size:clamp(22px,1.8vw,32px);font-weight:900;color:#17120f}
+.idle-machine-card{min-width:0!important;padding:11px 16px!important;border-radius:18px!important}
+.idle-machine-card strong{font-size:clamp(14px,1.05vw,18px)!important;white-space:nowrap}
+.display-idle-v2 .display-product img{mix-blend-mode:normal!important;background:transparent!important;filter:drop-shadow(0 28px 24px #674c3426)}

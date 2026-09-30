@@ -10,8 +10,9 @@ import { getMachineCatalog } from './MachineCatalogApi.js';
 const IDLE_TIMEOUT_MS = 120_000;
 const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', CHOICE: 'choice', SUMMARY: 'summary', PAYMENT: 'payment' });
 const ProductMediaContext = createContext(null);
-const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001.png';
+const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.webp';
 const OWNER_PORTRAIT = '/media/brand/owner.jpg';
+const TEST_DISPLAY_CITY = 'Обнинск';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
 const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
 const money = (value, currency = 'RUB') => {
@@ -28,18 +29,52 @@ function useDisplayClock() {
   return now;
 }
 
+function weatherIcon(code) {
+  if (code === 0) return '☀';
+  if ([1,2].includes(code)) return '🌤';
+  if ([3,45,48].includes(code)) return '☁';
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return '🌧';
+  if ([71,73,75,77,85,86].includes(code)) return '❄';
+  if ([95,96,99].includes(code)) return '⛈';
+  return '☁';
+}
+
+function useCurrentWeather(place) {
+  const [weather, setWeather] = useState(null);
+  useEffect(() => {
+    if (!place) return undefined;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=ru&format=json`, { signal: controller.signal }).then((r) => r.json());
+        const point = geo?.results?.[0];
+        if (!point) return;
+        const data = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${point.latitude}&longitude=${point.longitude}&current=temperature_2m,weather_code&timezone=auto`, { signal: controller.signal }).then((r) => r.json());
+        if (Number.isFinite(Number(data?.current?.temperature_2m))) setWeather({ temperature: Math.round(Number(data.current.temperature_2m)), code: Number(data.current.weather_code) });
+      } catch (error) { if (error?.name !== 'AbortError') setWeather(null); }
+    };
+    load();
+    const timer = window.setInterval(load, 15 * 60_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [place]);
+  return weather;
+}
+
 function IdleScreen({ onStart, heroPath, catalog, machineId }) {
   const now = useDisplayClock();
   const dateText = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
   const timeText = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
-  const location = catalog?.machine?.location || 'Тестовая точка';
+  const rawLocation = String(catalog?.machine?.location || '').trim();
+  const displayLocation = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : TEST_DISPLAY_CITY;
+  const weather = useCurrentWeather(machineId === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : displayLocation);
+  const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
   return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
     <div className="idle-topbar">
       <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div><span aria-hidden="true">♡</span></div>
-      <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">☁</i></div>
-      <div className="idle-machine-card"><strong>Аппарат № {machineId || '—'}</strong><span>{location}</span></div>
+      <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">{weatherIcon(weather?.code)}</i><b>{temperature}</b></div>
+      <div className="idle-machine-card"><strong>Аппарат № {machineId || '—'}</strong></div>
     </div>
-    <div className="idle-location">{location}</div>
+    <div className="idle-location">{displayLocation}</div>
     <div className="idle-stage">
       <div className="idle-note idle-note-left">Счастье<br />рядом! <span>♡</span></div>
       <ProductHero alt={catalog?.currentFlavor?.nameRu || 'Сливочное мягкое мороженое У Тимоши'} src={heroPath} />
