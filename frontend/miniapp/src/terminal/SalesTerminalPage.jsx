@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { trackEvent } from '../analytics/trackEvent.js';
 import { PromotionPricePanel } from '../promotion/PromotionPricePanel.jsx';
 import { resolveMachineId } from '../promotion/PricingQuoteApi.js';
 import { usePricingQuote } from '../promotion/usePricingQuote.js';
+import { recognizeDisplayPhone } from './DisplayRecognitionApi.js';
+import { RecognitionState } from './RecognitionState.jsx';
 import { getMachineCatalog } from './MachineCatalogApi.js';
 
 const IDLE_TIMEOUT_MS = 120_000;
@@ -22,7 +24,7 @@ function IdleScreen({ onStart, heroPath }) { return <button className="display-i
 
 function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
-  return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Получите свою скидку</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без скидки</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
+  return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Введите номер телефона</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без скидки</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
 }
 
 function PrepaidBoundary({ onBack }) {
@@ -36,11 +38,31 @@ export function SalesTerminalPage() {
   const [catalogState, setCatalogState] = useState({ status: 'loading', catalog: null, error: null });
   const [step, setStep] = useState(STEPS.IDLE);
   const [phone, setPhone] = useState('');
+  const [recognition, setRecognition] = useState(null);
+  const recognitionRequest = useRef(null);
+  const clearRecognition = () => {
+    recognitionRequest.current?.abort();
+    recognitionRequest.current = null;
+    setPhone('');
+    setRecognition(null);
+  };
+  useEffect(() => () => recognitionRequest.current?.abort(), []);
+  const recognize = async () => {
+    recognitionRequest.current?.abort();
+    const controller = new AbortController();
+    recognitionRequest.current = controller;
+    setRecognition({ state: 'LOADING' });
+    const result = await recognizeDisplayPhone(machineId, `+7${phone}`, { signal: controller.signal });
+    if (recognitionRequest.current !== controller || controller.signal.aborted) return;
+    setPhone('');
+    setRecognition(result);
+  };
+  const continueAnonymous = () => { clearRecognition(); setStep(STEPS.CHOICE); };
   const [sprinkleSku, setSprinkleSku] = useState(null);
   const [toppingSku, setToppingSku] = useState(null);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
   useEffect(() => { const controller = new AbortController(); getMachineCatalog(machineId, { signal: controller.signal }).then((catalog) => { setCatalogState({ status: 'ready', catalog, error: null }); setSprinkleSku(catalog.sprinkles[0]?.sku || null); setToppingSku(catalog.toppings[0]?.sku || null); }).catch((error) => { if (error.name !== 'AbortError') setCatalogState({ status: 'error', catalog: null, error }); }); return () => controller.abort(); }, [machineId]);
-  useEffect(() => { if (step === STEPS.IDLE) return undefined; const reset = () => { setPhone(''); setStep(STEPS.IDLE); }; let timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); const activity = () => { window.clearTimeout(timer); timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); }; window.addEventListener('pointerdown', activity); window.addEventListener('keydown', activity); return () => { window.clearTimeout(timer); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); }; }, [step]);
+  useEffect(() => { if (step === STEPS.IDLE) return undefined; const reset = () => { clearRecognition(); setStep(STEPS.IDLE); }; let timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); const activity = () => { window.clearTimeout(timer); timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); }; window.addEventListener('pointerdown', activity); window.addEventListener('keydown', activity); return () => { window.clearTimeout(timer); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); }; }, [step]);
   const catalog = catalogState.catalog;
   const selectedItems = useMemo(() => catalog ? [catalog.currentFlavor, catalog.sprinkles.find((item) => item.sku === sprinkleSku), catalog.toppings.find((item) => item.sku === toppingSku)].filter(Boolean) : [], [catalog, sprinkleSku, toppingSku]);
   const pricing = usePricingQuote({ machineId, channel: 'TERMINAL', items: step === STEPS.IDLE ? [] : selectedItems, refreshKey: quoteRefreshKey });
@@ -51,7 +73,7 @@ export function SalesTerminalPage() {
   if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
   return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />
     {step === STEPS.HOME && <section className="display-home"><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-home-copy"><p className="display-kicker">Сегодня в аппарате</p><h1>{catalog.currentFlavor.nameRu}</h1><p>Собери свой вкус: выберите посыпку и топпинг.</p><div className="display-home-price">от {money(catalog.currentFlavor.basePrice, catalog.currency)}</div><div className="display-home-actions"><button className="display-primary" type="button" onClick={() => setStep(STEPS.CHOICE)}>Собрать мороженое</button><button className="display-secondary" data-testid="display-prepaid-entry" type="button" onClick={() => setStep(STEPS.PREPAID)}>Получить оплаченный заказ</button></div><button className="display-club" type="button" onClick={() => setStep(STEPS.CLUB)}><span>♡</span><div><strong>Клуб Тимоши</strong><small>Каждая 50-я покупка — в подарок</small></div><b>Получить свою скидку</b></button><div className="display-values"><span>Натуральные ингредиенты</span><span>Улыбка с каждым стаканчиком</span><span>Подари свою улыбку!</span></div></div></section>}
-    {step === STEPS.CLUB && <PhoneKeypad value={phone} onChange={setPhone} onSkip={() => setStep(STEPS.CHOICE)} onContinue={() => setStep(STEPS.CHOICE)} />}
+    {step === STEPS.CLUB && (recognition ? <RecognitionState result={recognition} onSkip={continueAnonymous} onReset={clearRecognition} /> : <PhoneKeypad value={phone} onChange={setPhone} onSkip={continueAnonymous} onContinue={recognize} />)}
     {step === STEPS.PREPAID && <PrepaidBoundary onBack={() => setStep(STEPS.HOME)} />}
     {step === STEPS.CHOICE && <section className="display-choice"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Текущий вкус</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><h1>Собери свой вкус</h1><h2>Посыпка</h2><div className="display-option-grid">{catalog.sprinkles.map((item) => <OptionCard key={item.id} item={item} selected={sprinkleSku === item.sku} onClick={() => setSprinkleSku(item.sku)} />)}</div><h2>Топпинг</h2><div className="display-option-grid">{catalog.toppings.map((item) => <OptionCard key={item.id} item={item} selected={toppingSku === item.sku} onClick={() => setToppingSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.HOME)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.SUMMARY)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Продолжить'}</button></div></div></section>}
     {step === STEPS.SUMMARY && <section className="display-summary"><div><p className="display-kicker">Ваш заказ</p><h1>Всё верно?</h1><ul>{selectedItems.map((item) => <li key={item.id}><span>{item.nameRu}</span><strong>{money(item.basePrice, item.currency)}</strong></li>)}</ul><div className="display-total"><span>К оплате</span><strong>{money(pricing.quote?.finalAmount, pricing.quote?.currency)}</strong></div><p className="display-price-proof">Цена подтверждена сервером · quote {pricing.quote?.id}</p></div><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.CHOICE)}>Изменить</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.PAYMENT)}>Перейти к оплате</button></div></section>}

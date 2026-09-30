@@ -3,6 +3,7 @@ const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntim
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
+const { DisplayCustomerRecognitionService } = require('./modules/customer/DisplayCustomerRecognitionService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -143,6 +144,11 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     customerRepository,
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
+  });
+  const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
+    customerRepository,
+    auditRepository,
+    // Fail closed until trusted kiosk identity and a shared abuse guard are integrated.
   });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
@@ -374,6 +380,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     deadLetterStore,
     authCoreService,
     customerRuntime,
+    displayCustomerRecognitionService,
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,

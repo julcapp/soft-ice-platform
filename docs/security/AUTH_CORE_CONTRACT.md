@@ -687,3 +687,7 @@ This contract does not create:
 - provider integrations;
 - machine credential code;
 - generated build output.
+
+## Display phone recognition extension — issue #24, 2026-09-29
+
+The implemented `/api/v1/auth/display-phone` namespace is an anonymous, no-store recognition and challenge boundary. RETURNING is not authentication. It never exposes PII, creates AuthSession, enrolls Customer/Club Account, grants personal discounts or changes Order. Challenge verification alone grants no access. Runtime defaults fail closed pending trusted kiosk/abuse and provider integrations. Contract, safe JSON examples and limitations: `docs/architecture/ADR/ADR-053-display-phone-recognition-boundary.md`.

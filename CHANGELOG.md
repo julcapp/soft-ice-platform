@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [Unreleased] — Display customer recognition v1 (issue #24)
+
+- Display обращается к server-backed recognition API: RETURNING / NEW / UNAVAILABLE без PII и customer session.
+- Добавлена fail-closed verification boundary: TTL 5 минут, 3 попытки, resend invalidation, salted code hash; настоящий SMS provider не подключён.
+- Экран сохраняет анонимную покупку, очищает телефон и recognition state при idle/выходе, игнорирует поздние ответы.
+- Добавлены targeted/backend/API/browser tests, локальный acceptance harness и ADR-053. Production abuse/provider integration остаётся закрытой.
+
 ## [Unreleased] — Unified display catalog and pricing (issue #17)
 
 - Issue #22: hardened the canonical Mini App terminal visual surface for safe-area insets, touch interaction, portrait/landscape layouts, deterministic screenshot hooks, and verified catalog-provided hero media. Added a safe bounded `Получить оплаченный заказ` entry point without code simulation, order creation, payment mutation, or dispense. The payment state now uses an explicitly non-scannable placeholder until Payment Runtime creates a real payment session; fake/pseudo QR patterns are prohibited. No `frontend/terminal` runtime was added.

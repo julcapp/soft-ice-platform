@@ -1,5 +1,13 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-074 — Display Recognition Does Not Authenticate
+
+**Date:** 2026-09-29
+
+**Status:** Implementation for review (issue #24)
+
+Verified phone lookup may produce a safe greeting only. Authentication, enrollment and loyalty remain separate. The display recognition/challenge API creates no customer session or domain mutation; production abuse and delivery adapters fail closed. See `ADR/ADR-053-display-phone-recognition-boundary.md`.
+
 # Decision: DECISION-073 — Display Uses One UI and PostgreSQL Catalog Pricing
 
 **Date:** 2026-09-23

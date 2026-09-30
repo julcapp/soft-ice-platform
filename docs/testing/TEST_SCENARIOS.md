@@ -1,5 +1,16 @@
 # TEST_SCENARIOS
 
+## Display phone recognition — issue #24
+
+1. RU +7 / 7 / 8 / ten-digit forms normalize; malformed, foreign and Kazakhstan ranges return safe 400.
+2. Real CustomerRepository searches only verified phone; RETURNING DTO and audit contain no raw phone or customer data; domain rows and sessions remain unchanged.
+3. Unknown/unverified => NEW; missing provider => NEW with verification UNAVAILABLE; missing abuse guard/lookup => UNAVAILABLE.
+4. Challenge expires at five minutes; three wrong/malformed attempts invalidate; correct code cannot revive expired/invalid state; resend invalidates even if new delivery fails. Raw code is never stored.
+5. Test adapter is rejected outside NODE_ENV=test. Runtime default is fail-closed.
+6. Keypad, loading, RETURNING greeting, NEW, provider unavailable and anonymous continuation render at 1920x1080, 1280x720, 1080x1920, 768x1024. Console errors/warnings=0, horizontal overflow=0, all CTA targets >=72px.
+7. Skip works in every state. Idle clears phone, recognition and verification; delayed response after skip/idle cannot restore state. API/network errors produce Russian copy without backend text.
+8. Run commands and use loopback fixtures from ADR-053; no external DB, SMS, session, personal discount, payment or dispense is exercised.
+
 ## Catalog / price / display migration rehearsal
 
 1. Create a new isolated PostgreSQL database named `soft_ice_rehearsal_*`; refuse an existing database and any production-looking host/database.
