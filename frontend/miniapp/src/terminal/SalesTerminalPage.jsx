@@ -21,7 +21,7 @@ const money = (value, currency = 'RUB') => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 };
 
-function Header({ catalog }) { return <header className="display-header" data-testid="display-header"><div className="display-brand"><span aria-hidden="true">🍦</span><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div><div className="display-machine"><i aria-hidden="true" />{catalog?.machine?.name || 'Автомат'}{catalog?.machine?.location ? ` · ${catalog.machine.location}` : ''}</div></header>; }
+function Header({ catalog }) { return <header className="display-header" data-testid="display-header"><div className="display-brand"><img className="display-owner-photo" src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div><div className="display-machine"><i aria-hidden="true" />{catalog?.machine?.name || 'Автомат'}{catalog?.machine?.location ? ` · ${catalog.machine.location}` : ''}</div></header>; }
 function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
 function useDisplayClock() {
   const [now, setNow] = useState(() => new Date());
@@ -70,7 +70,7 @@ function IdleScreen({ onStart, heroPath, catalog, machineId }) {
   const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
   return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
     <div className="idle-topbar">
-      <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div><span aria-hidden="true">♡</span></div>
+      <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
       <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">{weatherIcon(weather?.code)}</i><b>{temperature}</b></div>
       <div className="idle-machine-card"><strong>Аппарат № {machineId || '—'}</strong></div>
     </div>
