@@ -16,7 +16,12 @@ import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
 import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
 
 export function App() {
-  const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
+  const appMode = useMemo(() => {
+    const requestedMode = new URLSearchParams(window.location.search).get('mode');
+    if (requestedMode) return requestedMode;
+    if (window.location.hostname === 'display.utimoshi.ru') return 'terminal';
+    return null;
+  }, []);
   const source = useMemo(() => getInitialSource(), []);
   const [settings, setSettings] = useState(() => readUserSettings());
   const [screen, setScreen] = useState('home');
