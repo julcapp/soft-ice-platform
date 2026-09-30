@@ -10,7 +10,7 @@ import { getMachineCatalog } from './MachineCatalogApi.js';
 const IDLE_TIMEOUT_MS = 120_000;
 const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', CHOICE: 'choice', SUMMARY: 'summary', PAYMENT: 'payment' });
 const ProductMediaContext = createContext(null);
-const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.webp';
+const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.png';
 const OWNER_PORTRAIT = '/media/brand/owner.jpg';
 const TEST_DISPLAY_CITY = 'Обнинск';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
