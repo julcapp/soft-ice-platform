@@ -13,6 +13,7 @@ const ProductMediaContext = createContext(null);
 const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.png';
 const OWNER_PORTRAIT = '/media/brand/owner.jpg';
 const TEST_DISPLAY_CITY = 'Обнинск';
+const ADMIN_URL = 'https://admin.utimoshi.ru/';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
 const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
 const money = (value, currency = 'RUB') => {
@@ -21,7 +22,27 @@ const money = (value, currency = 'RUB') => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 };
 
-function Header({ catalog }) { return <header className="display-header" data-testid="display-header"><div className="display-brand"><img className="display-owner-photo" src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div><div className="display-machine"><i aria-hidden="true" />{catalog?.machine?.name || 'Автомат'}{catalog?.machine?.location ? ` · ${catalog.machine.location}` : ''}</div></header>; }
+function Header({ catalog }) {
+  const clickCount = useRef(0);
+  const clickTimer = useRef(null);
+  const rawLocation = String(catalog?.machine?.location || '').trim();
+  const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
+  const machineNumber = catalog?.machine?.machineCode || catalog?.machine?.id || '—';
+  const openAdminOnThirdClick = () => {
+    clickCount.current += 1;
+    window.clearTimeout(clickTimer.current);
+    if (clickCount.current >= 3) {
+      clickCount.current = 0;
+      window.location.assign(ADMIN_URL);
+      return;
+    }
+    clickTimer.current = window.setTimeout(() => { clickCount.current = 0; }, 1400);
+  };
+  return <header className="display-header" data-testid="display-header">
+    <div className="display-brand"><img className="display-owner-photo" src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
+    <button className="display-machine display-machine-button" type="button" onClick={openAdminOnThirdClick} aria-label="Номер аппарата"><i aria-hidden="true" /><div><strong>Аппарат № {machineNumber}</strong>{address ? <small>{address}</small> : null}</div></button>
+  </header>;
+}
 function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
 function useDisplayClock() {
   const [now, setNow] = useState(() => new Date());
@@ -61,18 +82,32 @@ function useCurrentWeather(place) {
 }
 
 function IdleScreen({ onStart, heroPath, catalog, machineId }) {
+  const machineClickCount = useRef(0);
+  const machineClickTimer = useRef(null);
   const now = useDisplayClock();
   const dateText = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
   const timeText = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
   const rawLocation = String(catalog?.machine?.location || '').trim();
-  const displayLocation = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : TEST_DISPLAY_CITY;
+  const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
+  const displayLocation = address || TEST_DISPLAY_CITY;
+  const openAdminOnThirdMachineClick = (event) => {
+    event.stopPropagation();
+    machineClickCount.current += 1;
+    window.clearTimeout(machineClickTimer.current);
+    if (machineClickCount.current >= 3) {
+      machineClickCount.current = 0;
+      window.location.assign(ADMIN_URL);
+      return;
+    }
+    machineClickTimer.current = window.setTimeout(() => { machineClickCount.current = 0; }, 1400);
+  };
   const weather = useCurrentWeather(machineId === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : displayLocation);
   const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
   return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
     <div className="idle-topbar">
       <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
       <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">{weatherIcon(weather?.code)}</i><b>{temperature}</b></div>
-      <div className="idle-machine-card"><strong>Аппарат № {machineId || '—'}</strong></div>
+      <div className="idle-machine-card" role="button" tabIndex={0} onClick={openAdminOnThirdMachineClick} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openAdminOnThirdMachineClick(event); }}><strong>Аппарат № {machineId || '—'}</strong>{address ? <span>{address}</span> : null}</div>
     </div>
     <div className="idle-location">{displayLocation}</div>
     <div className="idle-stage">
