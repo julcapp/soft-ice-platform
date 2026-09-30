@@ -26,7 +26,7 @@ function authHeaders(extra = {}) {
 
 export function resolveMachineId() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('machineId') || params.get('machine_id') || null;
+  return params.get('machineId') || params.get('machine_id') || (window.location.hostname === 'display.utimoshi.ru' ? 'TEST-MACHINE-001' : null);
 }
 
 export async function getPromotionAwareness({ machineId, channel, signal }) {

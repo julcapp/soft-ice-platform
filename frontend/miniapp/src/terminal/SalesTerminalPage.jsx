@@ -11,6 +11,7 @@ const IDLE_TIMEOUT_MS = 120_000;
 const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', CHOICE: 'choice', SUMMARY: 'summary', PAYMENT: 'payment' });
 const ProductMediaContext = createContext(null);
 const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001.png';
+const OWNER_PORTRAIT = '/media/brand/owner.jpg';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
 const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
 const money = (value, currency = 'RUB') => {
@@ -21,7 +22,33 @@ const money = (value, currency = 'RUB') => {
 
 function Header({ catalog }) { return <header className="display-header" data-testid="display-header"><div className="display-brand"><span aria-hidden="true">🍦</span><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div><div className="display-machine"><i aria-hidden="true" />{catalog?.machine?.name || 'Автомат'}{catalog?.machine?.location ? ` · ${catalog.machine.location}` : ''}</div></header>; }
 function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
-function IdleScreen({ onStart, heroPath }) { return <button className="display-idle" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать"><div className="idle-copy"><p>У ТИМОШИ</p><h1>Счастье в одном стаканчике</h1><span>Мягкое мороженое — приготовим прямо сейчас.</span><strong>Коснитесь экрана, чтобы начать</strong></div><ProductHero alt="Мягкое мороженое У Тимоши" src={heroPath} /></button>; }
+function useDisplayClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
+  return now;
+}
+
+function IdleScreen({ onStart, heroPath, catalog, machineId }) {
+  const now = useDisplayClock();
+  const dateText = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
+  const timeText = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const location = catalog?.machine?.location || 'Тестовая точка';
+  return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
+    <div className="idle-topbar">
+      <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div><span aria-hidden="true">♡</span></div>
+      <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">☁</i></div>
+      <div className="idle-machine-card"><strong>Аппарат № {machineId || '—'}</strong><span>{location}</span></div>
+    </div>
+    <div className="idle-location">{location}</div>
+    <div className="idle-stage">
+      <div className="idle-note idle-note-left">Счастье<br />рядом! <span>♡</span></div>
+      <ProductHero alt={catalog?.currentFlavor?.nameRu || 'Сливочное мягкое мороженое У Тимоши'} src={heroPath} />
+      <div className="idle-note idle-note-right">Натуральный<br />вкус <span>♡</span></div>
+    </div>
+    <div className="idle-footnote">* Вкус дня может быть изменён</div>
+    <div className="idle-start-prompt">Коснитесь экрана, чтобы начать</div>
+  </button>;
+}
 
 function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
@@ -69,7 +96,7 @@ export function SalesTerminalPage() {
   const pricing = usePricingQuote({ machineId, channel: 'TERMINAL', items: step === STEPS.IDLE ? [] : selectedItems, refreshKey: quoteRefreshKey });
   const canContinue = pricing.status === 'ready' && !pricing.lockExpired;
   const begin = () => { setStep(STEPS.HOME); trackEvent('TerminalSessionStarted', { machine_id: machineId }); };
-  if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} />;
+  if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} catalog={catalog} machineId={machineId} />;
   if (catalogState.status === 'loading') return <main className="display-state" data-testid="display-loading"><div className="display-spinner" /><h1>Загружаем меню…</h1></main>;
   if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
   return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />
