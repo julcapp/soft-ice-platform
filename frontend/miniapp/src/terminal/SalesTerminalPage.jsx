@@ -10,6 +10,7 @@ import { getMachineCatalog } from './MachineCatalogApi.js';
 const IDLE_TIMEOUT_MS = 120_000;
 const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', CHOICE: 'choice', SUMMARY: 'summary', PAYMENT: 'payment' });
 const ProductMediaContext = createContext(null);
+const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001.png';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
 const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
 const money = (value, currency = 'RUB') => {
@@ -19,7 +20,7 @@ const money = (value, currency = 'RUB') => {
 };
 
 function Header({ catalog }) { return <header className="display-header" data-testid="display-header"><div className="display-brand"><span aria-hidden="true">🍦</span><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div><div className="display-machine"><i aria-hidden="true" />{catalog?.machine?.name || 'Автомат'}{catalog?.machine?.location ? ` · ${catalog.machine.location}` : ''}</div></header>; }
-function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc; return <figure className="display-product">{resolvedSrc ? <img src={resolvedSrc} alt={alt} /> : <div className="display-product-placeholder" aria-hidden="true">🍦</div>}<figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
+function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
 function IdleScreen({ onStart, heroPath }) { return <button className="display-idle" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать"><div className="idle-copy"><p>У ТИМОШИ</p><h1>Счастье в одном стаканчике</h1><span>Мягкое мороженое — приготовим прямо сейчас.</span><strong>Коснитесь экрана, чтобы начать</strong></div><ProductHero alt="Мягкое мороженое У Тимоши" src={heroPath} /></button>; }
 
 function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
