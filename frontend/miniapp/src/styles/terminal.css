@@ -288,3 +288,43 @@
 @media (max-width:800px){
   .display-header-weather{min-width:0}
 }
+
+/* Selection indicator and optimized media presentation */
+.display-option{cursor:pointer}
+.display-option .display-option-check{
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:34px;
+  height:34px;
+  border:2px solid #c8bdb5!important;
+  border-radius:50%;
+  background:#fff!important;
+  color:transparent!important;
+  display:grid;
+  place-items:center;
+  font-style:normal;
+  font-size:20px;
+  font-weight:900;
+  line-height:1;
+  pointer-events:none;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease;
+  z-index:4;
+}
+.display-option.is-selected .display-option-check,
+.display-option[aria-pressed="true"] .display-option-check{
+  background:var(--display-green)!important;
+  border-color:var(--display-green)!important;
+  color:#fff!important;
+  transform:scale(1.06);
+}
+.display-option.is-selected{
+  border-color:var(--display-green)!important;
+  box-shadow:0 0 0 2px rgba(7,139,125,.08),0 12px 30px rgba(54,91,82,.12);
+}
+.display-option.has-media .option-art img{
+  width:100%;
+  height:100%;
+  object-fit:contain!important;
+  object-position:center;
+}
