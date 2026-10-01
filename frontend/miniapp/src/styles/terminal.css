@@ -110,3 +110,21 @@
   .display-phone:not(.display-recognition)>.display-phone-actions .display-primary,
   .display-phone:not(.display-recognition)>.display-phone-actions .display-secondary{min-height:62px;padding:0 18px;font-size:17px}
 }
+
+/* Phone entry refinement: keep formatted number on one line */
+@media (orientation:landscape) and (max-height:950px){
+  .display-phone:not(.display-recognition){
+    width:min(1240px,94vw);
+    grid-template-columns:minmax(500px,1.08fr) minmax(400px,.92fr);
+    column-gap:56px;
+  }
+  .display-phone:not(.display-recognition)>output{
+    box-sizing:border-box;
+    width:100%;
+    white-space:nowrap;
+    overflow:hidden;
+    font-size:clamp(28px,2.45vw,38px);
+    letter-spacing:.015em;
+    line-height:1.1;
+  }
+}
