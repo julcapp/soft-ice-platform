@@ -12,7 +12,7 @@ const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID:
 const ProductMediaContext = createContext(null);
 const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.png';
 const OWNER_PORTRAIT = '/media/brand/owner.jpg';
-const TEST_DISPLAY_CITY = 'Обнинск';
+const TEST_DISPLAY_CITY = 'Томск';
 const ADMIN_URL = 'https://admin.utimoshi.ru/';
 const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
 const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
