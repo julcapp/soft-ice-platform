@@ -25,9 +25,14 @@ const money = (value, currency = 'RUB') => {
 function Header({ catalog }) {
   const clickCount = useRef(0);
   const clickTimer = useRef(null);
+  const now = useDisplayClock();
   const rawLocation = String(catalog?.machine?.location || '').trim();
   const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
   const machineNumber = catalog?.machine?.machineCode || catalog?.machine?.id || '—';
+  const weatherPlace = machineNumber === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : (address || TEST_DISPLAY_CITY);
+  const weather = useCurrentWeather(weatherPlace);
+  const timeText = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
   const openAdminOnThirdClick = () => {
     clickCount.current += 1;
     window.clearTimeout(clickTimer.current);
@@ -40,6 +45,9 @@ function Header({ catalog }) {
   };
   return <header className="display-header" data-testid="display-header">
     <div className="display-brand"><img className="display-owner-photo" src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
+    <div className="display-header-weather" aria-label={`Погода в городе ${weatherPlace}`}>
+      <strong>{timeText}</strong><span aria-hidden="true">{weatherIcon(weather?.code)}</span><b>{temperature}</b><small>{weatherPlace}</small>
+    </div>
     <button className="display-machine display-machine-button" type="button" onClick={openAdminOnThirdClick} aria-label="Номер аппарата"><i aria-hidden="true" /><div><strong>Аппарат № {machineNumber}</strong>{address ? <small>{address}</small> : null}</div></button>
   </header>;
 }

@@ -241,3 +241,50 @@
     height:112px;
   }
 }
+
+/* Persistent time + weather in the header on every non-idle screen */
+.display-header{
+  display:grid;
+  grid-template-columns:minmax(280px,1fr) auto minmax(280px,1fr);
+  align-items:center;
+  gap:24px;
+}
+.display-header-weather{
+  justify-self:center;
+  display:grid;
+  grid-template-columns:auto auto auto;
+  grid-template-areas:
+    "time icon temp"
+    "city city city";
+  align-items:center;
+  justify-items:center;
+  column-gap:12px;
+  row-gap:2px;
+  min-width:220px;
+  padding:8px 18px 7px;
+  border-bottom:1px solid var(--display-line);
+  color:var(--display-ink);
+}
+.display-header-weather strong{grid-area:time;font-size:clamp(24px,2.1vw,36px);font-weight:900;line-height:1}
+.display-header-weather span{grid-area:icon;font-size:clamp(20px,1.65vw,29px);line-height:1}
+.display-header-weather b{grid-area:temp;font-size:clamp(20px,1.7vw,30px);font-weight:900;line-height:1}
+.display-header-weather small{grid-area:city;color:var(--display-muted);font-size:13px;line-height:1.1}
+.display-machine{justify-self:end}
+
+@media (orientation:portrait){
+  .display-header{grid-template-columns:1fr auto;grid-template-areas:"brand machine" "weather weather";height:auto;min-height:118px;row-gap:8px}
+  .display-brand{grid-area:brand}
+  .display-machine{grid-area:machine}
+  .display-header-weather{grid-area:weather;padding-top:5px}
+}
+@media (orientation:landscape) and (max-height:800px){
+  .display-header{grid-template-columns:minmax(240px,1fr) auto minmax(240px,1fr);gap:14px}
+  .display-header-weather{min-width:180px;padding:5px 12px}
+  .display-header-weather strong{font-size:26px}
+  .display-header-weather b{font-size:22px}
+  .display-header-weather span{font-size:21px}
+  .display-header-weather small{font-size:11px}
+}
+@media (max-width:800px){
+  .display-header-weather{min-width:0}
+}
