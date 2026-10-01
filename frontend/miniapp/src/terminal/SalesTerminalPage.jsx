@@ -135,6 +135,10 @@ function optionMedia(item) {
     sprinkle_nuts: '/media/toppings/nuts.png',
     sprinkle_confetti: '/media/toppings/confetti.png',
     sprinkle_wafer: '/media/toppings/wafer.png',
+    topping_none: '/media/sauces/NO.png',
+    topping_chocolate: '/media/sauces/chocolate.png',
+    topping_strawberry: '/media/sauces/strawberry.png',
+    topping_caramel: '/media/sauces/caramel.png',
   };
   return bySku[item?.sku] || null;
 }
