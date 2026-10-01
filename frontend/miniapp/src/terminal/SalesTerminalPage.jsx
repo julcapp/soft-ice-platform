@@ -129,7 +129,27 @@ function PrepaidBoundary({ onBack }) {
   return <section className="display-prepaid" aria-labelledby="display-prepaid-title"><div className="display-prepaid-icon" aria-hidden="true">⌁</div><p className="display-kicker">Оплаченный заказ</p><h1 id="display-prepaid-title">Получение скоро будет доступно</h1><p>Получить оплаченный заказ здесь можно будет после подключения сервиса проверки кода и предзаказа.</p><p className="display-boundary-note">Сейчас экран не проверяет код, не создаёт заказ и не запускает выдачу.</p><button className="display-secondary" type="button" onClick={onBack}>Назад</button></section>;
 }
 
-function OptionCard({ item, selected, onClick }) { return <button className={`display-option ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}><span className={`option-art option-${item.category.toLowerCase()}`} aria-hidden="true">{item.systemItem ? '×' : item.category === 'SPRINKLE' ? '✦' : '●'}</span><strong>{item.nameRu}</strong><small>{item.basePrice === 0 ? 'Без доплаты' : money(item.basePrice, item.currency)}</small><i>{selected ? '✓' : ''}</i></button>; }
+function optionMedia(item) {
+  const bySku = {
+    sprinkle_none: '/media/toppings/NO4.png',
+    sprinkle_nuts: '/media/toppings/nuts.png',
+    sprinkle_confetti: '/media/toppings/confetti.png',
+    sprinkle_wafer: '/media/toppings/wafer.png',
+  };
+  return bySku[item?.sku] || null;
+}
+
+function OptionCard({ item, selected, onClick }) {
+  const media = optionMedia(item);
+  return <button className={`display-option ${media ? 'has-media' : ''} ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}>
+    <span className={`option-art option-${item.category.toLowerCase()}`} aria-hidden="true">
+      {media ? <img src={media} alt="" /> : item.systemItem ? '×' : item.category === 'SPRINKLE' ? '✦' : '●'}
+    </span>
+    <strong>{item.nameRu}</strong>
+    <small>{item.basePrice === 0 ? 'Без доплаты' : money(item.basePrice, item.currency)}</small>
+    <i>{selected ? '✓' : ''}</i>
+  </button>;
+}
 
 export function SalesTerminalPage() {
   const machineId = useMemo(() => resolveMachineId(), []);
