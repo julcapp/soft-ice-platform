@@ -78,3 +78,35 @@
 .idle-start-prompt{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:950;letter-spacing:-.02em}
 .display-primary,.display-secondary,.display-club,.display-machine-button{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
 .display-primary,.display-secondary{font-weight:900;letter-spacing:-.02em}
+
+/* Phone entry: keep the full keypad and actions inside a landscape kiosk viewport */
+@media (orientation:landscape) and (max-height:950px){
+  .display-phone:not(.display-recognition){
+    box-sizing:border-box;
+    width:min(1180px,92vw);
+    min-height:calc(100dvh - var(--display-chrome));
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(420px,.9fr);
+    grid-template-areas:
+      "kicker keys"
+      "title keys"
+      "desc keys"
+      "output keys"
+      "actions keys";
+    align-content:center;
+    align-items:center;
+    column-gap:48px;
+    row-gap:8px;
+    text-align:left;
+  }
+  .display-phone:not(.display-recognition)>.display-kicker{grid-area:kicker;margin:0}
+  .display-phone:not(.display-recognition)>h1{grid-area:title;margin:4px 0 8px;font-size:clamp(44px,4.2vw,64px);line-height:.96}
+  .display-phone:not(.display-recognition)>p:not(.display-kicker){grid-area:desc;margin:0 0 8px;font-size:clamp(16px,1.35vw,21px);line-height:1.35}
+  .display-phone:not(.display-recognition)>output{grid-area:output;margin:8px 0 10px;padding:16px 20px;font-size:clamp(30px,3vw,42px);text-align:center}
+  .display-phone:not(.display-recognition)>.display-keys{grid-area:keys;width:100%;max-width:520px;margin:0 auto;gap:10px}
+  .display-phone:not(.display-recognition)>.display-keys button{min-height:66px;border-radius:17px;font-size:30px}
+  .display-phone:not(.display-recognition)>.display-phone-actions{grid-area:actions;margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .display-phone:not(.display-recognition)>.display-phone-actions .display-primary,
+  .display-phone:not(.display-recognition)>.display-phone-actions .display-secondary{min-height:62px;padding:0 18px;font-size:17px}
+}
