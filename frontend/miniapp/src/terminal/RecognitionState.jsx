@@ -10,6 +10,7 @@ export function RecognitionState({ result, onSkip, onReset }) {
       {loading && <div className="display-spinner" />}
       <h1>{loading ? 'Проверяем номер…' : returning ? 'С возвращением' : isNew ? 'Подтвердите номер' : 'Проверка временно недоступна'}</h1>
       <p>{loading ? 'Это займёт немного времени. Можно продолжить покупку без скидки.' : returning ? 'Рады видеть вас снова! Продолжайте собирать своё мороженое.' : isNew ? 'Для вступления в Клуб Тимоши нужно подтвердить номер.' : 'Не удалось проверить номер. Попробуйте позже или продолжите покупку без скидки.'}</p>
+      {returning && <p className="display-recognition-bonus-note">Ваши бонусы можно посмотреть и потратить в Личном кабинете. Ссылку на Личный кабинет мы отправим в подтверждённый канал связи.</p>}
       {isNew && (result.verification?.status === 'PENDING'
         ? <p>Запрос на подтверждение создан. {result.verification.maxAttempts === 3 && `Осталось попыток: ${result.verification.remainingAttempts}.`} Подтверждение на этом экране пока недоступно.</p>
         : <p data-testid="verification-unavailable">Отправка кода временно недоступна. Попробуйте позже.</p>)}
