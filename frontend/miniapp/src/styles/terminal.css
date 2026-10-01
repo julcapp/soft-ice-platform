@@ -64,3 +64,17 @@
 .display-machine-button strong{font-weight:800}
 .display-machine-button small{margin-top:3px;color:var(--display-muted);font-size:12px}
 .idle-machine-card[role="button"]{cursor:pointer;user-select:none;-webkit-user-select:none}
+
+/* Typography refresh v1: modern, friendly, readable from kiosk distance */
+.display-shell,.display-idle,.display-state{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.display-brand strong{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:900;letter-spacing:-.025em}
+.display-home-copy h1,.display-choice-content h1,.display-summary h1,.display-payment h1,.display-phone h1,.display-prepaid h1{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:900;letter-spacing:-.045em;line-height:.98}
+.display-home-price,.display-total strong{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:900;letter-spacing:-.025em}
+.idle-owner strong{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:900;letter-spacing:-.035em}
+.idle-note{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important;font-style:normal!important;font-weight:950!important;line-height:.92!important;letter-spacing:-.055em!important;color:#4a2e24!important;text-transform:none}
+.idle-note-left{transform:rotate(-5deg)!important}
+.idle-note-right{transform:rotate(-3deg)!important}
+.idle-note span{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important;font-weight:900!important}
+.idle-start-prompt{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-weight:950;letter-spacing:-.02em}
+.display-primary,.display-secondary,.display-club,.display-machine-button{font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.display-primary,.display-secondary{font-weight:900;letter-spacing:-.02em}
