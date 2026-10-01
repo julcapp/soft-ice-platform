@@ -193,7 +193,16 @@ class DeterministicDisplayPhoneVerificationProvider {
   }
 }
 
-class AllowDisplayRecognitionAbuseGuard { async check() {} }
+class AllowDisplayRecognitionAbuseGuard {
+  constructor({ allowedMachineIds = null } = {}) {
+    this.allowedMachineIds = Array.isArray(allowedMachineIds) ? new Set(allowedMachineIds) : null;
+  }
+
+  async check({ machineId } = {}) {
+    if (!this.allowedMachineIds || this.allowedMachineIds.has(machineId)) return;
+    throw new ApiError({ statusCode: 503, code: 'DISPLAY_RECOGNITION_ABUSE_GUARD_UNAVAILABLE', message: 'Проверка временно недоступна.' });
+  }
+}
 
 class UnavailableDisplayRecognitionAbuseGuard {
   async check() {

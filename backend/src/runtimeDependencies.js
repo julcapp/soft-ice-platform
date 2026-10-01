@@ -3,7 +3,7 @@ const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntim
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
-const { DisplayCustomerRecognitionService } = require('./modules/customer/DisplayCustomerRecognitionService');
+const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -148,7 +148,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
     customerRepository,
     auditRepository,
-    // Fail closed until trusted kiosk identity and a shared abuse guard are integrated.
+    // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
+    // All other machines continue to fail closed until the shared abuse guard is integrated.
+    abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
   });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
