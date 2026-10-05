@@ -212,3 +212,14 @@ test('MaxAdapter does not trust contact with invalid hash', () => {
   assert.equal(inbound.contact.phone, '+79991234567');
   assert.equal(inbound.contact.verified, false);
 });
+
+
+test('MAX bot_started update is recognized as a start event', () => {
+  const { isStartUpdate } = require('../src/modules/bot_core/BotRuntime');
+  assert.equal(isStartUpdate('max', {
+    update_type: 'bot_started',
+    chat_id: 123,
+    user: { user_id: 456 },
+    payload: 'verify_abc123',
+  }), true);
+});

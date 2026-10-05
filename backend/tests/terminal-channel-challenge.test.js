@@ -125,3 +125,15 @@ test('expires challenge after ten minutes', async () => {
     (error) => error.code === 'CHALLENGE_EXPIRED',
   );
 });
+
+
+test('does not allow a started challenge to be rebound to another MAX user', async () => {
+  const ctx = wire(makeService());
+  const created = await ctx.service.create({ machineId: 'TEST-MACHINE-001', phone: '+79990000001', channel: 'MAX' });
+  const token = new URL(created.deepLink).searchParams.get('start').replace(/^verify_/, '');
+  await ctx.service.start({ channel: 'MAX', token, externalUserId: '111111111' });
+  await assert.rejects(
+    () => ctx.service.start({ channel: 'MAX', token, externalUserId: '222222222' }),
+    (error) => error.code === 'CHALLENGE_SUBJECT_MISMATCH',
+  );
+});

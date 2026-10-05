@@ -100,10 +100,14 @@ class TerminalChannelChallengeService {
   async start({ channel, token, externalUserId }) {
     const challenge = await this.getActive(channel, token);
     const now = this.clock();
+    const subjectHash = externalUserId ? sha256(String(externalUserId)) : null;
+    if (challenge.externalUserIdHash && subjectHash && challenge.externalUserIdHash !== subjectHash) {
+      throw validationError('CHALLENGE_SUBJECT_MISMATCH', 'Проверка номера уже открыта другим пользователем.');
+    }
     return this.repository.update(challenge.id, {
       status: STATUS.STARTED,
       startedAt: challenge.startedAt || now,
-      externalUserIdHash: externalUserId ? sha256(String(externalUserId)) : challenge.externalUserIdHash,
+      externalUserIdHash: subjectHash || challenge.externalUserIdHash,
     });
   }
 

@@ -128,7 +128,10 @@ function extractCallback(channel, update = {}) {
 function isStartUpdate(channel, update = {}) {
   if (channel === 'telegram') return /^\/start(?:\s|$)/.test(update.message?.text || '');
   const text = update.message?.body?.text || update.message?.text || update.text || '';
-  return /^\/start(?:\s|$)/.test(String(text)) || Boolean(update.start_payload);
+  return update.update_type === 'bot_started'
+    || update.type === 'bot_started'
+    || /^\/start(?:\s|$)/.test(String(text))
+    || Boolean(update.start_payload);
 }
 
 function resolveDestination(channel, inbound, update = {}) {
