@@ -5,6 +5,7 @@ const express = require('express');
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
 const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
+const { createBotWebhookVerifier } = require('./api/botWebhookSecurity');
 const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
 const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
 const { createHealthRouter } = require('./common/http/healthRouter');
@@ -54,8 +55,10 @@ function createApp(options = {}) {
     const handlers = createBotWebhookHandlers({
       botRuntime,
       logger,
-      telegramSecret: process.env.TELEGRAM_WEBHOOK_SECRET || null,
-      maxSecret: process.env.MAX_WEBHOOK_SECRET || null,
+      verifyWebhook: createBotWebhookVerifier({
+        telegramSecret: process.env['TELEGRAM_WEBHOOK_SECRET'] || null,
+        maxSecret: process.env['MAX_WEBHOOK_SECRET'] || null,
+      }),
     });
     app.post('/webhooks/telegram', handlers.handleTelegram);
     app.post('/webhooks/max', handlers.handleMax);

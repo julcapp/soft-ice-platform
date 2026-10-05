@@ -20,6 +20,9 @@ function toMaxButton(action) {
   if (['open_url', 'open_mini_app', 'share', 'qr'].includes(action.type) && action.url) {
     return { type: 'link', text: action.label, url: action.url };
   }
+  if (action.type === 'request_contact') {
+    return { type: 'request_contact', text: action.label };
+  }
   if (action.type === 'copy' && action.value) {
     return { type: 'callback', text: action.label, payload: `copy:${action.value}`.slice(0, 128) };
   }
