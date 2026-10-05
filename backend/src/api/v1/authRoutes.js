@@ -2,7 +2,7 @@ const express = require('express');
 
 const { asyncHandler, sendData, createCorrelationId } = require('../../platform/http/apiResponse');
 
-function createAuthRouter({ authCoreService, displayCustomerRecognitionService }) {
+function createAuthRouter({ authCoreService, displayCustomerRecognitionService, terminalChannelChallengeService = null }) {
   const router = express.Router();
 
   router.post(
@@ -47,6 +47,26 @@ function createAuthRouter({ authCoreService, displayCustomerRecognitionService }
         sendData(res, req, recognitionDto(result));
       }),
     );
+    if (terminalChannelChallengeService) {
+      router.post(
+        '/display-phone/channel-challenges',
+        asyncHandler(async (req, res) => {
+          const result = await terminalChannelChallengeService.create({
+            machineId: req.body?.machineId ?? req.body?.machine_id,
+            phone: req.body?.phone,
+            channel: req.body?.channel,
+          });
+          sendData(res, req, {
+            type: 'display_channel_challenge',
+            attributes: {
+              channel: result.channel,
+              deep_link: result.deepLink,
+              expires_at: result.expiresAt,
+            },
+          }, 201);
+        }),
+      );
+    }
     router.post(
       '/display-phone/verification-challenges/:challengeId/verify',
       asyncHandler(async (req, res) => {

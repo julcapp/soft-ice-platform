@@ -42,6 +42,7 @@ const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, 
 const { PrismaOutboxRepository, OutboxAdminService, OutboxWorker, RetryPolicy } = require('./modules/transactional_outbox');
 const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
+const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
@@ -152,6 +153,18 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     // All other machines continue to fail closed until the shared abuse guard is integrated.
     abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
   });
+  const terminalChannelChallengeProduction = process.env.NODE_ENV === 'production' || config?.environment === 'production';
+  const terminalChannelChallengeSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
+    || (terminalChannelChallengeProduction ? null : 'local-terminal-channel-challenge-development-only');
+  const terminalChannelChallengeService = terminalChannelChallengeSecret
+    ? new TerminalChannelChallengeService({
+      repository: new PrismaTerminalChannelChallengeRepository(prisma),
+      customerRepository,
+      phoneSecret: terminalChannelChallengeSecret,
+      maxBotUrl: process.env.BOT_MAX_CHANNEL_URL || 'https://max.ru/id7017438363_bot',
+      telegramBotUrl: process.env.BOT_TELEGRAM_CHANNEL_URL || null,
+    })
+    : null;
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
@@ -383,6 +396,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     authCoreService,
     customerRuntime,
     displayCustomerRecognitionService,
+    terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,

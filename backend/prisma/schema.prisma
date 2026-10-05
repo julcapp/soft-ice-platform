@@ -531,6 +531,30 @@ model BotRecipientBinding {
   @@index([status, lastSeenAt])
 }
 
+
+
+model TerminalChannelChallenge {
+  id                 String   @id @default(uuid())
+  tokenHash          String   @unique
+  phoneFingerprint   String
+  machineId          String
+  channel            String
+  status             String   @default("PENDING")
+  externalUserIdHash String?
+  customerId         String?
+  createdAt          DateTime @default(now())
+  expiresAt          DateTime
+  startedAt          DateTime?
+  verifiedAt         DateTime?
+  consumedAt         DateTime?
+  updatedAt          DateTime @updatedAt
+  metadata           Json?
+
+  @@index([status, expiresAt])
+  @@index([phoneFingerprint, channel, status])
+  @@index([machineId, createdAt])
+}
+
 model AuthSession {
   id              String    @id @default(uuid())
   subjectType     String

@@ -28,6 +28,24 @@ class CustomerRepository {
     return { identity, customer: toCustomerIdentityState(identity.customer) };
   }
 
+  async createVerifiedPhoneCustomer({ phone, verifiedAt = new Date() }) {
+    try {
+      const customer = await this.prisma.customer.create({
+        data: {
+          phone,
+          phoneVerifiedAt: verifiedAt,
+          primaryIdentityProvider: 'phone',
+          status: 'active',
+        },
+        include: { identities: true, clubAccount: true, bonusAccount: true },
+      });
+      return toCustomerIdentityState(customer);
+    } catch (error) {
+      if (error.code === 'P2002') return this.findByVerifiedPhone(phone);
+      throw error;
+    }
+  }
+
   async createTelegramCustomer({ telegramIdentity, displayName, sourceChannel, now = new Date() }) {
     const created = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.create({ data: { name: displayName || null, status: 'active' } });

@@ -917,3 +917,110 @@
   color:#fff;
   box-shadow:0 10px 24px rgba(0,140,122,.20);
 }
+
+
+/* NEW customer confirmation screen: messenger selection, no scrolling */
+.display-recognition-info{
+  margin-top:10px;
+  margin-bottom:12px;
+  padding:12px 18px;
+}
+.display-recognition-info span{
+  color:var(--display-ink);
+  font-weight:700;
+}
+.display-recognition-info small{
+  margin-top:4px;
+  color:var(--display-green);
+  font-weight:800;
+}
+@media (orientation:landscape) and (max-height:1200px){
+  .display-recognition[data-testid="recognition-new"]{
+    justify-content:center;
+    padding-top:0;
+    padding-bottom:8px;
+  }
+  .display-recognition[data-testid="recognition-new"] h1{
+    margin:4px 0 6px;
+  }
+  .display-recognition[data-testid="recognition-new"] [role=status]>p{
+    margin:4px 0 8px;
+  }
+  .display-recognition[data-testid="recognition-new"] .display-recognition-info{
+    margin:8px auto 10px;
+    padding:10px 16px;
+  }
+  .display-recognition[data-testid="recognition-new"] .display-recognition-messenger>p{
+    margin-bottom:8px;
+  }
+  .display-recognition[data-testid="recognition-new"] .display-recognition-messenger button{
+    min-height:52px;
+  }
+  .display-recognition[data-testid="recognition-new"] .display-phone-actions{
+    margin-top:12px;
+  }
+}
+
+
+/* Messenger confirmation sent state */
+.display-recognition-sent{
+  justify-content:center;
+}
+.display-recognition-sent-content{
+  width:min(780px,84vw);
+  margin:0 auto;
+  text-align:center;
+}
+.display-recognition-sent-icon{
+  width:72px;
+  height:72px;
+  margin:4px auto 12px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#e8f8f4;
+  color:var(--display-green);
+  border:2px solid #b9e5dc;
+  font-size:38px;
+  font-weight:900;
+  line-height:1;
+}
+.display-recognition-sent h1{
+  margin:6px 0 10px;
+}
+.display-recognition-sent-content>p{
+  margin:0 auto 12px;
+  max-width:720px;
+  font-size:20px;
+  line-height:1.35;
+}
+.display-recognition-background-wait{
+  width:min(680px,78vw);
+  margin:12px auto 0;
+  justify-content:center;
+}
+.display-recognition-error{
+  color:#a13a2f !important;
+  font-weight:800;
+}
+@media (orientation:landscape) and (max-height:1200px){
+  .display-recognition-sent-icon{
+    width:62px;
+    height:62px;
+    margin-bottom:8px;
+    font-size:32px;
+  }
+  .display-recognition-sent h1{
+    margin:2px 0 6px;
+  }
+  .display-recognition-sent-content>p{
+    margin-bottom:8px;
+    font-size:18px;
+  }
+  .display-recognition-sent .display-recognition-info{
+    margin:8px auto;
+  }
+  .display-recognition-sent .display-phone-actions{
+    margin-top:12px;
+  }
+}

@@ -31,3 +31,31 @@ export async function recognizeDisplayPhone(machineId, phone, { signal } = {}) {
   } catch { return unavailable(); }
   finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
 }
+
+
+export async function createDisplayChannelChallenge(machineId, phone, channel, { signal } = {}) {
+  const response = await fetch('/api/v1/auth/display-phone/channel-challenges', {
+    method: 'POST',
+    credentials: 'omit',
+    cache: 'no-store',
+    signal,
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ machine_id: machineId, phone, channel }),
+  });
+  if (!response.ok) {
+    const error = new Error('Не удалось открыть подтверждение в мессенджере.');
+    error.code = 'CHANNEL_CHALLENGE_FAILED';
+    throw error;
+  }
+  const attrs = (await response.json())?.data?.attributes;
+  if (!attrs?.deep_link || !['MAX', 'TELEGRAM'].includes(attrs?.channel)) {
+    const error = new Error('Некорректный ответ сервера.');
+    error.code = 'CHANNEL_CHALLENGE_INVALID';
+    throw error;
+  }
+  return {
+    channel: attrs.channel,
+    deepLink: attrs.deep_link,
+    expiresAt: attrs.expires_at || null,
+  };
+}

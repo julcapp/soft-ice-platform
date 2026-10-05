@@ -56,6 +56,10 @@ function parseStartPayload(payload) {
       context.source = 'partner';
       context.partnerId = sanitizeToken(value, 64);
       break;
+    case 'verify':
+      context.source = 'direct';
+      context.verificationChallengeToken = sanitizeToken(value, 96);
+      break;
     default:
       context.source = ALLOWED_SOURCES.has(prefix) ? prefix : 'direct';
   }
