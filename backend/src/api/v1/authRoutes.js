@@ -72,6 +72,7 @@ function recognitionDto(result) {
     attributes: {
       state: result.state,
       retryable: Boolean(result.retryable),
+      ...(result.state === 'RETURNING' && Number.isFinite(result.bonusBalance) ? { bonus_balance: result.bonusBalance } : {}),
       verification: result.verification ? verificationAttributes(result.verification) : null,
     },
   };

@@ -18,6 +18,8 @@ export async function recognizeDisplayPhone(machineId, phone, { signal } = {}) {
     // Keep only display-safe fields; never propagate arbitrary backend text or identity.
     return {
       state: result.state,
+      bonusBalance: result.state === 'RETURNING' && Number.isFinite(Number(result.bonus_balance))
+        ? Number(result.bonus_balance) : null,
       verification: result.state === 'NEW' ? {
         status: result.verification?.status === 'PENDING' ? 'PENDING' : 'UNAVAILABLE',
         maxAttempts: result.verification?.max_attempts === 3 ? 3 : null,

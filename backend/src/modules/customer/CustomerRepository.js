@@ -14,7 +14,7 @@ class CustomerRepository {
   async findByVerifiedPhone(phone) {
     const customer = await this.prisma.customer.findFirst({
       where: { phone, phoneVerifiedAt: { not: null } },
-      include: { identities: true, clubAccount: true },
+      include: { identities: true, clubAccount: true, bonusAccount: true },
     });
     return customer ? toCustomerIdentityState(customer) : null;
   }

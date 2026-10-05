@@ -54,7 +54,10 @@ class DisplayCustomerRecognitionService {
     }
     if (customer) {
       await this.audit(RECOGNITION_STATE.RETURNING, machineId, context, 'VERIFIED_PHONE_MATCH');
-      return { state: RECOGNITION_STATE.RETURNING };
+      return {
+        state: RECOGNITION_STATE.RETURNING,
+        ...(customer.bonusAccount ? { bonusBalance: Number(customer.bonusAccount.balanceBonus || 0) } : {}),
+      };
     }
 
     try {
