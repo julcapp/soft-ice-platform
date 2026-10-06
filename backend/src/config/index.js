@@ -67,6 +67,16 @@ function createConfig(environment = process.env, secretProvider = new Environmen
     purchaseContacts: {
       masterSecret: secretProvider.get('TERMINAL_CHANNEL_CHALLENGE_SECRET'),
     },
+    payments: {
+      yooKassa: {
+        shopId: secretProvider.get('YOOKASSA_SHOP_ID'),
+        secretKey: secretProvider.get('YOOKASSA_SECRET_KEY'),
+        apiBaseUrl: environment.YOOKASSA_API_BASE_URL || 'https://api.yookassa.ru/v3',
+        returnOrigins: String(environment.PAYMENT_RETURN_ORIGINS || 'https://display.utimoshi.ru,https://miniapp.utimoshi.ru')
+          .split(',').map((value) => value.trim()).filter(Boolean),
+        timeoutMs: parseInteger(environment.YOOKASSA_TIMEOUT_MS, 15000, 'YOOKASSA_TIMEOUT_MS'),
+      },
+    },
     botNotifications: {
       telegramEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_TELEGRAM_ENABLED, false),
       maxEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_MAX_ENABLED, false),
@@ -100,6 +110,8 @@ function validateConfig(config) {
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.isProduction && !config.purchaseContacts.masterSecret) missing.push('TERMINAL_CHANNEL_CHALLENGE_SECRET');
   if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
+  if (config.features.paymentsEnabled && !config.payments.yooKassa.shopId) missing.push('YOOKASSA_SHOP_ID');
+  if (config.features.paymentsEnabled && !config.payments.yooKassa.secretKey) missing.push('YOOKASSA_SECRET_KEY');
   if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');

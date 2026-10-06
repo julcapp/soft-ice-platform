@@ -47,7 +47,7 @@ const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipie
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
 const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
-const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
+const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
@@ -58,7 +58,15 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
-  const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const paymentProvider = config?.features?.paymentsEnabled
+    ? new YooKassaPaymentProviderAdapter({
+      shopId: config?.payments?.yooKassa?.shopId,
+      secretKey: config?.payments?.yooKassa?.secretKey,
+      apiBaseUrl: config?.payments?.yooKassa?.apiBaseUrl,
+      timeoutMs: config?.payments?.yooKassa?.timeoutMs,
+      allowedReturnOrigins: config?.payments?.yooKassa?.returnOrigins,
+    })
+    : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = new BlockedExternalMachineProviderAdapter();
