@@ -75,16 +75,12 @@ export function RecognitionState({ result, messengerChallenge = null, previewMes
       ? 'Номер подтверждён'
       : expired
         ? 'Время подтверждения истекло'
-        : started
-          ? `Сообщение отправлено в ${label}`
-          : 'Подтверждение подготовлено';
+        : `Откройте ${label} на смартфоне для подтверждения номера`;
     const description = verified
       ? 'Подтверждение получено. Покупку можно продолжать.'
       : expired
         ? 'Подтверждение не получено. Это не мешает продолжить текущую покупку.'
-        : started
-          ? `Откройте сообщение в ${label} и нажмите «Поделиться номером и подтвердить».`
-          : `Откройте ${label} на своём телефоне, чтобы получить запрос на подтверждение.`;
+        : `В чате «Клуб У Тимоши» нажмите «Поделиться номером и подтвердить».`;
     return <section className="display-phone display-recognition display-recognition-sent" data-testid="recognition-message-prepared">
       <p className="display-kicker">Клуб Тимоши</p>
       <div role="status" aria-live="polite" className="display-recognition-sent-content">
