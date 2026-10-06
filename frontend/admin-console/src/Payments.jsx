@@ -97,7 +97,7 @@ export function PaymentsPage({
       <tbody>{state.items.map(p=><tr key={p.id}>
         <td>{dateTime(p.succeededAt||p.createdAt)}</td>
         <td>{channelLabel(p.channel)}</td>
-        <td>{p.customerId||'Неверифицирован'}</td>
+        <td>{p.customerDisplay||p.phoneMasked||p.customerId||'Без идентификации'}</td>
         <td>{p.machineId||'—'}{p.locationId?<><br/><small>{p.locationId}</small></>:null}</td>
         <td><code>{p.orderId}</code><br/><small>{methodLabel(p.paymentMethodType)}</small></td>
         <td><StatusBadge status={p.status}/><br/><small>{p.reconciliationStatus}</small></td>

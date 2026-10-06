@@ -91,12 +91,19 @@ function createPaymentRouter({ paymentRepository, paymentCheckoutService, adminA
 }
 
 async function presentWithEconomics(prisma, value) {
-  const [economics, saleContext] = await Promise.all([loadEconomics(prisma, value), loadSaleContext(prisma, value)]);
+  const [economics, saleContext, purchaseParty] = await Promise.all([
+    loadEconomics(prisma, value),
+    loadSaleContext(prisma, value),
+    loadPurchaseParty(prisma, value),
+  ]);
   return {
     id: value.id,
     orderId: value.orderId,
     saleFlowId: value.saleFlowId,
     customerId: value.customerId,
+    customerDisplay: purchaseParty.customerDisplay,
+    phoneMasked: purchaseParty.phoneMasked,
+    purchasePartyType: purchaseParty.type,
     organizationId: value.organizationId,
     provider: value.provider,
     status: value.status,
@@ -124,6 +131,29 @@ async function presentWithEconomics(prisma, value) {
     refundSummary: summarizeRefunds(value),
     refunds: (value.refunds || []).map(presentRefund),
   };
+}
+
+async function loadPurchaseParty(prisma, payment) {
+  if (payment.customerId) {
+    return { type: 'CUSTOMER', customerDisplay: payment.customerId, phoneMasked: null };
+  }
+  try {
+    const contact = await prisma.unverifiedPurchaseContact.findFirst({
+      where: { orderId: payment.orderId },
+      orderBy: { lastSeenAt: 'desc' },
+      select: { phoneMasked: true, phoneStatus: true },
+    });
+    if (contact) {
+      return {
+        type: contact.phoneStatus === 'VERIFIED' ? 'VERIFIED_CONTACT' : 'UNVERIFIED_CONTACT',
+        customerDisplay: contact.phoneMasked || 'Неверифицированный покупатель',
+        phoneMasked: contact.phoneMasked || null,
+      };
+    }
+  } catch (_) {
+    // Contact projection is optional for historical payments.
+  }
+  return { type: 'ANONYMOUS', customerDisplay: 'Без идентификации', phoneMasked: null };
 }
 
 async function loadSaleContext(prisma, payment) {
