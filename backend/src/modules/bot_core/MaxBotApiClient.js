@@ -52,7 +52,7 @@ class MaxBotApiClient {
     if (typeof text !== 'string' || !text) throw new Error('MAX message text is required.');
     return this.call('/messages', {
       method: 'POST',
-      query: user ? { user_id: user } : { chat_id: chat },
+      query: chat ? { chat_id: chat } : { user_id: user },
       body: {
         text,
         ...(attachments ? { attachments } : {}),
