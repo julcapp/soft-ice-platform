@@ -810,9 +810,29 @@ model CatalogItem {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  machines MachineCatalogItem[]
+  machines        MachineCatalogItem[]
+  inventoryRecipe CatalogInventoryRecipeItem[]
 
   @@index([category, active, sortOrder])
+}
+
+model CatalogInventoryRecipeItem {
+  id              String   @id @default(uuid())
+  catalogItemId   String
+  inventoryItemId String
+  ingredientType  String
+  unit            String
+  quantity        Float
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  catalogItem   CatalogItem          @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryRuntimeItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([catalogItemId, inventoryItemId])
+  @@index([catalogItemId, active])
+  @@index([inventoryItemId])
 }
 
 model MachineCatalogItem {
@@ -1181,6 +1201,7 @@ model InventoryRuntimeItem {
   movements        InventoryRuntimeMovement[]
   reservationItems InventoryRuntimeReservationItem[]
   stocks           InventoryRuntimeStock[]
+  catalogRecipes   CatalogInventoryRecipeItem[]
 }
 
 model InventoryRuntimeLocation {
