@@ -65,8 +65,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       eventLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_EVENT_LIMIT, 200, 'EQUIPMENT_INTEGRATION_EVENT_LIMIT'),
     },
     purchaseContacts: {
-      encryptionKey: secretProvider.get('PURCHASE_CONTACT_ENCRYPTION_KEY'),
-      fingerprintSecret: secretProvider.get('TERMINAL_CHANNEL_CHALLENGE_SECRET'),
+      masterSecret: secretProvider.get('TERMINAL_CHANNEL_CHALLENGE_SECRET'),
     },
     botNotifications: {
       telegramEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_TELEGRAM_ENABLED, false),
@@ -99,8 +98,7 @@ function validateConfig(config) {
   const missing = [];
   if (config.isProduction && !config.database.url) missing.push('DATABASE_URL');
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
-  if (config.isProduction && !config.purchaseContacts.encryptionKey) missing.push('PURCHASE_CONTACT_ENCRYPTION_KEY');
-  if (config.isProduction && !config.purchaseContacts.fingerprintSecret) missing.push('TERMINAL_CHANNEL_CHALLENGE_SECRET');
+  if (config.isProduction && !config.purchaseContacts.masterSecret) missing.push('TERMINAL_CHANNEL_CHALLENGE_SECRET');
   if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
   if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');

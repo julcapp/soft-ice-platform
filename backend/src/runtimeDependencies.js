@@ -1,3 +1,5 @@
+const crypto = require('node:crypto');
+
 const { ClubAccountRepository } = require('./modules/club_account/ClubAccountRepository');
 const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntime');
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
@@ -147,8 +149,13 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
-  const unverifiedContactEncryptionKey = config?.purchaseContacts?.encryptionKey || null;
-  const unverifiedContactFingerprintSecret = config?.purchaseContacts?.fingerprintSecret || null;
+  const purchaseContactMasterSecret = config?.purchaseContacts?.masterSecret || null;
+  const unverifiedContactEncryptionKey = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'aes-256-gcm')
+    : null;
+  const unverifiedContactFingerprintSecret = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'phone-hmac')
+    : null;
   const unverifiedPurchaseContactService = (unverifiedContactEncryptionKey && unverifiedContactFingerprintSecret)
     ? new UnverifiedPurchaseContactService({
       repository: new UnverifiedPurchaseContactRepository(prisma),
@@ -422,6 +429,17 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     botRecipientBindingService,
     domainEventPublisher,
   };
+}
+
+function derivePurchaseContactSubkey(masterSecret, purpose) {
+  const derived = crypto.hkdfSync(
+    'sha256',
+    Buffer.from(String(masterSecret), 'utf8'),
+    Buffer.from('softice.purchase-contact.v1', 'utf8'),
+    Buffer.from(String(purpose), 'utf8'),
+    32,
+  );
+  return Buffer.from(derived).toString('base64');
 }
 
 function unavailableLegacyInventoryRuntime() {
