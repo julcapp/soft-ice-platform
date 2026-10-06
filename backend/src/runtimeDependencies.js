@@ -147,11 +147,12 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
-  const unverifiedContactFingerprintSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET || null;
-  const unverifiedPurchaseContactService = (config?.botNotifications?.recipientEncryptionKey && unverifiedContactFingerprintSecret)
+  const unverifiedContactEncryptionKey = config?.purchaseContacts?.encryptionKey || null;
+  const unverifiedContactFingerprintSecret = config?.purchaseContacts?.fingerprintSecret || null;
+  const unverifiedPurchaseContactService = (unverifiedContactEncryptionKey && unverifiedContactFingerprintSecret)
     ? new UnverifiedPurchaseContactService({
       repository: new UnverifiedPurchaseContactRepository(prisma),
-      codec: new AesGcmValueCodec({ key: config.botNotifications.recipientEncryptionKey }),
+      codec: new AesGcmValueCodec({ key: unverifiedContactEncryptionKey }),
       fingerprintSecret: unverifiedContactFingerprintSecret,
       logger,
     })
