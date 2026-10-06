@@ -23,7 +23,7 @@ function createApp(options = {}) {
   const config = options.config || backendConfig;
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
-  const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
+  const botClients = options.botClients ?? createBotClientsFromEnv(process.env, { logger });
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
   if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
