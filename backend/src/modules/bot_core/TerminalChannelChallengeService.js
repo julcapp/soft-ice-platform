@@ -22,6 +22,10 @@ class PrismaTerminalChannelChallengeRepository {
     return this.prisma.terminalChannelChallenge.findUnique({ where: { tokenHash } });
   }
 
+  findById(id) {
+    return this.prisma.terminalChannelChallenge.findUnique({ where: { id } });
+  }
+
   findActiveByExternalUserIdHash({ channel, externalUserIdHash }) {
     return this.prisma.terminalChannelChallenge.findFirst({
       where: { channel, externalUserIdHash, status: STATUS.STARTED },
@@ -80,7 +84,7 @@ class TerminalChannelChallengeService {
     const token = crypto.randomBytes(24).toString('base64url');
     const now = this.clock();
     const expiresAt = new Date(now.getTime() + this.ttlMs);
-    await this.repository.create({
+    const challenge = await this.repository.create({
       tokenHash: sha256(token),
       phoneFingerprint,
       machineId,
@@ -91,10 +95,22 @@ class TerminalChannelChallengeService {
     });
 
     return {
+      id: challenge.id,
       channel: normalizedChannel,
       expiresAt: expiresAt.toISOString(),
       deepLink: this.buildDeepLink(normalizedChannel, token),
     };
+  }
+
+  async status(id) {
+    const challenge = await this.repository.findById(id);
+    if (!challenge) throw validationError('CHALLENGE_NOT_FOUND', 'Проверка номера не найдена.');
+    const now = this.clock();
+    if (challenge.expiresAt <= now && [STATUS.PENDING, STATUS.STARTED].includes(challenge.status)) {
+      const expired = await this.repository.update(challenge.id, { status: STATUS.EXPIRED, consumedAt: now });
+      return { id: expired.id, channel: expired.channel, status: expired.status, expiresAt: expired.expiresAt };
+    }
+    return { id: challenge.id, channel: challenge.channel, status: challenge.status, expiresAt: challenge.expiresAt };
   }
 
   async start({ channel, token, externalUserId }) {

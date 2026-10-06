@@ -58,12 +58,28 @@ function createAuthRouter({ authCoreService, displayCustomerRecognitionService, 
           });
           sendData(res, req, {
             type: 'display_channel_challenge',
+            id: result.id,
             attributes: {
               channel: result.channel,
               deep_link: result.deepLink,
               expires_at: result.expiresAt,
             },
           }, 201);
+        }),
+      );
+      router.get(
+        '/display-phone/channel-challenges/:challengeId/status',
+        asyncHandler(async (req, res) => {
+          const result = await terminalChannelChallengeService.status(req.params.challengeId);
+          sendData(res, req, {
+            type: 'display_channel_challenge_status',
+            id: result.id,
+            attributes: {
+              channel: result.channel,
+              status: result.status,
+              expires_at: result.expiresAt?.toISOString?.() || result.expiresAt,
+            },
+          });
         }),
       );
     }

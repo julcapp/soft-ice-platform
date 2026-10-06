@@ -1024,3 +1024,127 @@
     margin-top:12px;
   }
 }
+
+
+/* Messenger QR handoff */
+.display-recognition-qr{
+  width:min(720px,82vw);
+  margin:10px auto 8px;
+  padding:14px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:22px;
+  border:1px solid #d8e8e4;
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 10px 28px rgba(56,39,29,.07);
+}
+.display-recognition-qr img{
+  width:172px;
+  height:172px;
+  flex:0 0 172px;
+  object-fit:contain;
+  image-rendering:pixelated;
+  border-radius:10px;
+}
+.display-recognition-qr>div{
+  max-width:410px;
+  text-align:left;
+}
+.display-recognition-qr strong,
+.display-recognition-qr span{
+  display:block;
+}
+.display-recognition-qr strong{
+  margin-bottom:8px;
+  color:var(--display-ink);
+  font-size:20px;
+  line-height:1.2;
+}
+.display-recognition-qr span{
+  color:var(--display-muted);
+  font-size:17px;
+  line-height:1.35;
+}
+.display-recognition-background-note{
+  display:block;
+  margin:8px auto 0;
+  color:var(--display-muted);
+  font-size:14px;
+  font-weight:700;
+}
+@media (orientation:landscape) and (max-height:1200px){
+  .display-recognition-sent{
+    padding-top:0;
+    padding-bottom:6px;
+  }
+  .display-recognition-sent-icon{
+    width:50px;
+    height:50px;
+    margin:0 auto 5px;
+    font-size:27px;
+  }
+  .display-recognition-sent h1{
+    margin:0 0 4px;
+    font-size:clamp(40px,3.7vw,56px);
+  }
+  .display-recognition-sent-content>p{
+    margin-bottom:6px;
+    font-size:17px;
+  }
+  .display-recognition-qr{
+    margin:7px auto 6px;
+    padding:10px 14px;
+    gap:18px;
+  }
+  .display-recognition-qr img{
+    width:148px;
+    height:148px;
+    flex-basis:148px;
+  }
+  .display-recognition-qr strong{
+    font-size:18px;
+  }
+  .display-recognition-qr span{
+    font-size:15px;
+  }
+  .display-recognition-background-wait{
+    margin-top:7px;
+  }
+  .display-recognition-background-note{
+    margin-top:5px;
+    font-size:13px;
+  }
+}
+
+
+/* Returning customer: one clear action at the machine */
+.display-returning-lead{
+  font-weight:800;
+}
+.display-returning-action{
+  margin:14px auto 0;
+  max-width:760px;
+  padding:16px 20px;
+  border:1px solid rgba(0,140,122,.22);
+  border-radius:22px;
+  background:rgba(236,250,247,.72);
+  text-align:center;
+}
+.display-returning-action strong{
+  display:block;
+  color:var(--display-green);
+  font-size:clamp(22px,2.1vw,34px);
+  line-height:1.1;
+}
+.display-returning-action span{
+  display:block;
+  margin-top:6px;
+  color:var(--display-muted);
+  font-weight:650;
+}
+.display-phone-actions .display-primary-wide:only-child{
+  width:min(760px,100%);
+  margin-inline:auto;
+}

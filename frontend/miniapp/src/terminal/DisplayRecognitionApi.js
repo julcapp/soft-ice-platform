@@ -47,15 +47,40 @@ export async function createDisplayChannelChallenge(machineId, phone, channel, {
     error.code = 'CHANNEL_CHALLENGE_FAILED';
     throw error;
   }
-  const attrs = (await response.json())?.data?.attributes;
-  if (!attrs?.deep_link || !['MAX', 'TELEGRAM'].includes(attrs?.channel)) {
+  const payload = (await response.json())?.data;
+  const attrs = payload?.attributes;
+  if (!payload?.id || !attrs?.deep_link || !['MAX', 'TELEGRAM'].includes(attrs?.channel)) {
     const error = new Error('Некорректный ответ сервера.');
     error.code = 'CHANNEL_CHALLENGE_INVALID';
     throw error;
   }
   return {
+    id: payload.id,
     channel: attrs.channel,
     deepLink: attrs.deep_link,
+    expiresAt: attrs.expires_at || null,
+  };
+}
+
+
+export async function getDisplayChannelChallengeStatus(challengeId, { signal } = {}) {
+  const response = await fetch(`/api/v1/auth/display-phone/channel-challenges/${encodeURIComponent(challengeId)}/status`, {
+    method: 'GET',
+    credentials: 'omit',
+    cache: 'no-store',
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error('Не удалось проверить статус подтверждения.');
+  const data = (await response.json())?.data;
+  const attrs = data?.attributes;
+  if (!data?.id || !['PENDING', 'STARTED', 'VERIFIED', 'EXPIRED', 'INVALIDATED'].includes(attrs?.status)) {
+    throw new Error('Некорректный статус подтверждения.');
+  }
+  return {
+    id: data.id,
+    channel: attrs.channel,
+    status: attrs.status,
     expiresAt: attrs.expires_at || null,
   };
 }
