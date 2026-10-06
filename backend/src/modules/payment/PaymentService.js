@@ -13,7 +13,7 @@ class PaymentService {
       if (!flow) throw error('PAYMENT_TENANT_SCOPE_MISMATCH', 'Заказ не принадлежит указанной организации/Sale Flow.', 403);
       const amount = money(order.amount);
       if (request.amount !== undefined && !sameMoney(request.amount, amount)) throw error('PAYMENT_CLIENT_AMOUNT_REJECTED', 'Сумма клиента не совпадает с authoritative Order amount.', 409);
-      const identity = canonicalCreateIdentity({ orderId: order.id, saleFlowId: flow.flowId, provider: request.provider, amount, currency: order.currency, description: request.description, metadata: request.metadata });
+      const identity = canonicalCreateIdentity({ orderId: order.id, saleFlowId: flow.flowId, provider: request.provider, channel: request.channel, amount, currency: order.currency, description: request.description, metadata: request.metadata });
       const requestFingerprint = hash(identity);
       const byKey = await repo.getByIdempotencyKey(request.organizationId, request.idempotencyKey);
       if (byKey) return replayCreate(byKey, requestFingerprint);
@@ -22,7 +22,7 @@ class PaymentService {
         if (byOrder.idempotencyKey === request.idempotencyKey) return replayCreate(byOrder, requestFingerprint);
         throw error('PAYMENT_ORDER_ALREADY_HAS_PAYMENT', 'Для заказа уже существует Payment.', 409);
       }
-      const payment = await repo.create({ organizationId: request.organizationId, orderId: order.id, saleFlowId: flow.flowId, customerId: order.customerId, provider: request.provider, idempotencyKey: request.idempotencyKey, requestFingerprint, status: 'CREATED', amount, currency: order.currency, description: identity.description, metadata: identity.metadata });
+      const payment = await repo.create({ organizationId: request.organizationId, orderId: order.id, saleFlowId: flow.flowId, customerId: order.customerId, provider: request.provider, idempotencyKey: request.idempotencyKey, requestFingerprint, status: 'CREATED', amount, currency: order.currency, channel: normalizeChannel(request.channel), description: identity.description, metadata: identity.metadata });
       await repo.createOperation({ organizationId: payment.organizationId, paymentId: payment.id, operationType: 'CREATE', idempotencyKey: request.idempotencyKey, requestHash: requestFingerprint, completedAt: this.clock(), resultReference: payment.id });
       await this.auditAndEvent(repo, payment, 'PAYMENT_CREATED', 'PaymentCreated', context);
       return { payment, duplicate: false };
@@ -35,7 +35,7 @@ class PaymentService {
       const order = await this.repository.prisma.order.findUnique({ where: { id: request.orderId } });
       const flow = order && await this.repository.prisma.saleFlow.findFirst({ where: { orderId: request.orderId, organizationId: request.organizationId, ...(request.saleFlowId && { flowId: request.saleFlowId }) } });
       if (!order || !flow) throw failure;
-      const fingerprint = hash(canonicalCreateIdentity({ orderId: order.id, saleFlowId: flow.flowId, provider: request.provider, amount: money(order.amount), currency: order.currency, description: request.description, metadata: request.metadata }));
+      const fingerprint = hash(canonicalCreateIdentity({ orderId: order.id, saleFlowId: flow.flowId, provider: request.provider, channel: request.channel, amount: money(order.amount), currency: order.currency, description: request.description, metadata: request.metadata }));
       if (winner.idempotencyKey === request.idempotencyKey) return replayCreate(winner, fingerprint);
       throw error('PAYMENT_ORDER_ALREADY_HAS_PAYMENT', 'Для заказа уже существует Payment.', 409);
     }
@@ -156,8 +156,13 @@ class PaymentService {
       const payment = await tx.payment.findFirst({ where: { id: request.paymentId, organizationId: request.organizationId } });
       if (!payment) throw error('PAYMENT_NOT_FOUND', 'Платёж не найден.', 404);
       assertPaymentTransition(payment.status, 'REFUND_PENDING');
-      const amount = money(request.amount ?? payment.amount);
-      if (Number(amount) > Number(payment.amount)) throw error('REFUND_AMOUNT_EXCEEDS_PAYMENT', 'Сумма возврата превышает платёж.', 409);
+      const outstanding = await tx.paymentRefund.findFirst({ where: { organizationId: payment.organizationId, paymentId: payment.id, status: { in: ['REQUESTED', 'PENDING'] } } });
+      if (outstanding) throw error('REFUND_ALREADY_PENDING', 'Для платежа уже выполняется возврат.', 409);
+      const refunded = await tx.paymentRefund.aggregate({ where: { organizationId: payment.organizationId, paymentId: payment.id, status: 'SUCCEEDED' }, _sum: { amount: true } });
+      const alreadyRefunded = Number(refunded._sum.amount || 0);
+      const remaining = Number((Number(payment.amount) - alreadyRefunded).toFixed(2));
+      const amount = money(request.amount ?? remaining);
+      if (Number(amount) > remaining) throw error('REFUND_AMOUNT_EXCEEDS_PAYMENT', `Доступно к возврату ${remaining.toFixed(2)} RUB.`, 409);
       const refund = await repo.createRefund({ organizationId: payment.organizationId, paymentId: payment.id, idempotencyKey: request.idempotencyKey, status: 'REQUESTED', amount, currency: payment.currency, reason: request.reason });
       await tx.payment.update({ where: { id: payment.id }, data: { status: 'REFUND_PENDING' } });
       await this.auditAndEvent(repo, payment, 'REFUND_REQUESTED', 'RefundRequested', context, refund.id, { refundId: refund.id, amount });
@@ -178,8 +183,14 @@ class PaymentService {
       const now = this.clock();
       const providerEvent = await tx.paymentProviderInbox.findFirst({ where: { organizationId: request.organizationId, providerEventId: request.providerEventId, paymentId: refund.paymentId } });
       if (!providerEvent) throw error('REFUND_PROVIDER_CONFIRMATION_REQUIRED', 'Provider event возврата не найден в durable Inbox.', 409);
-      await tx.paymentRefund.update({ where: { id: refund.id }, data: { status, providerRefundId: request.providerRefundId || refund.providerRefundId, ...(status === 'SUCCEEDED' ? { succeededAt: now } : { failedAt: now, failureCode: request.failureCode || 'PROVIDER_FAILED' }) } });
-      await tx.payment.update({ where: { id: refund.paymentId }, data: { status: status === 'SUCCEEDED' ? 'REFUNDED' : 'SUCCEEDED', ...(status === 'SUCCEEDED' && { refundedAt: now }) } });
+      await tx.paymentRefund.update({ where: { id: refund.id }, data: { status, providerRefundId: request.providerRefundId || refund.providerRefundId, ...(status === 'SUCCEEDED' ? { succeededAt: now, failureCode: null } : { failedAt: now, failureCode: request.failureCode || 'PROVIDER_FAILED' }) } });
+      let nextPaymentStatus = 'SUCCEEDED';
+      let refundedAt = null;
+      if (status === 'SUCCEEDED') {
+        const totals = await tx.paymentRefund.aggregate({ where: { organizationId: refund.organizationId, paymentId: refund.paymentId, status: 'SUCCEEDED' }, _sum: { amount: true } });
+        if (Number(totals._sum.amount || 0) >= Number(refund.payment.amount)) { nextPaymentStatus = 'REFUNDED'; refundedAt = now; }
+      }
+      await tx.payment.update({ where: { id: refund.paymentId }, data: { status: nextPaymentStatus, refundedAt } });
       await this.auditAndEvent(repo, refund.payment, `REFUND_${status}`, status === 'SUCCEEDED' ? 'RefundSucceeded' : 'RefundFailed', context, request.idempotencyKey, { refundId: refund.id });
       return { refund: await tx.paymentRefund.findUnique({ where: { id: refund.id } }), duplicate: false };
     });
@@ -205,10 +216,11 @@ class PaymentService {
 
 function required(value, keys) { for (const key of keys) if (value[key] === undefined || value[key] === null || value[key] === '') throw error('PAYMENT_VALIDATION_FAILED', `${key} обязателен.`, 400); }
 function hash(value) { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
-function canonicalCreateIdentity(value) { return stable({ orderId: value.orderId, saleFlowId: value.saleFlowId, amount: money(value.amount), currency: value.currency, provider: value.provider, description: value.description || null, metadata: sanitize(value.metadata) }); }
+function canonicalCreateIdentity(value) { return stable({ orderId: value.orderId, saleFlowId: value.saleFlowId, amount: money(value.amount), currency: value.currency, provider: value.provider, channel: normalizeChannel(value.channel), description: value.description || null, metadata: sanitize(value.metadata) }); }
 function stable(value) { if (Array.isArray(value)) return value.map(stable); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])); }
 function replayCreate(payment, fingerprint) { if (payment.requestFingerprint !== fingerprint) throw error('PAYMENT_IDEMPOTENCY_CONFLICT', 'Idempotency key создания уже использован для другого логического запроса.', 409); return { payment, duplicate: true }; }
 function sanitize(value) { if (!value || typeof value !== 'object') return value || null; const out = {}; for (const [key, child] of Object.entries(value)) if (!/(authorization|cookie|secret|token|card|cvv|cvc|api.?key)/i.test(key)) out[key] = typeof child === 'object' ? sanitize(child) : child; return out; }
 function safePayload(value) { return JSON.parse(JSON.stringify(sanitize(value)).slice(0, 65536)); }
 function title(value) { return value[0] + value.slice(1).toLowerCase(); }
+function normalizeChannel(value) { const channel = String(value || '').toUpperCase(); return ['TERMINAL','WEB','MINIAPP'].includes(channel) ? channel : null; }
 module.exports = { PaymentService };

@@ -69,6 +69,10 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
         payment_id: request.providerPaymentId,
         amount: { value: Number(request.amount).toFixed(2), currency: request.currency },
         description: request.reason || undefined,
+        metadata: {
+          refund_id: request.refundId,
+          ...(request.orderId ? { order_id: request.orderId } : {}),
+        },
       },
     });
     return {
@@ -146,6 +150,8 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
       currency: object.amount?.currency || 'RUB',
       rawStatus: object.status || null,
       updatedAt: object.created_at || null,
+      metadata: sanitize(object.metadata || {}),
+      failureCode: object.cancellation_details?.reason || null,
     };
   }
 
@@ -207,6 +213,7 @@ function normalizePayment(object = {}) {
     createdAt: object.created_at || null,
     updatedAt: object.captured_at || object.created_at || null,
     metadata: sanitize(object.metadata || {}),
+    failureCode: object.cancellation_details?.reason || null,
   };
 }
 

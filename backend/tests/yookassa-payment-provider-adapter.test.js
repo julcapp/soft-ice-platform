@@ -123,3 +123,39 @@ test('maps YooKassa payment states into authoritative states', async () => {
     assert.equal((await adapter.getPaymentStatus('p')).status, expected);
   }
 });
+
+
+test('refund request includes local refund metadata for webhook correlation', async () => {
+  const calls = [];
+  const adapter = new YooKassaPaymentProviderAdapter({
+    shopId: 'shop-test',
+    secretKey: 'secret-test',
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      return response(200, {
+        id: 'yr_1',
+        status: 'pending',
+        payment_id: 'yk_1',
+        amount: { value: '40.00', currency: 'RUB' },
+        metadata: { refund_id: 'refund_1', order_id: 'order_1' },
+      });
+    },
+  });
+
+  const created = await adapter.refundPayment({
+    refundId: 'refund_1',
+    providerPaymentId: 'yk_1',
+    orderId: 'order_1',
+    amount: '40.00',
+    currency: 'RUB',
+    idempotencyKey: 'refund-idem-1',
+    reason: 'Возврат части заказа',
+  });
+
+  assert.equal(created.providerRefundId, 'yr_1');
+  assert.equal(created.status, 'PENDING');
+  assert.equal(calls[0].url, 'https://api.yookassa.ru/v3/refunds');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.payment_id, 'yk_1');
+  assert.deepEqual(body.metadata, { refund_id: 'refund_1', order_id: 'order_1' });
+});

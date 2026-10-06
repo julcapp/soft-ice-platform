@@ -2129,6 +2129,11 @@ model Payment {
   amount              Decimal                 @db.Decimal(18, 2)
   currency            String                  @default("RUB")
   providerStatus      String?
+  confirmationUrl     String?
+  paymentMethodType   String?
+  incomeAmount        Decimal?                @db.Decimal(18, 2)
+  channel             String?
+  failureCode         String?
   description         String?
   metadata            Json?
   createdAt           DateTime                @default(now())

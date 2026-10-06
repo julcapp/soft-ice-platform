@@ -47,7 +47,7 @@ const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipie
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
 const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
-const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
+const { PaymentRepository, PaymentService, PaymentCheckoutService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
@@ -70,6 +70,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = new BlockedExternalMachineProviderAdapter();
+  const paymentCheckoutService = new PaymentCheckoutService({ paymentService, repository: paymentRepository, providers: { YOOKASSA: paymentProvider } });
   const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
   const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
   const customerRepository = new CustomerRepository(prisma);
@@ -399,6 +400,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     outboxAdminService,
     paymentRepository,
     paymentService,
+    paymentCheckoutService,
     paymentReconciliationService,
     paymentInboxWorker,
     machineDispenseRepository,
