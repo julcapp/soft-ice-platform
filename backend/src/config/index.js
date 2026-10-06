@@ -72,7 +72,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
         shopId: secretProvider.get('YOOKASSA_SHOP_ID'),
         secretKey: secretProvider.get('YOOKASSA_SECRET_KEY'),
         apiBaseUrl: environment.YOOKASSA_API_BASE_URL || 'https://api.yookassa.ru/v3',
-        returnOrigins: String(environment.PAYMENT_RETURN_ORIGINS || 'https://display.utimoshi.ru,https://miniapp.utimoshi.ru')
+        returnOrigins: String(environment.PAYMENT_RETURN_ORIGINS || 'https://display.utimoshi.ru,https://miniapp.utimoshi.ru,https://utimoshi.ru,https://www.utimoshi.ru,https://app.utimoshi.ru')
           .split(',').map((value) => value.trim()).filter(Boolean),
         timeoutMs: parseInteger(environment.YOOKASSA_TIMEOUT_MS, 15000, 'YOOKASSA_TIMEOUT_MS'),
       },

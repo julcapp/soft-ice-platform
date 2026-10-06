@@ -14,6 +14,7 @@ import { ProfileCenter } from '../profile/ProfileCenter.jsx';
 import { ReferralCenter } from '../profile/ReferralCenter.jsx';
 import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
 import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
+import { PaymentResultScreen } from '../payment/PaymentResultScreen.jsx';
 
 export function App() {
   const appMode = useMemo(() => {
@@ -35,6 +36,12 @@ export function App() {
   if (appMode === 'camera') return <PhotoCameraScreen onBack={() => { window.location.search = '?mode=photos'; }} onSubmitted={() => { window.location.search = '?mode=photos'; }} />;
   if (appMode === 'verify-email') return <VerifyEmailScreen />;
   if (appMode === 'private-channel') return <PrivateChannelScreen onBack={() => { window.location.href = '/'; }} />;
+  if (appMode === 'payment-return') {
+    const orderId = new URLSearchParams(window.location.search).get('orderId');
+    const goHome = () => { window.location.href = '/'; };
+    const retry = () => { window.location.href = '/'; };
+    return <PaymentResultScreen orderId={orderId} onDone={goHome} onRetry={retry} />;
+  }
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
   if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
