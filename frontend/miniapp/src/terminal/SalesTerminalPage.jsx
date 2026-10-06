@@ -3,7 +3,7 @@ import { trackEvent } from '../analytics/trackEvent.js';
 import { PromotionPricePanel } from '../promotion/PromotionPricePanel.jsx';
 import { resolveMachineId } from '../promotion/PricingQuoteApi.js';
 import { usePricingQuote } from '../promotion/usePricingQuote.js';
-import { createDisplayChannelChallenge, getDisplayChannelChallengeStatus, recognizeDisplayPhone } from './DisplayRecognitionApi.js';
+import { recognizeDisplayPhone } from './DisplayRecognitionApi.js';
 import { RecognitionState } from './RecognitionState.jsx';
 import { getMachineCatalog } from './MachineCatalogApi.js';
 
@@ -170,23 +170,15 @@ export function SalesTerminalPage() {
     const requested = new URLSearchParams(window.location.search).get('previewStep');
     return Object.values(STEPS).includes(requested) ? requested : null;
   }, []);
-  const previewMessengerStatus = useMemo(() => {
-    if (!import.meta.env.DEV) return null;
-    const value = new URLSearchParams(window.location.search).get('previewMessengerStatus');
-    return ['PENDING', 'STARTED', 'VERIFIED', 'EXPIRED'].includes(value) ? value : null;
-  }, []);
   const [catalogState, setCatalogState] = useState({ status: 'loading', catalog: null, error: null });
   const [step, setStep] = useState(previewStep || STEPS.IDLE);
   const [phone, setPhone] = useState('');
-  const [recognizedPhone, setRecognizedPhone] = useState(null);
-  const [activeChannelChallenge, setActiveChannelChallenge] = useState(null);
-  const [recognition, setRecognition] = useState(previewMessengerStatus ? { state: 'NEW' } : null);
+  const [recognition, setRecognition] = useState(null);
   const recognitionRequest = useRef(null);
   const clearRecognition = () => {
     recognitionRequest.current?.abort();
     recognitionRequest.current = null;
     setPhone('');
-    setRecognizedPhone(null);
     setRecognition(null);
   };
   useEffect(() => () => recognitionRequest.current?.abort(), []);
@@ -199,37 +191,8 @@ export function SalesTerminalPage() {
     const result = await recognizeDisplayPhone(machineId, submittedPhone, { signal: controller.signal });
     if (recognitionRequest.current !== controller || controller.signal.aborted) return;
     setPhone('');
-    setRecognizedPhone(submittedPhone);
     setRecognition(result);
   };
-  const selectMessenger = async (channel) => {
-    if (!recognizedPhone) throw new Error('PHONE_CONTEXT_MISSING');
-    const challenge = await createDisplayChannelChallenge(machineId, recognizedPhone, channel);
-    const next = { ...challenge, status: 'PENDING' };
-    setActiveChannelChallenge(next);
-    if (channel === 'MAX') window.open(challenge.deepLink, '_blank', 'noopener,noreferrer');
-    return next;
-  };
-  useEffect(() => {
-    if (!activeChannelChallenge?.id || ['VERIFIED', 'EXPIRED', 'INVALIDATED'].includes(activeChannelChallenge.status)) return undefined;
-    const controller = new AbortController();
-    let timer = null;
-    const poll = async () => {
-      try {
-        const next = await getDisplayChannelChallengeStatus(activeChannelChallenge.id, { signal: controller.signal });
-        setActiveChannelChallenge((current) => current?.id === next.id ? { ...current, ...next } : current);
-      } catch (error) {
-        if (error.name === 'AbortError') return;
-      }
-      if (!controller.signal.aborted) timer = window.setTimeout(poll, 3000);
-    };
-    timer = window.setTimeout(poll, 1500);
-    return () => {
-      controller.abort();
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [activeChannelChallenge?.id, activeChannelChallenge?.status]);
-
   const continueAnonymous = () => { clearRecognition(); setStep(STEPS.SPRINKLE); };
   const [sprinkleSku, setSprinkleSku] = useState(null);
   const [toppingSku, setToppingSku] = useState(null);
@@ -246,9 +209,9 @@ export function SalesTerminalPage() {
   if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} catalog={catalog} machineId={machineId} />;
   if (catalogState.status === 'loading') return <main className="display-state" data-testid="display-loading"><div className="display-spinner" /><h1>Загружаем меню…</h1></main>;
   if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
-  return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />{activeChannelChallenge?.status === 'VERIFIED' && <div className="display-background-confirmed" role="status">✓ Номер подтверждён</div>}
+  return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />
     {step === STEPS.HOME && <section className="display-home"><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-home-copy"><p className="display-kicker">Сегодня в аппарате</p><h1>{catalog.currentFlavor.nameRu}</h1><p>Собери свой вкус: выберите посыпку и топпинг.</p><div className="display-home-price">от {money(catalog.currentFlavor.basePrice, catalog.currency)}</div><div className="display-home-actions"><button className="display-primary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Собрать мороженое</button><button className="display-secondary" data-testid="display-prepaid-entry" type="button" onClick={() => setStep(STEPS.PREPAID)}>Получить оплаченный заказ</button></div><button className="display-club" type="button" onClick={() => setStep(STEPS.CLUB)}><span>♡</span><div><strong>Клуб Тимоши</strong><small>Каждая 50-я покупка — в подарок</small></div><b>Получить свою скидку</b></button><div className="display-values"><span>Натуральные ингредиенты</span><span>Улыбка с каждым стаканчиком</span><span>Подари свою улыбку!</span></div></div></section>}
-    {step === STEPS.CLUB && (recognition ? <RecognitionState result={recognition} messengerChallenge={activeChannelChallenge} previewMessengerStatus={previewMessengerStatus} onMessengerSelect={selectMessenger} onSkip={continueAnonymous} onReset={clearRecognition} /> : <PhoneKeypad value={phone} onChange={setPhone} onSkip={continueAnonymous} onContinue={recognize} />)}
+    {step === STEPS.CLUB && (recognition ? <RecognitionState result={recognition} onSkip={continueAnonymous} onReset={clearRecognition} /> : <PhoneKeypad value={phone} onChange={setPhone} onSkip={continueAnonymous} onContinue={recognize} />)}
     {step === STEPS.PREPAID && <PrepaidBoundary onBack={() => setStep(STEPS.HOME)} />}
     {step === STEPS.SPRINKLE && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 1 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите посыпку</h1><p className="display-choice-subtitle">Можно продолжить без посыпки</p><div className="display-option-grid">{catalog.sprinkles.map((item) => <OptionCard key={item.id} item={item} selected={sprinkleSku === item.sku} onClick={() => setSprinkleSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.HOME)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.TOPPING)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Далее: топпинг'}</button></div></div></section>}
     {step === STEPS.TOPPING && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 2 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите топпинг</h1><p className="display-choice-subtitle">Можно продолжить без топпинга</p><div className="display-option-grid">{catalog.toppings.map((item) => <OptionCard key={item.id} item={item} selected={toppingSku === item.sku} onClick={() => setToppingSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад к посыпке</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.SUMMARY)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Продолжить'}</button></div></div></section>}
