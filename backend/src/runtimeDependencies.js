@@ -4,6 +4,7 @@ const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
 const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
+const { UnverifiedPurchaseContactRepository, UnverifiedPurchaseContactService } = require('./modules/customer/UnverifiedPurchaseContactService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -146,12 +147,25 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
+  const unverifiedContactFingerprintSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET || null;
+  const unverifiedPurchaseContactService = (config?.botNotifications?.recipientEncryptionKey && unverifiedContactFingerprintSecret)
+    ? new UnverifiedPurchaseContactService({
+      repository: new UnverifiedPurchaseContactRepository(prisma),
+      codec: new AesGcmValueCodec({ key: config.botNotifications.recipientEncryptionKey }),
+      fingerprintSecret: unverifiedContactFingerprintSecret,
+      logger,
+    })
+    : null;
+  if (!unverifiedPurchaseContactService) logger?.warn?.('Unverified purchase contact persistence is disabled: encryption key or fingerprint secret is missing.');
+
   const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
     customerRepository,
     auditRepository,
     // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
     // All other machines continue to fail closed until the shared abuse guard is integrated.
     abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
+    unverifiedPurchaseContactService,
+    logger,
   });
   const terminalChannelChallengeProduction = process.env.NODE_ENV === 'production' || config?.environment === 'production';
   const terminalChannelChallengeSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
@@ -396,6 +410,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     authCoreService,
     customerRuntime,
     displayCustomerRecognitionService,
+    unverifiedPurchaseContactService,
     terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
