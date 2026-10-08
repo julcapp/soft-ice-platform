@@ -8,7 +8,7 @@ await fs.mkdir(output, { recursive: true });
 const quote = { id: 'quote-browser', finalAmount: 165, baseAmount: 165, giftAmount: 0, promotionDiscountAmount: 0, currency: 'RUB', createdAt: new Date().toISOString(), lockedUntil: new Date(Date.now()+300000).toISOString() };
 const items = [{ sku: 'ice', nameRu: 'Сливочное мороженое' }, { sku: 'topping_chocolate', nameRu: 'Шоколадный топпинг' }, { sku: 'sprinkle_wafer', nameRu: 'Вафельная крошка' }];
 const results = [];
-async function setup(width, height, mode='pending') {
+async function setup(width, height, mode='pending', method='sbp') {
  const page = await browser.newPage({ viewport: { width, height } });
  const errors=[]; page.on('pageerror', e=>errors.push(e.message));
  await page.addInitScript(({ quote, items }) => {
@@ -27,16 +27,17 @@ async function setup(width, height, mode='pending') {
    if(current==='unknown') return route.abort('failed');
    if(current==='unavailable') return route.fulfill({status:503,json:{error:{code:'PAYMENT_CHECKOUT_NOT_AVAILABLE'}}});
   } else if(fail) return route.abort('failed');
-  return route.fulfill({json:{data:{id:'payment-browser',attributes:{fulfillment_state:current==='complete'?'COMPLETED':current==='attention'?'ATTENTION_REQUIRED':'WAITING',order_id:'order-browser',machine_id:'TEST-MACHINE-001',amount:'165.00',currency:'RUB',confirmation_url:'https://qr.nspk.ru/TEST-NOT-A-REAL-PAYMENT',status:['success','complete','attention'].includes(current)?'SUCCEEDED':current==='error'?'CANCELED':'PENDING',user_state:['success','complete','attention'].includes(current)?'SUCCESS':current==='error'?'ERROR':'PENDING'}}}});
+  return route.fulfill({json:{data:{id:'payment-browser',attributes:{fulfillment_state:current==='complete'?'COMPLETED':current==='attention'?'ATTENTION_REQUIRED':current==='preparing'?'PREPARING':'WAITING',order_id:'order-browser',machine_id:'TEST-MACHINE-001',amount:'165.00',currency:'RUB',confirmation_url:'https://qr.nspk.ru/TEST-NOT-A-REAL-PAYMENT',status:['success','complete','attention','preparing'].includes(current)?'SUCCEEDED':current==='error'?'CANCELED':'PENDING',user_state:['success','complete','attention','preparing'].includes(current)?'SUCCESS':current==='error'?'ERROR':'PENDING'}}}});
  });
  await page.goto('http://127.0.0.1:5173/?mode=terminal&machineId=TEST-MACHINE-001');
  await page.getByTestId('terminal-payment-choosing').waitFor();
  assert.equal(requests,0,'No payment before method choice');
  await page.getByRole('button',{name:/Банковская карта/}).waitFor();
- assert.equal(await page.getByRole('button',{name:/Банковская карта/}).isEnabled(),false);
+ assert.equal(await page.getByRole('button',{name:/Банковская карта/}).isEnabled(),true);
  const cardLayout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth})); assert.equal(cardLayout.overflow,false);
  await page.screenshot({path:path.join(output,`${width}x${height}-methods.png`),fullPage:true});
- await page.getByRole('button',{name:/^СБП/}).click();
+ assert.equal(await page.getByRole('button',{name:'Проверить доступность'}).count(),0);
+ await page.getByRole('button',{name:method==='pos'?/Банковская карта/:/^СБП/}).click();
  await page.getByTestId(`terminal-payment-${mode}`).waitFor();
  return {page,errors,setMode:v=>{current=v;},failPoll:v=>{fail=v;},requests:()=>requests};
 }
@@ -51,6 +52,14 @@ try {
   await page.screenshot({path:path.join(output,`${width}x${height}-pending.png`),fullPage:true});
   assert.deepEqual(errors,[]); results.push({viewport:`${width}x${height}`,passed:true}); await page.close();
  }
+ for(const [width,height] of [[1920,1080],[1280,720],[1080,1920],[768,1024],[390,844]]) {
+  const {page,errors}=await setup(width,height,'pending','pos');
+  await page.getByText('Приложите банковскую карту',{exact:true}).waitFor();
+  assert.equal(await page.getByAltText('QR-код для оплаты через СБП').count(),0);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(output,`${width}x${height}-pos.png`),fullPage:true});
+  assert.deepEqual(errors,[]); await page.close();
+ }
  const flow=await setup(1920,1080); await flow.page.clock.install();
  await flow.page.clock.fastForward(121000); await flow.page.getByTestId('terminal-payment-pending').waitFor();
  assert.equal(await flow.page.getByRole('button',{name:'Вернуться к заказу'}).count(),0);
@@ -62,6 +71,10 @@ try {
  assert.equal(await flow.page.getByRole('button',{name:'Завершить'}).count(),0);
  assert.equal(await flow.page.getByText('Готовим ваше мороженое').count(),0);
  await flow.page.screenshot({path:path.join(output,'1920x1080-success.png'),fullPage:true});
+ flow.setMode('preparing'); await flow.page.clock.fastForward(3000);
+ await flow.page.getByText('Ваше мороженое готовится',{exact:true}).waitFor();
+ await flow.page.screenshot({path:path.join(output,'1920x1080-preparing.png'),fullPage:true});
+ assert.equal(await flow.page.getByRole('button',{name:'Завершить'}).count(),0);
  flow.setMode('complete'); await flow.page.clock.fastForward(3000);
  await flow.page.getByText('Ваше мороженое готово',{exact:true}).waitFor();
  await flow.page.getByRole('button',{name:'Завершить',exact:true}).click();

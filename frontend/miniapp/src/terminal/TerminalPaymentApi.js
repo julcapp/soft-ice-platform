@@ -19,7 +19,7 @@ const normalize = (payload) => {
     confirmationUrl: safeConfirmationUrl(attrs.confirmation_url),
     failureCode: attrs.failure_code || null,
     succeededAt: attrs.succeeded_at || null,
-    fulfillmentState: ['COMPLETED', 'ATTENTION_REQUIRED'].includes(attrs.fulfillment_state) ? attrs.fulfillment_state : 'WAITING',
+    fulfillmentState: ['COMPLETED', 'ATTENTION_REQUIRED', 'PREPARING'].includes(attrs.fulfillment_state) ? attrs.fulfillment_state : 'WAITING',
   };
 };
 

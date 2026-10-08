@@ -187,3 +187,20 @@ test('POS selection is rejected before quote consumption, order or inventory cre
  await assert.rejects(f.service.initiate({ machineId: 'TEST-MACHINE-001', quoteId: 'quote-1', method: 'pos', idempotencyKey: 'pos-1' }), { code: 'TERMINAL_POS_NOT_CONFIGURED' });
  assert.equal(f.calls.order, null); assert.equal(f.calls.reserve, null); assert.equal(f.calls.payment, null);
 });
+
+
+test('preparing requires paid order and same-flow physical machine acknowledgement', async () => {
+ const f = fixture();
+ f.prisma.saleFlow.findUnique = async () => ({ machineId: 'TEST-MACHINE-001', flowId: 'flow-1', organizationId: 'org-1', currentState: 'DISPENSING' });
+ let attempt;
+ f.prisma.machineDispenseAttempt = { findFirst: async ({ where }) => {
+  assert.deepEqual(where, { organizationId: 'org-1', orderId: 'order-1', saleFlowId: 'flow-1', machineId: 'TEST-MACHINE-001', operationType: 'CUSTOMER_SALE' });
+  return attempt;
+ } };
+ const payment = { id: 'pay-1', orderId: 'order-1', amount: 95, currency: 'RUB', status: 'SUCCEEDED' };
+ for (const [value, expected] of [[null,'WAITING'],[{status:'SENT'},'WAITING'],[{status:'ACCEPTED'},'WAITING'],[{status:'ACCEPTED',acceptedAt:new Date()},'PREPARING'],[{status:'DISPENSING',startedAt:new Date()},'PREPARING'],[{status:'RECONCILIATION_REQUIRED',acceptedAt:new Date()},'WAITING']]) {
+  attempt=value; assert.equal((await f.service.present({payment},'TEST-MACHINE-001')).fulfillmentState,expected);
+ }
+ attempt={status:'DISPENSING',startedAt:new Date()};
+ assert.equal((await f.service.present({payment:{...payment,status:'PENDING'}},'TEST-MACHINE-001')).fulfillmentState,'WAITING');
+});
