@@ -614,3 +614,17 @@ Service restart остаётся непроверяемым до durable reposit
 - Зафиксировать отсутствие горизонтального overflow, сохранение hero/цены/главного CTA и touch targets не менее 72px для terminal display.
 - Проверить `data-testid="display-idle"` и `data-testid="display-screen-*"` как устойчивые visual acceptance hooks.
 - Сохранить screenshots только из локального fixture; production, staging, hardware, payment, dispense и `frontend/terminal` runtime не использовать.
+
+
+## 2026-10-08 — Экран оплаты аппарата
+
+- Checkout передаёт machine/quote, а не сумму клиента; повтор сохраняет один Idempotency-Key.
+- QR содержит только HTTPS confirmation URL серверного платежа с четырьмя модулями белого поля; javascript/HTTP/credential URL отклоняются.
+- SUCCESS без SUCCEEDED и ERROR без FAILED/CANCELED отклоняются.
+- Pending не прерывается 120 секундами без касания; перехода к новому заказу нет.
+- Потеря POST-ответа означает неизвестный результат. «Проверить оплату» повторяет тот же quote. Потеря GET продолжает polling без отказа банка.
+- Перезагрузка восстанавливает тот же quote даже при недоступном каталоге; телефон и buyer token не сохраняются.
+- CANCELED/FAILED разрешает возврат и новый quote; выключенный checkout возвращает 503 PAYMENT_CHECKOUT_NOT_AVAILABLE.
+- SUCCEEDED не означает готовое мороженое. Только same-machine SaleFlow.COMPLETED разрешает «Завершить»; REFUND_REQUIRED / NEEDS_RECONCILIATION показывают необходимость помощи без повторной оплаты.
+- «Завершить» очищает снимок и recognition и возвращает заставку.
+- Browser harness: frontend/miniapp/scripts/terminal-payment-browser-tests.mjs; 1920×1080, 1280×720, 1080×1920, 768×1024, 390×844; изолированные ответы API, без платежей и выдачи.

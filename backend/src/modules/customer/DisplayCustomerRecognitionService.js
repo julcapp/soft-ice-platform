@@ -26,11 +26,12 @@ class DisplayCustomerRecognitionService {
     clock = () => new Date(),
     codeFactory = secureCode,
     unverifiedPurchaseContactService = null,
+    buyerTokenService = null,
     logger = console,
   }) {
     Object.assign(this, {
       customerRepository, auditRepository, verificationProvider, challengeRepository,
-      abuseGuard, clock, codeFactory, unverifiedPurchaseContactService, logger,
+      abuseGuard, clock, codeFactory, unverifiedPurchaseContactService, buyerTokenService, logger,
     });
   }
 
@@ -59,12 +60,14 @@ class DisplayCustomerRecognitionService {
       return {
         state: RECOGNITION_STATE.RETURNING,
         ...(customer.bonusAccount ? { bonusBalance: Number(customer.bonusAccount.balanceBonus || 0) } : {}),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, customerId: customer.id }) } : {}),
       };
     }
 
+    let unverifiedContact = null;
     if (this.unverifiedPurchaseContactService) {
       try {
-        await this.unverifiedPurchaseContactService.recordPhone({
+        unverifiedContact = await this.unverifiedPurchaseContactService.recordPhone({
           machineId,
           phone,
           source: 'TERMINAL',
@@ -81,10 +84,18 @@ class DisplayCustomerRecognitionService {
     try {
       const challenge = await this.issueChallenge({ machineId, phone, phoneFingerprint, context });
       await this.audit(RECOGNITION_STATE.NEW, machineId, context, 'VERIFICATION_CHALLENGE_ISSUED');
-      return { state: RECOGNITION_STATE.NEW, verification: publicChallenge(challenge) };
+      return {
+        state: RECOGNITION_STATE.NEW,
+        verification: publicChallenge(challenge),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, contactId: unverifiedContact?.id || null }) } : {}),
+      };
     } catch (error) {
       await this.audit(RECOGNITION_STATE.NEW, machineId, context, 'VERIFICATION_PROVIDER_UNAVAILABLE');
-      return { state: RECOGNITION_STATE.NEW, verification: unavailableVerification() };
+      return {
+        state: RECOGNITION_STATE.NEW,
+        verification: unavailableVerification(),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, contactId: unverifiedContact?.id || null }) } : {}),
+      };
     }
   }
 
