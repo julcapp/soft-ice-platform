@@ -1,4 +1,4 @@
-﻿# TEST_SCENARIOS
+# TEST_SCENARIOS
 
 ## Выбор оплаты аппарата: СБП / физический POS
 

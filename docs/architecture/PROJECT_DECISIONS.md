@@ -1,4 +1,4 @@
-﻿# PROJECT_DECISIONS.md
+# PROJECT_DECISIONS.md
 
 # Decision: DECISION-077 — Покупательский экран без проверки доступности
 
