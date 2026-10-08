@@ -20,6 +20,7 @@ export async function recognizeDisplayPhone(machineId, phone, { signal } = {}) {
       state: result.state,
       bonusBalance: result.state === 'RETURNING' && Number.isFinite(Number(result.bonus_balance))
         ? Number(result.bonus_balance) : null,
+      purchaseToken: typeof result.purchase_token === 'string' && result.purchase_token.length <= 4096 ? result.purchase_token : null,
       verification: result.state === 'NEW' ? {
         status: result.verification?.status === 'PENDING' ? 'PENDING' : 'UNAVAILABLE',
         maxAttempts: result.verification?.max_attempts === 3 ? 3 : null,

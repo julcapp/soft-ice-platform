@@ -75,6 +75,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
         returnOrigins: String(environment.PAYMENT_RETURN_ORIGINS || 'https://display.utimoshi.ru,https://miniapp.utimoshi.ru,https://utimoshi.ru,https://www.utimoshi.ru,https://app.utimoshi.ru')
           .split(',').map((value) => value.trim()).filter(Boolean),
         timeoutMs: parseInteger(environment.YOOKASSA_TIMEOUT_MS, 15000, 'YOOKASSA_TIMEOUT_MS'),
+        receiptVatCode: environment.YOOKASSA_RECEIPT_VAT_CODE ? parseInteger(environment.YOOKASSA_RECEIPT_VAT_CODE, null, 'YOOKASSA_RECEIPT_VAT_CODE', { min: 1, max: 6 }) : null,
       },
     },
     botNotifications: {
@@ -112,6 +113,7 @@ function validateConfig(config) {
   if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
   if (config.features.paymentsEnabled && !config.payments.yooKassa.shopId) missing.push('YOOKASSA_SHOP_ID');
   if (config.features.paymentsEnabled && !config.payments.yooKassa.secretKey) missing.push('YOOKASSA_SECRET_KEY');
+  if (config.features.paymentsEnabled && !config.payments.yooKassa.receiptVatCode) missing.push('YOOKASSA_RECEIPT_VAT_CODE');
   if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
   if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
   if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');

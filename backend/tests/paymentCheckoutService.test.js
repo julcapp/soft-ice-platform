@@ -221,10 +221,43 @@ test('refund is submitted and then independently rechecked through provider GET'
     idempotencyKey: 'refund-idem-1',
     amount: '40.00',
     reason: 'Возврат части заказа',
+    receipt: {
+      customer: { phone: '79138207050' },
+      items: [{
+        description: 'Мороженое У Тимоши',
+        quantity: '1.00',
+        amount: { value: '40.00', currency: 'RUB' },
+        vat_code: 1,
+        payment_mode: 'full_payment',
+        payment_subject: 'commodity',
+      }],
+    },
   });
 
   assert.equal(ctx.calls.includes('provider.refundPayment'), true);
   assert.equal(ctx.calls.includes('provider.getRefund'), true);
   assert.equal(ctx.calls.includes('processInbox'), true);
   assert.equal(result.refund.status, 'SUCCEEDED');
+});
+
+
+test('partial refund without fiscal receipt is rejected before local refund state changes', async () => {
+  const ctx = setup();
+  ctx.setPayment({ providerPaymentId: 'yk_1', status: 'SUCCEEDED' });
+
+  await assert.rejects(
+    ctx.service.submitRefund({
+      organizationId: 'org_1',
+      paymentId: 'pay_1',
+      idempotencyKey: 'refund-no-receipt',
+      amount: '40.00',
+      reason: 'Частичный возврат',
+    }),
+    { code: 'REFUND_RECEIPT_REQUIRED' },
+  );
+
+  assert.equal(ctx.calls.includes('requestRefund'), false);
+  assert.equal(ctx.calls.includes('provider.refundPayment'), false);
+  assert.equal(ctx.getPayment().status, 'SUCCEEDED');
+  assert.equal(ctx.getRefund(), null);
 });

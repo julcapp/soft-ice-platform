@@ -86,14 +86,20 @@ class PaymentCheckoutService {
   async submitRefund(request, context = {}) {
     required(request, ['organizationId', 'paymentId', 'idempotencyKey', 'reason']);
 
+    const payment = await this.repository.getById(request.organizationId, request.paymentId);
+    if (!payment || !payment.providerPaymentId) throw error('REFUND_PROVIDER_PAYMENT_REFERENCE_MISSING', 'У платежа отсутствует идентификатор ЮKassa.', 409);
+    const requestedAmount = request.amount == null ? Number(payment.amount) : Number(request.amount);
+    const isPartialRefund = requestedAmount < Number(payment.amount);
+    if (isPartialRefund && !request.receipt) {
+      throw error('REFUND_RECEIPT_REQUIRED', 'Для частичного возврата требуется состав фискального чека возврата.', 409);
+    }
+
     const created = await this.paymentService.requestRefund(request, context);
     let refund = created.refund;
     if (refund.providerRefundId) {
       return this.refreshRefund({ organizationId: request.organizationId, refundId: refund.id }, context);
     }
 
-    const payment = await this.repository.getById(request.organizationId, request.paymentId);
-    if (!payment || !payment.providerPaymentId) throw error('REFUND_PROVIDER_PAYMENT_REFERENCE_MISSING', 'У платежа отсутствует идентификатор ЮKassa.', 409);
     const adapter = this.providers[payment.provider];
     if (!adapter) throw error('PAYMENT_PROVIDER_UNSUPPORTED', 'Платёжный провайдер не поддерживается.', 400);
 
@@ -105,6 +111,7 @@ class PaymentCheckoutService {
       currency: refund.currency,
       idempotencyKey: 'provider-refund:' + refund.idempotencyKey,
       reason: refund.reason,
+      receipt: request.receipt || null,
     });
 
     if (remote.providerPaymentId && remote.providerPaymentId !== payment.providerPaymentId) {

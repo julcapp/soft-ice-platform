@@ -7,8 +7,32 @@ const { createCustomerAuthenticator } = require('../../platform/security/authent
 function createPaymentRouter(dependencies = {}) {
   const router = express.Router();
   const checkout = dependencies.paymentCheckoutService;
+  const terminalCheckout = dependencies.terminalCheckoutService;
   const repository = dependencies.paymentRepository;
   const authCoreService = dependencies.authCoreService;
+
+  if (terminalCheckout) {
+    router.post('/terminal/checkout', asyncHandler(async (req, res) => {
+      const machineId = String(req.body?.machineId || req.body?.machine_id || '').trim();
+      const quoteId = String(req.body?.quoteId || req.body?.quote_id || '').trim();
+      const purchaseToken = req.body?.purchaseToken || req.body?.purchase_token || null;
+      const idempotencyKey = String(req.get('Idempotency-Key') || '').trim() || `terminal:${machineId}:${quoteId}`;
+      const result = await terminalCheckout.initiate({
+        machineId,
+        quoteId,
+        purchaseToken,
+        method: req.body?.method || 'sbp',
+        idempotencyKey,
+      }, { correlationId: req.correlationId });
+      sendData(res, req, terminalPresent(result), result.userState === 'SUCCESS' ? 200 : 201);
+    }));
+
+    router.get('/terminal/:paymentId/status', asyncHandler(async (req, res) => {
+      const machineId = String(req.query?.machineId || req.query?.machine_id || '').trim();
+      const result = await terminalCheckout.status({ paymentId: req.params.paymentId, machineId }, { correlationId: req.correlationId });
+      sendData(res, req, terminalPresent(result));
+    }));
+  }
 
   if (!checkout || !repository || !authCoreService) {
     router.use((req, res, next) => next(unavailable()));
@@ -91,6 +115,24 @@ function createPaymentRouter(dependencies = {}) {
   }));
 
   return router;
+}
+
+function terminalPresent(result) {
+  return {
+    type: 'terminal_payment_checkout',
+    id: result.paymentId || null,
+    attributes: {
+      order_id: result.orderId || null,
+      machine_id: result.machineId || null,
+      status: result.status || null,
+      user_state: result.userState || 'PENDING',
+      amount: result.amount ?? null,
+      currency: result.currency || 'RUB',
+      confirmation_url: result.confirmationUrl || null,
+      failure_code: result.failureCode || null,
+      succeeded_at: result.succeededAt || null,
+    },
+  };
 }
 
 function present(result) {

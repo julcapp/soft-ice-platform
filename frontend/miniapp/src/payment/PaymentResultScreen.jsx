@@ -115,7 +115,6 @@ export function PaymentResultScreen({ orderId, onDone, onRetry }) {
     <p className="eyebrow">Оплата</p>
     <h1>Оплата не прошла</h1>
     <p>{state.error?.message || 'Банк не подтвердил успешную оплату.'}</p>
-    {state.error?.code ? <small>Код: {state.error.code}</small> : null}
     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
       <button className="button primary" type="button" onClick={onRetry}>Попробовать ещё раз</button>
       <button className="button" type="button" onClick={onDone}>Вернуться в Клуб</button>

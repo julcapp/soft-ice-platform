@@ -6,6 +6,7 @@ import { usePricingQuote } from '../promotion/usePricingQuote.js';
 import { recognizeDisplayPhone } from './DisplayRecognitionApi.js';
 import { RecognitionState } from './RecognitionState.jsx';
 import { getMachineCatalog } from './MachineCatalogApi.js';
+import { TerminalPaymentScreen } from './TerminalPaymentScreen.jsx';
 
 const IDLE_TIMEOUT_MS = 120_000;
 const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', SPRINKLE: 'sprinkle', TOPPING: 'topping', SUMMARY: 'summary', PAYMENT: 'payment' });
@@ -174,12 +175,14 @@ export function SalesTerminalPage() {
   const [step, setStep] = useState(previewStep || STEPS.IDLE);
   const [phone, setPhone] = useState('');
   const [recognition, setRecognition] = useState(null);
+  const [buyerToken, setBuyerToken] = useState(null);
   const recognitionRequest = useRef(null);
   const clearRecognition = () => {
     recognitionRequest.current?.abort();
     recognitionRequest.current = null;
     setPhone('');
     setRecognition(null);
+    setBuyerToken(null);
   };
   useEffect(() => () => recognitionRequest.current?.abort(), []);
   const recognize = async () => {
@@ -191,9 +194,15 @@ export function SalesTerminalPage() {
     const result = await recognizeDisplayPhone(machineId, submittedPhone, { signal: controller.signal });
     if (recognitionRequest.current !== controller || controller.signal.aborted) return;
     setPhone('');
+    setBuyerToken(result.purchaseToken || null);
     setRecognition(result);
   };
-  const continueAnonymous = () => { clearRecognition(); setStep(STEPS.SPRINKLE); };
+  const continueAnonymous = () => {
+    const token = buyerToken;
+    clearRecognition();
+    setBuyerToken(token);
+    setStep(STEPS.SPRINKLE);
+  };
   const [sprinkleSku, setSprinkleSku] = useState(null);
   const [toppingSku, setToppingSku] = useState(null);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
@@ -216,6 +225,6 @@ export function SalesTerminalPage() {
     {step === STEPS.SPRINKLE && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 1 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите посыпку</h1><p className="display-choice-subtitle">Можно продолжить без посыпки</p><div className="display-option-grid">{catalog.sprinkles.map((item) => <OptionCard key={item.id} item={item} selected={sprinkleSku === item.sku} onClick={() => setSprinkleSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.HOME)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.TOPPING)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Далее: топпинг'}</button></div></div></section>}
     {step === STEPS.TOPPING && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 2 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите топпинг</h1><p className="display-choice-subtitle">Можно продолжить без топпинга</p><div className="display-option-grid">{catalog.toppings.map((item) => <OptionCard key={item.id} item={item} selected={toppingSku === item.sku} onClick={() => setToppingSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад к посыпке</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.SUMMARY)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Продолжить'}</button></div></div></section>}
     {step === STEPS.SUMMARY && <section className="display-summary display-summary-review"><div className="display-summary-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /></div><div className="display-summary-content"><p className="display-kicker">Проверьте ваш заказ</p><h1>Вы собрали своё мороженое</h1><p className="display-summary-subtitle">Проверьте состав и при необходимости измените выбор.</p><div className="display-summary-cards"><article className="display-summary-card"><span className="display-summary-card-label">Мороженое</span><div className="display-summary-card-art"><img src={DEFAULT_PRODUCT_MEDIA} alt="" /></div><strong>{catalog.currentFlavor.nameRu}</strong><small>{money(catalog.currentFlavor.basePrice, catalog.currentFlavor.currency)}</small></article><article className="display-summary-card"><span className="display-summary-card-label">Топпинг</span><div className="display-summary-card-art">{selectedTopping && optionMedia(selectedTopping) ? <img src={optionMedia(selectedTopping)} alt="" /> : <span>—</span>}</div><strong>{selectedTopping?.nameRu || 'Не выбран'}</strong><small>{selectedTopping ? (selectedTopping.basePrice === 0 ? 'Без доплаты' : money(selectedTopping.basePrice, selectedTopping.currency)) : '—'}</small><button type="button" onClick={() => setStep(STEPS.TOPPING)}>Изменить</button></article><article className="display-summary-card"><span className="display-summary-card-label">Посыпка</span><div className="display-summary-card-art">{selectedSprinkle && optionMedia(selectedSprinkle) ? <img src={optionMedia(selectedSprinkle)} alt="" /> : <span>—</span>}</div><strong>{selectedSprinkle?.nameRu || 'Не выбрана'}</strong><small>{selectedSprinkle ? (selectedSprinkle.basePrice === 0 ? 'Без доплаты' : money(selectedSprinkle.basePrice, selectedSprinkle.currency)) : '—'}</small><button type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Изменить</button></article><aside className="display-summary-total"><span>Итого к оплате</span><strong>{money(pricing.quote?.finalAmount, pricing.quote?.currency)}</strong><div><p><span>Мороженое</span><b>{money(catalog.currentFlavor.basePrice, catalog.currentFlavor.currency)}</b></p><p><span>Топпинг</span><b>{selectedTopping ? (selectedTopping.basePrice === 0 ? 'Без доплаты' : money(selectedTopping.basePrice, selectedTopping.currency)) : '—'}</b></p><p><span>Посыпка</span><b>{selectedSprinkle ? (selectedSprinkle.basePrice === 0 ? 'Без доплаты' : money(selectedSprinkle.basePrice, selectedSprinkle.currency)) : '—'}</b></p></div></aside></div><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.PAYMENT)}>Перейти к оплате</button></div></div></section>}
-    {step === STEPS.PAYMENT && <section className="display-payment"><p className="display-kicker">Безналичная оплата</p><h1>{Number(pricing.quote?.finalAmount) === 0 ? 'Подтверждаем подарок' : `К оплате ${money(pricing.quote?.finalAmount, pricing.quote?.currency)}`}</h1><div className="display-payment-placeholder" role="status"><span aria-hidden="true">⌛</span><strong>QR-код появится после создания платёжной сессии</strong></div><p>Платёж создаёт и подтверждает Payment Runtime. Этот экран не может самостоятельно отметить оплату или выдачу успешной.</p><div className="display-waiting"><span />Ожидаем подтверждение сервера</div><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SUMMARY)}>Вернуться к заказу</button></section>}
+    {step === STEPS.PAYMENT && <TerminalPaymentScreen machineId={machineId} quote={pricing.quote} purchaseToken={buyerToken} onBack={() => setStep(STEPS.SUMMARY)} />}
   </main></ProductMediaContext.Provider>;
 }

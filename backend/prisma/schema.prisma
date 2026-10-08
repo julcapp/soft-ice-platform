@@ -1654,7 +1654,7 @@ model MaintenanceAuditEntryV1 {
 
 model Order {
   id         String      @id @default(uuid())
-  customerId String
+  customerId String?
   status     OrderStatus @default(CREATED)
   amount     Float
   currency   String      @default("RUB")
@@ -1678,7 +1678,7 @@ model Order {
   activePickupCodeHash String?
   cancelledToBalanceAt DateTime?
 
-  customer              Customer               @relation(fields: [customerId], references: [id])
+  customer              Customer?              @relation(fields: [customerId], references: [id])
   machine               Machine?               @relation(fields: [machineId], references: [id])
   dispenseRequest       DispenseRequest?
   bonusTransactions     BonusTransaction[]
@@ -2330,7 +2330,7 @@ model SaleFlow {
   id                                String                     @id @default(uuid())
   flowId                            String                     @unique
   orderId                           String                     @unique
-  customerId                        String
+  customerId                        String?
   machineId                         String
   organizationId                    String
   locationId                        String

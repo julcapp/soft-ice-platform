@@ -7,6 +7,7 @@ const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
 const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
 const { UnverifiedPurchaseContactRepository, UnverifiedPurchaseContactService } = require('./modules/customer/UnverifiedPurchaseContactService');
+const { TerminalBuyerTokenService } = require('./modules/customer/TerminalBuyerTokenService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -47,7 +48,9 @@ const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipie
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
 const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
-const { PaymentRepository, PaymentService, PaymentCheckoutService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
+const { PaymentRepository, PaymentService, PaymentCheckoutService, TerminalCheckoutService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
+const { CatalogRepository, CatalogService } = require('./modules/catalog');
+const { PricingRepository } = require('./modules/promotion_engine');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
@@ -65,6 +68,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       apiBaseUrl: config?.payments?.yooKassa?.apiBaseUrl,
       timeoutMs: config?.payments?.yooKassa?.timeoutMs,
       allowedReturnOrigins: config?.payments?.yooKassa?.returnOrigins,
+      receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
     })
     : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
@@ -175,6 +179,10 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     : null;
   if (!unverifiedPurchaseContactService) logger?.warn?.('Unverified purchase contact persistence is disabled: encryption key or fingerprint secret is missing.');
 
+  const terminalBuyerTokenService = purchaseContactMasterSecret
+    ? new TerminalBuyerTokenService({ secret: purchaseContactMasterSecret })
+    : null;
+
   const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
     customerRepository,
     auditRepository,
@@ -182,6 +190,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     // All other machines continue to fail closed until the shared abuse guard is integrated.
     abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
     unverifiedPurchaseContactService,
+    buyerTokenService: terminalBuyerTokenService,
     logger,
   });
   const terminalChannelChallengeProduction = process.env.NODE_ENV === 'production' || config?.environment === 'production';
@@ -242,6 +251,17 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
+  const terminalCheckoutService = new TerminalCheckoutService({
+    prisma,
+    pricingRepository: new PricingRepository(prisma),
+    catalogService: new CatalogService({ repository: new CatalogRepository(prisma) }),
+    organizationContext,
+    inventory: inventoryReservationService,
+    paymentCheckoutService,
+    paymentService,
+    buyerTokenService: terminalBuyerTokenService,
+    returnOrigin: 'https://miniapp.utimoshi.ru',
+  });
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
 
   const authCoreService = new AuthCoreService({
@@ -401,6 +421,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     paymentRepository,
     paymentService,
     paymentCheckoutService,
+    terminalCheckoutService,
     paymentReconciliationService,
     paymentInboxWorker,
     machineDispenseRepository,
@@ -429,6 +450,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     customerRuntime,
     displayCustomerRecognitionService,
     unverifiedPurchaseContactService,
+    terminalBuyerTokenService,
     terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
