@@ -11,6 +11,15 @@ function createPaymentRouter(dependencies = {}) {
   const repository = dependencies.paymentRepository;
   const authCoreService = dependencies.authCoreService;
 
+  router.get('/terminal/methods', asyncHandler(async (req, res) => {
+    const machineId = String(req.query?.machineId || '').trim();
+    if (!machineId) throw conflict('TERMINAL_MACHINE_REQUIRED', 'Не указан аппарат.', 400);
+    sendData(res, req, { type: 'terminal_payment_methods', id: machineId, attributes: { methods: [
+      { id: 'sbp', available: Boolean(terminalCheckout), reason_code: terminalCheckout ? null : 'PAYMENT_CHECKOUT_NOT_AVAILABLE' },
+      { id: 'pos', available: false, reason_code: 'TERMINAL_POS_NOT_CONFIGURED' },
+    ] } });
+  }));
+
   if (terminalCheckout) {
     router.post('/terminal/checkout', asyncHandler(async (req, res) => {
       const machineId = String(req.body?.machineId || req.body?.machine_id || '').trim();
@@ -32,6 +41,11 @@ function createPaymentRouter(dependencies = {}) {
       const result = await terminalCheckout.status({ paymentId: req.params.paymentId, machineId }, { correlationId: req.correlationId });
       sendData(res, req, terminalPresent(result));
     }));
+  }
+
+  if (!terminalCheckout) {
+    router.post('/terminal/checkout', (req, res, next) => next(unavailable()));
+    router.get('/terminal/:paymentId/status', (req, res, next) => next(unavailable()));
   }
 
   if (!checkout || !repository || !authCoreService) {
@@ -131,6 +145,7 @@ function terminalPresent(result) {
       confirmation_url: result.confirmationUrl || null,
       failure_code: result.failureCode || null,
       succeeded_at: result.succeededAt || null,
+      fulfillment_state: result.fulfillmentState || 'WAITING',
     },
   };
 }

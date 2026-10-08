@@ -24,6 +24,7 @@ class TerminalCheckoutService {
 
   async initiate({ machineId, quoteId, purchaseToken = null, method = 'sbp', idempotencyKey }, context = {}) {
     required({ machineId, quoteId, idempotencyKey }, ['machineId', 'quoteId', 'idempotencyKey']);
+    if (String(method).toLowerCase() === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
     if (String(method).toLowerCase() !== 'sbp') throw problem('TERMINAL_PAYMENT_METHOD_INVALID', 'На аппарате сейчас доступна оплата через СБП.', 400);
 
     const existingQuote = await this.pricingRepository.getQuote(quoteId);
@@ -285,8 +286,25 @@ class TerminalCheckoutService {
     }
   }
 
-  present(result, machineId) {
+  async present(result, machineId) {
     const payment = result.payment;
+    const flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
+    let fulfillmentState = 'WAITING';
+    if (flow?.machineId === machineId) {
+      if (flow.currentState === 'COMPLETED') fulfillmentState = 'COMPLETED';
+      else if (flow.currentState === 'REFUND_REQUIRED' || flow.currentState === 'FULFILLMENT_FAILED') fulfillmentState = 'ATTENTION_REQUIRED';
+      else {
+        // DISPENSING alone records command intent, not a physical acknowledgement.
+        const attempt = flow.currentState === 'DISPENSING' && flow.flowId && flow.organizationId
+          && payment.status === 'SUCCEEDED' && this.prisma.machineDispenseAttempt
+          ? await this.prisma.machineDispenseAttempt.findFirst({ where: {
+            organizationId: flow.organizationId, orderId: payment.orderId,
+            saleFlowId: flow.flowId, machineId, operationType: 'CUSTOMER_SALE',
+          }, select: { status: true, acceptedAt: true, startedAt: true } }) : null;
+        if (attempt && ['ACCEPTED', 'DISPENSING'].includes(attempt.status) && (attempt.acceptedAt || attempt.startedAt)) fulfillmentState = 'PREPARING';
+        else if (flow.recoveryStatus === 'NEEDS_RECONCILIATION') fulfillmentState = 'ATTENTION_REQUIRED';
+      }
+    }
     return {
       paymentId: payment.id,
       orderId: payment.orderId,
@@ -298,6 +316,7 @@ class TerminalCheckoutService {
       confirmationUrl: result.confirmationUrl || payment.confirmationUrl || null,
       failureCode: payment.failureCode || null,
       succeededAt: payment.succeededAt || null,
+      fulfillmentState,
     };
   }
 }
