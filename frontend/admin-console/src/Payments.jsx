@@ -47,7 +47,9 @@ export function PaymentsPage({
   async function submitRefund(){
     const amount=Number(refund.amount);
     const available=Number(selected?.refundSummary?.availableAmount||0);
-    if(!selected||!(amount>0)||amount>available||refund.reason.trim().length<3||!refund.confirmed)return;
+    const originalAmount=Number(selected?.amount||0);
+    const fullOriginalRefund=amount===originalAmount&&available===originalAmount;
+    if(!selected||!(amount>0)||amount>available||!fullOriginalRefund||refund.reason.trim().length<3||!refund.confirmed)return;
     setRefund(s=>({...s,status:'sending',message:''}));
     try{
       const result=await refundClient(selected.id,{amount,reason:refund.reason.trim()},{idempotencyKey:`admin-refund:${selected.id}:${amount.toFixed(2)}:${Date.now()}`});
@@ -128,17 +130,17 @@ export function PaymentsPage({
         <td>{['REQUESTED','PENDING'].includes(row.status)?<button type="button" onClick={()=>refreshRefund(row)}>Проверить статус</button>:null}</td>
       </tr>)}</tbody></table></div>:<p>Возвратов по платежу нет.</p>}
 
-      {selected.refundSummary?.refundable&&!selected.refundSummary?.hasPending?<div style={{display:'grid',gap:10,maxWidth:520,marginTop:16}}>
+      {selected.refundSummary?.refundable&&!selected.refundSummary?.hasPending&&Number(selected.refundSummary.availableAmount)===Number(selected.amount)?<div style={{display:'grid',gap:10,maxWidth:520,marginTop:16}}>
         <h3>Оформить возврат</h3>
-        <label>Сумма возврата<input type="number" min="1" step="0.01" max={selected.refundSummary.availableAmount} value={refund.amount} onChange={e=>setRefund({...refund,amount:e.target.value,confirmed:false})}/></label>
+        <label>Сумма возврата<input type="number" value={selected.amount} readOnly/></label>
         <small>Максимально доступно: {money(selected.refundSummary.availableAmount,selected.currency)}</small>
         <label>Причина<textarea rows={3} value={refund.reason} onChange={e=>setRefund({...refund,reason:e.target.value,confirmed:false})} placeholder="Укажите причину возврата"/></label>
         <label style={{display:'flex',alignItems:'center',gap:8}}>
           <input type="checkbox" checked={refund.confirmed} onChange={e=>setRefund({...refund,confirmed:e.target.checked})}/>
           <span>Подтверждаю сумму и причину возврата</span>
         </label>
-        <button type="button" disabled={refund.status==='sending'||!(Number(refund.amount)>0)||Number(refund.amount)>Number(selected.refundSummary.availableAmount)||refund.reason.trim().length<3||!refund.confirmed} onClick={submitRefund}>{refund.status==='sending'?'Отправляем в ЮKassa…':'Произвести возврат'}</button>
-      </div>:selected.refundSummary?.hasPending?<p><strong>Новый возврат недоступен:</strong> предыдущий возврат ещё проверяется.</p>:null}
+        <button type="button" disabled={refund.status==='sending'||refund.reason.trim().length<3||!refund.confirmed} onClick={submitRefund}>{refund.status==='sending'?'Отправляем в ЮKassa…':'Произвести полный возврат'}</button>
+      </div>:selected.refundSummary?.hasPending?<p><strong>Новый возврат недоступен:</strong> предыдущий возврат ещё проверяется.</p>:selected.refundSummary?.refundable?<p><strong>Частичный возврат временно недоступен:</strong> сначала подключаем формирование корректного чека возврата по 54-ФЗ.</p>:null}
       {refund.message&&<p role="status"><strong>{refund.message}</strong></p>}
     </section>}
   </div>;
