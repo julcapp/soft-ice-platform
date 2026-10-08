@@ -2,7 +2,7 @@ const express = require('express');
 
 const { asyncHandler, sendData, createCorrelationId } = require('../../platform/http/apiResponse');
 
-function createAuthRouter({ authCoreService, displayCustomerRecognitionService }) {
+function createAuthRouter({ authCoreService, displayCustomerRecognitionService, terminalChannelChallengeService = null }) {
   const router = express.Router();
 
   router.post(
@@ -47,6 +47,42 @@ function createAuthRouter({ authCoreService, displayCustomerRecognitionService }
         sendData(res, req, recognitionDto(result));
       }),
     );
+    if (terminalChannelChallengeService) {
+      router.post(
+        '/display-phone/channel-challenges',
+        asyncHandler(async (req, res) => {
+          const result = await terminalChannelChallengeService.create({
+            machineId: req.body?.machineId ?? req.body?.machine_id,
+            phone: req.body?.phone,
+            channel: req.body?.channel,
+          });
+          sendData(res, req, {
+            type: 'display_channel_challenge',
+            id: result.id,
+            attributes: {
+              channel: result.channel,
+              deep_link: result.deepLink,
+              expires_at: result.expiresAt,
+            },
+          }, 201);
+        }),
+      );
+      router.get(
+        '/display-phone/channel-challenges/:challengeId/status',
+        asyncHandler(async (req, res) => {
+          const result = await terminalChannelChallengeService.status(req.params.challengeId);
+          sendData(res, req, {
+            type: 'display_channel_challenge_status',
+            id: result.id,
+            attributes: {
+              channel: result.channel,
+              status: result.status,
+              expires_at: result.expiresAt?.toISOString?.() || result.expiresAt,
+            },
+          });
+        }),
+      );
+    }
     router.post(
       '/display-phone/verification-challenges/:challengeId/verify',
       asyncHandler(async (req, res) => {
@@ -72,6 +108,8 @@ function recognitionDto(result) {
     attributes: {
       state: result.state,
       retryable: Boolean(result.retryable),
+      ...(result.state === 'RETURNING' && Number.isFinite(result.bonusBalance) ? { bonus_balance: result.bonusBalance } : {}),
+      ...(result.purchaseToken ? { purchase_token: result.purchaseToken } : {}),
       verification: result.verification ? verificationAttributes(result.verification) : null,
     },
   };

@@ -9,7 +9,10 @@ class CatalogRepository {
   listAll() {
     return this.prisma.catalogItem.findMany({
       orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { nameRu: 'asc' }],
-      include: { machines: { include: { machine: { select: { id: true, machineCode: true, name: true } } } } },
+      include: {
+        machines: { include: { machine: { select: { id: true, machineCode: true, name: true } } } },
+        inventoryRecipe: { where: { active: true }, include: { inventoryItem: true }, orderBy: { createdAt: 'asc' } },
+      },
     });
   }
 
@@ -21,7 +24,10 @@ class CatalogRepository {
   }
 
   getItem(id) {
-    return this.prisma.catalogItem.findUnique({ where: { id } });
+    return this.prisma.catalogItem.findUnique({
+      where: { id },
+      include: { inventoryRecipe: { where: { active: true }, include: { inventoryItem: true }, orderBy: { createdAt: 'asc' } } },
+    });
   }
 
   hasCurrentFlavorAssignments(catalogItemId) {
@@ -43,10 +49,60 @@ class CatalogRepository {
     if (!machine) return null;
     const assignments = await this.prisma.machineCatalogItem.findMany({
       where: { machineId, available: true, catalogItem: { active: true } },
-      include: { catalogItem: true },
+      include: { catalogItem: { include: { inventoryRecipe: { where: { active: true }, include: { inventoryItem: true }, orderBy: { createdAt: 'asc' } } } } },
       orderBy: [{ catalogItem: { sortOrder: 'asc' } }],
     });
     return { machine, assignments };
+  }
+
+  listInventoryItems() {
+    return this.prisma.inventoryRuntimeItem.findMany({
+      where: { active: true },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      select: { id: true, sku: true, name: true, category: true, baseUnit: true, active: true },
+    });
+  }
+
+  getRecipe(catalogItemId) {
+    return this.prisma.catalogInventoryRecipeItem.findMany({
+      where: { catalogItemId, active: true },
+      include: { inventoryItem: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  replaceRecipe(catalogItemId, items, context) {
+    return this.prisma.$transaction(async (tx) => {
+      const catalogItem = await tx.catalogItem.findUnique({ where: { id: catalogItemId } });
+      if (!catalogItem) return null;
+      const before = await tx.catalogInventoryRecipeItem.findMany({
+        where: { catalogItemId, active: true },
+        include: { inventoryItem: true },
+      });
+      await tx.catalogInventoryRecipeItem.deleteMany({ where: { catalogItemId } });
+      if (items.length) {
+        await tx.catalogInventoryRecipeItem.createMany({
+          data: items.map((item) => ({ catalogItemId, ...item })),
+        });
+      }
+      const after = await tx.catalogInventoryRecipeItem.findMany({
+        where: { catalogItemId, active: true },
+        include: { inventoryItem: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      await this._audit(tx, 'CATALOG_INVENTORY_RECIPE_UPDATED', context, catalogItemId, {
+        before: before.map((row) => this._safeRecipe(row)),
+        after: after.map((row) => this._safeRecipe(row)),
+      });
+      return after;
+    });
+  }
+
+  findItemsBySkus(skus) {
+    return this.prisma.catalogItem.findMany({
+      where: { sku: { in: skus }, active: true },
+      include: { inventoryRecipe: { where: { active: true }, include: { inventoryItem: true }, orderBy: { createdAt: 'asc' } } },
+    });
   }
 
   createItem(data, context) {
@@ -145,6 +201,21 @@ class CatalogRepository {
   _safe(item) {
     if (!item) return null;
     return { ...item, basePrice: item.basePrice == null ? null : Number(item.basePrice) };
+  }
+
+  _safeRecipe(value) {
+    if (!value) return null;
+    return {
+      id: value.id,
+      catalogItemId: value.catalogItemId,
+      inventoryItemId: value.inventoryItemId,
+      inventorySku: value.inventoryItem?.sku || null,
+      inventoryName: value.inventoryItem?.name || null,
+      ingredientType: value.ingredientType,
+      unit: value.unit,
+      quantity: Number(value.quantity),
+      active: Boolean(value.active),
+    };
   }
 
   _safeAssignment(value) {

@@ -60,6 +60,89 @@ class CatalogService {
     });
   }
 
+  listInventoryItems() {
+    return this.repository.listInventoryItems();
+  }
+
+  async getInventoryRecipe(catalogItemId) {
+    const item = await this._required(catalogItemId);
+    const rows = await this.repository.getRecipe(item.id);
+    return {
+      catalogItemId: item.id,
+      sku: item.sku,
+      recipeStatus: this._recipeStatus(item, rows),
+      items: rows.map((row) => this._presentRecipe(row)),
+    };
+  }
+
+  async replaceInventoryRecipe(catalogItemId, input, context) {
+    const item = await this._required(catalogItemId);
+    const requested = Array.isArray(input?.items) ? input.items : null;
+    if (!requested) throw this._error('CATALOG_RECIPE_ITEMS_REQUIRED', 'items must be an array.', 400);
+    if (!item.systemItem && item.active && requested.length === 0) {
+      throw this._error('CATALOG_RECIPE_REQUIRED', 'Active saleable item requires an inventory recipe.', 409);
+    }
+    const inventory = await this.repository.listInventoryItems();
+    const byId = new Map(inventory.map((row) => [row.id, row]));
+    const seen = new Set();
+    const normalized = requested.map((row, index) => {
+      const inventoryItemId = String(row?.inventoryItemId || '').trim();
+      const inventoryItem = byId.get(inventoryItemId);
+      if (!inventoryItem) throw this._error('CATALOG_RECIPE_INVENTORY_ITEM_INVALID', `Unknown active inventory item at items[${index}].`, 400);
+      if (seen.has(inventoryItemId)) throw this._error('CATALOG_RECIPE_DUPLICATE_ITEM', 'Inventory item must not repeat in one recipe.', 400);
+      seen.add(inventoryItemId);
+      const quantity = Number(row?.quantity);
+      if (!(quantity > 0) || !Number.isFinite(quantity)) throw this._error('CATALOG_RECIPE_QUANTITY_INVALID', `Invalid quantity at items[${index}].`, 400);
+      const unit = String(row?.unit || inventoryItem.baseUnit || '').trim();
+      if (!unit || unit !== inventoryItem.baseUnit) throw this._error('CATALOG_RECIPE_UNIT_MISMATCH', `Recipe unit for ${inventoryItem.sku} must be ${inventoryItem.baseUnit}.`, 400);
+      const ingredientType = String(row?.ingredientType || inventoryItem.category || '').trim();
+      if (!ingredientType) throw this._error('CATALOG_RECIPE_INGREDIENT_TYPE_REQUIRED', `ingredientType is required at items[${index}].`, 400);
+      return { inventoryItemId, ingredientType, unit, quantity, active: true };
+    });
+    const rows = await this.repository.replaceRecipe(item.id, normalized, context);
+    return {
+      catalogItemId: item.id,
+      sku: item.sku,
+      recipeStatus: this._recipeStatus(item, rows),
+      items: rows.map((row) => this._presentRecipe(row)),
+    };
+  }
+
+  async resolveInventoryRecipe(skus = []) {
+    const normalizedSkus = [...new Set((Array.isArray(skus) ? skus : []).map((value) => String(value || '').trim()).filter(Boolean))];
+    if (!normalizedSkus.length) throw this._error('CATALOG_RECIPE_SKUS_REQUIRED', 'At least one SKU is required.', 400);
+    const items = await this.repository.findItemsBySkus(normalizedSkus);
+    const bySku = new Map(items.map((item) => [item.sku, item]));
+    const missing = normalizedSkus.filter((sku) => !bySku.has(sku));
+    if (missing.length) throw this._error('CATALOG_RECIPE_CATALOG_ITEM_NOT_FOUND', `Catalog items not found: ${missing.join(', ')}.`, 409);
+    const aggregated = new Map();
+    for (const sku of normalizedSkus) {
+      const item = bySku.get(sku);
+      const recipe = item.inventoryRecipe || [];
+      if (!item.systemItem && item.active && recipe.length === 0) {
+        throw this._error('CATALOG_RECIPE_MISSING', `Inventory recipe is not configured for ${sku}.`, 409);
+      }
+      for (const row of recipe) {
+        const key = row.inventoryItemId;
+        const current = aggregated.get(key);
+        const quantity = Number(row.quantity);
+        if (current && (current.unit !== row.unit || current.ingredientType !== row.ingredientType)) {
+          throw this._error('CATALOG_RECIPE_CONFLICT', `Conflicting recipe definition for inventory item ${key}.`, 409);
+        }
+        aggregated.set(key, current
+          ? { ...current, quantity: current.quantity + quantity }
+          : {
+              inventoryItemId: row.inventoryItemId,
+              inventorySku: row.inventoryItem?.sku || null,
+              ingredientType: row.ingredientType,
+              unit: row.unit,
+              quantity,
+            });
+      }
+    }
+    return [...aggregated.values()].sort((a, b) => String(a.inventorySku || a.inventoryItemId).localeCompare(String(b.inventorySku || b.inventoryItemId)));
+  }
+
   createItem(input, context) {
     const data = this._validatedItem(input, { creating: true });
     return this.repository.createItem(data, context).then((item) => this._present(item));
@@ -166,13 +249,34 @@ class CatalogService {
 
   _present(item, assignment = null) {
     const { status: configurationStatus, issues: configurationIssues } = this._configurationStatus(item);
+    const recipeRows = Array.isArray(item.inventoryRecipe) ? item.inventoryRecipe : [];
     return {
       ...item,
+      inventoryRecipe: undefined,
       basePrice: item.basePrice == null ? null : Number(item.basePrice),
       configurationStatus,
       configurationIssues,
+      recipeStatus: this._recipeStatus(item, recipeRows),
       available: assignment ? assignment.available : undefined,
       isCurrentFlavor: assignment ? assignment.isCurrentFlavor : undefined,
+    };
+  }
+
+  _recipeStatus(item, rows = []) {
+    if (item.systemItem) return 'NOT_REQUIRED';
+    return item.active && rows.length > 0 ? 'READY' : 'MISSING';
+  }
+
+  _presentRecipe(row) {
+    return {
+      id: row.id,
+      inventoryItemId: row.inventoryItemId,
+      inventorySku: row.inventoryItem?.sku || null,
+      inventoryName: row.inventoryItem?.name || null,
+      ingredientType: row.ingredientType,
+      unit: row.unit,
+      quantity: Number(row.quantity),
+      active: Boolean(row.active),
     };
   }
 

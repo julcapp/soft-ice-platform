@@ -25,10 +25,13 @@ class DisplayCustomerRecognitionService {
     abuseGuard = new UnavailableDisplayRecognitionAbuseGuard(),
     clock = () => new Date(),
     codeFactory = secureCode,
+    unverifiedPurchaseContactService = null,
+    buyerTokenService = null,
+    logger = console,
   }) {
     Object.assign(this, {
       customerRepository, auditRepository, verificationProvider, challengeRepository,
-      abuseGuard, clock, codeFactory,
+      abuseGuard, clock, codeFactory, unverifiedPurchaseContactService, buyerTokenService, logger,
     });
   }
 
@@ -54,16 +57,45 @@ class DisplayCustomerRecognitionService {
     }
     if (customer) {
       await this.audit(RECOGNITION_STATE.RETURNING, machineId, context, 'VERIFIED_PHONE_MATCH');
-      return { state: RECOGNITION_STATE.RETURNING };
+      return {
+        state: RECOGNITION_STATE.RETURNING,
+        ...(customer.bonusAccount ? { bonusBalance: Number(customer.bonusAccount.balanceBonus || 0) } : {}),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, customerId: customer.id }) } : {}),
+      };
+    }
+
+    let unverifiedContact = null;
+    if (this.unverifiedPurchaseContactService) {
+      try {
+        unverifiedContact = await this.unverifiedPurchaseContactService.recordPhone({
+          machineId,
+          phone,
+          source: 'TERMINAL',
+          metadata: { recognition_state: RECOGNITION_STATE.NEW },
+        });
+      } catch (error) {
+        this.logger?.warn?.('display.unverified_phone_capture_failed', {
+          machineIdHash: fingerprint(machineId),
+          code: error?.code || 'UNVERIFIED_PHONE_CAPTURE_FAILED',
+        });
+      }
     }
 
     try {
       const challenge = await this.issueChallenge({ machineId, phone, phoneFingerprint, context });
       await this.audit(RECOGNITION_STATE.NEW, machineId, context, 'VERIFICATION_CHALLENGE_ISSUED');
-      return { state: RECOGNITION_STATE.NEW, verification: publicChallenge(challenge) };
+      return {
+        state: RECOGNITION_STATE.NEW,
+        verification: publicChallenge(challenge),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, contactId: unverifiedContact?.id || null }) } : {}),
+      };
     } catch (error) {
       await this.audit(RECOGNITION_STATE.NEW, machineId, context, 'VERIFICATION_PROVIDER_UNAVAILABLE');
-      return { state: RECOGNITION_STATE.NEW, verification: unavailableVerification() };
+      return {
+        state: RECOGNITION_STATE.NEW,
+        verification: unavailableVerification(),
+        ...(this.buyerTokenService ? { purchaseToken: this.buyerTokenService.issue({ machineId, contactId: unverifiedContact?.id || null }) } : {}),
+      };
     }
   }
 
@@ -193,7 +225,16 @@ class DeterministicDisplayPhoneVerificationProvider {
   }
 }
 
-class AllowDisplayRecognitionAbuseGuard { async check() {} }
+class AllowDisplayRecognitionAbuseGuard {
+  constructor({ allowedMachineIds = null } = {}) {
+    this.allowedMachineIds = Array.isArray(allowedMachineIds) ? new Set(allowedMachineIds) : null;
+  }
+
+  async check({ machineId } = {}) {
+    if (!this.allowedMachineIds || this.allowedMachineIds.has(machineId)) return;
+    throw new ApiError({ statusCode: 503, code: 'DISPLAY_RECOGNITION_ABUSE_GUARD_UNAVAILABLE', message: 'Проверка временно недоступна.' });
+  }
+}
 
 class UnavailableDisplayRecognitionAbuseGuard {
   async check() {

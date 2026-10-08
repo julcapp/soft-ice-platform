@@ -531,6 +531,30 @@ model BotRecipientBinding {
   @@index([status, lastSeenAt])
 }
 
+
+
+model TerminalChannelChallenge {
+  id                 String   @id @default(uuid())
+  tokenHash          String   @unique
+  phoneFingerprint   String
+  machineId          String
+  channel            String
+  status             String   @default("PENDING")
+  externalUserIdHash String?
+  customerId         String?
+  createdAt          DateTime @default(now())
+  expiresAt          DateTime
+  startedAt          DateTime?
+  verifiedAt         DateTime?
+  consumedAt         DateTime?
+  updatedAt          DateTime @updatedAt
+  metadata           Json?
+
+  @@index([status, expiresAt])
+  @@index([phoneFingerprint, channel, status])
+  @@index([machineId, createdAt])
+}
+
 model AuthSession {
   id              String    @id @default(uuid())
   subjectType     String
@@ -786,9 +810,29 @@ model CatalogItem {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  machines MachineCatalogItem[]
+  machines        MachineCatalogItem[]
+  inventoryRecipe CatalogInventoryRecipeItem[]
 
   @@index([category, active, sortOrder])
+}
+
+model CatalogInventoryRecipeItem {
+  id              String   @id @default(uuid())
+  catalogItemId   String
+  inventoryItemId String
+  ingredientType  String
+  unit            String
+  quantity        Float
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  catalogItem   CatalogItem          @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryRuntimeItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([catalogItemId, inventoryItemId])
+  @@index([catalogItemId, active])
+  @@index([inventoryItemId])
 }
 
 model MachineCatalogItem {
@@ -1157,6 +1201,7 @@ model InventoryRuntimeItem {
   movements        InventoryRuntimeMovement[]
   reservationItems InventoryRuntimeReservationItem[]
   stocks           InventoryRuntimeStock[]
+  catalogRecipes   CatalogInventoryRecipeItem[]
 }
 
 model InventoryRuntimeLocation {
@@ -1609,7 +1654,7 @@ model MaintenanceAuditEntryV1 {
 
 model Order {
   id         String      @id @default(uuid())
-  customerId String
+  customerId String?
   status     OrderStatus @default(CREATED)
   amount     Float
   currency   String      @default("RUB")
@@ -1633,7 +1678,7 @@ model Order {
   activePickupCodeHash String?
   cancelledToBalanceAt DateTime?
 
-  customer              Customer               @relation(fields: [customerId], references: [id])
+  customer              Customer?              @relation(fields: [customerId], references: [id])
   machine               Machine?               @relation(fields: [machineId], references: [id])
   dispenseRequest       DispenseRequest?
   bonusTransactions     BonusTransaction[]
@@ -1649,6 +1694,63 @@ model Order {
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+}
+
+
+
+model UnverifiedPurchaseContact {
+  id                 String    @id @default(uuid())
+  phoneCiphertext    String
+  phoneFingerprint   String
+  phoneMasked        String
+  phoneStatus        String    @default("UNVERIFIED")
+  machineId          String
+  orderId            String?
+  customerId         String?
+  status             String    @default("ACTIVE")
+  source             String    @default("TERMINAL")
+  capturedAt         DateTime  @default(now())
+  lastSeenAt         DateTime  @default(now())
+  purchaseCompletedAt DateTime?
+  linkedAt           DateTime?
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([phoneFingerprint, status])
+  @@index([machineId, capturedAt])
+  @@index([orderId])
+  @@index([customerId])
+}
+
+model PurchaseNotificationIntent {
+  id               String    @id @default(uuid())
+  orderId          String?
+  customerId       String?
+  contactId        String?
+  machineId        String?
+  notificationType String
+  status           String    @default("PENDING_IDENTITY")
+  phoneStatus      String?
+  phoneCiphertext  String?
+  phoneFingerprint String?
+  phoneMasked      String?
+  amountRub        Float?
+  bonusAccrued     Int?
+  bonusBalance     Int?
+  receiptUrl       String?
+  source           String    @default("SALE_FLOW")
+  correlationId    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  resolvedAt       DateTime?
+  sentAt           DateTime?
+  metadata         Json?
+
+  @@index([orderId, notificationType])
+  @@index([customerId, status])
+  @@index([phoneFingerprint, status])
+  @@index([createdAt])
 }
 
 model GiftTransfer {
@@ -2048,6 +2150,11 @@ model Payment {
   amount              Decimal                 @db.Decimal(18, 2)
   currency            String                  @default("RUB")
   providerStatus      String?
+  confirmationUrl     String?
+  paymentMethodType   String?
+  incomeAmount        Decimal?                @db.Decimal(18, 2)
+  channel             String?
+  failureCode         String?
   description         String?
   metadata            Json?
   createdAt           DateTime                @default(now())
@@ -2223,7 +2330,7 @@ model SaleFlow {
   id                                String                     @id @default(uuid())
   flowId                            String                     @unique
   orderId                           String                     @unique
-  customerId                        String
+  customerId                        String?
   machineId                         String
   organizationId                    String
   locationId                        String

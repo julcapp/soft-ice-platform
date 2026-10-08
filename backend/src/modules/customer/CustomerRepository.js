@@ -14,7 +14,7 @@ class CustomerRepository {
   async findByVerifiedPhone(phone) {
     const customer = await this.prisma.customer.findFirst({
       where: { phone, phoneVerifiedAt: { not: null } },
-      include: { identities: true, clubAccount: true },
+      include: { identities: true, clubAccount: true, bonusAccount: true },
     });
     return customer ? toCustomerIdentityState(customer) : null;
   }
@@ -26,6 +26,24 @@ class CustomerRepository {
     });
     if (!identity || identity.revokedAt) return null;
     return { identity, customer: toCustomerIdentityState(identity.customer) };
+  }
+
+  async createVerifiedPhoneCustomer({ phone, verifiedAt = new Date() }) {
+    try {
+      const customer = await this.prisma.customer.create({
+        data: {
+          phone,
+          phoneVerifiedAt: verifiedAt,
+          primaryIdentityProvider: 'phone',
+          status: 'active',
+        },
+        include: { identities: true, clubAccount: true, bonusAccount: true },
+      });
+      return toCustomerIdentityState(customer);
+    } catch (error) {
+      if (error.code === 'P2002') return this.findByVerifiedPhone(phone);
+      throw error;
+    }
   }
 
   async createTelegramCustomer({ telegramIdentity, displayName, sourceChannel, now = new Date() }) {
