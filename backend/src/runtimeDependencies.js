@@ -251,17 +251,19 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
-  const terminalCheckoutService = new TerminalCheckoutService({
-    prisma,
-    pricingRepository: new PricingRepository(prisma),
-    catalogService: new CatalogService({ repository: new CatalogRepository(prisma) }),
-    organizationContext,
-    inventory: inventoryReservationService,
-    paymentCheckoutService,
-    paymentService,
-    buyerTokenService: terminalBuyerTokenService,
-    returnOrigin: 'https://miniapp.utimoshi.ru',
-  });
+  const terminalCheckoutService = config?.features?.paymentsEnabled
+    ? new TerminalCheckoutService({
+      prisma,
+      pricingRepository: new PricingRepository(prisma),
+      catalogService: new CatalogService({ repository: new CatalogRepository(prisma) }),
+      organizationContext,
+      inventory: inventoryReservationService,
+      paymentCheckoutService,
+      paymentService,
+      buyerTokenService: terminalBuyerTokenService,
+      returnOrigin: 'https://miniapp.utimoshi.ru',
+    })
+    : null;
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
 
   const authCoreService = new AuthCoreService({
