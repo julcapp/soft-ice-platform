@@ -289,10 +289,22 @@ class TerminalCheckoutService {
   async present(result, machineId) {
     const payment = result.payment;
     const flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
-    const fulfillmentState = flow?.machineId === machineId
-      ? flow.currentState === 'COMPLETED' ? 'COMPLETED'
-        : flow.currentState === 'REFUND_REQUIRED' || flow.recoveryStatus === 'NEEDS_RECONCILIATION' ? 'ATTENTION_REQUIRED' : 'WAITING'
-      : 'WAITING';
+    let fulfillmentState = 'WAITING';
+    if (flow?.machineId === machineId) {
+      if (flow.currentState === 'COMPLETED') fulfillmentState = 'COMPLETED';
+      else if (flow.currentState === 'REFUND_REQUIRED' || flow.currentState === 'FULFILLMENT_FAILED') fulfillmentState = 'ATTENTION_REQUIRED';
+      else {
+        // DISPENSING alone records command intent, not a physical acknowledgement.
+        const attempt = flow.currentState === 'DISPENSING' && flow.flowId && flow.organizationId
+          && payment.status === 'SUCCEEDED' && this.prisma.machineDispenseAttempt
+          ? await this.prisma.machineDispenseAttempt.findFirst({ where: {
+            organizationId: flow.organizationId, orderId: payment.orderId,
+            saleFlowId: flow.flowId, machineId, operationType: 'CUSTOMER_SALE',
+          }, select: { status: true, acceptedAt: true, startedAt: true } }) : null;
+        if (attempt && ['ACCEPTED', 'DISPENSING'].includes(attempt.status) && (attempt.acceptedAt || attempt.startedAt)) fulfillmentState = 'PREPARING';
+        else if (flow.recoveryStatus === 'NEEDS_RECONCILIATION') fulfillmentState = 'ATTENTION_REQUIRED';
+      }
+    }
     return {
       paymentId: payment.id,
       orderId: payment.orderId,

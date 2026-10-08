@@ -1274,3 +1274,10 @@
 .display-payment-method:not(:disabled):hover,.display-payment-method:not(:disabled):focus-visible{border-color:var(--display-green);outline:3px solid #008b7433;outline-offset:4px}
 .display-payment-choosing .display-payment-actions{margin-top:16px}
 @media(max-width:600px){.display-payment-methods{grid-template-columns:1fr;gap:14px}.display-payment-method{min-height:180px;padding:20px}.display-payment-method strong{font-size:26px}.display-payment-method svg{width:52px;height:52px}.display-payment-actions{flex-wrap:wrap}}
+
+.display-payment-pos{display:grid;grid-template-columns:minmax(200px,380px) 1fr;align-items:center;gap:24px;width:min(100%,980px);margin:20px auto;padding:20px;border-radius:28px;background:#fff;text-align:left;border:2px solid var(--display-line)}
+.display-payment-pos svg{width:100%;max-height:300px}.display-payment-pos strong{font-size:clamp(24px,2.5vw,36px);font-weight:900}.display-payment-pos p{font-size:22px;line-height:1.45}.display-payment-pos small{font-size:18px;color:var(--display-muted)}
+.display-pos-card.is-active{animation:display-pos-tap 2.4s ease-in-out infinite}
+@keyframes display-pos-tap{50%{transform:translate(-48px,12px)}}
+@media(max-width:600px){.display-payment-pos{grid-template-columns:1fr;gap:8px;padding:16px}.display-payment-pos svg{max-height:220px}.display-payment-pos p{font-size:19px}}
+@media(prefers-reduced-motion:reduce){.display-pos-card.is-active{animation:none}}
