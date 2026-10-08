@@ -1,13 +1,14 @@
 'use strict';
 
 class MaxBotApiClient {
-  constructor({ token, apiBaseUrl = 'https://platform-api2.max.ru', fetchImpl = globalThis.fetch, requestTimeoutMs = 15000 } = {}) {
+  constructor({ token, apiBaseUrl = 'https://platform-api2.max.ru', fetchImpl = globalThis.fetch, requestTimeoutMs = 15000, logger = console } = {}) {
     if (!token) throw new Error('MAX bot token is required.');
     if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required.');
     this.token = token;
     this.apiBaseUrl = apiBaseUrl.replace(/\/$/, '');
     this.fetch = fetchImpl;
     this.requestTimeoutMs = requestTimeoutMs;
+    this.logger = logger;
     this.sendMessageContract = 'max_bot_api';
   }
 
@@ -30,6 +31,13 @@ class MaxBotApiClient {
         if (controller.signal.aborted) throw error;
         payload = null;
       }
+      this.logger?.info?.('max.api.response', {
+        method,
+        path,
+        status: response.status,
+        destination: query.chat_id ? { chat_id: String(query.chat_id) } : query.user_id ? { user_id: String(query.user_id) } : null,
+        attachmentTypes: Array.isArray(body?.attachments) ? body.attachments.map((item) => item?.type).filter(Boolean) : [],
+      });
       if (!response.ok) {
         const error = new Error(`MAX Bot API ${method} ${path} failed: ${payload?.message || `HTTP ${response.status}`}`);
         error.status = response.status;
@@ -52,7 +60,7 @@ class MaxBotApiClient {
     if (typeof text !== 'string' || !text) throw new Error('MAX message text is required.');
     return this.call('/messages', {
       method: 'POST',
-      query: user ? { user_id: user } : { chat_id: chat },
+      query: chat ? { chat_id: chat } : { user_id: user },
       body: {
         text,
         ...(attachments ? { attachments } : {}),

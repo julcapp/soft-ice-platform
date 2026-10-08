@@ -531,6 +531,30 @@ model BotRecipientBinding {
   @@index([status, lastSeenAt])
 }
 
+
+
+model TerminalChannelChallenge {
+  id                 String   @id @default(uuid())
+  tokenHash          String   @unique
+  phoneFingerprint   String
+  machineId          String
+  channel            String
+  status             String   @default("PENDING")
+  externalUserIdHash String?
+  customerId         String?
+  createdAt          DateTime @default(now())
+  expiresAt          DateTime
+  startedAt          DateTime?
+  verifiedAt         DateTime?
+  consumedAt         DateTime?
+  updatedAt          DateTime @updatedAt
+  metadata           Json?
+
+  @@index([status, expiresAt])
+  @@index([phoneFingerprint, channel, status])
+  @@index([machineId, createdAt])
+}
+
 model AuthSession {
   id              String    @id @default(uuid())
   subjectType     String
@@ -808,6 +832,8 @@ model MachineCatalogItem {
 }
 
 model Organization {
+  directorName String?
+  directorPosition String?
   id                   String             @id @default(uuid())
   fullName             String
   shortName            String
@@ -1649,6 +1675,62 @@ model Order {
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+}
+
+
+model UnverifiedPurchaseContact {
+  id                  String    @id @default(uuid())
+  phoneCiphertext     String
+  phoneFingerprint    String
+  phoneMasked         String
+  phoneStatus         String    @default("UNVERIFIED")
+  machineId           String
+  orderId             String?
+  customerId          String?
+  status              String    @default("ACTIVE")
+  source              String    @default("TERMINAL")
+  capturedAt          DateTime  @default(now())
+  lastSeenAt          DateTime  @default(now())
+  purchaseCompletedAt DateTime?
+  linkedAt            DateTime?
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([phoneFingerprint, status])
+  @@index([machineId, capturedAt])
+  @@index([orderId])
+  @@index([customerId])
+}
+
+model PurchaseNotificationIntent {
+  id               String    @id @default(uuid())
+  orderId          String?
+  customerId       String?
+  contactId        String?
+  machineId        String?
+  notificationType String
+  status           String    @default("PENDING_IDENTITY")
+  phoneStatus      String?
+  phoneCiphertext  String?
+  phoneFingerprint String?
+  phoneMasked      String?
+  amountRub        Float?
+  bonusAccrued     Int?
+  bonusBalance     Int?
+  receiptUrl       String?
+  source           String    @default("SALE_FLOW")
+  correlationId    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  resolvedAt       DateTime?
+  sentAt           DateTime?
+  metadata         Json?
+
+  @@index([orderId, notificationType])
+  @@index([customerId, status])
+  @@index([phoneFingerprint, status])
+  @@index([createdAt])
 }
 
 model GiftTransfer {

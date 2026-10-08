@@ -1,3 +1,4 @@
+const { OrganizationRegistry } = require('../../modules/organization/OrganizationRegistry');
 const express = require('express');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
 const { ApiError } = require('../../platform/errors/ApiError');
@@ -6,7 +7,7 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const GLOBAL_ROLES = new Set(['PLATFORM_OWNER', 'ADMIN']);
 const ORGANIZATION_ROLES = new Set(['ORGANIZATION_ADMIN', 'ORGANIZATION_MANAGER']);
 
-function createOrganizationRouter({ organizationRuntime, adminAuth = {} }) {
+function createOrganizationRouter({ organizationRuntime, adminAuth = {}, organizationRegistry = new OrganizationRegistry() }) {
   const router = express.Router();
   const environment = adminAuth.environment || process.env.NODE_ENV || 'development';
   router.use(createAdminAuthenticator(adminAuth));
@@ -32,6 +33,8 @@ function createOrganizationRouter({ organizationRuntime, adminAuth = {} }) {
 
   router.get('/', asyncHandler(async (req, res) => sendData(res, req, await organizationRuntime.list(req.organizationScope))));
   router.post('/', mutate((req) => organizationRuntime.create(camel(req.body), context(req)), 201));
+  router.get('/lookup/config', asyncHandler(async (req, res) => sendData(res, req, organizationRegistry.configuration())));
+  router.post('/lookup/inn', asyncHandler(async (req, res) => sendData(res, req, await organizationRegistry.lookup(req.body?.inn, req.securityContext.subject_id))));
   router.get('/:id', read((req) => organizationRuntime.get(req.params.id)));
   router.patch('/:id', mutate((req) => organizationRuntime.update(req.params.id, camel(req.body), context(req))));
   router.get('/:id/units', read((req) => organizationRuntime.listUnits(req.params.id)));

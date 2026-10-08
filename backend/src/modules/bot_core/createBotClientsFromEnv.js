@@ -31,6 +31,7 @@ function createBotClientsFromEnv(env = process.env, options = {}) {
       apiBaseUrl: env.MAX_API_BASE_URL || 'https://platform-api2.max.ru',
       fetchImpl: options.fetchImpl || globalThis.fetch,
       requestTimeoutMs,
+      logger: options.logger || console,
     });
   }
 

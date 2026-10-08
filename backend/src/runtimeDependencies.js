@@ -1,9 +1,12 @@
+const crypto = require('node:crypto');
+
 const { ClubAccountRepository } = require('./modules/club_account/ClubAccountRepository');
 const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntime');
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
 const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
+const { UnverifiedPurchaseContactRepository, UnverifiedPurchaseContactService } = require('./modules/customer/UnverifiedPurchaseContactService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -42,8 +45,9 @@ const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, 
 const { PrismaOutboxRepository, OutboxAdminService, OutboxWorker, RetryPolicy } = require('./modules/transactional_outbox');
 const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
+const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
-const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
+const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
@@ -54,7 +58,15 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
-  const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const paymentProvider = config?.features?.paymentsEnabled
+    ? new YooKassaPaymentProviderAdapter({
+      shopId: config?.payments?.yooKassa?.shopId,
+      secretKey: config?.payments?.yooKassa?.secretKey,
+      apiBaseUrl: config?.payments?.yooKassa?.apiBaseUrl,
+      timeoutMs: config?.payments?.yooKassa?.timeoutMs,
+      allowedReturnOrigins: config?.payments?.yooKassa?.returnOrigins,
+    })
+    : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = new BlockedExternalMachineProviderAdapter();
@@ -145,13 +157,44 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
+  const purchaseContactMasterSecret = config?.purchaseContacts?.masterSecret || null;
+  const unverifiedContactEncryptionKey = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'aes-256-gcm')
+    : null;
+  const unverifiedContactFingerprintSecret = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'phone-hmac')
+    : null;
+  const unverifiedPurchaseContactService = (unverifiedContactEncryptionKey && unverifiedContactFingerprintSecret)
+    ? new UnverifiedPurchaseContactService({
+      repository: new UnverifiedPurchaseContactRepository(prisma),
+      codec: new AesGcmValueCodec({ key: unverifiedContactEncryptionKey }),
+      fingerprintSecret: unverifiedContactFingerprintSecret,
+      logger,
+    })
+    : null;
+  if (!unverifiedPurchaseContactService) logger?.warn?.('Unverified purchase contact persistence is disabled: encryption key or fingerprint secret is missing.');
+
   const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
     customerRepository,
     auditRepository,
     // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
     // All other machines continue to fail closed until the shared abuse guard is integrated.
     abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
+    unverifiedPurchaseContactService,
+    logger,
   });
+  const terminalChannelChallengeProduction = process.env.NODE_ENV === 'production' || config?.environment === 'production';
+  const terminalChannelChallengeSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
+    || (terminalChannelChallengeProduction ? null : 'local-terminal-channel-challenge-development-only');
+  const terminalChannelChallengeService = terminalChannelChallengeSecret
+    ? new TerminalChannelChallengeService({
+      repository: new PrismaTerminalChannelChallengeRepository(prisma),
+      customerRepository,
+      phoneSecret: terminalChannelChallengeSecret,
+      maxBotUrl: process.env.BOT_MAX_CHANNEL_URL || 'https://max.ru/id7017438363_bot',
+      telegramBotUrl: process.env.BOT_TELEGRAM_CHANNEL_URL || null,
+    })
+    : null;
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
@@ -383,6 +426,8 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     authCoreService,
     customerRuntime,
     displayCustomerRecognitionService,
+    unverifiedPurchaseContactService,
+    terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,
@@ -392,6 +437,17 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     botRecipientBindingService,
     domainEventPublisher,
   };
+}
+
+function derivePurchaseContactSubkey(masterSecret, purpose) {
+  const derived = crypto.hkdfSync(
+    'sha256',
+    Buffer.from(String(masterSecret), 'utf8'),
+    Buffer.from('softice.purchase-contact.v1', 'utf8'),
+    Buffer.from(String(purpose), 'utf8'),
+    32,
+  );
+  return Buffer.from(derived).toString('base64');
 }
 
 function unavailableLegacyInventoryRuntime() {

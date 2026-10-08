@@ -25,10 +25,12 @@ class DisplayCustomerRecognitionService {
     abuseGuard = new UnavailableDisplayRecognitionAbuseGuard(),
     clock = () => new Date(),
     codeFactory = secureCode,
+    unverifiedPurchaseContactService = null,
+    logger = console,
   }) {
     Object.assign(this, {
       customerRepository, auditRepository, verificationProvider, challengeRepository,
-      abuseGuard, clock, codeFactory,
+      abuseGuard, clock, codeFactory, unverifiedPurchaseContactService, logger,
     });
   }
 
@@ -54,7 +56,26 @@ class DisplayCustomerRecognitionService {
     }
     if (customer) {
       await this.audit(RECOGNITION_STATE.RETURNING, machineId, context, 'VERIFIED_PHONE_MATCH');
-      return { state: RECOGNITION_STATE.RETURNING };
+      return {
+        state: RECOGNITION_STATE.RETURNING,
+        ...(customer.bonusAccount ? { bonusBalance: Number(customer.bonusAccount.balanceBonus || 0) } : {}),
+      };
+    }
+
+    if (this.unverifiedPurchaseContactService) {
+      try {
+        await this.unverifiedPurchaseContactService.recordPhone({
+          machineId,
+          phone,
+          source: 'TERMINAL',
+          metadata: { recognition_state: RECOGNITION_STATE.NEW },
+        });
+      } catch (error) {
+        this.logger?.warn?.('display.unverified_phone_capture_failed', {
+          machineIdHash: fingerprint(machineId),
+          code: error?.code || 'UNVERIFIED_PHONE_CAPTURE_FAILED',
+        });
+      }
     }
 
     try {

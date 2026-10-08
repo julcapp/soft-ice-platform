@@ -7,6 +7,7 @@ class OrganizationRepository {
   findById(id) {
     return this.prisma.organization.findFirst({ where: { id, archivedAt: null } });
   }
+  findByInn(inn, kpp) { return this.prisma.organization.findFirst({ where: { inn, kpp: kpp || null, archivedAt: null } }); }
   create(data) { return this.prisma.organization.create({ data }); }
   update(id, data) { return this.prisma.organization.update({ where: { id }, data }); }
   listUnits(organizationId) {
