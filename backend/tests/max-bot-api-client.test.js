@@ -43,3 +43,18 @@ test('MAX client timeout covers the complete provider response body', async () =
     (error) => error.code === 'MAX_PROVIDER_TIMEOUT',
   );
 });
+
+
+test('MAX client prefers chat_id when bot_started provides both chat and user destinations', async () => {
+  const calls = [];
+  const client = new MaxBotApiClient({
+    token: 'max-secret',
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), body: JSON.parse(options.body) });
+      return { ok: true, status: 200, async json() { return { message: { mid: 'm-chat' } }; } };
+    },
+  });
+  await client.sendMessage({ userId: '67890', chatId: '12345', text: 'Подтвердите номер' });
+  assert.equal(calls[0].url, 'https://platform-api2.max.ru/messages?chat_id=12345');
+  assert.deepEqual(calls[0].body, { text: 'Подтвердите номер', notify: true });
+});

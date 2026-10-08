@@ -165,3 +165,61 @@ test('BotGateway can attach onboarding result without channel-specific business 
   assert.equal(result.onboarding.stage, 'phone_verification_required');
   assert.equal(result.onboarding.welcomeKind, 'machine_qr');
 });
+
+
+test('MaxAdapter verifies request_contact hash and normalizes Russian phone', () => {
+  const crypto = require('node:crypto');
+  const token = 'max-secret-token';
+  const vcfInfo = 'BEGIN:VCARD\r\nVERSION:3.0\r\nTEL;TYPE=cell:79991234567\r\nFN:Guest\r\nEND:VCARD\r\n';
+  const hash = crypto.createHmac('sha256', token).update(vcfInfo, 'utf8').digest('hex');
+  const adapter = new MaxAdapter({ token });
+  const inbound = adapter.normalizeInbound({
+    sender: { user_id: 2002 },
+    message: {
+      body: {
+        attachments: [{
+          type: 'contact',
+          payload: { vcf_info: vcfInfo, hash },
+        }],
+      },
+    },
+  });
+
+  assert.deepEqual(inbound.contact, {
+    phone: '+79991234567',
+    verified: true,
+    hasVerificationHash: true,
+  });
+});
+
+test('MaxAdapter does not trust contact with invalid hash', () => {
+  const adapter = new MaxAdapter({ token: 'max-secret-token' });
+  const inbound = adapter.normalizeInbound({
+    sender: { user_id: 2002 },
+    message: {
+      body: {
+        attachments: [{
+          type: 'contact',
+          payload: {
+            vcf_info: 'BEGIN:VCARD\r\nTEL;TYPE=cell:89991234567\r\nEND:VCARD\r\n',
+            hash: '0'.repeat(64),
+          },
+        }],
+      },
+    },
+  });
+
+  assert.equal(inbound.contact.phone, '+79991234567');
+  assert.equal(inbound.contact.verified, false);
+});
+
+
+test('MAX bot_started update is recognized as a start event', () => {
+  const { isStartUpdate } = require('../src/modules/bot_core/BotRuntime');
+  assert.equal(isStartUpdate('max', {
+    update_type: 'bot_started',
+    chat_id: 123,
+    user: { user_id: 456 },
+    payload: 'verify_abc123',
+  }), true);
+});

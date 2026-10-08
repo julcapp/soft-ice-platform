@@ -109,6 +109,7 @@ function recognitionDto(result) {
       state: result.state,
       retryable: Boolean(result.retryable),
       ...(result.state === 'RETURNING' && Number.isFinite(result.bonusBalance) ? { bonus_balance: result.bonusBalance } : {}),
+      ...(result.purchaseToken ? { purchase_token: result.purchaseToken } : {}),
       verification: result.verification ? verificationAttributes(result.verification) : null,
     },
   };

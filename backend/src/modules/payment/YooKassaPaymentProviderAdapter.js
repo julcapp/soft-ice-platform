@@ -11,6 +11,7 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
     fetchImpl = globalThis.fetch,
     timeoutMs = 15000,
     allowedReturnOrigins = ['https://display.utimoshi.ru', 'https://miniapp.utimoshi.ru'],
+    receiptVatCode = null,
   } = {}) {
     super({ provider: 'YOOKASSA' });
     this.shopId = shopId;
@@ -19,12 +20,17 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.allowedReturnOrigins = new Set(allowedReturnOrigins);
+    this.receiptVatCode = Number.isInteger(Number(receiptVatCode)) ? Number(receiptVatCode) : null;
     this.implementationKind = 'PRODUCTION';
     this.integrationStatus = this.isConfigured() ? 'READY' : 'BLOCKED_EXTERNAL';
   }
 
   isConfigured() {
     return Boolean(this.shopId && this.secretKey && this.fetchImpl);
+  }
+
+  isReceiptConfigured() {
+    return Number.isInteger(this.receiptVatCode) && this.receiptVatCode >= 1 && this.receiptVatCode <= 6;
   }
 
   async createPayment(request = {}) {
@@ -62,14 +68,20 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
   async refundPayment(request = {}) {
     this.assertConfigured();
     required(request, ['refundId', 'providerPaymentId', 'amount', 'currency', 'idempotencyKey']);
+    const body = {
+      payment_id: request.providerPaymentId,
+      amount: { value: Number(request.amount).toFixed(2), currency: request.currency },
+      description: request.reason || undefined,
+      metadata: {
+        refund_id: request.refundId,
+        ...(request.orderId ? { order_id: request.orderId } : {}),
+      },
+      ...(request.receipt ? { receipt: request.receipt } : {}),
+    };
     const object = await this.request('/refunds', {
       method: 'POST',
       headers: { 'Idempotence-Key': request.idempotencyKey },
-      body: {
-        payment_id: request.providerPaymentId,
-        amount: { value: Number(request.amount).toFixed(2), currency: request.currency },
-        description: request.reason || undefined,
-      },
+      body,
     });
     return {
       providerRefundId: object.id,
@@ -146,6 +158,8 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
       currency: object.amount?.currency || 'RUB',
       rawStatus: object.status || null,
       updatedAt: object.created_at || null,
+      metadata: sanitize(object.metadata || {}),
+      failureCode: object.cancellation_details?.reason || null,
     };
   }
 
@@ -207,6 +221,7 @@ function normalizePayment(object = {}) {
     createdAt: object.created_at || null,
     updatedAt: object.captured_at || object.created_at || null,
     metadata: sanitize(object.metadata || {}),
+    failureCode: object.cancellation_details?.reason || null,
   };
 }
 

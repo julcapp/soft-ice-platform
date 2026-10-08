@@ -44,6 +44,9 @@ function createAdminCatalogRouter(dependencies = {}) {
   router.use(createAdminAuthenticator(dependencies.adminAuth || {}));
   router.get('/items', asyncHandler(async (req, res) => sendData(res, req, await service.listAll())));
   router.get('/machines', asyncHandler(async (req, res) => sendData(res, req, await service.listMachines())));
+  router.get('/inventory-items', asyncHandler(async (req, res) => sendData(res, req, await service.listInventoryItems())));
+  router.get('/items/:itemId/inventory-recipe', asyncHandler(async (req, res) => sendData(res, req, await service.getInventoryRecipe(req.params.itemId))));
+  router.put('/items/:itemId/inventory-recipe', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.replaceInventoryRecipe(req.params.itemId, req.body, context(req)))));
   router.post('/items', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.createItem(req.body, context(req)), 201)));
   router.patch('/items/prices', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.updatePrices(req.body?.changes, context(req)))));
   router.patch('/items/:itemId', requireCatalogMutation, asyncHandler(async (req, res) => sendData(res, req, await service.updateItem(req.params.itemId, req.body, context(req)))));
