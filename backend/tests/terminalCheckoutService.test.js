@@ -181,3 +181,9 @@ test('payment success exposes completion only from same-machine authoritative sa
   assert.equal(result.userState, 'SUCCESS');
  }
 });
+
+test('POS selection is rejected before quote consumption, order or inventory creation', async () => {
+ const f = fixture();
+ await assert.rejects(f.service.initiate({ machineId: 'TEST-MACHINE-001', quoteId: 'quote-1', method: 'pos', idempotencyKey: 'pos-1' }), { code: 'TERMINAL_POS_NOT_CONFIGURED' });
+ assert.equal(f.calls.order, null); assert.equal(f.calls.reserve, null); assert.equal(f.calls.payment, null);
+});

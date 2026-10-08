@@ -1,21 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createTerminalPayment, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
+import { createTerminalPayment, getTerminalPaymentStatus, terminalPaymentErrorMessage, getTerminalPaymentMethods } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
-const SAFE_CREATION_ERRORS = new Set(['PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID']);
+const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID', 'TERMINAL_POS_NOT_CONFIGURED']);
 
-export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseToken, onBack, onComplete }) {
-  const [state, setState] = useState({ phase: 'creating', payment: null, error: null });
+export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseToken, method = null, onSelectMethod, onBack, onComplete }) {
+  const [state, setState] = useState({ phase: method ? 'creating' : 'choosing', payment: null, error: null });
   const [retry, setRetry] = useState(0);
+  const [methodsState, setMethodsState] = useState({ loading: true, methods: [], error: null });
+  const [methodsRefresh, setMethodsRefresh] = useState(0);
+  const [selectionError, setSelectionError] = useState(null);
+  useEffect(() => {
+    if (method) return undefined;
+    const controller = new AbortController();
+    setMethodsState({ loading: true, methods: [], error: null });
+    getTerminalPaymentMethods({ machineId, signal: controller.signal }).then((methods) => {
+      if (!controller.signal.aborted) setMethodsState({ loading: false, methods, error: null });
+    }).catch(() => {
+      if (!controller.signal.aborted) setMethodsState({ loading: false, methods: [], error: 'Не удалось проверить способы оплаты.' });
+    });
+    return () => controller.abort();
+  }, [machineId, method, methodsRefresh]);
 
   useEffect(() => {
+    if (!method) {
+      setState({ phase: 'choosing', payment: null, error: null });
+      return undefined;
+    }
     if (!quote?.id) {
       setState({ phase: 'unavailable', payment: null, error: 'Нет действующей цены заказа.' });
       return undefined;
     }
     const controller = new AbortController();
     setState({ phase: 'creating', payment: null, error: null });
-    createTerminalPayment({ machineId, quoteId: quote.id, purchaseToken, signal: controller.signal })
+    createTerminalPayment({ machineId, quoteId: quote.id, purchaseToken, method, signal: controller.signal })
       .then((payment) => {
         if (!controller.signal.aborted) setState({ phase: phaseFor(payment), payment, error: null });
       }).catch((error) => {
@@ -25,7 +43,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
           error: safe ? terminalPaymentErrorMessage(error) : 'Связь прервалась. Результат оплаты пока неизвестен.' });
       });
     return () => controller.abort();
-  }, [machineId, quote?.id, purchaseToken, retry]);
+  }, [machineId, quote?.id, purchaseToken, method, retry]);
 
   useEffect(() => {
     if (!state.payment?.paymentId || !['pending', 'success'].includes(state.phase) || (state.phase === 'success' && state.payment.fulfillmentState !== 'WAITING')) return undefined;
@@ -59,7 +77,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   }, [state.payment?.confirmationUrl]);
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
-  const title = state.phase === 'success' ? 'Оплата прошла успешно' : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
+  const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success' ? 'Оплата прошла успешно' : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
   return <section className={`display-payment display-payment-${state.phase}`} aria-labelledby="terminal-payment-title" data-testid={`terminal-payment-${state.phase}`}>
     <p className="display-kicker">{state.phase === 'success' ? 'Спасибо за покупку' : 'Безналичная оплата'}</p>
     <h1 id="terminal-payment-title">{title}</h1>
@@ -67,7 +85,27 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       <div><span>{state.phase === 'success' ? 'Оплачено' : 'К оплате'}</span><strong>{money(state.payment?.amount ?? quote?.finalAmount, state.payment?.currency || quote?.currency)}</strong></div>
       {items.length > 0 && <ul aria-label="Состав заказа">{items.map((item) => <li key={item.sku}>{item.nameRu}</li>)}</ul>}
     </div>
-    {result ? <div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
+    {state.phase === 'choosing' ? <>
+      <div className="display-payment-methods" aria-label="Способы оплаты">
+        {[
+          { id: 'sbp', title: 'СБП', subtitle: 'По QR-коду со смартфона', icon: 'qr' },
+          { id: 'pos', title: 'Банковская карта', subtitle: 'Через POS-терминал аппарата', icon: 'card' },
+        ].map((item) => {
+          const capability = methodsState.methods.find((value) => value.id === item.id);
+          const available = capability?.available === true;
+          return <button key={item.id} className="display-payment-method" type="button" disabled={!available || methodsState.loading} onClick={() => {
+            if (onSelectMethod?.(item.id) === false) setSelectionError('Не удалось сохранить способ оплаты. Платёж не создан.');
+          }}>
+            <PaymentMethodIcon type={item.icon} />
+            <strong>{item.title}</strong><span>{item.subtitle}</span>
+            <small>{methodsState.loading ? 'Проверяем доступность…' : available ? 'Выбрать' : item.id === 'pos' && capability?.reasonCode === 'TERMINAL_POS_NOT_CONFIGURED' ? 'POS-терминал пока не подключён' : 'Сейчас недоступно'}</small>
+          </button>;
+        })}
+      </div>
+      {(methodsState.error || selectionError) && <p role="status" className="display-payment-note">{selectionError || methodsState.error}</p>}
+      {!methodsState.loading && !methodsState.methods.some((value) => value.available) && <p className="display-payment-note">Приём платежей пока не подключён.</p>}
+      {!methodsState.loading && <button className="display-secondary" type="button" onClick={() => setMethodsRefresh((value) => value + 1)}>Проверить доступность</button>}
+    </> : result ? <div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
       <span aria-hidden="true">{state.phase === 'success' ? '✓' : '!'}</span>
       <strong>{state.phase === 'success' ? (state.payment.fulfillmentState === 'COMPLETED' ? 'Ваше мороженое готово' : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника' : 'Оплата получена') : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
       <p>{state.phase === 'success' ? (state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи. Приятного аппетита!' : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Не оплачивайте заказ повторно. Обратитесь к сотруднику с номером заказа.' : 'Ожидайте мороженое у аппарата. Сохраните номер заказа на случай обращения.') : state.phase === 'error' ? 'Можно вернуться к заказу и попробовать снова.' : 'Вернитесь к заказу или обратитесь к сотруднику точки.'}</p>
@@ -83,8 +121,9 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     </>}
     <div className="display-payment-actions">
       {state.phase === 'success' && state.payment.fulfillmentState === 'COMPLETED' && <button className="display-primary" type="button" onClick={onComplete}>Завершить</button>}
+      {state.phase === 'unavailable' && <button className="display-primary" type="button" onClick={() => onSelectMethod?.(null)}>Выбрать способ оплаты</button>}
       {state.phase === 'unknown' && <button className="display-primary" type="button" onClick={() => setRetry((value) => value + 1)}>Проверить оплату</button>}
-      {['error', 'unavailable'].includes(state.phase) && <button className="display-secondary" type="button" onClick={onBack}>Вернуться к заказу</button>}
+      {['choosing', 'error', 'unavailable'].includes(state.phase) && <button className="display-secondary" type="button" onClick={onBack}>Вернуться к заказу</button>}
     </div>
   </section>;
 }
@@ -96,4 +135,10 @@ function phaseFor(payment) {
 function money(value, currency = 'RUB') {
   if (value == null || !Number.isFinite(Number(value))) return '—';
   try { return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value)); } catch { return '—'; }
+}
+
+function PaymentMethodIcon({ type }) {
+  return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+    {type === 'card' ? <><rect x="6" y="13" width="52" height="38" rx="7" /><path d="M6 25h52M15 41h13M42 37c4-4 4-8 0-12" /></> : <><rect x="8" y="8" width="17" height="17" rx="2" /><rect x="39" y="8" width="17" height="17" rx="2" /><rect x="8" y="39" width="17" height="17" rx="2" /><path d="M39 39h8v8h9M39 48v8M48 56h8M32 8v17M8 32h17M32 32h7M32 47v9" /></>}
+  </svg>;
 }

@@ -219,7 +219,7 @@ export function SalesTerminalPage() {
   const canContinue = pricing.status === 'ready' && !pricing.lockExpired;
   const startCheckout = () => {
     if (!canContinue) return;
-    const session = { quote: pricing.quote, items: selectedItems.map(({ sku, nameRu }) => ({ sku, nameRu })) };
+    const session = { method: null, quote: pricing.quote, items: selectedItems.map(({ sku, nameRu }) => ({ sku, nameRu })) };
     try { saveTerminalPaymentSession(machineId, session); } catch {
       setCheckoutStorageError('Не удалось сохранить заказ. Обратитесь к сотруднику точки.');
       return;
@@ -227,6 +227,12 @@ export function SalesTerminalPage() {
     setCheckoutStorageError(null);
     setCheckoutSession(session);
     setStep(STEPS.PAYMENT);
+  };
+  const selectPaymentMethod = (method) => {
+    const session = { ...checkoutSession, method };
+    try { saveTerminalPaymentSession(machineId, session); } catch { return false; }
+    setCheckoutSession(session);
+    return true;
   };
   const returnFromPayment = () => {
     clearTerminalPaymentSession(machineId);
@@ -244,7 +250,7 @@ export function SalesTerminalPage() {
   };
   const begin = () => { setStep(STEPS.HOME); trackEvent('TerminalSessionStarted', { machine_id: machineId }); };
   if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} catalog={catalog} machineId={machineId} />;
-  if (step === STEPS.PAYMENT && checkoutSession) return <main className="display-shell" data-testid="display-screen-payment"><Header catalog={catalog} /><TerminalPaymentScreen machineId={machineId} quote={checkoutSession.quote} items={checkoutSession.items} purchaseToken={buyerToken} onBack={returnFromPayment} onComplete={completePurchase} /></main>;
+  if (step === STEPS.PAYMENT && checkoutSession) return <main className="display-shell" data-testid="display-screen-payment"><Header catalog={catalog} /><TerminalPaymentScreen machineId={machineId} quote={checkoutSession.quote} items={checkoutSession.items} method={checkoutSession.method} onSelectMethod={selectPaymentMethod} purchaseToken={buyerToken} onBack={returnFromPayment} onComplete={completePurchase} /></main>;
   if (catalogState.status === 'loading') return <main className="display-state" data-testid="display-loading"><div className="display-spinner" /><h1>Загружаем меню…</h1></main>;
   if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
   return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />

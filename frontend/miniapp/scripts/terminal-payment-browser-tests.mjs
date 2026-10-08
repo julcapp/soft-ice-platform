@@ -12,13 +12,15 @@ async function setup(width, height, mode='pending') {
  const page = await browser.newPage({ viewport: { width, height } });
  const errors=[]; page.on('pageerror', e=>errors.push(e.message));
  await page.addInitScript(({ quote, items }) => {
-  if (!sessionStorage.getItem('soft_ice_terminal_checkout:TEST-MACHINE-001')) sessionStorage.setItem('soft_ice_terminal_checkout:TEST-MACHINE-001', JSON.stringify({ quote, items }));
+  if (!sessionStorage.getItem('soft_ice_terminal_checkout:TEST-MACHINE-001')) sessionStorage.setItem('soft_ice_terminal_checkout:TEST-MACHINE-001', JSON.stringify({ quote, items, method: null }));
  }, { quote, items });
  await page.route('**/api/v1/catalog/**', route=>route.fulfill({ json:{ data:{ currentFlavor:{ sku:'ice',nameRu:items[0].nameRu,basePrice:95 }, items:[],sprinkles:[],toppings:[] } } }));
  await page.route('**/api/v1/pricing/quote', route=>route.fulfill({ json:{data:quote} }));
  await page.route('https://geocoding-api.open-meteo.com/**', route=>route.fulfill({json:{}}));
  let current=mode, fail=false, requests=0;
+ await page.route('**/api/v1/payments/terminal/methods?*', route=>route.fulfill({json:{data:{attributes:{methods:[{id:'sbp',available:true},{id:'pos',available:false,reason_code:'TERMINAL_POS_NOT_CONFIGURED'}]}}}}));
  await page.route('**/api/v1/payments/terminal/**', route=>{
+  if (route.request().url().includes('/terminal/methods?')) return route.fulfill({json:{data:{attributes:{methods:[{id:'sbp',available:true},{id:'pos',available:false,reason_code:'TERMINAL_POS_NOT_CONFIGURED'}]}}}});
   if (route.request().method()==='POST') {
    requests++; assert.equal(route.request().postDataJSON().quote_id,quote.id);
    assert.equal(route.request().headers()['idempotency-key'],`terminal:TEST-MACHINE-001:${quote.id}`);
@@ -28,6 +30,13 @@ async function setup(width, height, mode='pending') {
   return route.fulfill({json:{data:{id:'payment-browser',attributes:{fulfillment_state:current==='complete'?'COMPLETED':current==='attention'?'ATTENTION_REQUIRED':'WAITING',order_id:'order-browser',machine_id:'TEST-MACHINE-001',amount:'165.00',currency:'RUB',confirmation_url:'https://qr.nspk.ru/TEST-NOT-A-REAL-PAYMENT',status:['success','complete','attention'].includes(current)?'SUCCEEDED':current==='error'?'CANCELED':'PENDING',user_state:['success','complete','attention'].includes(current)?'SUCCESS':current==='error'?'ERROR':'PENDING'}}}});
  });
  await page.goto('http://127.0.0.1:5173/?mode=terminal&machineId=TEST-MACHINE-001');
+ await page.getByTestId('terminal-payment-choosing').waitFor();
+ assert.equal(requests,0,'No payment before method choice');
+ await page.getByRole('button',{name:/Банковская карта/}).waitFor();
+ assert.equal(await page.getByRole('button',{name:/Банковская карта/}).isEnabled(),false);
+ const cardLayout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth})); assert.equal(cardLayout.overflow,false);
+ await page.screenshot({path:path.join(output,`${width}x${height}-methods.png`),fullPage:true});
+ await page.getByRole('button',{name:/^СБП/}).click();
  await page.getByTestId(`terminal-payment-${mode}`).waitFor();
  return {page,errors,setMode:v=>{current=v;},failPoll:v=>{fail=v;},requests:()=>requests};
 }

@@ -171,3 +171,13 @@ test('disabled terminal checkout and status return explicit availability error',
   assert.equal((await response.json()).error.code, 'PAYMENT_CHECKOUT_NOT_AVAILABLE');
  }
 });
+
+test('terminal methods expose disabled SBP and unconfigured physical POS without starting checkout', async (t) => {
+ const server = await serverFor(); t.after(() => server.close());
+ const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/payments/terminal/methods?machineId=test`);
+ assert.equal(response.status, 200);
+ assert.deepEqual((await response.json()).data.attributes.methods, [
+  { id: 'sbp', available: false, reason_code: 'PAYMENT_CHECKOUT_NOT_AVAILABLE' },
+  { id: 'pos', available: false, reason_code: 'TERMINAL_POS_NOT_CONFIGURED' },
+ ]);
+});
