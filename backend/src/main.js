@@ -5,6 +5,7 @@ const express = require('express');
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
 const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
+const { createBotWebhookVerifier } = require('./api/botWebhookSecurity');
 const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
 const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
 const { createHealthRouter } = require('./common/http/healthRouter');
@@ -22,7 +23,7 @@ function createApp(options = {}) {
   const config = options.config || backendConfig;
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
-  const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
+  const botClients = options.botClients ?? createBotClientsFromEnv(process.env, { logger });
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
   if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
@@ -54,11 +55,14 @@ function createApp(options = {}) {
     const handlers = createBotWebhookHandlers({
       botRuntime,
       logger,
-      telegramSecret: process.env.TELEGRAM_WEBHOOK_SECRET || null,
-      maxSecret: process.env.MAX_WEBHOOK_SECRET || null,
+      verifyWebhook: createBotWebhookVerifier({
+        telegramSecret: process.env['TELEGRAM_WEBHOOK_SECRET'] || null,
+        maxSecret: process.env['MAX_WEBHOOK_SECRET'] || null,
+      }),
     });
     app.post('/webhooks/telegram', handlers.handleTelegram);
     app.post('/webhooks/max', handlers.handleMax);
+    app.post('/api/webhooks/max', handlers.handleMax);
     app.locals.botRuntime = botRuntime;
     app.locals.botClients = botClients;
     logger.info('bot.webhooks.enabled', {

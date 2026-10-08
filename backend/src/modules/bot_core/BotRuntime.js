@@ -1,12 +1,13 @@
 const { parseStartPayload } = require('./DeepLinkParser');
 
 class BotRuntime {
-  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, recipientBindingService = null, sender, logger = console } = {}) {
+  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, terminalChannelChallengeService = null, recipientBindingService = null, sender, logger = console } = {}) {
     this.adapters = adapters;
     this.renderers = renderers;
     this.actionRouter = actionRouter;
     this.onboardingService = onboardingService;
     this.customerResolver = customerResolver;
+    this.terminalChannelChallengeService = terminalChannelChallengeService;
     this.recipientBindingService = recipientBindingService;
     this.sender = sender;
     this.logger = logger;
@@ -22,7 +23,37 @@ class BotRuntime {
     let identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
 
     let view;
-    if (callback?.kind === 'action') {
+    const startContext = parseStartPayload(inbound.payload);
+
+    if (inbound.contact && this.terminalChannelChallengeService) {
+      const verification = await this.terminalChannelChallengeService.verifyContact({
+        channel,
+        externalUserId: inbound.externalUserId,
+        phone: inbound.contact.phone,
+        contactVerified: inbound.contact.verified === true,
+      });
+      identity = { customerId: verification.customer.id, customer: verification.customer };
+      view = {
+        title: 'Номер подтверждён',
+        text: 'Номер телефона успешно подтверждён. Теперь необходимо подтвердить согласия.',
+        actions: [],
+      };
+    } else if (isStartUpdate(channel, rawUpdate)
+      && startContext.verificationChallengeToken
+      && this.terminalChannelChallengeService) {
+      await this.terminalChannelChallengeService.start({
+        channel,
+        token: startContext.verificationChallengeToken,
+        externalUserId: inbound.externalUserId,
+      });
+      view = {
+        title: 'Подтвердите номер телефона',
+        text: 'Чтобы продолжить регистрацию в Клубе Тимоши, поделитесь номером телефона через MAX.',
+        actions: [
+          { type: 'request_contact', label: 'Поделиться номером и подтвердить' },
+        ],
+      };
+    } else if (callback?.kind === 'action') {
       view = await this.actionRouter.route({
         action: callback.value,
         customerId: identity.customerId,
@@ -97,7 +128,10 @@ function extractCallback(channel, update = {}) {
 function isStartUpdate(channel, update = {}) {
   if (channel === 'telegram') return /^\/start(?:\s|$)/.test(update.message?.text || '');
   const text = update.message?.body?.text || update.message?.text || update.text || '';
-  return /^\/start(?:\s|$)/.test(String(text)) || Boolean(update.start_payload);
+  return update.update_type === 'bot_started'
+    || update.type === 'bot_started'
+    || /^\/start(?:\s|$)/.test(String(text))
+    || Boolean(update.start_payload);
 }
 
 function resolveDestination(channel, inbound, update = {}) {

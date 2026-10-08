@@ -1,9 +1,13 @@
+const crypto = require('node:crypto');
+
 const { ClubAccountRepository } = require('./modules/club_account/ClubAccountRepository');
 const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntime');
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
-const { DisplayCustomerRecognitionService } = require('./modules/customer/DisplayCustomerRecognitionService');
+const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
+const { UnverifiedPurchaseContactRepository, UnverifiedPurchaseContactService } = require('./modules/customer/UnverifiedPurchaseContactService');
+const { TerminalBuyerTokenService } = require('./modules/customer/TerminalBuyerTokenService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -42,8 +46,11 @@ const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, 
 const { PrismaOutboxRepository, OutboxAdminService, OutboxWorker, RetryPolicy } = require('./modules/transactional_outbox');
 const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
 const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
+const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
-const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
+const { PaymentRepository, PaymentService, PaymentCheckoutService, TerminalCheckoutService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter, YooKassaPaymentProviderAdapter } = require('./modules/payment');
+const { CatalogRepository, CatalogService } = require('./modules/catalog');
+const { PricingRepository } = require('./modules/promotion_engine');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
@@ -54,10 +61,20 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
-  const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const paymentProvider = config?.features?.paymentsEnabled
+    ? new YooKassaPaymentProviderAdapter({
+      shopId: config?.payments?.yooKassa?.shopId,
+      secretKey: config?.payments?.yooKassa?.secretKey,
+      apiBaseUrl: config?.payments?.yooKassa?.apiBaseUrl,
+      timeoutMs: config?.payments?.yooKassa?.timeoutMs,
+      allowedReturnOrigins: config?.payments?.yooKassa?.returnOrigins,
+      receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
+    })
+    : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = new BlockedExternalMachineProviderAdapter();
+  const paymentCheckoutService = new PaymentCheckoutService({ paymentService, repository: paymentRepository, providers: { YOOKASSA: paymentProvider } });
   const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
   const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
   const customerRepository = new CustomerRepository(prisma);
@@ -145,11 +162,49 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
+  const purchaseContactMasterSecret = config?.purchaseContacts?.masterSecret || null;
+  const unverifiedContactEncryptionKey = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'aes-256-gcm')
+    : null;
+  const unverifiedContactFingerprintSecret = purchaseContactMasterSecret
+    ? derivePurchaseContactSubkey(purchaseContactMasterSecret, 'phone-hmac')
+    : null;
+  const unverifiedPurchaseContactService = (unverifiedContactEncryptionKey && unverifiedContactFingerprintSecret)
+    ? new UnverifiedPurchaseContactService({
+      repository: new UnverifiedPurchaseContactRepository(prisma),
+      codec: new AesGcmValueCodec({ key: unverifiedContactEncryptionKey }),
+      fingerprintSecret: unverifiedContactFingerprintSecret,
+      logger,
+    })
+    : null;
+  if (!unverifiedPurchaseContactService) logger?.warn?.('Unverified purchase contact persistence is disabled: encryption key or fingerprint secret is missing.');
+
+  const terminalBuyerTokenService = purchaseContactMasterSecret
+    ? new TerminalBuyerTokenService({ secret: purchaseContactMasterSecret })
+    : null;
+
   const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
     customerRepository,
     auditRepository,
-    // Fail closed until trusted kiosk identity and a shared abuse guard are integrated.
+    // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
+    // All other machines continue to fail closed until the shared abuse guard is integrated.
+    abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
+    unverifiedPurchaseContactService,
+    buyerTokenService: terminalBuyerTokenService,
+    logger,
   });
+  const terminalChannelChallengeProduction = process.env.NODE_ENV === 'production' || config?.environment === 'production';
+  const terminalChannelChallengeSecret = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
+    || (terminalChannelChallengeProduction ? null : 'local-terminal-channel-challenge-development-only');
+  const terminalChannelChallengeService = terminalChannelChallengeSecret
+    ? new TerminalChannelChallengeService({
+      repository: new PrismaTerminalChannelChallengeRepository(prisma),
+      customerRepository,
+      phoneSecret: terminalChannelChallengeSecret,
+      maxBotUrl: process.env.BOT_MAX_CHANNEL_URL || 'https://max.ru/id7017438363_bot',
+      telegramBotUrl: process.env.BOT_TELEGRAM_CHANNEL_URL || null,
+    })
+    : null;
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
@@ -196,6 +251,19 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
+  const terminalCheckoutService = config?.features?.paymentsEnabled
+    ? new TerminalCheckoutService({
+      prisma,
+      pricingRepository: new PricingRepository(prisma),
+      catalogService: new CatalogService({ repository: new CatalogRepository(prisma) }),
+      organizationContext,
+      inventory: inventoryReservationService,
+      paymentCheckoutService,
+      paymentService,
+      buyerTokenService: terminalBuyerTokenService,
+      returnOrigin: 'https://miniapp.utimoshi.ru',
+    })
+    : null;
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
 
   const authCoreService = new AuthCoreService({
@@ -354,6 +422,8 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     outboxAdminService,
     paymentRepository,
     paymentService,
+    paymentCheckoutService,
+    terminalCheckoutService,
     paymentReconciliationService,
     paymentInboxWorker,
     machineDispenseRepository,
@@ -381,6 +451,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     authCoreService,
     customerRuntime,
     displayCustomerRecognitionService,
+    unverifiedPurchaseContactService,
+    terminalBuyerTokenService,
+    terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,
@@ -390,6 +463,17 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     botRecipientBindingService,
     domainEventPublisher,
   };
+}
+
+function derivePurchaseContactSubkey(masterSecret, purpose) {
+  const derived = crypto.hkdfSync(
+    'sha256',
+    Buffer.from(String(masterSecret), 'utf8'),
+    Buffer.from('softice.purchase-contact.v1', 'utf8'),
+    Buffer.from(String(purpose), 'utf8'),
+    32,
+  );
+  return Buffer.from(derived).toString('base64');
 }
 
 function unavailableLegacyInventoryRuntime() {

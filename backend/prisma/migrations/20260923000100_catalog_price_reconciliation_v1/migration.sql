@@ -1,6 +1,6 @@
 -- Catalog and machine availability reconciliation for issue #17.
--- This migration is intentionally additive: production may already contain
--- manually-created CatalogItem and MachineCatalogItem tables.
+-- Supports both the canonical schema and the earlier legacy catalog schema.
+-- Legacy columns are renamed in-place so existing business data is preserved.
 
 DO $$ BEGIN
   CREATE TYPE "CatalogCategory" AS ENUM ('ICE_CREAM', 'SPRINKLE', 'TOPPING');
@@ -25,6 +25,85 @@ CREATE TABLE IF NOT EXISTS "CatalogItem" (
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "CatalogItem_pkey" PRIMARY KEY ("id")
 );
+
+-- Reconcile the legacy CatalogItem shape without duplicating business columns.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'code'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'sku'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "code" TO "sku";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'name'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'nameRu'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "name" TO "nameRu";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'price'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'basePrice'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "price" TO "basePrice";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'isActive'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'active'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "isActive" TO "active";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'isSystem'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'systemItem'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "isSystem" TO "systemItem";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'imageUrl'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'mediaPath'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "imageUrl" TO "mediaPath";
+  END IF;
+END $$;
+
+-- Legacy "type" uses CatalogItemType. Rename then convert to the canonical enum.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'type'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'CatalogItem' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE "CatalogItem" RENAME COLUMN "type" TO "category";
+    ALTER TABLE "CatalogItem"
+      ALTER COLUMN "category" TYPE "CatalogCategory"
+      USING "category"::text::"CatalogCategory";
+  END IF;
+END $$;
 
 ALTER TABLE "CatalogItem" ADD COLUMN IF NOT EXISTS "sku" TEXT;
 ALTER TABLE "CatalogItem" ADD COLUMN IF NOT EXISTS "category" "CatalogCategory";
@@ -51,6 +130,18 @@ CREATE TABLE IF NOT EXISTS "MachineCatalogItem" (
   CONSTRAINT "MachineCatalogItem_pkey" PRIMARY KEY ("id")
 );
 
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'MachineCatalogItem' AND column_name = 'isAvailable'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'MachineCatalogItem' AND column_name = 'available'
+  ) THEN
+    ALTER TABLE "MachineCatalogItem" RENAME COLUMN "isAvailable" TO "available";
+  END IF;
+END $$;
+
 ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "machineId" TEXT;
 ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "catalogItemId" TEXT;
 ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "available" BOOLEAN DEFAULT true;
@@ -58,8 +149,7 @@ ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "isCurrentFlavor" BOOL
 ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "MachineCatalogItem" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP;
 
--- Fail safely rather than inventing business data when pre-existing drift has
--- incomplete required values. Defaults can be reconciled without data loss.
+-- Reconcile nullable/default drift without inventing commercial prices.
 UPDATE "CatalogItem" SET "currency" = 'RUB' WHERE "currency" IS NULL;
 UPDATE "CatalogItem" SET "active" = true WHERE "active" IS NULL;
 UPDATE "CatalogItem" SET "systemItem" = false WHERE "systemItem" IS NULL;
@@ -97,44 +187,42 @@ CREATE UNIQUE INDEX IF NOT EXISTS "MachineCatalogItem_one_current_flavor_idx"
   ON "MachineCatalogItem"("machineId") WHERE "isCurrentFlavor" = true;
 
 DO $$ BEGIN
-  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_nonnegative_price" CHECK ("basePrice" IS NULL OR "basePrice" >= 0) NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_nonnegative_price"
+    CHECK ("basePrice" IS NULL OR "basePrice" >= 0) NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_active_price_required" CHECK (NOT "active" OR "basePrice" IS NOT NULL) NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_active_price_required"
+    CHECK (NOT "active" OR "basePrice" IS NOT NULL) NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_zero_price_requires_reason" CHECK ("basePrice" IS NULL OR "basePrice" <> 0 OR "systemItem" OR "freeItem") NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_zero_price_requires_reason"
+    CHECK ("basePrice" IS NULL OR "basePrice" <> 0 OR "systemItem" OR "freeItem") NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_system_price_is_zero" CHECK (NOT "systemItem" OR "basePrice" = 0) NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "CatalogItem" ADD CONSTRAINT "catalog_item_system_price_is_zero"
+    CHECK (NOT "systemItem" OR "basePrice" = 0) NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "MachineCatalogItem" ADD CONSTRAINT "MachineCatalogItem_machineId_fkey" FOREIGN KEY ("machineId") REFERENCES "Machine"("id") ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "MachineCatalogItem" ADD CONSTRAINT "MachineCatalogItem_machineId_fkey"
+    FOREIGN KEY ("machineId") REFERENCES "Machine"("id") ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "MachineCatalogItem" ADD CONSTRAINT "MachineCatalogItem_catalogItemId_fkey" FOREIGN KEY ("catalogItemId") REFERENCES "CatalogItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  ALTER TABLE "MachineCatalogItem" ADD CONSTRAINT "MachineCatalogItem_catalogItemId_fkey"
+    FOREIGN KEY ("catalogItemId") REFERENCES "CatalogItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Canonical no-option records are reconciled by stable SKU. These rows make
--- the zero price explicit; assignment to a machine remains an audited admin
--- action and is intentionally not invented by the migration.
+-- Canonical zero-price no-option records.
 INSERT INTO "CatalogItem" (
   "id", "sku", "category", "nameRu", "basePrice", "currency",
   "active", "systemItem", "freeItem", "sortOrder", "createdAt", "updatedAt"
@@ -151,9 +239,6 @@ ON CONFLICT ("sku") DO UPDATE SET
   "freeItem" = false,
   "updatedAt" = CURRENT_TIMESTAMP;
 
--- Existing drift is never silently grandfathered. Validation is intentionally
--- performed after the canonical no-option rows are reconciled; any remaining
--- invalid legacy commercial data fails the migration for explicit correction.
 ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_nonnegative_price";
 ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_active_price_required";
 ALTER TABLE "CatalogItem" VALIDATE CONSTRAINT "catalog_item_zero_price_requires_reason";

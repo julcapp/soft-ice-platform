@@ -73,6 +73,7 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
     actionRouter: new BotActionRouter({ customerExperienceService, giftActionService }),
     onboardingService,
     customerResolver,
+    terminalChannelChallengeService: dependencies.terminalChannelChallengeService || null,
     recipientBindingService: dependencies.botRecipientBindingService || null,
     sender: new BotTransportSender({ clients, logger }),
     logger,

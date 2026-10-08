@@ -80,3 +80,18 @@ test('action router keeps business flow in shared customer experience service', 
   assert.equal(calls[0][0], 'referral');
   assert.equal(calls[0][1].customerId, 'c1');
 });
+
+
+test('MAX renderer supports official request_contact button', () => {
+  const result = new MaxRenderer().renderView({
+    title: 'Подтвердите номер',
+    text: 'Поделитесь номером телефона',
+    actions: [
+      { type: 'request_contact', label: 'Поделиться номером и подтвердить' },
+    ],
+  });
+  assert.deepEqual(result.attachments[0].payload.buttons[0][0], {
+    type: 'request_contact',
+    text: 'Поделиться номером и подтвердить',
+  });
+});

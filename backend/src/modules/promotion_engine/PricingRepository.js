@@ -125,8 +125,8 @@ class PricingRepository {
     return this._hydrateQuote(row);
   }
 
-  async consumeQuote(id, consumedAt, orderId = null) {
-    return this.prisma.$transaction(async (tx) => {
+  async consumeQuote(id, consumedAt, orderId = null, { transactionClient = null } = {}) {
+    const operation = async (tx) => {
       const result = await tx.pricingQuote.updateMany({
         where: { id, consumedAt: null, lockedUntil: { gt: consumedAt } },
         data: { consumedAt, orderId },
@@ -182,7 +182,8 @@ class PricingRepository {
         }
       }
       return tx.pricingQuote.findUnique({ where: { id } });
-    });
+    };
+    return transactionClient ? operation(transactionClient) : this.prisma.$transaction(operation);
   }
 
   _hydrateQuote(row) {
