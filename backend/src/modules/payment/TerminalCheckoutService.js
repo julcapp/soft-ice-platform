@@ -24,6 +24,7 @@ class TerminalCheckoutService {
 
   async initiate({ machineId, quoteId, purchaseToken = null, method = 'sbp', idempotencyKey }, context = {}) {
     required({ machineId, quoteId, idempotencyKey }, ['machineId', 'quoteId', 'idempotencyKey']);
+    if (String(method).toLowerCase() === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
     if (String(method).toLowerCase() !== 'sbp') throw problem('TERMINAL_PAYMENT_METHOD_INVALID', 'На аппарате сейчас доступна оплата через СБП.', 400);
 
     const existingQuote = await this.pricingRepository.getQuote(quoteId);

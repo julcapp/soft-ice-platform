@@ -39,7 +39,7 @@ async function parse(response) {
   return normalize(payload);
 }
 
-export async function createTerminalPayment({ machineId, quoteId, purchaseToken = null, signal } = {}) {
+export async function createTerminalPayment({ machineId, quoteId, purchaseToken = null, method = 'sbp', signal } = {}) {
   const response = await fetch('/api/v1/payments/terminal/checkout', {
     method: 'POST',
     credentials: 'omit',
@@ -54,7 +54,7 @@ export async function createTerminalPayment({ machineId, quoteId, purchaseToken 
       machine_id: machineId,
       quote_id: quoteId,
       purchase_token: purchaseToken,
-      method: 'sbp',
+      method,
     }),
   });
   return parse(response);
@@ -74,9 +74,25 @@ export async function getTerminalPaymentStatus({ machineId, paymentId, signal } 
 
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
+  if (code === 'TERMINAL_POS_NOT_CONFIGURED') return 'POS-терминал пока не подключён.';
   if (code === 'RESOURCE_NOT_FOUND' || code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';
   if (code.includes('INVENTORY')) return 'Выбранный состав временно недоступен.';
   if (code.includes('PAYMENT_METHOD')) return 'Этот способ оплаты сейчас недоступен.';
   return 'Не удалось создать платёж. Попробуйте ещё раз.';
+}
+
+export async function getTerminalPaymentMethods({ machineId, signal } = {}) {
+  const query = new URLSearchParams({ machineId });
+  const response = await fetch(`/api/v1/payments/terminal/methods?${query}`, {
+    credentials: 'omit', cache: 'no-store', signal, headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error('Не удалось проверить способы оплаты.');
+  const payload = await response.json();
+  const methods = payload?.data?.attributes?.methods;
+  if (!Array.isArray(methods)) throw new Error('Некорректный список способов оплаты.');
+  return ['sbp', 'pos'].map((id) => {
+    const method = methods.find((value) => value.id === id);
+    return { id, available: method?.available === true, reasonCode: method?.reason_code || null };
+  });
 }
