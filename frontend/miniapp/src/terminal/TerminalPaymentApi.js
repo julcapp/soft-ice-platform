@@ -74,7 +74,7 @@ export async function getTerminalPaymentStatus({ machineId, paymentId, signal } 
 
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
-  if (code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
+  if (code === 'RESOURCE_NOT_FOUND' || code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';
   if (code.includes('INVENTORY')) return 'Выбранный состав временно недоступен.';
   if (code.includes('PAYMENT_METHOD')) return 'Этот способ оплаты сейчас недоступен.';

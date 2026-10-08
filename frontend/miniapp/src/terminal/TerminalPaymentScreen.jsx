@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createTerminalPayment, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
-const SAFE_CREATION_ERRORS = new Set(['PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID']);
+const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID']);
 
 export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseToken, onBack, onComplete }) {
   const [state, setState] = useState({ phase: 'creating', payment: null, error: null });
