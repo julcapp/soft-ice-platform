@@ -164,3 +164,20 @@ test('terminal status refresh is machine-scoped and provider-authoritative', asy
     (error) => error.code === 'TERMINAL_PAYMENT_NOT_FOUND',
   );
 });
+
+test('payment success exposes completion only from same-machine authoritative sale flow', async () => {
+ const f = fixture();
+ const payment = { id: 'pay-1', orderId: 'order-1', amount: 95, currency: 'RUB', status: 'SUCCEEDED' };
+ for (const [flow, expected] of [
+  [{ machineId: 'TEST-MACHINE-001', currentState: 'FULFILLMENT_AUTHORIZED' }, 'WAITING'],
+  [{ machineId: 'TEST-MACHINE-001', currentState: 'COMPLETED' }, 'COMPLETED'],
+  [{ machineId: 'OTHER', currentState: 'COMPLETED' }, 'WAITING'],
+  [{ machineId: 'TEST-MACHINE-001', currentState: 'REFUND_REQUIRED' }, 'ATTENTION_REQUIRED'],
+  [{ machineId: 'TEST-MACHINE-001', recoveryStatus: 'NEEDS_RECONCILIATION' }, 'ATTENTION_REQUIRED'],
+ ]) {
+  f.prisma.saleFlow.findUnique = async () => flow;
+  const result = await f.service.present({ payment }, 'TEST-MACHINE-001');
+  assert.equal(result.fulfillmentState, expected);
+  assert.equal(result.userState, 'SUCCESS');
+ }
+});

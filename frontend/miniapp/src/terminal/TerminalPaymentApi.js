@@ -1,7 +1,9 @@
 const normalize = (payload) => {
   const data = payload?.data;
   const attrs = data?.attributes;
-  if (!data?.id || !attrs?.order_id || !['PENDING','SUCCESS','ERROR'].includes(attrs?.user_state)) {
+  if (!data?.id || !attrs?.order_id || !['PENDING','SUCCESS','ERROR'].includes(attrs?.user_state)
+      || (attrs?.user_state === 'SUCCESS' && attrs?.status !== 'SUCCEEDED')
+      || (attrs?.user_state === 'ERROR' && !['FAILED', 'CANCELED'].includes(attrs?.status))) {
     const error = new Error('Некорректный ответ платёжного сервера.');
     error.code = 'TERMINAL_PAYMENT_RESPONSE_INVALID';
     throw error;
@@ -14,11 +16,17 @@ const normalize = (payload) => {
     userState: attrs.user_state,
     amount: attrs.amount == null ? null : Number(attrs.amount),
     currency: attrs.currency || 'RUB',
-    confirmationUrl: attrs.confirmation_url || null,
+    confirmationUrl: safeConfirmationUrl(attrs.confirmation_url),
     failureCode: attrs.failure_code || null,
     succeededAt: attrs.succeeded_at || null,
+    fulfillmentState: ['COMPLETED', 'ATTENTION_REQUIRED'].includes(attrs.fulfillment_state) ? attrs.fulfillment_state : 'WAITING',
   };
 };
+
+function safeConfirmationUrl(value) {
+  if (!value) return null;
+  try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? url.href : null; } catch { return null; }
+}
 
 async function parse(response) {
   const payload = await response.json().catch(() => ({}));
@@ -66,7 +74,7 @@ export async function getTerminalPaymentStatus({ machineId, paymentId, signal } 
 
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
-  if (code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
+  if (code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';
   if (code.includes('INVENTORY')) return 'Выбранный состав временно недоступен.';
   if (code.includes('PAYMENT_METHOD')) return 'Этот способ оплаты сейчас недоступен.';

@@ -160,3 +160,14 @@ test('return screen refreshes provider state by order id before showing success'
   assert.equal(payload.data.attributes.user_state, 'SUCCESS');
   assert.deepEqual(refreshed, { organizationId: 'org-1', paymentId: 'pay-1' });
 });
+
+test('disabled terminal checkout and status return explicit availability error', async (t) => {
+ const server = await serverFor();
+ t.after(() => server.close());
+ const base = `http://127.0.0.1:${server.address().port}/api/v1/payments/terminal`;
+ for (const [url, options] of [[`${base}/checkout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }], [`${base}/pay-1/status?machineId=test`, {}]]) {
+  const response = await fetch(url, options);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error.code, 'PAYMENT_CHECKOUT_NOT_AVAILABLE');
+ }
+});

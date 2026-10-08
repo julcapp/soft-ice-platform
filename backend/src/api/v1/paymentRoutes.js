@@ -34,6 +34,11 @@ function createPaymentRouter(dependencies = {}) {
     }));
   }
 
+  if (!terminalCheckout) {
+    router.post('/terminal/checkout', (req, res, next) => next(unavailable()));
+    router.get('/terminal/:paymentId/status', (req, res, next) => next(unavailable()));
+  }
+
   if (!checkout || !repository || !authCoreService) {
     router.use((req, res, next) => next(unavailable()));
     return router;
@@ -131,6 +136,7 @@ function terminalPresent(result) {
       confirmation_url: result.confirmationUrl || null,
       failure_code: result.failureCode || null,
       succeeded_at: result.succeededAt || null,
+      fulfillment_state: result.fulfillmentState || 'WAITING',
     },
   };
 }

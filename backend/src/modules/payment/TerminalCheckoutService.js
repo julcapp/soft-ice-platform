@@ -285,8 +285,13 @@ class TerminalCheckoutService {
     }
   }
 
-  present(result, machineId) {
+  async present(result, machineId) {
     const payment = result.payment;
+    const flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
+    const fulfillmentState = flow?.machineId === machineId
+      ? flow.currentState === 'COMPLETED' ? 'COMPLETED'
+        : flow.currentState === 'REFUND_REQUIRED' || flow.recoveryStatus === 'NEEDS_RECONCILIATION' ? 'ATTENTION_REQUIRED' : 'WAITING'
+      : 'WAITING';
     return {
       paymentId: payment.id,
       orderId: payment.orderId,
@@ -298,6 +303,7 @@ class TerminalCheckoutService {
       confirmationUrl: result.confirmationUrl || payment.confirmationUrl || null,
       failureCode: payment.failureCode || null,
       succeededAt: payment.succeededAt || null,
+      fulfillmentState,
     };
   }
 }
