@@ -311,7 +311,7 @@ class TerminalCheckoutService {
   async present(result, machineId) {
     const payment = result.payment;
     let flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
-    if (payment.status === 'SUCCEEDED' && flow?.currentState === 'PAID' && this.paymentService?.machineDispense && this.prisma.machineDispenseAttempt) {
+    if (payment.status === 'SUCCEEDED' && ['PAID', 'FULFILLMENT_AUTHORIZED'].includes(flow?.currentState) && this.paymentService?.machineDispense && this.prisma.machineDispenseAttempt) {
       const existingAttempt = await this.prisma.machineDispenseAttempt.findFirst({ where: {
         organizationId: flow.organizationId,
         orderId: payment.orderId,
@@ -323,7 +323,7 @@ class TerminalCheckoutService {
         await this.prisma.$transaction(async (tx) => {
           const txFlow = await tx.saleFlow.findUnique({ where: { flowId: flow.flowId } });
           const txPayment = await tx.payment.findUnique({ where: { id: payment.id } });
-          if (txFlow?.currentState === 'PAID' && txPayment?.status === 'SUCCEEDED') {
+          if (['PAID', 'FULFILLMENT_AUTHORIZED'].includes(txFlow?.currentState) && txPayment?.status === 'SUCCEEDED') {
             await this.paymentService.machineDispense.createAuthorizedFromPaidFlow(tx, txFlow, txPayment, {
               actorType: 'TERMINAL',
               actorId: machineId,
