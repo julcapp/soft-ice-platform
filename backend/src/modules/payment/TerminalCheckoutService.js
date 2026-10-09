@@ -116,6 +116,7 @@ class TerminalCheckoutService {
             channel: 'TERMINAL',
             quoteId,
             paymentMethod: providerMethod,
+            organizationLocationId: organization.organizationLocationId || null,
             buyerKind: buyer.kind,
             ...(buyer.contactId ? { unverifiedContactId: buyer.contactId } : {}),
           },
