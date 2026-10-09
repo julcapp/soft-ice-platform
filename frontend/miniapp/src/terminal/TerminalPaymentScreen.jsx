@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
+const AUTO_RETURN_AFTER_COMPLETED_MS = 7000;
 const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID', 'TERMINAL_POS_NOT_CONFIGURED']);
 
 export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseToken, method = null, onSelectMethod, onBack, onComplete }) {
@@ -61,6 +62,12 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     timer = window.setTimeout(poll, POLL_MS);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [machineId, state.payment?.paymentId, state.phase]);
+
+  useEffect(() => {
+    if (state.phase !== 'success' || state.payment?.fulfillmentState !== 'COMPLETED' || typeof onComplete !== 'function') return undefined;
+    const timer = window.setTimeout(() => onComplete(), AUTO_RETURN_AFTER_COMPLETED_MS);
+    return () => window.clearTimeout(timer);
+  }, [state.phase, state.payment?.fulfillmentState, onComplete]);
 
   const qrDataUrl = useMemo(() => {
     const url = state.payment?.confirmationUrl;
