@@ -43,7 +43,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   }, [machineId, quote?.id, purchaseToken, method, retry]);
 
   useEffect(() => {
-    if (!state.payment?.paymentId || !['pending', 'success'].includes(state.phase) || (state.phase === 'success' && !['WAITING', 'PREPARING'].includes(state.payment.fulfillmentState))) return undefined;
+    if (!state.payment?.paymentId || !['pending', 'success'].includes(state.phase) || (state.phase === 'success' && !['WAITING', 'TRANSMITTING', 'PREPARING'].includes(state.payment.fulfillmentState))) return undefined;
     const controller = new AbortController();
     let timer;
     const poll = async () => {
@@ -51,7 +51,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         const payment = await getTerminalPaymentStatus({ machineId, paymentId: state.payment.paymentId, signal: controller.signal });
         if (controller.signal.aborted) return;
         setState({ phase: phaseFor(payment), payment, error: null });
-        if (payment.userState === 'PENDING' || (payment.userState === 'SUCCESS' && ['WAITING', 'PREPARING'].includes(payment.fulfillmentState))) timer = window.setTimeout(poll, POLL_MS);
+        if (payment.userState === 'PENDING' || (payment.userState === 'SUCCESS' && ['WAITING', 'TRANSMITTING', 'PREPARING'].includes(payment.fulfillmentState))) timer = window.setTimeout(poll, POLL_MS);
       } catch {
         if (controller.signal.aborted) return;
         setState((current) => ({ ...current, error: 'Связь прервалась. Проверяем оплату — повторно платить не нужно.' }));
@@ -74,7 +74,12 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   }, [state.payment?.confirmationUrl]);
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
-  const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success' ? (state.payment.fulfillmentState === 'PREPARING' ? 'Ваше мороженое готовится' : 'Оплата произведена') : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
+  const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success'
+    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово!'
+      : state.payment.fulfillmentState === 'PREPARING' ? 'Мороженое готовится'
+        : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
+          : 'Оплата произведена'
+    : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
   return <section className={`display-payment display-payment-${state.phase}`} aria-labelledby="terminal-payment-title" data-testid={`terminal-payment-${state.phase}`}>
     <p className="display-kicker">{state.phase === 'success' ? 'Спасибо за покупку' : 'Безналичная оплата'}</p>
     <h1 id="terminal-payment-title">{title}</h1>
@@ -102,8 +107,20 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       {selectionError && <p role="status" className="display-payment-note">{selectionError}</p>}
     </> : result ? <><div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
       <span aria-hidden="true">{state.phase === 'success' ? '✓' : '!'}</span>
-      <strong>{state.phase === 'success' ? (state.payment.fulfillmentState === 'COMPLETED' ? 'Ваше мороженое готово' : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника' : state.payment.fulfillmentState === 'PREPARING' ? 'Оплата произведена' : 'Оплата получена') : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
-      <p>{state.phase === 'success' ? (state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи. Приятного аппетита!' : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Не оплачивайте заказ повторно. Обратитесь к сотруднику с номером заказа.' : state.payment.fulfillmentState === 'PREPARING' ? 'Ожидайте ваше мороженое — мы уже готовим!' : 'Ожидаем запуска приготовления. Повторно платить не нужно.') : state.phase === 'error' ? 'Можно вернуться к заказу и попробовать снова.' : 'Вернитесь к заказу или обратитесь к сотруднику точки.'}</p>
+      <strong>{state.phase === 'success'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
+          : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника'
+            : state.payment.fulfillmentState === 'PREPARING' ? 'Мороженое готовится'
+              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
+                : 'Оплата получена'
+        : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
+      <p>{state.phase === 'success'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи. Приятного аппетита!'
+          : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Не оплачивайте заказ повторно. Обратитесь к сотруднику с номером заказа.'
+            : state.payment.fulfillmentState === 'PREPARING' ? 'Ожидайте — аппарат уже готовит ваше мороженое.'
+              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Передаём команду аппарату, повторно платить не нужно.'
+                : 'Ожидаем запуска приготовления. Повторно платить не нужно.'
+        : state.phase === 'error' ? 'Можно вернуться к заказу и попробовать снова.' : 'Вернитесь к заказу или обратитесь к сотруднику точки.'}</p>
       {state.phase === 'success' && state.error && <p role="status">Не удалось проверить выдачу. Повторно платить не нужно.</p>}
       {state.payment?.orderId && <p className="display-payment-order-id">Номер заказа: {state.payment.orderId}</p>}
     </div>{state.phase === 'unavailable' && method === 'pos' && <PosPaymentGuide active={false} />}</> : <>
