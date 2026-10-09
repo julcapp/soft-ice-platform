@@ -173,7 +173,17 @@ export function SalesTerminalPage() {
     return Object.values(STEPS).includes(requested) ? requested : null;
   }, []);
   const [catalogState, setCatalogState] = useState({ status: 'loading', catalog: null, error: null });
-  const [checkoutSession, setCheckoutSession] = useState(() => readTerminalPaymentSession(machineId));
+  const [checkoutSession, setCheckoutSession] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (machineId === 'TEST-MACHINE-001' && params.get('resetPayment') === '1') {
+      clearTerminalPaymentSession(machineId);
+      params.delete('resetPayment');
+      const next = params.toString();
+      window.history.replaceState({}, '', next ? `/?${next}` : '/');
+      return null;
+    }
+    return readTerminalPaymentSession(machineId);
+  });
   const [checkoutStorageError, setCheckoutStorageError] = useState(null);
   const [step, setStep] = useState(checkoutSession ? STEPS.PAYMENT : (previewStep || STEPS.IDLE));
   const [phone, setPhone] = useState('');
