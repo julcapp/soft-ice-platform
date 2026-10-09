@@ -1,15 +1,21 @@
+const { defaultMessageJournal } = require('../../modules/message_center/MessageJournal');
 const tls = require('tls');
 
 class AdminSecurityDelivery {
-  constructor({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
+  constructor({ env = process.env, fetchImpl = globalThis.fetch, messageJournal = null } = {}) {
+    this.messageJournal = messageJournal;
     this.env = env;
     this.fetch = fetchImpl;
   }
 
   async send({ channel, destination, code }) {
-    if (channel === 'MAX') return this.sendMax(destination, code);
-    if (channel === 'EMAIL') return this.sendEmail(destination, code);
-    throw new Error('Unsupported admin security delivery channel.');
+    const operation = () => {
+      if (channel === 'MAX') return this.sendMax(destination, code);
+      if (channel === 'EMAIL') return this.sendEmail(destination, code);
+      throw new Error('Unsupported admin security delivery channel.');
+    };
+    const journal = this.messageJournal || defaultMessageJournal();
+    return journal ? journal.track({ source: 'SECURITY', channel, recipientType: 'ADMIN', recipientId: String(destination), recipientAddress: String(destination), subject: 'Код подтверждения', redacted: true }, operation) : operation();
   }
 
   async sendMax(userId, code) {
@@ -26,6 +32,7 @@ class AdminSecurityDelivery {
       const text = await response.text().catch(() => '');
       throw new Error(`MAX security delivery failed (${response.status}): ${text.slice(0, 160)}`);
     }
+    if (typeof response.json === 'function') return response.json().catch(() => null);
   }
 
   async sendEmail(email, code) {

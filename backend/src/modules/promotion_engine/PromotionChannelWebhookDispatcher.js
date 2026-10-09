@@ -1,16 +1,23 @@
 'use strict';
+const { defaultMessageJournal } = require('../message_center/MessageJournal');
 
 class PromotionChannelWebhookDispatcher {
-  constructor({ url, token = null, fetchImpl = globalThis.fetch, timeoutMs = 5000 } = {}) {
+  constructor({ url, token = null, fetchImpl = globalThis.fetch, timeoutMs = 5000, messageJournal = null } = {}) {
     if (!url) throw new Error('Promotion channel dispatcher URL is required.');
     if (typeof fetchImpl !== 'function') throw new Error('Fetch implementation is required.');
+    this.messageJournal = messageJournal;
     this.url = url;
     this.token = token;
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
   }
 
-  async send({ campaign, channel, message, startsAt, endsAt, event = 'promotion.pre_notification', deepLink = null }) {
+  async send(input) {
+    const journal = this.messageJournal || defaultMessageJournal();
+    return journal ? journal.track({ source: 'PROMOTION', channel: input.channel, recipientType: 'CHANNEL', recipientName: `Аудитория ${input.channel}`, subject: input.campaign?.name || 'Уведомление об акции', body: input.message, correlationId: input.campaign?.id }, () => this.sendUntracked(input), (result) => ({ status: 'ACCEPTED', providerMessageId: result.deliveryId })) : this.sendUntracked(input);
+  }
+
+  async sendUntracked({ campaign, channel, message, startsAt, endsAt, event = 'promotion.pre_notification', deepLink = null }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

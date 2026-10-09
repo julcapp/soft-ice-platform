@@ -1,13 +1,19 @@
+const { defaultMessageJournal } = require('../message_center/MessageJournal');
 class BotTransportSender {
-  constructor({ telegramClient = null, maxClient = null, clients = null } = {}) {
+  constructor({ telegramClient = null, maxClient = null, clients = null, messageJournal = null } = {}) {
+    this.messageJournal = messageJournal;
     this.telegramClient = telegramClient || clients?.telegram || null;
     this.maxClient = maxClient || clients?.max || null;
   }
 
   async send({ channel, destination, rendered }) {
-    if (channel === 'telegram') return this.sendTelegram(destination, rendered);
-    if (channel === 'max') return this.sendMax(destination, rendered);
-    throw new Error(`Unsupported bot channel: ${channel}`);
+    const operation = () => {
+      if (channel === 'telegram') return this.sendTelegram(destination, rendered);
+      if (channel === 'max') return this.sendMax(destination, rendered);
+      throw new Error(`Unsupported bot channel: ${channel}`);
+    };
+    const journal = this.messageJournal || defaultMessageJournal();
+    return journal ? journal.track({ source: 'BOT', channel, recipientId: String(destination?.userId || destination?.chatId || ''), recipientAddress: String(destination?.userId || destination?.chatId || ''), subject: 'Ответ бота', body: rendered.text || null }, operation) : operation();
   }
 
   async sendTelegram(destination, rendered) {

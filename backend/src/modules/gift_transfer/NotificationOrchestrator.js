@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { defaultMessageJournal } = require('../message_center/MessageJournal');
 const { DELIVERY_STATUS } = require('./GiftTransferModels');
 
 class NotificationChannelAdapter {
@@ -54,7 +55,7 @@ class MockMaxNotificationAdapter extends MaxNotificationAdapter {
 }
 
 class NotificationOrchestrator {
-  constructor({ repository, adapters = [], clock = () => new Date() }) { this.repository = repository; this.adapters = new Map(adapters.map((a) => [a.channel, a])); this.clock = clock; }
+  constructor({ repository, adapters = [], clock = () => new Date(), messageJournal = null }) { this.messageJournal = messageJournal; this.repository = repository; this.adapters = new Map(adapters.map((a) => [a.channel, a])); this.clock = clock; }
   async send(notification) {
     const attempts = [];
     const existing = this.repository.listDeliveries
@@ -70,7 +71,11 @@ class NotificationOrchestrator {
       }
       const adapter = this.adapters.get(channel); const now = this.clock();
       let result = unavailable('CHANNEL_NOT_CONFIGURED');
-      try { if (adapter) result = await adapter.send(notification); } catch (error) { result = { status: DELIVERY_STATUS.FAILED, failureCode: error.code || `PROVIDER_HTTP_${error.status || 'ERROR'}` }; }
+      try {
+        const journal = this.messageJournal || defaultMessageJournal();
+        const operation = () => adapter ? adapter.send(notification) : Promise.resolve(unavailable('CHANNEL_NOT_CONFIGURED'));
+        result = journal ? await journal.track({ source: 'GIFT', sourceId: notification.id, channel, recipientType: 'CUSTOMER', recipientId: notification.recipientCustomerId || null, subject: notification.title || 'Уведомление о подарке', body: giftText(notification), correlationId: notification.correlationId }, operation, (value) => value) : await operation();
+      } catch (error) { result = { status: DELIVERY_STATUS.FAILED, failureCode: error.code || `PROVIDER_HTTP_${error.status || 'ERROR'}` }; }
       const attempt = await this.repository.saveDelivery({ id: `delivery_${crypto.randomUUID()}`, notificationId: notification.id,
         recipientCustomerId: notification.recipientCustomerId || null, channel, providerMessageId: result.providerMessageId || null,
         status: result.status || DELIVERY_STATUS.UNKNOWN, attemptedAt: now, deliveredAt: result.status === DELIVERY_STATUS.DELIVERED ? now : null,

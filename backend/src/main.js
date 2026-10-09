@@ -94,6 +94,11 @@ function createApp(options = {}) {
   if (adminAuthService) {
     app.use('/api/v1/admin/auth', createAdminAuthRouter({ adminAuthService }));
     app.use('/api/v1', createAdminBearerContextMiddleware(adminAuthService));
+    if (process.env.MESSAGE_CENTER_ENABLED === 'true') {
+      const { MessageCenterService } = require('./modules/message_center/MessageCenterService');
+      const { createMessageCenterRouter } = require('./api/v1/messageCenterRoutes');
+      app.use('/api/v1/admin/messages', createMessageCenterRouter({ service: new MessageCenterService({ prisma: getPrismaClient() }) }));
+    }
     const serviceVisitService = dependencies.serviceVisitService || (!options.dependencies && new ServiceVisitService({
       prisma: getPrismaClient(),
       storage: new LocalPhotoStorageAdapter({ rootDir: process.env.SERVICE_REPORT_UPLOAD_DIR || '/var/lib/soft-ice/media/service-reports' }),

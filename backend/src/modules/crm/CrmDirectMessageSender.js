@@ -35,11 +35,11 @@ class CrmDirectMessageSender {
       const result = channel === 'TELEGRAM'
         ? await this.#sendTelegram(recipient, delivery.body)
         : await this.#sendMax(recipient, delivery.body);
-      await this.prisma.$executeRawUnsafe(`UPDATE "CrmNotificationDelivery" SET "status"='SENT' WHERE "id"=$1 AND "status"='QUEUED'`, delivery.id);
+      await this.prisma.$executeRawUnsafe(`UPDATE "CrmNotificationDelivery" SET "status"='SENT',"sentAt"=$2,"providerId"=$3,"failureReason"=NULL WHERE "id"=$1 AND "status"='QUEUED'`, delivery.id, this.clock(), result.messageId || null);
       await this.#syncEscalationDelivery(delivery.id, 'SENT', result.messageId || null, null, null);
       return { id: delivery.id, channel, status: 'SENT', providerMessageId: result.messageId || null };
     } catch (error) {
-      await this.prisma.$executeRawUnsafe(`UPDATE "CrmNotificationDelivery" SET "status"='FAILED' WHERE "id"=$1 AND "status"='QUEUED'`, delivery.id);
+      await this.prisma.$executeRawUnsafe(`UPDATE "CrmNotificationDelivery" SET "status"='FAILED',"failureReason"=$2 WHERE "id"=$1 AND "status"='QUEUED'`, delivery.id, String(error.code || 'DIRECT_SEND_FAILED').slice(0,120));
       await this.#syncEscalationDelivery(delivery.id, 'FAILED', null, error.code || 'DIRECT_SEND_FAILED', error.message || 'Не удалось отправить сообщение.');
       return { id: delivery.id, channel, status: 'FAILED', errorCode: error.code || 'DIRECT_SEND_FAILED' };
     }
