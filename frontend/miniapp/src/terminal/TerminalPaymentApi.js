@@ -94,6 +94,18 @@ export function terminalPaymentErrorMessage(error) {
   return 'Не удалось создать платёж. Попробуйте ещё раз.';
 }
 
+export async function pingTerminalBackend({ signal } = {}) {
+  const response = await fetch('/health/ready', {
+    method: 'GET',
+    credentials: 'omit',
+    cache: 'no-store',
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error('BACKEND_NOT_READY');
+  return true;
+}
+
 export async function getTerminalPaymentMethods({ machineId, signal } = {}) {
   const query = new URLSearchParams({ machineId });
   const response = await fetch(`/api/v1/payments/terminal/methods?${query}`, {
