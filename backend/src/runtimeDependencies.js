@@ -261,7 +261,8 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       paymentCheckoutService,
       paymentService,
       buyerTokenService: terminalBuyerTokenService,
-      returnOrigin: 'https://miniapp.utimoshi.ru',
+      testCardEnabled: config?.features?.terminalTestCardEnabled === true,
+      returnOrigin: 'https://display.utimoshi.ru',
     })
     : null;
   const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });

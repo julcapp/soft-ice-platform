@@ -37,10 +37,13 @@ export function App() {
   if (appMode === 'verify-email') return <VerifyEmailScreen />;
   if (appMode === 'private-channel') return <PrivateChannelScreen onBack={() => { window.location.href = '/'; }} />;
   if (appMode === 'payment-return') {
-    const orderId = new URLSearchParams(window.location.search).get('orderId');
-    const goHome = () => { window.location.href = '/'; };
-    const retry = () => { window.location.href = '/'; };
-    return <PaymentResultScreen orderId={orderId} onDone={goHome} onRetry={retry} />;
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('orderId');
+    const paymentSource = params.get('source');
+    const machineId = params.get('machineId');
+    const goHome = () => { window.location.href = paymentSource === 'terminal' && machineId ? `/?machineId=${encodeURIComponent(machineId)}` : '/'; };
+    const retry = () => { window.location.href = paymentSource === 'terminal' && machineId ? `/?machineId=${encodeURIComponent(machineId)}` : '/'; };
+    return <PaymentResultScreen orderId={orderId} source={paymentSource} machineId={machineId} onDone={goHome} onRetry={retry} />;
   }
 
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;

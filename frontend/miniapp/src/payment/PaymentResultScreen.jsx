@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { refreshOrderPaymentStatus } from './PaymentCheckoutApi.js';
+import { getTerminalOrderPaymentStatus } from '../terminal/TerminalPaymentApi.js';
 
 const MAX_AUTO_CHECKS = 24;
 const POLL_MS = 2500;
@@ -20,7 +21,7 @@ function safeFailureMessage(code) {
   return known[code] || 'Банк не подтвердил успешную оплату.';
 }
 
-export function PaymentResultScreen({ orderId, onDone, onRetry }) {
+export function PaymentResultScreen({ orderId, source = null, machineId = null, onDone, onRetry }) {
   const [state, setState] = useState({ status: 'loading', payment: null, error: null });
   const [checkCount, setCheckCount] = useState(0);
   const controller = useRef(null);
@@ -30,11 +31,17 @@ export function PaymentResultScreen({ orderId, onDone, onRetry }) {
       setState({ status: 'error', payment: null, error: { code: 'ORDER_ID_MISSING', message: 'Не указан заказ для проверки.' } });
       return;
     }
+    if (source === 'terminal' && !machineId) {
+      setState({ status: 'error', payment: null, error: { code: 'MACHINE_ID_MISSING', message: 'Не указан аппарат для проверки платежа.' } });
+      return;
+    }
     controller.current?.abort();
     const next = new AbortController();
     controller.current = next;
     try {
-      const payment = await refreshOrderPaymentStatus(orderId, { signal: next.signal });
+      const payment = source === 'terminal'
+        ? await getTerminalOrderPaymentStatus({ machineId, orderId, signal: next.signal })
+        : await refreshOrderPaymentStatus(orderId, { signal: next.signal });
       setCheckCount((value) => value + 1);
       if (payment.userState === 'SUCCESS') {
         setState({ status: 'success', payment, error: null });

@@ -12,20 +12,29 @@ class TerminalCheckoutService {
     paymentCheckoutService,
     paymentService,
     buyerTokenService = null,
+    testCardEnabled = false,
     clock = () => new Date(),
-    returnOrigin = 'https://miniapp.utimoshi.ru',
+    returnOrigin = 'https://display.utimoshi.ru',
   } = {}) {
     for (const [name, value] of Object.entries({ prisma, pricingRepository, catalogService, organizationContext, inventory, paymentCheckoutService, paymentService })) {
       if (!value) throw new Error(`${name} is required`);
     }
     Object.assign(this, { prisma, pricingRepository, catalogService, organizationContext, inventory, paymentCheckoutService, paymentService, buyerTokenService, clock });
+    this.testCardEnabled = testCardEnabled === true;
     this.returnOrigin = String(returnOrigin).replace(/\/$/, '');
   }
 
   async initiate({ machineId, quoteId, purchaseToken = null, method = 'sbp', idempotencyKey }, context = {}) {
     required({ machineId, quoteId, idempotencyKey }, ['machineId', 'quoteId', 'idempotencyKey']);
-    if (String(method).toLowerCase() === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
-    if (String(method).toLowerCase() !== 'sbp') throw problem('TERMINAL_PAYMENT_METHOD_INVALID', 'На аппарате сейчас доступна оплата через СБП.', 400);
+    const requestedMethod = String(method).toLowerCase();
+    if (requestedMethod === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
+    if (requestedMethod === 'test_card' && !this.testCardEnabled) {
+      throw problem('TERMINAL_TEST_CARD_DISABLED', 'Тестовая оплата картой отключена.', 503);
+    }
+    if (!['sbp', 'test_card'].includes(requestedMethod)) {
+      throw problem('TERMINAL_PAYMENT_METHOD_INVALID', 'Этот способ оплаты на аппарате недоступен.', 400);
+    }
+    const providerMethod = requestedMethod === 'test_card' ? 'bank_card' : 'sbp';
 
     const existingQuote = await this.pricingRepository.getQuote(quoteId);
     if (!existingQuote) throw problem('TERMINAL_QUOTE_NOT_FOUND', 'Расчёт заказа не найден.', 404);
@@ -106,6 +115,7 @@ class TerminalCheckoutService {
           metadata: {
             channel: 'TERMINAL',
             quoteId,
+            paymentMethod: providerMethod,
             buyerKind: buyer.kind,
             ...(buyer.contactId ? { unverifiedContactId: buyer.contactId } : {}),
           },
@@ -150,7 +160,16 @@ class TerminalCheckoutService {
     });
 
     if (created.replay) return this.resume(created.orderId, machineId, context);
-    return this.startPayment(created.orderId, machineId, method, idempotencyKey, context);
+    return this.startPayment(created.orderId, machineId, providerMethod, idempotencyKey, context);
+  }
+
+  async statusByOrder({ orderId, machineId }, context = {}) {
+    required({ orderId, machineId }, ['orderId', 'machineId']);
+    const payment = await this.prisma.payment.findFirst({ where: { orderId, channel: 'TERMINAL' }, include: { saleFlow: true } });
+    if (!payment || payment.saleFlow?.machineId !== machineId) {
+      throw problem('TERMINAL_PAYMENT_NOT_FOUND', 'Платёж не найден.', 404);
+    }
+    return this.status({ paymentId: payment.id, machineId }, context);
   }
 
   async status({ paymentId, machineId }, context = {}) {
@@ -216,7 +235,7 @@ class TerminalCheckoutService {
       provider: 'YOOKASSA',
       idempotencyKey: `terminal-checkout:${orderId}:${idempotencyKey}`,
       method,
-      returnUrl: `${this.returnOrigin}/?mode=payment-return&source=terminal&orderId=${encodeURIComponent(orderId)}`,
+      returnUrl: `${this.returnOrigin}/?mode=payment-return&source=terminal&machineId=${encodeURIComponent(machineId)}&orderId=${encodeURIComponent(orderId)}`,
       channel: 'TERMINAL',
       description: `Мороженое У Тимоши, заказ ${orderId}`,
     }, {
@@ -228,8 +247,10 @@ class TerminalCheckoutService {
   }
 
   async resume(orderId, machineId, context) {
+    const flow = await this.prisma.saleFlow.findFirst({ where: { orderId } });
+    const resumeMethod = flow?.metadata?.paymentMethod === 'bank_card' && this.testCardEnabled ? 'bank_card' : 'sbp';
     const payment = await this.prisma.payment.findFirst({ where: { orderId }, include: { saleFlow: true } });
-    if (!payment) return this.startPayment(orderId, machineId, 'sbp', 'resume', context);
+    if (!payment) return this.startPayment(orderId, machineId, resumeMethod, 'resume', context);
     if (payment.saleFlow?.machineId !== machineId) throw problem('TERMINAL_ORDER_SCOPE_MISMATCH', 'Заказ относится к другому аппарату.', 403);
     if (payment.provider === 'INTERNAL') return this.present({ payment, status: payment.status, userState: payment.status === 'SUCCEEDED' ? 'SUCCESS' : 'PENDING' }, machineId);
     if (payment.status === 'CREATED' && !payment.providerPaymentId) {
@@ -239,8 +260,8 @@ class TerminalCheckoutService {
         saleFlowId: payment.saleFlowId,
         provider: payment.provider,
         idempotencyKey: payment.idempotencyKey,
-        method: 'sbp',
-        returnUrl: `${this.returnOrigin}/?mode=payment-return&source=terminal&orderId=${encodeURIComponent(orderId)}`,
+        method: resumeMethod,
+        returnUrl: `${this.returnOrigin}/?mode=payment-return&source=terminal&machineId=${encodeURIComponent(machineId)}&orderId=${encodeURIComponent(orderId)}`,
         channel: 'TERMINAL',
         description: payment.description || `Мороженое У Тимоши, заказ ${orderId}`,
       }, { actorType: 'TERMINAL', actorId: machineId, correlationId: context.correlationId });

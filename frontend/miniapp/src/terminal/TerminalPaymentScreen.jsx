@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createTerminalPayment, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
+import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
 const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID', 'TERMINAL_POS_NOT_CONFIGURED']);
@@ -8,6 +8,16 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   const [state, setState] = useState({ phase: method ? 'creating' : 'choosing', payment: null, error: null });
   const [retry, setRetry] = useState(0);
   const [selectionError, setSelectionError] = useState(null);
+  const [availableMethods, setAvailableMethods] = useState([]);
+
+  useEffect(() => {
+    if (method) return undefined;
+    const controller = new AbortController();
+    getTerminalPaymentMethods({ machineId, signal: controller.signal })
+      .then((methods) => setAvailableMethods(methods.filter((item) => item.available)))
+      .catch(() => setAvailableMethods([]));
+    return () => controller.abort();
+  }, [machineId, method]);
 
   useEffect(() => {
     if (!method) {
@@ -77,6 +87,9 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         {[
           { id: 'sbp', title: 'СБП', subtitle: 'По QR-коду со смартфона', icon: 'qr' },
           { id: 'pos', title: 'Банковская карта', subtitle: 'Через POS-терминал аппарата', icon: 'card' },
+          ...(availableMethods.some((item) => item.id === 'test_card')
+            ? [{ id: 'test_card', title: 'Тестовая карта ЮKassa', subtitle: 'Только для проверки тестового магазина', icon: 'card' }]
+            : []),
         ].map((item) => {
           return <button key={item.id} className="display-payment-method" type="button" onClick={() => {
             if (onSelectMethod?.(item.id) === false) setSelectionError('Не удалось открыть оплату. Попробуйте ещё раз.');
@@ -94,7 +107,13 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       {state.phase === 'success' && state.error && <p role="status">Не удалось проверить выдачу. Повторно платить не нужно.</p>}
       {state.payment?.orderId && <p className="display-payment-order-id">Номер заказа: {state.payment.orderId}</p>}
     </div>{state.phase === 'unavailable' && method === 'pos' && <PosPaymentGuide active={false} />}</> : <>
-      {method === 'pos' && state.phase !== 'unknown' ? <PosPaymentGuide active={state.phase === 'pending'} /> : state.phase === 'pending' && state.payment?.confirmationUrl ? <div className="display-payment-qr">
+      {method === 'pos' && state.phase !== 'unknown' ? <PosPaymentGuide active={state.phase === 'pending'} />
+        : method === 'test_card' && state.phase === 'pending' && state.payment?.confirmationUrl ? <div className="display-payment-placeholder" role="status">
+          <span aria-hidden="true">🧪</span>
+          <strong>Тестовый платёж ЮKassa создан</strong>
+          <button className="display-primary" type="button" onClick={() => { window.location.href = state.payment.confirmationUrl; }}>Открыть тестовую страницу ЮKassa</button>
+        </div>
+        : state.phase === 'pending' && state.payment?.confirmationUrl ? <div className="display-payment-qr">
         {qrDataUrl ? <img src={qrDataUrl} alt="QR-код для оплаты через СБП" /> : <div className="display-payment-qr-fallback" role="status">QR-код не удалось показать. Обратитесь к сотруднику точки.</div>}
         <div><strong>Оплатите через СБП</strong><ol><li>Откройте камеру смартфона или банковское приложение.</li><li>Отсканируйте QR-код и подтвердите оплату.</li><li>Дождитесь подтверждения на этом экране.</li></ol><small>Оплату проверим автоматически.</small></div>
       </div> : <div className="display-payment-placeholder" role="status"><span aria-hidden="true">⌛</span><strong>{state.phase === 'unknown' ? state.error : state.phase === 'creating' ? 'Подготавливаем оплату…' : 'Ожидаем подтверждение оплаты…'}</strong></div>}

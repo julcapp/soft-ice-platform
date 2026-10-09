@@ -72,6 +72,18 @@ export async function getTerminalPaymentStatus({ machineId, paymentId, signal } 
   return parse(response);
 }
 
+export async function getTerminalOrderPaymentStatus({ machineId, orderId, signal } = {}) {
+  const query = new URLSearchParams({ machineId });
+  const response = await fetch(`/api/v1/payments/terminal/orders/${encodeURIComponent(orderId)}/status?${query}`, {
+    method: 'GET',
+    credentials: 'omit',
+    cache: 'no-store',
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  return parse(response);
+}
+
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
   if (code === 'TERMINAL_POS_NOT_CONFIGURED') return 'POS-терминал пока не подключён.';
@@ -91,7 +103,7 @@ export async function getTerminalPaymentMethods({ machineId, signal } = {}) {
   const payload = await response.json();
   const methods = payload?.data?.attributes?.methods;
   if (!Array.isArray(methods)) throw new Error('Некорректный список способов оплаты.');
-  return ['sbp', 'pos'].map((id) => {
+  return ['sbp', 'pos', 'test_card'].map((id) => {
     const method = methods.find((value) => value.id === id);
     return { id, available: method?.available === true, reasonCode: method?.reason_code || null };
   });
