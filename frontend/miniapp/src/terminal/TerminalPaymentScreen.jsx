@@ -75,10 +75,10 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
   const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success'
-    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово!'
-      : state.payment.fulfillmentState === 'PREPARING' ? 'Мороженое готовится'
+    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
+      : state.payment.fulfillmentState === 'PREPARING' ? 'Ваше мороженое готовится'
         : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
-          : 'Оплата произведена'
+          : 'Оплата прошла'
     : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
   return <section className={`display-payment display-payment-${state.phase}`} aria-labelledby="terminal-payment-title" data-testid={`terminal-payment-${state.phase}`}>
     <p className="display-kicker">{state.phase === 'success' ? 'Спасибо за покупку' : 'Безналичная оплата'}</p>
@@ -108,21 +108,21 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     </> : result ? <><div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
       <span aria-hidden="true">{state.phase === 'success' ? '✓' : '!'}</span>
       <strong>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи'
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника'
-            : state.payment.fulfillmentState === 'PREPARING' ? 'Мороженое готовится'
-              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
-                : 'Оплата получена'
+            : state.payment.fulfillmentState === 'PREPARING' ? 'Аппарат уже готовит ваш заказ'
+              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Ничего нажимать не нужно'
+                : 'Ничего нажимать не нужно'
         : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
       <p>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи. Приятного аппетита!'
-          : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Не оплачивайте заказ повторно. Обратитесь к сотруднику с номером заказа.'
-            : state.payment.fulfillmentState === 'PREPARING' ? 'Ожидайте — аппарат уже готовит ваше мороженое.'
-              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Передаём команду аппарату, повторно платить не нужно.'
-                : 'Ожидаем запуска приготовления. Повторно платить не нужно.'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Ваш заказ готов. Заберите мороженое. Приятного аппетита!'
+          : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Повторно не оплачивайте. Обратитесь к сотруднику и назовите номер заказа.'
+            : state.payment.fulfillmentState === 'PREPARING' ? 'Подождите немного — мороженое готовится автоматически.'
+              : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Мы сами передаём заказ аппарату.'
+                : 'Оплата подтверждена. Сейчас заказ автоматически будет передан аппарату.'
         : state.phase === 'error' ? 'Можно вернуться к заказу и попробовать снова.' : 'Вернитесь к заказу или обратитесь к сотруднику точки.'}</p>
       {state.phase === 'success' && state.error && <p role="status">Не удалось проверить выдачу. Повторно платить не нужно.</p>}
-      {state.payment?.orderId && <p className="display-payment-order-id">Номер заказа: {state.payment.orderId}</p>}
+      {state.payment?.orderId && <details className="display-payment-order-id"><summary>Номер заказа</summary><p>{state.payment.orderId}</p></details>}
     </div>{state.phase === 'unavailable' && method === 'pos' && <PosPaymentGuide active={false} />}</> : <>
       {method === 'pos' && state.phase !== 'unknown' ? <PosPaymentGuide active={state.phase === 'pending'} />
         : method === 'test_card' && state.phase === 'pending' && state.payment?.confirmationUrl ? <div className="display-payment-placeholder" role="status">
