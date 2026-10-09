@@ -52,6 +52,7 @@ const { PaymentRepository, PaymentService, PaymentCheckoutService, TerminalCheck
 const { CatalogRepository, CatalogService } = require('./modules/catalog');
 const { PricingRepository } = require('./modules/promotion_engine');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
+const { TestMachineProviderAdapter } = require('./modules/machine_dispense/TestMachineProviderAdapter');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -73,7 +74,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
-  const machineProvider = new BlockedExternalMachineProviderAdapter();
+  const machineProvider = config?.features?.terminalTestMachineSimulatorEnabled
+    ? new TestMachineProviderAdapter({ allowedMachineIds: ['TEST-MACHINE-001'] })
+    : new BlockedExternalMachineProviderAdapter();
   const paymentCheckoutService = new PaymentCheckoutService({ paymentService, repository: paymentRepository, providers: { YOOKASSA: paymentProvider } });
   const paymentReconciliationService = new ReconciliationService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, paymentService });
   const paymentInboxWorker = new PaymentInboxWorker({ repository: paymentRepository, paymentService });
@@ -246,6 +249,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineAdapter = new BlockedExternalMachineAdapter();
   const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
   const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
+  machineProvider.attachMachineDispenseService?.(machineDispenseService);
   paymentService.machineDispense = machineDispenseService;
   const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
