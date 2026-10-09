@@ -89,7 +89,7 @@ export function terminalPaymentErrorMessage(error) {
   if (code === 'TERMINAL_POS_NOT_CONFIGURED') return 'POS-терминал пока не подключён.';
   if (code === 'RESOURCE_NOT_FOUND' || code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';
-  if (code.includes('INVENTORY')) return 'Выбранный состав временно недоступен.';
+  if (code.includes('INVENTORY') || code === 'CATALOG_RECIPE_MISSING') return 'Выбранный состав временно недоступен.';
   if (code.includes('PAYMENT_METHOD')) return 'Этот способ оплаты сейчас недоступен.';
   return 'Не удалось создать платёж. Попробуйте ещё раз.';
 }
