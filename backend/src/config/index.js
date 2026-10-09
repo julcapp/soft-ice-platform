@@ -98,6 +98,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
     features: Object.freeze({
       paymentsEnabled: parseBoolean(environment.FEATURE_PAYMENTS_ENABLED, false),
       terminalTestCardEnabled: parseBoolean(environment.TERMINAL_TEST_CARD_ENABLED, false),
+      terminalTestMachineSimulatorEnabled: parseBoolean(environment.TERMINAL_TEST_MACHINE_SIMULATOR_ENABLED, false),
       machineDispatchEnabled: parseBoolean(environment.FEATURE_MACHINE_DISPATCH_ENABLED, false),
     }),
   };
