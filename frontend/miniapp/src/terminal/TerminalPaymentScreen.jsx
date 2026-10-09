@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
+import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, pingTerminalBackend, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
+const HEARTBEAT_MS = 5000;
+const RECOVERY_RETRY_MS = [3000, 5000, 10000, 15000];
 const AUTO_RETURN_AFTER_COMPLETED_MS = 7000;
 const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID', 'TERMINAL_POS_NOT_CONFIGURED']);
 
@@ -10,6 +12,8 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   const [retry, setRetry] = useState(0);
   const [selectionError, setSelectionError] = useState(null);
   const [availableMethods, setAvailableMethods] = useState([]);
+  const [connectionState, setConnectionState] = useState('checking');
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
 
   useEffect(() => {
     if (method) return undefined;
@@ -19,6 +23,57 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       .catch(() => setAvailableMethods([]));
     return () => controller.abort();
   }, [machineId, method]);
+
+  useEffect(() => {
+    if (!method || ['error', 'unavailable'].includes(state.phase)) return undefined;
+    let stopped = false;
+    let timer;
+    let controller;
+    const beat = async () => {
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 3000);
+      try {
+        await pingTerminalBackend({ signal: controller.signal });
+        if (!stopped) setConnectionState('online');
+      } catch {
+        if (!stopped) setConnectionState('offline');
+      } finally {
+        window.clearTimeout(timeout);
+        if (!stopped) timer = window.setTimeout(beat, HEARTBEAT_MS);
+      }
+    };
+    beat();
+    return () => {
+      stopped = true;
+      controller?.abort();
+      window.clearTimeout(timer);
+    };
+  }, [method, state.phase]);
+
+  useEffect(() => {
+    if (state.phase !== 'unknown') {
+      if (recoveryAttempt !== 0) setRecoveryAttempt(0);
+      return undefined;
+    }
+    const delay = RECOVERY_RETRY_MS[Math.min(recoveryAttempt, RECOVERY_RETRY_MS.length - 1)];
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        await pingTerminalBackend({ signal: controller.signal });
+        setConnectionState('online');
+        setRetry((value) => value + 1);
+      } catch {
+        if (!controller.signal.aborted) {
+          setConnectionState('offline');
+          setRecoveryAttempt((value) => value + 1);
+        }
+      }
+    }, delay);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [state.phase, recoveryAttempt]);
 
   useEffect(() => {
     if (!method) {
@@ -33,12 +88,15 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     setState({ phase: 'creating', payment: null, error: null });
     createTerminalPayment({ machineId, quoteId: quote.id, purchaseToken, method, signal: controller.signal })
       .then((payment) => {
-        if (!controller.signal.aborted) setState({ phase: phaseFor(payment), payment, error: null });
+        if (controller.signal.aborted) return;
+        setConnectionState('online');
+        setState({ phase: phaseFor(payment), payment, error: null });
       }).catch((error) => {
         if (controller.signal.aborted) return;
         const safe = SAFE_CREATION_ERRORS.has(error.code);
+        if (!safe) setConnectionState('offline');
         setState({ phase: safe ? 'unavailable' : 'unknown', payment: null,
-          error: safe ? terminalPaymentErrorMessage(error) : 'Связь прервалась. Результат оплаты пока неизвестен.' });
+          error: safe ? terminalPaymentErrorMessage(error) : 'Связь прервалась. Автоматически восстанавливаем соединение и проверяем этот же платёж.' });
       });
     return () => controller.abort();
   }, [machineId, quote?.id, purchaseToken, method, retry]);
@@ -51,11 +109,13 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       try {
         const payment = await getTerminalPaymentStatus({ machineId, paymentId: state.payment.paymentId, signal: controller.signal });
         if (controller.signal.aborted) return;
+        setConnectionState('online');
         setState({ phase: phaseFor(payment), payment, error: null });
         if (payment.userState === 'PENDING' || (payment.userState === 'SUCCESS' && ['WAITING', 'TRANSMITTING', 'PREPARING'].includes(payment.fulfillmentState))) timer = window.setTimeout(poll, POLL_MS);
       } catch {
         if (controller.signal.aborted) return;
-        setState((current) => ({ ...current, error: 'Связь прервалась. Проверяем оплату — повторно платить не нужно.' }));
+        setConnectionState('offline');
+        setState((current) => ({ ...current, error: 'Связь прервалась. Автоматически восстанавливаем соединение — повторно платить не нужно.' }));
         timer = window.setTimeout(poll, POLL_MS);
       }
     };
@@ -85,7 +145,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
       : state.payment.fulfillmentState === 'PREPARING' ? 'Ваше мороженое готовится'
         : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
-          : 'Оплата прошла'
+          : 'Проверяем готовность аппарата'
     : state.phase === 'error' ? 'Оплата не прошла' : state.phase === 'unavailable' ? 'Оплата пока недоступна' : 'Оплатите ваше мороженое';
   return <section className={`display-payment display-payment-${state.phase}`} aria-labelledby="terminal-payment-title" data-testid={`terminal-payment-${state.phase}`}>
     <p className="display-kicker">{state.phase === 'success' ? 'Спасибо за покупку' : 'Безналичная оплата'}</p>
@@ -126,9 +186,10 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Повторно не оплачивайте. Обратитесь к сотруднику и назовите номер заказа.'
             : state.payment.fulfillmentState === 'PREPARING' ? 'Подождите немного — мороженое готовится автоматически.'
               : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Мы сами передаём заказ аппарату.'
-                : 'Оплата подтверждена. Сейчас заказ автоматически будет передан аппарату.'
+                : 'Оплата получена. Ждём подтверждение от аппарата и продолжим автоматически.'
         : state.phase === 'error' ? 'Можно вернуться к заказу и попробовать снова.' : 'Вернитесь к заказу или обратитесь к сотруднику точки.'}</p>
-      {state.phase === 'success' && state.error && <p role="status">Не удалось проверить выдачу. Повторно платить не нужно.</p>}
+      {state.phase === 'success' && connectionState === 'offline' && <p role="status">Восстанавливаем связь… Повторно оплачивать не нужно.</p>}
+      {state.phase === 'success' && connectionState === 'online' && state.error && <p role="status">Связь восстановлена. Проверяем состояние заказа автоматически.</p>}
       {state.payment?.orderId && <details className="display-payment-order-id"><summary>Номер заказа</summary><p>{state.payment.orderId}</p></details>}
     </div>{state.phase === 'unavailable' && method === 'pos' && <PosPaymentGuide active={false} />}</> : <>
       {method === 'pos' && state.phase !== 'unknown' ? <PosPaymentGuide active={state.phase === 'pending'} />
