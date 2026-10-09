@@ -310,7 +310,30 @@ class TerminalCheckoutService {
 
   async present(result, machineId) {
     const payment = result.payment;
-    const flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
+    let flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
+    if (payment.status === 'SUCCEEDED' && flow?.currentState === 'PAID' && this.paymentService?.machineDispense && this.prisma.machineDispenseAttempt) {
+      const existingAttempt = await this.prisma.machineDispenseAttempt.findFirst({ where: {
+        organizationId: flow.organizationId,
+        orderId: payment.orderId,
+        saleFlowId: flow.flowId,
+        machineId,
+        operationType: 'CUSTOMER_SALE',
+      } });
+      if (!existingAttempt) {
+        await this.prisma.$transaction(async (tx) => {
+          const txFlow = await tx.saleFlow.findUnique({ where: { flowId: flow.flowId } });
+          const txPayment = await tx.payment.findUnique({ where: { id: payment.id } });
+          if (txFlow?.currentState === 'PAID' && txPayment?.status === 'SUCCEEDED') {
+            await this.paymentService.machineDispense.createAuthorizedFromPaidFlow(tx, txFlow, txPayment, {
+              actorType: 'TERMINAL',
+              actorId: machineId,
+              correlationId: txFlow.correlationId || null,
+            });
+          }
+        });
+        flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
+      }
+    }
     let fulfillmentState = 'WAITING';
     if (flow?.machineId === machineId) {
       if (flow.currentState === 'COMPLETED') fulfillmentState = 'COMPLETED';
