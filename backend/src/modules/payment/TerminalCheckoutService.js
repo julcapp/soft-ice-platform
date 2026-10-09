@@ -316,14 +316,14 @@ class TerminalCheckoutService {
       if (flow.currentState === 'COMPLETED') fulfillmentState = 'COMPLETED';
       else if (flow.currentState === 'REFUND_REQUIRED' || flow.currentState === 'FULFILLMENT_FAILED') fulfillmentState = 'ATTENTION_REQUIRED';
       else {
-        // DISPENSING alone records command intent, not a physical acknowledgement.
-        const attempt = flow.currentState === 'DISPENSING' && flow.flowId && flow.organizationId
+        const attempt = flow.flowId && flow.organizationId
           && payment.status === 'SUCCEEDED' && this.prisma.machineDispenseAttempt
           ? await this.prisma.machineDispenseAttempt.findFirst({ where: {
             organizationId: flow.organizationId, orderId: payment.orderId,
             saleFlowId: flow.flowId, machineId, operationType: 'CUSTOMER_SALE',
           }, select: { status: true, acceptedAt: true, startedAt: true } }) : null;
         if (attempt && ['ACCEPTED', 'DISPENSING'].includes(attempt.status) && (attempt.acceptedAt || attempt.startedAt)) fulfillmentState = 'PREPARING';
+        else if (attempt && ['AUTHORIZED', 'QUEUED', 'DISPATCHING', 'SENT'].includes(attempt.status)) fulfillmentState = 'TRANSMITTING';
         else if (flow.recoveryStatus === 'NEEDS_RECONCILIATION') fulfillmentState = 'ATTENTION_REQUIRED';
       }
     }
