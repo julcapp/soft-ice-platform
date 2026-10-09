@@ -62,6 +62,20 @@ export function PaymentResultScreen({ orderId, source = null, machineId = null, 
       }));
     } catch (error) {
       if (error?.name === 'AbortError') return;
+      const retryable = error?.code === 'PAYMENT_CONCURRENT_TRANSITION'
+        || error?.code === 'YOOKASSA_TIMEOUT'
+        || error?.code === 'PAYMENT_REQUEST_FAILED'
+        || Number(error?.status) >= 500
+        || Number(error?.status) === 409;
+      if (retryable) {
+        setCheckCount((value) => value + 1);
+        setState((current) => ({
+          status: checkCount + 1 >= MAX_AUTO_CHECKS ? 'pending-manual' : 'pending',
+          payment: current.payment,
+          error: { code: error.code, message: 'Платёж подтверждается. Повторно оплачивать не нужно.' },
+        }));
+        return;
+      }
       setState({ status: 'error', payment: null, error: { code: error.code, message: safeFailureMessage(error.code) } });
     }
   };
