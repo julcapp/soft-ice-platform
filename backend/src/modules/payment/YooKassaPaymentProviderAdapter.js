@@ -176,13 +176,17 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
+      const normalizedHeaders = { ...headers };
+      if (normalizedHeaders['Idempotence-Key']) {
+        normalizedHeaders['Idempotence-Key'] = normalizeIdempotenceKey(normalizedHeaders['Idempotence-Key']);
+      }
       const response = await this.fetchImpl(`${this.apiBaseUrl}${path}`, {
         method,
         signal: controller.signal,
         headers: {
           Authorization: `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`,
           'Content-Type': 'application/json',
-          ...headers,
+          ...normalizedHeaders,
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
@@ -241,6 +245,11 @@ function eventIdentity(eventType, objectId, status, timestamp) {
 }
 function required(value, keys) {
   for (const key of keys) if (value[key] === undefined || value[key] === null || value[key] === '') throw fail('YOOKASSA_VALIDATION_FAILED', `${key} обязателен.`, 400);
+}
+function normalizeIdempotenceKey(value) {
+  const key = String(value || '');
+  if (key.length <= 64) return key;
+  return crypto.createHash('sha256').update(key).digest('hex');
 }
 function sanitize(value) {
   if (!value || typeof value !== 'object') return value;
