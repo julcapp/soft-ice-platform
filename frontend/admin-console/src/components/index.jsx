@@ -89,6 +89,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Платежи', href: '#payments' },
     { label: 'Каталог и цены', href: '#catalog-prices', managed: true },
     { label: 'Проверка фотографий', href: '#photo-verification', managed: true },
+    { label: 'Центр сообщений', href: '#message-center' },
     { label: 'Центр событий', href: '#event-center' },
     { label: 'Transactional Outbox', href: '#transactional-outbox' },
     { label: 'Журнал доставки', href: '#platform-events' },

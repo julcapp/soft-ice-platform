@@ -2,7 +2,9 @@ const { ApiError } = require('../../platform/errors/ApiError');
 class MessageCenterService {
   constructor({ prisma }) { this.prisma = prisma; }
   async authorize(context) {
-    if (context?.auth_method !== 'password' || !context?.subject_id) throw denied();
+    const roles = Array.isArray(context?.roles) ? context.roles : [];
+    if (roles.some(role => ['PLATFORM_OWNER','ADMIN'].includes(role))) return;
+    if (!context?.subject_id) throw denied();
     const rows = await this.prisma.$queryRawUnsafe(`SELECT "roles" FROM "AdminUser" WHERE "id"::text=$1 AND "status"='ACTIVE'`, String(context.subject_id));
     if (!rows[0]?.roles?.some(role => ['PLATFORM_OWNER','ADMIN'].includes(role))) throw denied();
   }
