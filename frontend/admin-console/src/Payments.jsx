@@ -1,4 +1,4 @@
-[Reading 338 lines from start (total: 338 lines, 0 remaining)]
+[Reading 387 lines from start (total: 387 lines, 0 remaining)]
 
 import React,{useEffect,useMemo,useState}from'react';
 import{EmptyState,ErrorState,Skeleton,StatusBadge}from'./components';
@@ -70,8 +70,24 @@ export function PaymentsPage({
   const[selected,setSelected]=useState(null);
   const[selectedId,setSelectedId]=useState(null);
   const[refund,setRefund]=useState({amount:'',reason:'',confirmed:false,status:'idle',message:''});
+  const[refreshIn,setRefreshIn]=useState(10);
+  const[lastRefreshedAt,setLastRefreshedAt]=useState(null);
 
-  const reload=()=>client(filters).then(items=>setState({status:'ready',items})).catch(error=>setState({status:error.status===403?'forbidden':'error',items:[]}));
+  const reload=async({refreshSelected=false,silent=false}={})=>{
+    try{
+      const items=await client(filters);
+      setState({status:'ready',items});
+      if(refreshSelected&&selectedId){
+        const detail=await detailClient(selectedId);
+        setSelected(detail);
+      }
+      setLastRefreshedAt(new Date());
+      return items;
+    }catch(error){
+      if(!silent)setState({status:error.status===403?'forbidden':'error',items:[]});
+      throw error;
+    }
+  };
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -90,7 +106,24 @@ export function PaymentsPage({
     return()=>controller.abort();
   },[organizationsClient]);
 
-  useEffect(()=>{setState(s=>({...s,status:'loading'}));reload();},[client,JSON.stringify(filters)]);
+  useEffect(()=>{
+    setState(s=>({...s,status:'loading'}));
+    setRefreshIn(10);
+    reload().catch(()=>{});
+  },[client,JSON.stringify(filters)]);
+
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      setRefreshIn(value=>{
+        if(value<=1){
+          reload({refreshSelected:true,silent:true}).catch(()=>{});
+          return 10;
+        }
+        return value-1;
+      });
+    },1000);
+    return()=>clearInterval(timer);
+  },[client,detailClient,selectedId,JSON.stringify(filters)]);
 
   const providers=useMemo(()=>Array.from(new Set((state.items||[]).map(item=>item.provider).filter(Boolean))),[state.items]);
 
@@ -199,6 +232,17 @@ export function PaymentsPage({
       <div className="stat-card"><span>Возвращено</span><strong>{money(summary.refunded)}</strong></div>
     </section>
 
+    <section className="card payments-refresh-status">
+      <div>
+        <strong>Автоматическое обновление включено</strong>
+        <span>Обновление через: <b>{refreshIn} сек.</b></span>
+      </div>
+      <div>
+        <span>Последнее обновление: {lastRefreshedAt?lastRefreshedAt.toLocaleTimeString('ru-RU'):'—'}</span>
+        <button type="button" onClick={()=>{setRefreshIn(10);reload({refreshSelected:true,silent:true}).catch(()=>{});}}>Обновить сейчас</button>
+      </div>
+    </section>
+
     <section className="card event-filters">
       <label>Организация
         <select {...field('organizationId')}>
@@ -250,7 +294,12 @@ export function PaymentsPage({
       </tr></thead>
       <tbody>{state.items.map(p=>{
         const ri=refundInfo(p);
-        return <tr key={p.id} className={selectedId===p.id?'selected-row':''}>
+        const hasRefund=ri.status!=='NONE'||ri.amount>0||['REFUND_PENDING','REFUNDED'].includes(p.status);
+        const rowClass=[
+          hasRefund?'payment-row-refund':p.status==='SUCCEEDED'?'payment-row-success':'',
+          selectedId===p.id?'selected-row':'',
+        ].filter(Boolean).join(' ');
+        return <tr key={p.id} className={rowClass}>
           <td>
             <input
               type="checkbox"
