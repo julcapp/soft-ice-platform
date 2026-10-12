@@ -19,7 +19,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     if (method) return undefined;
     const controller = new AbortController();
     getTerminalPaymentMethods({ machineId, signal: controller.signal })
-      .then((methods) => setAvailableMethods(methods.filter((item) => item.available)))
+      .then((methods) => setAvailableMethods(methods))
       .catch(() => setAvailableMethods([]));
     return () => controller.abort();
   }, [machineId, method]);
@@ -163,11 +163,19 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
             ? [{ id: 'test_card', title: 'Тестовая карта ЮKassa', subtitle: 'Только для проверки тестового магазина', icon: 'card' }]
             : []),
         ].map((item) => {
-          return <button key={item.id} className="display-payment-method" type="button" onClick={() => {
+          const availability = availableMethods.find((methodItem) => methodItem.id === item.id);
+          const disabled = availability ? !availability.available : item.id !== 'test_card';
+          const subtitle = availability?.reasonCode === 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
+            ? 'Недоступно в тестовом магазине ЮKassa'
+            : availability?.reasonCode === 'TERMINAL_POS_NOT_CONFIGURED'
+              ? 'Будет доступно после подключения POS по MDB'
+              : item.subtitle;
+          return <button key={item.id} className="display-payment-method" type="button" disabled={disabled} aria-disabled={disabled} onClick={() => {
+            if (disabled) return;
             if (onSelectMethod?.(item.id) === false) setSelectionError('Не удалось открыть оплату. Попробуйте ещё раз.');
           }}>
             <PaymentMethodIcon type={item.icon} />
-            <strong>{item.title}</strong><span>{item.subtitle}</span>
+            <strong>{item.title}</strong><span>{subtitle}</span>
           </button>;
         })}
       </div>

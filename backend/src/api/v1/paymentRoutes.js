@@ -14,8 +14,17 @@ function createPaymentRouter(dependencies = {}) {
   router.get('/terminal/methods', asyncHandler(async (req, res) => {
     const machineId = String(req.query?.machineId || '').trim();
     if (!machineId) throw conflict('TERMINAL_MACHINE_REQUIRED', 'Не указан аппарат.', 400);
+    const sbpBlockedByTestStore = machineId === 'TEST-MACHINE-001' && terminalCheckout?.testCardEnabled === true;
     const methods = [
-      { id: 'sbp', available: Boolean(terminalCheckout), reason_code: terminalCheckout ? null : 'PAYMENT_CHECKOUT_NOT_AVAILABLE' },
+      {
+        id: 'sbp',
+        available: Boolean(terminalCheckout) && !sbpBlockedByTestStore,
+        reason_code: !terminalCheckout
+          ? 'PAYMENT_CHECKOUT_NOT_AVAILABLE'
+          : sbpBlockedByTestStore
+            ? 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
+            : null,
+      },
       { id: 'pos', available: false, reason_code: 'TERMINAL_POS_NOT_CONFIGURED' },
     ];
     if (terminalCheckout?.testCardEnabled) methods.push({ id: 'test_card', available: true, reason_code: null });

@@ -28,6 +28,9 @@ class TerminalCheckoutService {
     required({ machineId, quoteId, idempotencyKey }, ['machineId', 'quoteId', 'idempotencyKey']);
     const requestedMethod = String(method).toLowerCase();
     if (requestedMethod === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
+    if (requestedMethod === 'sbp' && machineId === 'TEST-MACHINE-001' && this.testCardEnabled) {
+      throw problem('YOOKASSA_TEST_STORE_SBP_UNAVAILABLE', 'СБП недоступна в тестовом магазине ЮKassa. Используйте тестовую карту.', 503);
+    }
     if (requestedMethod === 'test_card' && !this.testCardEnabled) {
       throw problem('TERMINAL_TEST_CARD_DISABLED', 'Тестовая оплата картой отключена.', 503);
     }
