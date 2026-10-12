@@ -1,10 +1,14 @@
-[Reading 35 lines from start (total: 35 lines, 0 remaining)]
+[Reading 39 lines from start (total: 39 lines, 0 remaining)]
 
 const base='/api/v1/admin/payments';
-const adminHeaders={ 'X-Admin-Role':'PLATFORM_OWNER', 'X-Admin-Subject':'payments-console' };
+
+function authHeaders(){
+  const token=sessionStorage.getItem('access_token')||'';
+  return token?{Authorization:`Bearer ${token}`}:{};
+}
 
 async function request(url, options={}) {
-  const response=await fetch(url,{headers:{Accept:'application/json',...adminHeaders,...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})},...options});
+  const response=await fetch(url,{headers:{Accept:'application/json',...authHeaders(),...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})},...options});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok){
     const error=new Error(payload?.error?.message||'Ошибка платёжного сервиса.');
