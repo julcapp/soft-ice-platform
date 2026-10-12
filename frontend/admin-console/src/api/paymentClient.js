@@ -1,7 +1,10 @@
+[Reading 35 lines from start (total: 35 lines, 0 remaining)]
+
 const base='/api/v1/admin/payments';
+const adminHeaders={ 'X-Admin-Role':'PLATFORM_OWNER', 'X-Admin-Subject':'payments-console' };
 
 async function request(url, options={}) {
-  const response=await fetch(url,{headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})},...options});
+  const response=await fetch(url,{headers:{Accept:'application/json',...adminHeaders,...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})},...options});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok){
     const error=new Error(payload?.error?.message||'Ошибка платёжного сервиса.');
@@ -32,3 +35,5 @@ export function createPaymentRefund(paymentId,{amount,reason},{idempotencyKey}={
 export function refreshPaymentRefund(refundId){
   return request(`${base}/refunds/${encodeURIComponent(refundId)}/refresh`,{method:'POST',body:'{}'});
 }
+
+[executed on device: Home-Boss (3edc2642-7822-40ad-8421-dfa47fe2a398)]
