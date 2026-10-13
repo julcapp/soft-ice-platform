@@ -39,6 +39,18 @@ const methodLabel=(value)=>({sbp:'СБП',bank_card:'Банковская кар
 const providerLabel=(value)=>providerLabels[String(value||'').toUpperCase()]||value||'—';
 const paymentStatusLabel=(value)=>statusLabels[value]||value||'—';
 
+function operationHistory(payment){
+  if(!payment)return[];
+  const events=[];
+  if(payment.createdAt)events.push({at:payment.createdAt,type:'Создание',text:'Платёж создан в системе'});
+  if(payment.succeededAt)events.push({at:payment.succeededAt,type:'Оплата',text:`Оплата подтверждена · ${money(payment.amount,payment.currency)}`});
+  for(const row of payment.refunds||[]){
+    if(row.requestedAt)events.push({at:row.requestedAt,type:'Возврат',text:`Запрошен возврат · ${money(row.amount,row.currency)} · ${row.reason||'Без причины'}`});
+    if(row.succeededAt)events.push({at:row.succeededAt,type:'Возврат выполнен',text:`Возврат подтверждён провайдером · ${money(row.amount,row.currency)} · ${row.providerRefundId||'—'}`});
+  }
+  return events.sort((a,b)=>new Date(a.at)-new Date(b.at));
+}
+
 function refundInfo(payment){
   const succeeded=Number(payment.refundSummary?.succeededAmount||0);
   const available=Number(payment.refundSummary?.availableAmount??payment.amount??0);
@@ -296,6 +308,7 @@ export function PaymentsPage({
         <th>Сумма возврата</th>
         <th>К зачислению</th>
         <th>Сверка</th>
+        <th>Операция</th>
       </tr></thead>
       <tbody>{state.items.map(p=>{
         const ri=refundInfo(p);
@@ -319,13 +332,14 @@ export function PaymentsPage({
           <td>{p.machineId||'—'}{p.locationId?<><br/><small>{p.locationId}</small></>:null}</td>
           <td><code>{p.orderId}</code><br/><small>{methodLabel(p.paymentMethodType)}</small></td>
           <td>{providerLabel(p.provider)}</td>
-          <td><strong>{paymentStatusLabel(p.status)}</strong></td>
+          <td><span className={p.status==='REFUNDED'?'payment-status-badge is-refunded':p.status==='SUCCEEDED'?'payment-status-badge is-succeeded':'payment-status-badge'}>{paymentStatusLabel(p.status)}</span></td>
           <td>{money(p.amount,p.currency)}</td>
           <td>{ri.type}</td>
-          <td>{refundStatusLabels[ri.status]||ri.status}</td>
+          <td>{ri.status==='SUCCEEDED'?<span className="refund-status-badge is-refunded">{refundStatusLabels[ri.status]||ri.status}</span>:<span className="refund-status-badge">{refundStatusLabels[ri.status]||ri.status}</span>}</td>
           <td>{ri.amount>0?money(ri.amount,p.currency):'—'}</td>
           <td>{money(p.economics?.netSettlementRub,p.currency)}</td>
           <td>{p.reconciliationStatus||'—'}</td>
+          <td><button type="button" className="text-button" onClick={()=>openPayment(p,{scroll:true})}>Открыть</button></td>
         </tr>;
       })}</tbody>
     </table></div>:<EmptyState title="Платежи не найдены"/>}
@@ -364,6 +378,18 @@ export function PaymentsPage({
 
       <p><strong>Provider reference:</strong> {selected.providerReference||'—'} · <strong>Создан:</strong> {dateTime(selected.createdAt)} · <strong>Оплачен:</strong> {dateTime(selected.succeededAt)}</p>
       <p><strong>Способ оплаты сохранён для автосписаний:</strong> {selected.paymentMethodSaved?'Да':'Нет'}</p>
+
+      <h3>История операции</h3>
+      <div className="payment-operation-history">
+        {operationHistory(selected).map((event,index)=><div className="payment-history-item" key={event.type+event.at+index}>
+          <div className="payment-history-time">{dateTime(event.at)}</div>
+          <div className="payment-history-dot" aria-hidden="true"/>
+          <div>
+            <strong>{event.type}</strong>
+            <div>{event.text}</div>
+          </div>
+        </div>)}
+      </div>
 
       <h3>История возвратов</h3>
       {selected.refunds?.length?<div className="table-scroll"><table>

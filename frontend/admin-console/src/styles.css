@@ -83,3 +83,18 @@
 .message-delete-status{color:var(--muted)}
 .message-delete-error{color:#b42318;font-weight:700}
 @media(max-width:767px){.message-center-toolbar{align-items:flex-start;flex-direction:column}}
+
+
+/* Payment operation history and prominent refund status */
+.payment-status-badge,.refund-status-badge{display:inline-flex;align-items:center;justify-content:center;min-height:26px;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap;background:#f2f4f7;color:#344054;border:1px solid #e4e7ec}
+.payment-status-badge.is-succeeded{background:#ecfdf3;color:#027a48;border-color:#abefc6}
+.payment-status-badge.is-refunded,.refund-status-badge.is-refunded{background:#eadcff;color:#5f2ca3;border-color:#c9a8f7;box-shadow:0 0 0 2px rgba(157,123,216,.12)}
+.payment-row-refund>td{background:#eee5ff}
+.payment-row-refund:hover>td{background:#e5d8fb}
+.payment-row-refund>td:first-child{border-left:5px solid #7b4cc4}
+.payment-operation-history{display:grid;gap:0;margin:8px 0 18px}
+.payment-history-item{display:grid;grid-template-columns:150px 18px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--border)}
+.payment-history-item:last-child{border-bottom:0}
+.payment-history-time{color:var(--muted);font-size:13px}
+.payment-history-dot{width:10px;height:10px;border-radius:50%;background:var(--teal);margin-top:5px;box-shadow:0 0 0 4px rgba(0,137,123,.1)}
+@media(max-width:767px){.payment-history-item{grid-template-columns:1fr}.payment-history-dot{display:none}}
