@@ -67,26 +67,61 @@ export function PaymentsPage({
   const[organizations,setOrganizations]=useState([]);
   const[selected,setSelected]=useState(null);
   const[selectedId,setSelectedId]=useState(null);
-  const[refund,setRefund]=useState({amount:'',reason:'',confirmed:false,status:'idle',message:''});
+  const[refund,setRefund]=useState({type:'full',amount:'',reason:'',confirmed:false,status:'idle',message:'',result:null});
+  const[refreshIn,setRefreshIn]=useState(10);
+  const[lastRefreshedAt,setLastRefreshedAt]=useState(null);
 
-  const reload=()=>client(filters).then(items=>setState({status:'ready',items})).catch(error=>setState({status:error.status===403?'forbidden':'error',items:[]}));
+  const reload=async({refreshSelected=false,silent=false}={})=>{
+    try{
+      const items=await client(filters);
+      setState({status:'ready',items});
+      if(refreshSelected&&selectedId){
+        const detail=await detailClient(selectedId);
+        setSelected(detail);
+      }
+      setLastRefreshedAt(new Date());
+      return items;
+    }catch(error){
+      if(!silent)setState({status:error.status===403?'forbidden':'error',items:[]});
+      throw error;
+    }
+  };
 
   useEffect(()=>{
     const controller=new AbortController();
     organizationsClient({signal:controller.signal})
-      .then(items=>{
-        const list=Array.isArray(items)?items:[];
+      .then(payload=>{
+        const list=Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.organizations)
+              ? payload.organizations
+              : [];
         setOrganizations(list);
-        if(!filters.organizationId&&list.length){
-          const preferred=list.find(item=>item.status==='ACTIVE')||list[0];
-          setFilters(current=>({...current,organizationId:preferred.id}));
-        }
       })
       .catch(()=>setOrganizations([]));
     return()=>controller.abort();
   },[organizationsClient]);
 
-  useEffect(()=>{setState(s=>({...s,status:'loading'}));reload();},[client,JSON.stringify(filters)]);
+  useEffect(()=>{
+    setState(s=>({...s,status:'loading'}));
+    setRefreshIn(10);
+    reload().catch(()=>{});
+  },[client,JSON.stringify(filters)]);
+
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      setRefreshIn(value=>{
+        if(value<=1){
+          reload({refreshSelected:true,silent:true}).catch(()=>{});
+          return 10;
+        }
+        return value-1;
+      });
+    },1000);
+    return()=>clearInterval(timer);
+  },[client,detailClient,selectedId,JSON.stringify(filters)]);
 
   const providers=useMemo(()=>Array.from(new Set((state.items||[]).map(item=>item.provider).filter(Boolean))),[state.items]);
 
@@ -106,7 +141,7 @@ export function PaymentsPage({
       const detail=await detailClient(payment.id);
       setSelected(detail);
       setSelectedId(payment.id);
-      setRefund({amount:String(detail.refundSummary?.availableAmount||''),reason:'',confirmed:false,status:'idle',message:''});
+      setRefund({type:'full',amount:String(detail.refundSummary?.availableAmount||''),reason:'',confirmed:false,status:'idle',message:'',result:null});
       if(scroll)setTimeout(()=>document.getElementById('payment-refund-panel')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
     }catch(error){
       setRefund({amount:'',reason:'',confirmed:false,status:'error',message:error.message||'Не удалось загрузить карточку платежа.'});
@@ -117,7 +152,7 @@ export function PaymentsPage({
     if(selectedId===payment.id){
       setSelectedId(null);
       setSelected(null);
-      setRefund({amount:'',reason:'',confirmed:false,status:'idle',message:''});
+      setRefund({type:'full',amount:'',reason:'',confirmed:false,status:'idle',message:'',result:null});
       return;
     }
     openPayment(payment);
@@ -126,30 +161,53 @@ export function PaymentsPage({
   async function submitRefund(){
     const amount=Number(refund.amount);
     const available=Number(selected?.refundSummary?.availableAmount||0);
-    const originalAmount=Number(selected?.amount||0);
-    const fullOriginalRefund=amount===originalAmount&&available===originalAmount;
-    if(!selected||!(amount>0)||amount>available||!fullOriginalRefund||refund.reason.trim().length<3||!refund.confirmed)return;
-    setRefund(s=>({...s,status:'sending',message:''}));
+    if(refund.type==='partial'){
+      setRefund(s=>({...s,status:'error',message:'Частичный возврат будет доступен после подключения фискального чека возврата. Полный возврат уже работает.',result:null}));
+      return;
+    }
+    const isFullAvailableRefund=Math.abs(amount-available)<0.001;
+    if(!selected||!(amount>0)||amount>available||!isFullAvailableRefund||refund.reason.trim().length<3||!refund.confirmed)return;
+    setRefund(s=>({...s,status:'sending',message:'Отправляем возврат платёжному провайдеру и проверяем результат…',result:null}));
     try{
-      const result=await refundClient(selected.id,{amount,reason:refund.reason.trim()},{idempotencyKey:`admin-refund:${selected.id}:${amount.toFixed(2)}:${Date.now()}`});
+      let result=await refundClient(selected.id,{amount,reason:refund.reason.trim()},{idempotencyKey:`admin-refund:${selected.id}:${amount.toFixed(2)}:${Date.now()}`,organizationId:selected.organizationId});
+      let checks=0;
+      while(['REQUESTED','PENDING'].includes(result?.status)&&checks<6){
+        await new Promise(resolve=>setTimeout(resolve,1500));
+        result=await refreshRefundClient(result.id,{organizationId:selected.organizationId});
+        checks+=1;
+      }
       const detail=await detailClient(selected.id);
       setSelected(detail);
+      const finalStatus=result?.status||'UNKNOWN';
+      const finalMessage=finalStatus==='SUCCEEDED'
+        ? 'Возврат выполнен и подтверждён платёжным провайдером.'
+        : finalStatus==='FAILED'
+          ? 'Провайдер отклонил возврат. Проверьте причину ошибки.'
+          : 'Возврат создан, но провайдер ещё не дал финального подтверждения.';
       setRefund({
         amount:String(detail.refundSummary?.availableAmount||''),
         reason:'',
         confirmed:false,
-        status:'success',
-        message:result.status==='SUCCEEDED'?'Возврат подтверждён платёжным провайдером.':'Возврат отправлен платёжному провайдеру.',
+        status:finalStatus==='FAILED'?'error':finalStatus==='SUCCEEDED'?'success':'pending',
+        message:finalMessage,
+        result:{
+          id:result?.id||null,
+          providerRefundId:result?.providerRefundId||null,
+          status:finalStatus,
+          amount:Number(result?.amount||amount),
+          checkedAt:new Date().toISOString(),
+          attempts:checks+1,
+        },
       });
       await reload();
     }catch(error){
-      setRefund(s=>({...s,status:'error',message:error.message||'Возврат не выполнен.'}));
+      setRefund(s=>({...s,status:'error',message:error.message||'Возврат не выполнен.',result:null}));
     }
   }
 
   async function refreshRefund(row){
     try{
-      await refreshRefundClient(row.id);
+      await refreshRefundClient(row.id,{organizationId:selected.organizationId});
       const detail=await detailClient(selected.id);
       setSelected(detail);
       await reload();
@@ -164,7 +222,11 @@ export function PaymentsPage({
   const field=k=>({value:filters[k]||'',onChange:e=>setFilters({...filters,[k]:e.target.value})});
   const selectedRow=(state.items||[]).find(item=>item.id===selectedId);
   const selectedRefundInfo=selectedRow?refundInfo(selectedRow):null;
-  const canRefund=Boolean(selected&&selected.refundSummary?.refundable&&!selected.refundSummary?.hasPending&&Number(selected.refundSummary?.availableAmount)===Number(selected.amount));
+  const canRefund=Boolean(selected&&selected.refundSummary?.refundable&&!selected.refundSummary?.hasPending);
+  const refundAvailable=Number(selected?.refundSummary?.availableAmount||0);
+  const refundAmount=Number(refund.type==='full'?refundAvailable:refund.amount||0);
+  const refundAmountTooHigh=refundAmount>refundAvailable+0.0001;
+  const refundAmountInvalid=!(refundAmount>0)||refundAmountTooHigh;
 
   return <div className="payments-page">
     <section className="statistics">
@@ -173,6 +235,17 @@ export function PaymentsPage({
       <div className="stat-card"><span>Расходы провайдера</span><strong>{money(summary.providerCost)}</strong></div>
       <div className="stat-card"><span>К зачислению</span><strong>{money(summary.net)}</strong></div>
       <div className="stat-card"><span>Возвращено</span><strong>{money(summary.refunded)}</strong></div>
+    </section>
+
+    <section className="card payments-refresh-status">
+      <div>
+        <strong>Автоматическое обновление включено</strong>
+        <span>Обновление через: <b>{refreshIn} сек.</b></span>
+      </div>
+      <div>
+        <span>Последнее обновление: {lastRefreshedAt?lastRefreshedAt.toLocaleTimeString('ru-RU'):'—'}</span>
+        <button type="button" onClick={()=>{setRefreshIn(10);reload({refreshSelected:true,silent:true}).catch(()=>{});}}>Обновить сейчас</button>
+      </div>
     </section>
 
     <section className="card event-filters">
@@ -226,7 +299,12 @@ export function PaymentsPage({
       </tr></thead>
       <tbody>{state.items.map(p=>{
         const ri=refundInfo(p);
-        return <tr key={p.id} className={selectedId===p.id?'selected-row':''}>
+        const hasRefund=ri.status!=='NONE'||ri.amount>0||['REFUND_PENDING','REFUNDED'].includes(p.status);
+        const rowClass=[
+          hasRefund?'payment-row-refund':p.status==='SUCCEEDED'?'payment-row-success':'',
+          selectedId===p.id?'selected-row':'',
+        ].filter(Boolean).join(' ');
+        return <tr key={p.id} className={rowClass}>
           <td>
             <input
               type="checkbox"
@@ -253,6 +331,20 @@ export function PaymentsPage({
     </table></div>:<EmptyState title="Платежи не найдены"/>}
 
     {selected&&<section id="payment-refund-panel" className="card" style={{marginTop:16}}>
+      <div style={{display:'flex',justifyContent:'flex-start',marginBottom:12}}>
+        <button
+          type="button"
+          className="text-button"
+          onClick={()=>{
+            setSelected(null);
+            setSelectedId(null);
+            setRefund({type:'full',amount:'',reason:'',confirmed:false,status:'idle',message:'',result:null});
+            setTimeout(()=>document.querySelector('.table-scroll')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+          }}
+        >
+          ← Назад к списку платежей
+        </button>
+      </div>
       <div className="card-heading">
         <div>
           <h2>Платёж {selected.id}</h2>
@@ -271,6 +363,7 @@ export function PaymentsPage({
       </div>
 
       <p><strong>Provider reference:</strong> {selected.providerReference||'—'} · <strong>Создан:</strong> {dateTime(selected.createdAt)} · <strong>Оплачен:</strong> {dateTime(selected.succeededAt)}</p>
+      <p><strong>Способ оплаты сохранён для автосписаний:</strong> {selected.paymentMethodSaved?'Да':'Нет'}</p>
 
       <h3>История возвратов</h3>
       {selected.refunds?.length?<div className="table-scroll"><table>
@@ -285,21 +378,55 @@ export function PaymentsPage({
         </tr>)}</tbody>
       </table></div>:<p>Возвратов по платежу нет.</p>}
 
-      {canRefund?<div style={{display:'grid',gap:10,maxWidth:520,marginTop:16}}>
+      {canRefund?<div style={{display:'grid',gap:10,maxWidth:620,marginTop:16}}>
         <h3>Оформить возврат</h3>
-        <label>Сумма возврата<input type="number" value={selected.amount} readOnly/></label>
+        <div style={{display:'flex',gap:18,flexWrap:'wrap'}}>
+          <label style={{display:'flex',alignItems:'center',gap:8}}>
+            <input type="radio" name="refund-type" value="full" checked={refund.type==='full'} onChange={()=>setRefund({...refund,type:'full',amount:String(selected.refundSummary.availableAmount||''),confirmed:false,message:''})}/>
+            <span>Полный возврат</span>
+          </label>
+          <label style={{display:'flex',alignItems:'center',gap:8}}>
+            <input type="radio" name="refund-type" value="partial" checked={refund.type==='partial'} onChange={()=>setRefund({...refund,type:'partial',amount:'',confirmed:false,message:''})}/>
+            <span>Частичный возврат</span>
+          </label>
+        </div>
+        <label>Сумма возврата
+          <input
+            type="number"
+            min="0.01"
+            max={selected.refundSummary.availableAmount}
+            step="0.01"
+            value={refund.type==='full'?selected.refundSummary.availableAmount:refund.amount}
+            readOnly={refund.type==='full'}
+            onChange={e=>setRefund({...refund,amount:e.target.value,confirmed:false,message:''})}
+          />
+        </label>
         <small>Доступно к возврату: {money(selected.refundSummary.availableAmount,selected.currency)}</small>
+        {refundAmountTooHigh&&<p role="alert" style={{color:'#b42318',fontWeight:700,margin:0}}>Сумма возврата превышает доступную сумму платежа — {money(refundAvailable,selected.currency)}.</p>}
+        {refund.type==='partial'&&!refundAmountTooHigh&&refundAmount>0&&<small>После возврата останется: {money(Math.max(0,refundAvailable-refundAmount),selected.currency)}</small>}
+        {refund.type==='partial'&&<p role="note"><strong>Частичный возврат:</strong> интерфейс готов, но отправка будет включена после подключения фискального чека возврата.</p>}
         <label>Причина<textarea rows={3} value={refund.reason} onChange={e=>setRefund({...refund,reason:e.target.value,confirmed:false})} placeholder="Укажите причину возврата"/></label>
         <label style={{display:'flex',alignItems:'center',gap:8}}>
           <input type="checkbox" checked={refund.confirmed} onChange={e=>setRefund({...refund,confirmed:e.target.checked})}/>
           <span>Подтверждаю сумму и причину возврата</span>
         </label>
-        <button type="button" disabled={refund.status==='sending'||refund.reason.trim().length<3||!refund.confirmed} onClick={submitRefund}>
-          {refund.status==='sending'?'Отправляем возврат…':'Выполнить полный возврат'}
+        <button type="button" disabled={refund.status==='sending'||refund.reason.trim().length<3||!refund.confirmed||refundAmountInvalid} onClick={submitRefund}>
+          {refund.status==='sending'?'Отправляем возврат…':refund.type==='partial'?'Выполнить частичный возврат':'Выполнить полный возврат'}
         </button>
       </div>:selected.refundSummary?.hasPending?<p><strong>Новый возврат недоступен:</strong> предыдущий возврат ещё подтверждается.</p>:selected.refundSummary?.refundable?<p><strong>Возврат доступен:</strong> откройте полную карточку операции для разрешённого сценария возврата.</p>:null}
 
       {refund.message&&<p role="status"><strong>{refund.message}</strong></p>}
+      {refund.result&&<div className="card" style={{marginTop:12}}>
+        <h3>Результат самопроверки возврата</h3>
+        <dl className="identity-list">
+          <dt>Статус</dt><dd>{refundStatusLabels[refund.result.status]||refund.result.status}</dd>
+          <dt>Сумма</dt><dd>{money(refund.result.amount,selected.currency)}</dd>
+          <dt>Refund ID</dt><dd>{refund.result.id||'—'}</dd>
+          <dt>Provider refund ID</dt><dd>{refund.result.providerRefundId||'—'}</dd>
+          <dt>Проверок выполнено</dt><dd>{refund.result.attempts}</dd>
+          <dt>Последняя проверка</dt><dd>{dateTime(refund.result.checkedAt)}</dd>
+        </dl>
+      </div>}
     </section>}
   </div>;
 }
