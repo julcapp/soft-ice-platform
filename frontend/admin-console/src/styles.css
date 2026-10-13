@@ -54,3 +54,18 @@
   flex:0 0 auto;
   margin-top:12px;
 }
+
+
+/* Message center detail view */
+.message-detail-card{display:grid;gap:16px}
+.message-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.message-detail-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px}
+.message-detail-meta p{margin:0}
+.message-body-box{padding:18px;border:1px solid var(--border);border-radius:16px;background:#fffdf9}
+.message-body-box h3{margin-top:0}
+.message-body-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.55}
+.message-delivery-card{margin-top:8px}
+@media(max-width:767px){
+  .message-detail-heading{flex-direction:column}
+  .message-detail-meta{grid-template-columns:1fr}
+}
