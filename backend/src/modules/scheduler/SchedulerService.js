@@ -18,6 +18,10 @@ function nextMonthlyTomsk(now = new Date()) {
   return new Date(Date.UTC(year, month - 1, 1, -7, 20, 0, 0)).toISOString();
 }
 
+function nextInterval(now, intervalMs) {
+  return new Date(now.getTime() + intervalMs).toISOString();
+}
+
 function readBackupLog() {
   try {
     const lines = fs.readFileSync(BACKUP_LOG, 'utf8').trim().split(/\r?\n/).filter(Boolean);
@@ -37,9 +41,50 @@ class SchedulerService {
   }
 
   async list() {
+    const now = this.clock();
     const backup = readBackupLog();
-    return {
-      items: [{
+    const runtimeJob = ({ id, name, category, intervalMs, description }) => ({
+      id,
+      name,
+      category,
+      source: 'Node.js setInterval',
+      unit: 'softice-display-backend-8800.service',
+      scheduleHuman: `Каждые ${intervalMs / 1000} секунд`,
+      scheduleTechnical: `setInterval(..., ${intervalMs})`,
+      timezone: 'Не применяется',
+      enabled: true,
+      readOnly: true,
+      description,
+      retention: 'Не применяется',
+      lastRunAt: null,
+      lastRunStatus: 'RUNNING',
+      lastRunDetails: [],
+      nextRunAt: nextInterval(now, intervalMs),
+    });
+
+    const items = [
+      runtimeJob({
+        id: 'payment-inbox-worker',
+        name: 'Обработка входящих платежей',
+        category: 'PAYMENTS',
+        intervalMs: 5000,
+        description: 'Проверяет очередь входящих платёжных событий и передаёт их в PaymentService для обработки.',
+      }),
+      runtimeJob({
+        id: 'machine-command-worker',
+        name: 'Отправка команд аппаратам',
+        category: 'MACHINES',
+        intervalMs: 5000,
+        description: 'Забирает подготовленные команды из transactional outbox и передаёт их в контур выдачи аппарата.',
+      }),
+      runtimeJob({
+        id: 'machine-recovery-worker',
+        name: 'Восстановление незавершённых выдач',
+        category: 'MACHINES',
+        intervalMs: 15000,
+        description: 'Проверяет незавершённые операции выдачи и запускает безопасное восстановление их состояния.',
+      }),
+      {
         id: 'monthly-payments-messages-archive',
         name: 'Ежемесячный архив Payments + Messages',
         category: 'BACKUP',
@@ -55,10 +100,11 @@ class SchedulerService {
         lastRunAt: backup?.at || null,
         lastRunStatus: backup ? 'SUCCESS' : 'NOT_RUN',
         lastRunDetails: backup?.results || [],
-        nextRunAt: nextMonthlyTomsk(this.clock()),
-      }],
-      total: 1,
-    };
+        nextRunAt: nextMonthlyTomsk(now),
+      },
+    ];
+
+    return { items, total: items.length };
   }
 
   async get(id) {
