@@ -1,0 +1,16 @@
+[Unit]
+Description=Soft ICE monthly Payments and Messages archive
+After=network.target softice-display-backend-8800.service
+
+[Service]
+Type=oneshot
+User=julcapp
+Group=julcapp
+WorkingDirectory=/home/julcapp/soft-ice-worktrees/display-product-v1/backend
+EnvironmentFile=/etc/softice/display-backend.env
+ExecStart=/usr/bin/node /home/julcapp/softice-backups/bin/monthly_backup.js
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/julcapp/softice-backups
+UMask=0077

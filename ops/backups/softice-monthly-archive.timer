@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Soft ICE monthly archive on the first day of each month
+
+[Timer]
+OnCalendar=*-*-01 00:20:00 Asia/Tomsk
+Persistent=true
+AccuracySec=1min
+Unit=softice-monthly-archive.service
+
+[Install]
+WantedBy=timers.target
