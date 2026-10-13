@@ -98,3 +98,20 @@
 .payment-history-time{color:var(--muted);font-size:13px}
 .payment-history-dot{width:10px;height:10px;border-radius:50%;background:var(--teal);margin-top:5px;box-shadow:0 0 0 4px rgba(0,137,123,.1)}
 @media(max-width:767px){.payment-history-item{grid-template-columns:1fr}.payment-history-dot{display:none}}
+
+
+/* Scheduler */
+.scheduler-page{display:grid;gap:16px}
+.scheduler-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.scheduler-intro p{margin:6px 0 0;color:var(--muted)}
+.scheduler-intro>span,.scheduler-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;background:#f2f4f7;color:#344054;font-weight:700;white-space:nowrap}
+.scheduler-status.is-success{background:#ecfdf3;color:#027a48}
+.scheduler-detail{display:grid;gap:18px}
+.scheduler-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.scheduler-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px}
+.scheduler-meta p{margin:0}
+.scheduler-description{padding:16px;border:1px solid var(--border);border-radius:16px;background:#fafcfb}
+.scheduler-description h3{margin-top:0}
+.scheduler-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.scheduler-results .card{display:grid;gap:6px}
+@media(max-width:767px){.scheduler-intro,.scheduler-detail-heading{flex-direction:column}.scheduler-meta{grid-template-columns:1fr}}

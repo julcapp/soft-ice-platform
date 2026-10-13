@@ -26,6 +26,7 @@ import { PaymentsPage } from './Payments';
 import { MachineDispensesPage } from './MachineDispenses';
 import { CatalogPricesPage } from './CatalogPrices';
 import { MessageCenterPage } from './MessageCenter';
+import { SchedulerPage } from './Scheduler';
 
 const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusColumn = { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> };
@@ -83,6 +84,7 @@ export function App({ client = getDashboard }) {
   const machineDispensesRoute = route === 'machine-dispenses';
   const paymentsRoute = route === 'payments';
   const messageCenterRoute = route === 'message-center';
+  const schedulerRoute = route === 'scheduler';
   const photoVerificationRoute = route === 'photo-verification';
   const photoReadinessRoute = route === 'photo-verification-readiness';
   const businessAnalyticsRoute = route === 'business-analytics';
@@ -92,6 +94,7 @@ export function App({ client = getDashboard }) {
   if (machineDispensesRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Автоматы" title="Выдачи аппаратов" copy="Физические операции, callback и сверка. Только чтение; опасного повтора выдачи нет." /><MachineDispensesPage /></AppShell>;
   if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PaymentsPage /></AppShell>;
   if (messageCenterRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммуникации" title="Центр сообщений" copy="Единый журнал сервисных и пользовательских сообщений по всем каналам." /><MessageCenterPage /></AppShell>;
+  if (schedulerRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Планировщик" copy="Единый реестр регулярных системных операций, расписаний и результатов запуска." /><SchedulerPage /></AppShell>;
   if (promotionRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Promotion Engine" copy="Управление акциями, безопасностью, согласованием, каналами и аналитикой." editable /><PromotionEnginePage /></AppShell>;
   if (businessAnalyticsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Бизнес" title="Бизнес-статистика" copy="Пользователи, Клуб Тимоши, рефералы, подписки, продажи, пополнения и предоплаченные заказы." /><BusinessDashboardPage /></AppShell>;
   if (privateChannelRecoveryRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Подписки" title="Recovery приватных каналов" copy="Автопродления Telegram / MAX, grace period, повторные попытки и состояние доступа." editable /><PrivateChannelRecoveryPage /></AppShell>;

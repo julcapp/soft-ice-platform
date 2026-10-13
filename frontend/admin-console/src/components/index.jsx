@@ -105,6 +105,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Центр сообщений', href: '#message-center' },
     { label: 'Каталог и цены', href: '#catalog-prices', managed: true },
     { label: 'Проверка фотографий', href: '#photo-verification', managed: true },
+    { label: 'Планировщик', href: '#scheduler' },
     { label: 'Центр событий', href: '#event-center' },
     { label: 'Transactional Outbox', href: '#transactional-outbox' },
     { label: 'Журнал доставки', href: '#platform-events' },
