@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import { AdminNotificationBell } from '../AdminNotificationCenter';
 
 export function StatusBadge({ status }) {
@@ -72,6 +72,21 @@ export function PermissionGate({ allowed, children }) {
 }
 
 export function Sidebar({ open, onClose }) {
+  const currentHash=()=>window.location.hash||'#dashboard';
+  const[activeHash,setActiveHash]=useState(currentHash);
+  const navRef=useRef(null);
+
+  useEffect(()=>{
+    const sync=()=>setActiveHash(currentHash());
+    window.addEventListener('hashchange',sync);
+    return()=>window.removeEventListener('hashchange',sync);
+  },[]);
+
+  useEffect(()=>{
+    const active=navRef.current?.querySelector('a.active');
+    active?.scrollIntoView({block:'nearest'});
+  },[activeHash]);
+
   const items = [
     { label: 'Панель управления', href: '#dashboard' },
     { label: 'Бизнес-статистика', href: '#business-analytics', managed: true },
@@ -87,14 +102,16 @@ export function Sidebar({ open, onClose }) {
     { label: 'Рабочее место оператора', href: '#operators' },
     { label: 'Техническое обслуживание', href: '#maintenance' },
     { label: 'Платежи', href: '#payments' },
+    { label: 'Центр сообщений', href: '#message-center' },
     { label: 'Каталог и цены', href: '#catalog-prices', managed: true },
     { label: 'Проверка фотографий', href: '#photo-verification', managed: true },
+    { label: 'Планировщик', href: '#scheduler' },
     { label: 'Центр событий', href: '#event-center' },
     { label: 'Transactional Outbox', href: '#transactional-outbox' },
     { label: 'Журнал доставки', href: '#platform-events' },
     { label: 'Хранилище недоставленных событий', href: '#dead-letter' },
   ];
-  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Управление платформой</small>{items.map((item, index) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{item.sandbox ? <small>Тестовый контур</small> : item.managed ? <small>Управляемый модуль</small> : ![0,4].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Доступ зависит от роли и возможностей раздела</div></aside>;
+  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav ref={navRef} aria-label="Основная навигация"><small className="nav-group">Управление платформой</small>{items.map((item, index) => <a href={item.href} key={item.label} className={activeHash===item.href?'active':''} aria-current={activeHash===item.href?'page':undefined} onClick={()=>{setActiveHash(item.href);onClose?.();}}><span aria-hidden="true">◇</span>{item.label}{item.sandbox ? <small>Тестовый контур</small> : item.managed ? <small>Управляемый модуль</small> : ![0,4].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Доступ зависит от роли и возможностей раздела</div></aside>;
 }
 
 export function Header({ onMenu }) {
@@ -108,3 +125,5 @@ export function PageHeader() {
 export function AppShell({ children, navOpen, setNavOpen }) {
   return <div className="app-shell"><a className="skip-link" href="#main">Перейти к панели управления</a><Sidebar open={navOpen} onClose={() => setNavOpen(false)} /><div className="main-column"><Header onMenu={() => setNavOpen(true)} /><main id="main">{children}</main></div>{navOpen && <button className="scrim" aria-label="Закрыть навигацию" onClick={() => setNavOpen(false)} />}</div>;
 }
+
+[executed on device: Home-Boss (3edc2642-7822-40ad-8421-dfa47fe2a398)]
