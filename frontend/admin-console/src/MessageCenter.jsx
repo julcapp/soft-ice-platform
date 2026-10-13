@@ -1,6 +1,6 @@
 import React,{useEffect,useState}from'react';
 import{EmptyState,ErrorState,Skeleton,StatusBadge}from'./components';
-import{getMessage,listMessages}from'./api/messageCenterClient';
+import{deleteMessages,getMessage,listMessages}from'./api/messageCenterClient';
 
 const fmt=value=>value?new Date(value).toLocaleString('ru-RU'):'—';
 
@@ -8,15 +8,30 @@ export function MessageCenterPage(){
   const[state,setState]=useState({status:'loading',items:[],total:0});
   const[filters,setFilters]=useState({});
   const[selected,setSelected]=useState(null);
+  const[selectedIds,setSelectedIds]=useState([]);
   const[detailStatus,setDetailStatus]=useState('idle');
+  const[deleteState,setDeleteState]=useState({status:'idle',message:''});
 
   const load=()=>listMessages(filters)
-    .then(data=>setState({status:'ready',items:data.items||[],total:data.total||0}))
+    .then(data=>{
+      const items=data.items||[];
+      setState({status:'ready',items,total:data.total||0});
+      setSelectedIds(current=>current.filter(id=>items.some(item=>item.id===id)));
+    })
     .catch(error=>setState({status:error.status===403?'forbidden':'error',items:[],total:0}));
 
   useEffect(()=>{setState(s=>({...s,status:'loading'}));load();},[JSON.stringify(filters)]);
 
   const field=key=>({value:filters[key]||'',onChange:e=>setFilters({...filters,[key]:e.target.value})});
+  const allPageSelected=state.items.length>0&&state.items.every(item=>selectedIds.includes(item.id));
+
+  function toggleMessage(id){
+    setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id]);
+  }
+
+  function toggleAll(){
+    setSelectedIds(allPageSelected?[]:state.items.map(item=>item.id));
+  }
 
   async function openMessage(id){
     setDetailStatus('loading');
@@ -28,6 +43,23 @@ export function MessageCenterPage(){
     }catch{
       setSelected(null);
       setDetailStatus('error');
+    }
+  }
+
+  async function removeSelected(){
+    if(!selectedIds.length)return;
+    const count=selectedIds.length;
+    if(!window.confirm(`Удалить выбранные сообщения: ${count}?\n\nФинансовая история и Customer 360 не удаляются.`))return;
+    setDeleteState({status:'sending',message:'Удаляем выбранные сообщения…'});
+    try{
+      const result=await deleteMessages(selectedIds);
+      const deleted=Number(result?.deleted||0);
+      if(selected&&selectedIds.includes(selected.id))setSelected(null);
+      setSelectedIds([]);
+      await load();
+      setDeleteState({status:'success',message:`Удалено сообщений: ${deleted}.`});
+    }catch(error){
+      setDeleteState({status:'error',message:error.message||'Не удалось удалить выбранные сообщения.'});
     }
   }
 
@@ -80,14 +112,28 @@ export function MessageCenterPage(){
       <label>По<input type="date" {...field('to')}/></label>
     </section>
 
-    <section className="card" style={{marginBottom:12}}>
-      <strong>Сообщений: {state.total}</strong>
-      {detailStatus==='error'&&<span style={{marginLeft:16,color:'#b42318'}}>Не удалось открыть сообщение.</span>}
+    <section className="card message-center-toolbar">
+      <div>
+        <strong>Сообщений: {state.total}</strong>
+        <span>Выбрано: {selectedIds.length}</span>
+      </div>
+      <div>
+        {deleteState.message&&<span className={deleteState.status==='error'?'message-delete-error':'message-delete-status'}>{deleteState.message}</span>}
+        <button type="button" className="danger-button" disabled={!selectedIds.length||deleteState.status==='sending'} onClick={removeSelected}>
+          {deleteState.status==='sending'?'Удаляем…':`Удалить выбранные (${selectedIds.length})`}
+        </button>
+      </div>
     </section>
 
+    {detailStatus==='error'&&<section className="card" style={{marginBottom:12,color:'#b42318'}}>Не удалось открыть сообщение.</section>}
+
     {state.items.length?<div className="table-scroll card"><table>
-      <thead><tr><th>№</th><th>Дата</th><th>Получатель</th><th>Тема</th><th>Источник</th><th>Каналы / статус</th><th>Действие</th></tr></thead>
-      <tbody>{state.items.map(row=><tr key={row.id} onDoubleClick={()=>openMessage(row.id)}>
+      <thead><tr>
+        <th className="message-select-cell"><input type="checkbox" checked={allPageSelected} onChange={toggleAll} aria-label="Выбрать все сообщения на странице"/></th>
+        <th>№</th><th>Дата</th><th>Получатель</th><th>Тема</th><th>Источник</th><th>Каналы / статус</th><th>Действие</th>
+      </tr></thead>
+      <tbody>{state.items.map(row=><tr key={row.id} className={selectedIds.includes(row.id)?'message-row-selected':''} onDoubleClick={()=>openMessage(row.id)}>
+        <td className="message-select-cell"><input type="checkbox" checked={selectedIds.includes(row.id)} onChange={()=>toggleMessage(row.id)} onClick={e=>e.stopPropagation()} aria-label={`Выбрать ${row.number}`}/></td>
         <td>{row.number}</td>
         <td>{fmt(row.createdAt)}</td>
         <td>{row.recipientName||row.recipientId||'—'}</td>
