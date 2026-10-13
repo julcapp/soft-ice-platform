@@ -59,6 +59,10 @@ const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRout
 const { createPaymentRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: paymentwebhookrouter } = require('./paymentlifecycleroutes');
+const { createMessageCenterRouter } = require('./messageCenterRoutes');
+const { MessageCenterService } = require('../../modules/message_center/MessageCenterService');
+const { createSchedulerRouter } = require('./schedulerRoutes');
+const { SchedulerService } = require('../../modules/scheduler/SchedulerService');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -84,7 +88,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const customerRoleContextService = dependencies.customerRoleContextService || new CustomerRoleContextService({ prisma });
   const serviceSpecialistWorkspaceService = dependencies.serviceSpecialistWorkspaceService || new ServiceSpecialistWorkspaceService({ prisma, specialistDirectory: serviceSpecialistDirectoryService });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService };
+  const messageCenterService = dependencies.messageCenterService || new MessageCenterService({ prisma });
+  const schedulerService = dependencies.schedulerService || new SchedulerService();
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService, messageCenterService, schedulerService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
@@ -108,6 +114,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/catalog', createAdminCatalogRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
   router.use('/admin/payments', adminpaymentrouter(runtimeDependencies));
+  router.use('/admin/message-center', createMessageCenterRouter({ service: messageCenterService, adminAuth: runtimeDependencies.adminAuth || {} }));
+  router.use('/admin/scheduler', createSchedulerRouter({ service: schedulerService, adminAuth: runtimeDependencies.adminAuth || {} }));
   router.use('/webhooks/payments', paymentwebhookrouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseService) router.use('/webhooks/machines', createMachineCallbackRouter(runtimeDependencies));
@@ -116,7 +124,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
   router.use('/telegram', createTelegramRouter(runtimeDependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
   router.use('/admin/promotions', createPromotionAdminRouter(runtimeDependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
@@ -148,3 +156,5 @@ function createApiV1Router(dependencies, { logger } = {}) {
 }
 
 module.exports = { createApiV1Router };
+
+[executed on device: Home-Boss (3edc2642-7822-40ad-8421-dfa47fe2a398)]
