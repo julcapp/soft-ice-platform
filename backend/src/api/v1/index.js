@@ -89,7 +89,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const serviceSpecialistWorkspaceService = dependencies.serviceSpecialistWorkspaceService || new ServiceSpecialistWorkspaceService({ prisma, specialistDirectory: serviceSpecialistDirectoryService });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
   const messageCenterService = dependencies.messageCenterService || new MessageCenterService({ prisma });
-  const schedulerService = dependencies.schedulerService || new SchedulerService();
+  const schedulerService = dependencies.schedulerService || new SchedulerService({ prisma });
   const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService, messageCenterService, schedulerService };
 
   router.use(attachCorrelationId);

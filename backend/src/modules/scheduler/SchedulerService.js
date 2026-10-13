@@ -7,19 +7,12 @@ function nextMonthlyTomsk(now = new Date()) {
   const tomsk = new Date(now.getTime() + TOMSK_OFFSET_MS);
   let year = tomsk.getUTCFullYear();
   let month = tomsk.getUTCMonth() + 1;
-  const currentDay = tomsk.getUTCDate();
-  const currentHour = tomsk.getUTCHours();
-  const currentMinute = tomsk.getUTCMinutes();
-  const alreadyPassed = currentDay > 1 || currentHour > 0 || (currentHour === 0 && currentMinute >= 20);
-  if (alreadyPassed) {
+  const passed = tomsk.getUTCDate() > 1 || tomsk.getUTCHours() > 0 || (tomsk.getUTCHours() === 0 && tomsk.getUTCMinutes() >= 20);
+  if (passed) {
     month += 1;
     if (month === 13) { month = 1; year += 1; }
   }
   return new Date(Date.UTC(year, month - 1, 1, -7, 20, 0, 0)).toISOString();
-}
-
-function nextInterval(now, intervalMs) {
-  return new Date(now.getTime() + intervalMs).toISOString();
 }
 
 function readBackupLog() {
@@ -36,14 +29,60 @@ function readBackupLog() {
 }
 
 class SchedulerService {
-  constructor({ clock = () => new Date() } = {}) {
+  constructor({ clock = () => new Date(), prisma = null } = {}) {
     this.clock = clock;
+    this.prisma = prisma;
+  }
+
+  async runtimeFacts() {
+    if (!this.prisma) return {};
+    const [payment, commands, recovery] = await Promise.all([
+      this.prisma.paymentProviderInbox.aggregate({
+        _max: { processedAt: true, receivedAt: true },
+        _count: { _all: true },
+      }).catch(() => null),
+      this.prisma.transactionalOutboxEvent.groupBy({
+        by: ['status'],
+        where: { eventType: 'MACHINE_COMMAND_QUEUED' },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }).catch(() => []),
+      this.prisma.machineDispenseAttempt.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }).catch(() => []),
+    ]);
+
+    const latest = (rows) => rows.reduce((max, row) => {
+      const value = row?._max?.updatedAt;
+      return value && (!max || value > max) ? value : max;
+    }, null);
+
+    return {
+      payment: {
+        lastActivityAt: payment?._max?.processedAt || payment?._max?.receivedAt || null,
+        processedCount: payment?._count?._all || 0,
+      },
+      commands: {
+        lastActivityAt: latest(commands),
+        publishedCount: commands.find((x) => x.status === 'PUBLISHED')?._count?._all || 0,
+        pendingCount: commands.filter((x) => ['PENDING','PROCESSING','RETRY'].includes(x.status)).reduce((n, x) => n + (x._count?._all || 0), 0),
+        failedCount: commands.find((x) => x.status === 'DEAD_LETTER')?._count?._all || 0,
+      },
+      recovery: {
+        lastActivityAt: latest(recovery),
+        activeCount: recovery.filter((x) => ['DISPATCHING','SENT','ACCEPTED','DISPENSING','TIMED_OUT'].includes(x.status)).reduce((n, x) => n + (x._count?._all || 0), 0),
+        manualReviewCount: recovery.find((x) => x.status === 'RECONCILIATION_REQUIRED')?._count?._all || 0,
+      },
+    };
   }
 
   async list() {
-    const now = this.clock();
     const backup = readBackupLog();
-    const runtimeJob = ({ id, name, category, intervalMs, description }) => ({
+    const facts = await this.runtimeFacts();
+
+    const runtimeJob = ({ id, name, category, intervalMs, description, fact }) => ({
       id,
       name,
       category,
@@ -56,10 +95,10 @@ class SchedulerService {
       readOnly: true,
       description,
       retention: 'Не применяется',
-      lastRunAt: null,
-      lastRunStatus: 'RUNNING',
-      lastRunDetails: [],
-      nextRunAt: nextInterval(now, intervalMs),
+      lastRunAt: fact?.lastActivityAt || null,
+      lastRunStatus: 'ACTIVE',
+      lastRunDetails: fact ? [{ section: 'runtime', status: 'active', ...fact }] : [],
+      nextRunAt: null,
     });
 
     const items = [
@@ -69,6 +108,7 @@ class SchedulerService {
         category: 'PAYMENTS',
         intervalMs: 5000,
         description: 'Проверяет очередь входящих платёжных событий и передаёт их в PaymentService для обработки.',
+        fact: facts.payment,
       }),
       runtimeJob({
         id: 'machine-command-worker',
@@ -76,6 +116,7 @@ class SchedulerService {
         category: 'MACHINES',
         intervalMs: 5000,
         description: 'Забирает подготовленные команды из transactional outbox и передаёт их в контур выдачи аппарата.',
+        fact: facts.commands,
       }),
       runtimeJob({
         id: 'machine-recovery-worker',
@@ -83,6 +124,7 @@ class SchedulerService {
         category: 'MACHINES',
         intervalMs: 15000,
         description: 'Проверяет незавершённые операции выдачи и запускает безопасное восстановление их состояния.',
+        fact: facts.recovery,
       }),
       {
         id: 'monthly-payments-messages-archive',
@@ -100,7 +142,7 @@ class SchedulerService {
         lastRunAt: backup?.at || null,
         lastRunStatus: backup ? 'SUCCESS' : 'NOT_RUN',
         lastRunDetails: backup?.results || [],
-        nextRunAt: nextMonthlyTomsk(now),
+        nextRunAt: nextMonthlyTomsk(this.clock()),
       },
     ];
 
@@ -109,7 +151,7 @@ class SchedulerService {
 
   async get(id) {
     const data = await this.list();
-    const task = data.items.find(item => item.id === id);
+    const task = data.items.find((item) => item.id === id);
     if (!task) {
       const error = new Error('Задача планировщика не найдена.');
       error.statusCode = 404;

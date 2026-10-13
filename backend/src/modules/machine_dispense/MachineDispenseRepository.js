@@ -13,7 +13,7 @@ class MachineDispenseRepository {
     return this.prisma.$queryRaw`
       WITH candidates AS (
         SELECT "id" FROM "MachineDispenseAttempt"
-        WHERE "status" IN ('DISPATCHING','SENT','ACCEPTED','DISPENSING','TIMED_OUT','RECONCILIATION_REQUIRED')
+        WHERE "status" IN ('DISPATCHING','SENT','ACCEPTED','DISPENSING','TIMED_OUT')
           AND ("recoveryLockedAt" IS NULL OR "recoveryLockedAt" < ${expired})
         ORDER BY "updatedAt", "createdAt" FOR UPDATE SKIP LOCKED LIMIT ${Math.min(limit, 500)}
       )

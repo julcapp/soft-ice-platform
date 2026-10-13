@@ -3,7 +3,7 @@ import{EmptyState,ErrorState,Skeleton}from'./components';
 import{getSchedulerTask,listSchedulerTasks}from'./api/schedulerClient';
 
 const fmt=value=>value?new Date(value).toLocaleString('ru-RU',{timeZone:'Asia/Tomsk'}):'—';
-const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',RUNNING:'Выполняется',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
+const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',PARTIAL_FAILURE:'Частично с ошибками',RUNNING:'Выполняется',ACTIVE:'Активен',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
 
 export function SchedulerPage(){
   const[state,setState]=useState({status:'loading',items:[],total:0});
@@ -57,11 +57,17 @@ export function SchedulerPage(){
         <h3>Последний результат</h3>
         {selected.lastRunDetails?.length
           ? <div className="scheduler-results">{selected.lastRunDetails.map(row=><div key={row.section} className="card">
-              <strong>{row.section}</strong>
-              <span>{row.status}</span>
+              <strong>{row.section==='runtime'?'Фактическое состояние':row.section}</strong>
+              <span>{row.status==='active'?'Активен':row.status}</span>
+              {row.processedCount!==undefined?<small>Обработано: {row.processedCount}</small>:null}
+              {row.publishedCount!==undefined?<small>Опубликовано: {row.publishedCount}</small>:null}
+              {row.pendingCount!==undefined?<small>Ожидает: {row.pendingCount}</small>:null}
+              {row.failedCount!==undefined?<small>Ошибок/DEAD_LETTER: {row.failedCount}</small>:null}
+              {row.activeCount!==undefined?<small>В автоматическом recovery: {row.activeCount}</small>:null}
+              {row.manualReviewCount!==undefined?<small>Требует ручной сверки: {row.manualReviewCount}</small>:null}
               {row.zip?<small>{row.zip}</small>:null}
             </div>)}</div>
-          : <p>История запусков появится после первого выполнения задачи.</p>}
+          : <p>Фактическая активность для этой задачи пока не зафиксирована.</p>}
       </section>
     </div>;
   }
