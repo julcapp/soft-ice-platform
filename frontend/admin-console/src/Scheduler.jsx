@@ -3,7 +3,7 @@ import{EmptyState,ErrorState,Skeleton}from'./components';
 import{getSchedulerTask,listSchedulerTasks}from'./api/schedulerClient';
 
 const fmt=value=>value?new Date(value).toLocaleString('ru-RU',{timeZone:'Asia/Tomsk'}):'—';
-const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',RUNNING:'Выполняется',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
+const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',PARTIAL_FAILURE:'Частично с ошибками',RUNNING:'Выполняется',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
 
 export function SchedulerPage(){
   const[state,setState]=useState({status:'loading',items:[],total:0});
