@@ -15,7 +15,7 @@ class AdminNotificationCenterService {
     const staleConnectivityBefore = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [financial, renewals, publications, machineStates, dispenseStuck, dispenseFailed, connectivity, lowStock, receipts] = await Promise.all([
-      this.prisma.$queryRawUnsafe(`SELECT "id","alertKey","reportDate","alertType","severity","title","message","deepLink","status","firstDetectedAt","lastDetectedAt","resolvedAt" FROM "FinancialOpsAlert" WHERE "status"='OPEN' ORDER BY CASE "severity" WHEN 'CRITICAL' THEN 0 ELSE 1 END,"lastDetectedAt" DESC LIMIT $1`, safeLimit),
+      this.prisma.$queryRawUnsafe(`SELECT "id","alertKey","reportDate","alertType","severity","title","body","actionHref","status","detectedAt","lastSeenAt","resolvedAt" FROM "FinancialOpsAlert" WHERE "status"='OPEN' ORDER BY CASE "severity" WHEN 'CRITICAL' THEN 0 ELSE 1 END,"lastSeenAt" DESC LIMIT $1`, safeLimit),
       this.prisma.$queryRawUnsafe(`SELECT a."id",a."status",a."failureCode",a."failureMessage",a."attemptCount",a."updatedAt",p."channelType",p."name" AS "planName",c."name" AS "customerName" FROM "PrivateChannelRenewalAttempt" a JOIN "PrivateChannelSubscription" s ON s."id"=a."subscriptionId" JOIN "PrivateChannelPlan" p ON p."id"=s."planId" JOIN "Customer" c ON c."id"=a."customerId" WHERE a."status" IN ('FAILED','EXHAUSTED') ORDER BY CASE WHEN a."status"='EXHAUSTED' THEN 0 ELSE 1 END,a."updatedAt" DESC LIMIT $1`, safeLimit),
       this.prisma.$queryRawUnsafe(`SELECT "id","photoChallengeId","channel","status","errorCode","errorMessage","lastAttemptAt","updatedAt" FROM "PhotoPublication" WHERE LOWER("status")='failed' ORDER BY COALESCE("lastAttemptAt","updatedAt") DESC LIMIT $1`, safeLimit),
       this.prisma.$queryRawUnsafe(`SELECT "id","machineCode","name","location","status","updatedAt" FROM "Machine" WHERE "status" IN ('OFFLINE','ERROR') ORDER BY CASE "status" WHEN 'ERROR' THEN 0 ELSE 1 END,"updatedAt" DESC LIMIT $1`, safeLimit),
@@ -28,7 +28,7 @@ class AdminNotificationCenterService {
 
     const readMap = new Map(receipts.map((row) => [row.notificationKey, row.readAt]));
     const items = [
-      ...financial.map((row) => ({ key: `financial:${row.alertKey}`, source: 'FINANCIAL', severity: row.severity || 'WARNING', title: row.title, message: row.message, deepLink: row.deepLink || '#business-analytics', occurredAt: row.lastDetectedAt || row.firstDetectedAt, referenceId: row.id })),
+      ...financial.map((row) => ({ key: `financial:${row.alertKey}`, source: 'FINANCIAL', severity: row.severity || 'WARNING', title: row.title, message: row.body, deepLink: row.actionHref || '#business-analytics', occurredAt: row.lastSeenAt || row.detectedAt, referenceId: row.id })),
       ...renewals.map((row) => ({ key: `private-renewal:${row.id}:${row.status}`, source: 'PRIVATE_CHANNEL', severity: row.status === 'EXHAUSTED' ? 'CRITICAL' : 'WARNING', title: `${row.channelType || 'Канал'}: проблема автопродления`, message: row.failureMessage || row.failureCode || `Попыток: ${Number(row.attemptCount || 0)}`, deepLink: '#private-channel-recovery', occurredAt: row.updatedAt, referenceId: row.id })),
       ...publications.map((row) => ({ key: `photo-publication:${row.id}:failed`, source: 'PHOTO_PUBLICATION', severity: 'WARNING', title: `Ошибка публикации ${row.channel}`, message: row.errorMessage || row.errorCode || 'Публикация не выполнена.', deepLink: '#photo-verification', occurredAt: row.lastAttemptAt || row.updatedAt, referenceId: row.photoChallengeId })),
       ...machineStates.map((row) => machineStateItem(row)),
@@ -89,3 +89,5 @@ function formatNumber(value) { return Number(value || 0).toLocaleString('ru-RU',
 function severityRank(value) { return value === 'CRITICAL' ? 0 : value === 'WARNING' ? 1 : 2; }
 function badRequest(code, message) { const error = new Error(message); error.code = code; error.statusCode = 400; return error; }
 module.exports = { AdminNotificationCenterService };
+
+[executed on device: Home-Boss (3edc2642-7822-40ad-8421-dfa47fe2a398)]
