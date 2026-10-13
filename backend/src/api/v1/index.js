@@ -124,7 +124,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
   router.use('/telegram', createTelegramRouter(runtimeDependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
   router.use('/admin/promotions', createPromotionAdminRouter(runtimeDependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
