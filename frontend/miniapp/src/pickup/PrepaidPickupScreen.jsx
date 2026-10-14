@@ -30,19 +30,32 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
     return () => window.clearTimeout(timer);
   }, [state.status, state.attemptId, machineId]);
 
-  const redeem = async () => {
-    if (code.length !== 6 || state.status === 'checking') return;
+  const submitPickup = async ({ codeValue = null, qrPayload = null } = {}) => {
+    if (state.status === 'checking' || !machineId) return;
+    if (!qrPayload && String(codeValue || '').length !== 6) return;
     setState({ status: 'checking', attemptId: null, error: null });
     controller.current?.abort();
     const next = new AbortController(); controller.current = next;
     try {
-      const result = await redeemPickupCode({ machineId, code, signal: next.signal });
+      const result = await redeemPickupCode({ machineId, code: codeValue, qrPayload, signal: next.signal });
       setCode('');
       setState({ status: 'transmitting', attemptId: result.dispenseAttemptId, error: null });
     } catch (error) {
       if (error?.name !== 'AbortError') setState({ status: 'input', attemptId: null, error: pickupError(error?.code) });
     }
   };
+
+  const redeem = () => submitPickup({ codeValue: code });
+
+  useEffect(() => {
+    const onQrEvent = (event) => submitPickup({ qrPayload: event?.detail?.payload || event?.detail || null });
+    window.softIcePickupQrScan = (payload) => submitPickup({ qrPayload: payload });
+    window.addEventListener('softice:pickup-qr', onQrEvent);
+    return () => {
+      window.removeEventListener('softice:pickup-qr', onQrEvent);
+      if (window.softIcePickupQrScan) delete window.softIcePickupQrScan;
+    };
+  }, [machineId, state.status]);
 
   if (state.status === 'transmitting') return <section className="display-prepaid"><div className="display-spinner" /><p className="display-kicker">Оплаченный заказ</p><h1>Передаём заказ аппарату</h1><p>Оплата подтверждена. Повторно оплачивать ничего не нужно.</p></section>;
   if (state.status === 'preparing') return <section className="display-prepaid"><div className="display-spinner" /><p className="display-kicker">Оплаченный заказ</p><h1>Ваше мороженое готовится</h1><p>Пожалуйста, дождитесь завершения приготовления.</p></section>;
@@ -54,7 +67,7 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
     <div className="display-prepaid-icon" aria-hidden="true">⌁</div>
     <p className="display-kicker">Оплаченный заказ</p>
     <h1>Введите код получения</h1>
-    <p>Код из 6 цифр показан в Mini App после подтверждённой оплаты.</p>
+    <p>Введите 6-значный код из Mini App или покажите QR-код сканеру аппарата.</p>
     <output className="pickup-code-output" aria-label="Код получения">{code.padEnd(6, '•').split('').join(' ')}</output>
     <div className="display-keys pickup-keys">{keys.map((key) => <button key={key} type="button" onClick={() => setCode(digits(code + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => setCode(code.slice(0,-1))}>⌫</button></div>
     {state.error ? <p className="display-boundary-note" role="alert">{state.error}</p> : null}

@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const QRCode = require('../../vendor/qrcode.bundle.js');
 
 const PICKUP_TTL_MS = 48 * 60 * 60 * 1000;
 const PICKUP_CODE_TTL_MS = 5 * 60 * 1000;
@@ -27,17 +28,26 @@ class PrepaidPickupService {
     const codeExpiresAt = new Date(Math.min(orderExpiresAt.getTime(), now.getTime() + PICKUP_CODE_TTL_MS));
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const codeHash = hashCode(code, codeExpiresAt);
+    const qrPayload = 'UTP1:' + order.id + ':' + code;
+    const qrSvg = await QRCode.toString(qrPayload, { type: 'svg', margin: 1, width: 320, errorCorrectionLevel: 'M' });
+    const qrDataUrl = 'data:image/svg+xml;base64,' + Buffer.from(qrSvg, 'utf8').toString('base64');
     await this.prisma.order.update({ where: { id: order.id }, data: { activePickupCodeHash: codeHash, expiresAt: orderExpiresAt } });
-    return { orderId: order.id, machineId: flow.machineId || order.machineId, code, expiresAt: codeExpiresAt, orderExpiresAt, amount: Number(order.amountPaidRub ?? order.amount), currency: order.currency || 'RUB' };
+    return { orderId: order.id, machineId: flow.machineId || order.machineId, code, qrPayload, qrDataUrl, expiresAt: codeExpiresAt, orderExpiresAt, amount: Number(order.amountPaidRub ?? order.amount), currency: order.currency || 'RUB' };
   }
 
-  async redeem({ machineId, code }, context = {}) {
+  async redeem({ machineId, code, qrPayload }, context = {}) {
     this.assertRedeemRate(machineId, context.rateKey || 'anonymous');
-    const normalizedCode = String(code || '').replace(/\D/g, '');
+    let expectedOrderId = null;
+    let normalizedCode = String(code || '').replace(/\D/g, '');
+    if (qrPayload) {
+      const parsed = parseQrPayload(qrPayload);
+      expectedOrderId = parsed.orderId;
+      normalizedCode = parsed.code;
+    }
     if (!machineId) throw problem('PICKUP_MACHINE_REQUIRED', 'Не указан аппарат.', 400);
     if (!/^\d{6}$/.test(normalizedCode)) throw problem('PICKUP_CODE_INVALID', 'Введите 6 цифр кода.', 400);
     const now = this.clock();
-    const candidates = await this.prisma.order.findMany({ where: { machineId, status: 'PAID', paymentStatus: 'paid', activePickupCodeHash: { not: null }, expiresAt: { gt: now } }, take: 100 });
+    const candidates = await this.prisma.order.findMany({ where: { ...(expectedOrderId ? { id: expectedOrderId } : {}), machineId, status: 'PAID', paymentStatus: 'paid', activePickupCodeHash: { not: null }, expiresAt: { gt: now } }, take: 100 });
     const matches = candidates.filter((row) => verifyCode(normalizedCode, row.activePickupCodeHash, now));
     if (matches.length === 0) throw problem('PICKUP_CODE_NOT_FOUND', 'Код не найден, истёк или уже использован.', 404);
     if (matches.length > 1) throw problem('PICKUP_CODE_AMBIGUOUS', 'Код требует перевыпуска в Mini App.', 409);
@@ -101,6 +111,12 @@ function verifyCode(code, encoded, now = new Date()) {
   } catch { return false; }
 }
 
+function parseQrPayload(payload) {
+  const match = /^UTP1:([0-9a-f-]{36}):(\d{6})$/i.exec(String(payload || '').trim());
+  if (!match) throw problem('PICKUP_QR_INVALID', 'QR-код заказа недействителен.', 400);
+  return { orderId: match[1].toLowerCase(), code: match[2] };
+}
+
 function problem(code, message, statusCode = 409) { return Object.assign(new Error(message), { code, statusCode, source: 'prepaid_pickup' }); }
 
-module.exports = { PrepaidPickupService, PICKUP_TTL_MS, hashCode, verifyCode };
+module.exports = { PrepaidPickupService, PICKUP_TTL_MS, hashCode, verifyCode, parseQrPayload };

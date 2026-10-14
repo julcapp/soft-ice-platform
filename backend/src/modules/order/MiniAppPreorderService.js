@@ -84,6 +84,14 @@ class MiniAppPreorderService {
     });
   }
 
+  async recent(customer) {
+    assertCustomerAccess(customer, this.clock());
+    const paid = await this.prisma.order.findFirst({ where: { customerId: customer.id, machineId: 'TEST-MACHINE-001', status: 'PAID', paymentStatus: 'paid', expiresAt: { gt: this.clock() } }, orderBy: { paidAt: 'desc' } });
+    if (paid) return { orderId: paid.id, status: paid.status, paymentStatus: paid.paymentStatus, expiresAt: paid.expiresAt };
+    const pending = await this.prisma.order.findFirst({ where: { customerId: customer.id, machineId: 'TEST-MACHINE-001', status: 'PAYMENT_PENDING' }, orderBy: { createdAt: 'desc' } });
+    return pending ? { orderId: pending.id, status: pending.status, paymentStatus: pending.paymentStatus, expiresAt: pending.expiresAt } : null;
+  }
+
   async own(customer, orderId) {
     assertCustomerAccess(customer, this.clock());
     const order = await this.prisma.order.findFirst({ where: { id: orderId, customerId: customer.id } });
@@ -109,7 +117,7 @@ class MiniAppPreorderService {
     }
     const result = await this.paymentCheckoutService.initiate({ organizationId: flow.organizationId,
       orderId, saleFlowId: flow.flowId, provider: 'YOOKASSA', channel: 'MINIAPP', method: 'bank_card',
-      idempotencyKey: `miniapp-payment:${orderId}`, returnUrl: 'https://miniapp.utimoshi.ru/preorder-test.html',
+      idempotencyKey: `miniapp-payment:${orderId}`, returnUrl: 'https://miniapp.utimoshi.ru/preorder-return.html',
       description: 'Предзаказ «У Тимоши»', metadata: { fulfillmentMode: 'PICKUP' } });
     return { orderId, paymentId: result.payment.id, confirmationUrl: result.confirmationUrl, status: result.status };
   }

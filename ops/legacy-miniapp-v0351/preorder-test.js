@@ -46,7 +46,7 @@
         const key = `miniapp:${state.quote.id}`;
         const order = await api('orders', { quoteId: state.quote.id, idempotencyKey: key });
         state.orderId = order.id;
-        sessionStorage.setItem('softice_shared_preorder', order.id);
+        localStorage.setItem('softice_shared_preorder', order.id);
       }
       const payment = await api(`orders/${state.orderId}/payment`);
       const url = new URL(payment.confirmationUrl);
@@ -70,7 +70,7 @@
         if (['NOT_STARTED', 'CREATED', 'PENDING', 'AUTHORIZED'].includes(result.paymentStatus)) {
           const button = document.createElement('button'); button.textContent = 'Открыть оплату этого заказа'; button.onclick = () => { state.busy = false; pay(); }; app.append(button);
         } else {
-          const button = document.createElement('button'); button.textContent = 'Вернуться к выбору'; button.onclick = () => { sessionStorage.removeItem('softice_shared_preorder'); state.orderId = null; state.busy = false; load(); }; app.append(button);
+          const button = document.createElement('button'); button.textContent = 'Вернуться к выбору'; button.onclick = () => { localStorage.removeItem('softice_shared_preorder'); state.orderId = null; state.busy = false; load(); }; app.append(button);
         }
       }
     } catch (error) { notice(error.message); }
@@ -80,14 +80,25 @@
       const result = await api(`orders/${state.orderId}/pickup-code`);
       app.innerHTML = `<h1>Код получения</h1><p class="pickup-code-value">${esc(result.code)}</p>
         <p>Введите этот код на экране аппарата «Получить оплаченный заказ».</p>
+        <p>Или покажите QR-код сканеру аппарата.</p>
         <p>Код действует до ${esc(new Date(result.expiresAt).toLocaleString('ru-RU'))}.</p>
+        <button id="show-qr">Показать QR-код</button>
+        <div id="pickup-qr" hidden><img alt="QR-код получения заказа" src="${esc(result.qrDataUrl)}" style="max-width:320px;width:82vw;height:auto;background:#fff;padding:12px;border-radius:18px" /></div>
         <button id="refresh-code">Получить новый код</button>`;
+      document.getElementById('show-qr').onclick = () => { const box = document.getElementById('pickup-qr'); box.hidden = !box.hidden; document.getElementById('show-qr').textContent = box.hidden ? 'Показать QR-код' : 'Скрыть QR-код'; };
       document.getElementById('refresh-code').onclick = activatePickupCode;
     } catch (error) { notice(error.message); }
   }
   async function load() {
     try {
-      state.orderId = sessionStorage.getItem('softice_shared_preorder');
+      state.orderId = localStorage.getItem('softice_shared_preorder');
+      if (!state.orderId) {
+        const recent = await api('orders/recent');
+        if (recent?.orderId) {
+          state.orderId = recent.orderId;
+          localStorage.setItem('softice_shared_preorder', recent.orderId);
+        }
+      }
       if (state.orderId) return checkStatus();
       state.catalog = await api('catalog');
       state.toppingId = state.catalog.toppings.find(x => x.systemItem && x.available)?.id;

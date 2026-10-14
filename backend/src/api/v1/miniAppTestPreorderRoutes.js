@@ -75,6 +75,9 @@ function createMiniAppTestPreorderRouter(dependencies) {
   router.post('/quote', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().quote(req.preorderCustomer, { ...req.body, machineId: 'TEST-MACHINE-001' }));
   }));
+  router.post('/orders/recent', asyncHandler(async (req, res) => {
+    sendData(res, req, await getService().recent(req.preorderCustomer));
+  }));
   router.post('/orders', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().create(req.preorderCustomer, req.body), 201);
   }));
@@ -87,7 +90,7 @@ function createMiniAppTestPreorderRouter(dependencies) {
   router.post('/orders/:id/pickup-code', asyncHandler(async (req, res) => {
     if (!dependencies.prepaidPickupService) throw fail('PICKUP_SERVICE_UNAVAILABLE', 'Сервис получения заказа недоступен.', 503);
     const result = await dependencies.prepaidPickupService.issueCode(req.preorderCustomer.id, req.params.id);
-    sendData(res, req, { orderId: result.orderId, machineId: result.machineId, code: result.code, expiresAt: result.expiresAt, orderExpiresAt: result.orderExpiresAt, amount: result.amount, currency: result.currency });
+    sendData(res, req, { orderId: result.orderId, machineId: result.machineId, code: result.code, qrPayload: result.qrPayload, qrDataUrl: result.qrDataUrl, expiresAt: result.expiresAt, orderExpiresAt: result.orderExpiresAt, amount: result.amount, currency: result.currency });
   }));
   return router;
 }

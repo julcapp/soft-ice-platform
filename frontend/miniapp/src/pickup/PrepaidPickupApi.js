@@ -22,11 +22,11 @@ async function request(url, options = {}) {
 export async function issuePickupCode(orderId, { signal } = {}) {
   const data = await request(`/api/v1/orders/${encodeURIComponent(orderId)}/pickup-code`, { method: 'POST', signal });
   const a = data?.attributes || {};
-  return { orderId: a.order_id, machineId: a.machine_id, code: a.code, expiresAt: a.expires_at, amount: a.amount, currency: a.currency };
+  return { orderId: a.order_id, machineId: a.machine_id, code: a.code, qrPayload: a.qr_payload, qrDataUrl: a.qr_data_url, expiresAt: a.expires_at, amount: a.amount, currency: a.currency };
 }
 
-export async function redeemPickupCode({ machineId, code, signal } = {}) {
-  const data = await request('/api/v1/orders/pickup/redeem', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineId, code }) });
+export async function redeemPickupCode({ machineId, code, qrPayload, signal } = {}) {
+  const data = await request('/api/v1/orders/pickup/redeem', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineId, code, qrPayload }) });
   const a = data?.attributes || {};
   return { orderId: a.order_id, machineId: a.machine_id, amount: a.amount, currency: a.currency, dispenseAttemptId: a.dispense_attempt_id, dispenseStatus: a.dispense_status, duplicate: Boolean(a.duplicate) };
 }

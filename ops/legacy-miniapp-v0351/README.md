@@ -1,16 +1,21 @@
 # Mini App v0.35.1 production bridge
 
-Current production host: `miniapp.utimoshi.ru`.
+Production: `miniapp.utimoshi.ru` → nginx → `127.0.0.1:8780` → `soft-ice-miniapp.service`.
 
-Nginx proxies to `127.0.0.1:8780`, served by systemd unit `soft-ice-miniapp.service`.
-
-Runtime release directory:
-
+Runtime directory:
 `/home/julcapp/soft-ice-platform/releases/v0.35.1/work_v0.35.1`
 
-The files in this directory are source-control snapshots of the production bridge modified for the shared PostgreSQL preorder/pickup flow:
+Tracked snapshots:
+- `server.py` — Mini App HTTP service and public-route whitelist.
+- `shared_preorder_proxy.py` — allowlisted proxy to backend `/api/v1/miniapp-test-preorders`.
+- `preorder-test.js` — shared PostgreSQL preorder/pickup UI.
+- `preorder-return.html` — YooKassa browser return page; it never requires Telegram initData.
 
-- `shared_preorder_proxy.py` — allowlisted proxy from the legacy Mini App to `/api/v1/miniapp-test-preorders`.
-- `preorder-test.js` — test preorder UI; after SUCCEEDED it keeps the order for 48 hours and issues a 5-minute pickup code only when the buyer presses “Я у аппарата — получить код”.
+Preorder behavior:
+- paid order is valid for 48 hours;
+- ingredients are not reserved for 48 hours;
+- when the buyer is at the machine, Mini App issues a one-time pickup code valid for 5 minutes;
+- the same credential can be shown as a QR code;
+- order recovery uses backend `orders/recent` plus localStorage, so leaving Telegram for YooKassa does not lose the paid order.
 
-The authoritative order/payment/pickup state is held by the backend/PostgreSQL contour. Do not reintroduce local demo pickup codes for this shared flow.
+The authoritative state is PostgreSQL/backend. Do not reintroduce local demo pickup codes.
