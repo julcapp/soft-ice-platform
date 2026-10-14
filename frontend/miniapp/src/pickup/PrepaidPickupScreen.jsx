@@ -136,28 +136,45 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
   if (state.status === 'error') return <section className="display-prepaid"><div className="display-prepaid-icon">!</div><p className="display-kicker">Нужна проверка</p><h1>Не удалось завершить выдачу</h1><p>{state.error}</p><button className="display-primary" type="button" onClick={onDone}>Завершить</button></section>;
 
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
-  return <section className="display-prepaid">
-    <div className="display-prepaid-icon" aria-hidden="true">⌁</div>
-    <p className="display-kicker">Оплаченный заказ</p>
-    <h1>Получите оплаченный заказ</h1>
-    <p>Если вы уже у аппарата, нажмите «Я тут» и покажите QR-код из Mini App камере.</p>
-
-    <button className="display-primary pickup-camera-start" type="button" onClick={camera.status === 'active' ? stopCamera : startCamera} disabled={camera.status === 'starting'}>
-      {camera.status === 'starting' ? 'Включаем камеру…' : camera.status === 'active' ? 'Выключить камеру' : 'Я тут — включить камеру'}
-    </button>
-
-    <div className={`pickup-camera-shell ${camera.status === 'active' ? 'is-active' : ''}`}>
-      <video ref={videoRef} className="pickup-camera-video" muted playsInline aria-label="Камера для QR-кода" />
-      {camera.status === 'active' ? <div className="pickup-camera-frame" aria-hidden="true" /> : null}
-      {camera.status === 'active' ? <p className="pickup-camera-hint">Покажите QR-код из Mini App перед камерой</p> : null}
+  return <section className="display-prepaid pickup-screen">
+    <div className="pickup-screen-heading">
+      <p className="display-kicker">Оплаченный заказ</p>
+      <h1>Получите своё мороженое</h1>
+      <p>Покажите QR-код из Mini App камере или введите 6-значный код вручную.</p>
     </div>
-    {camera.error ? <p className="display-boundary-note" role="alert">{camera.error}</p> : null}
 
-    <div className="pickup-manual-divider"><span>или введите 6-значный код</span></div>
-    <output className="pickup-code-output" aria-label="Код получения">{code.padEnd(6, '•').split('').join(' ')}</output>
-    <div className="display-keys pickup-keys">{keys.map((key) => <button key={key} type="button" onClick={() => setCode(digits(code + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => setCode(code.slice(0,-1))}>⌫</button></div>
-    {state.error ? <p className="display-boundary-note" role="alert">{state.error}</p> : null}
-    <div className="display-phone-actions"><button className="display-secondary" type="button" onClick={() => { stopCamera(); onBack(); }}>Назад</button><button className="display-primary" type="button" disabled={code.length !== 6 || state.status === 'checking'} onClick={redeem}>{state.status === 'checking' ? 'Проверяем…' : 'Получить заказ по коду'}</button></div>
+    <div className="pickup-layout">
+      <div className="pickup-manual-panel">
+        <h2>Введите 6 цифр</h2>
+        <output className="pickup-code-output" aria-label="Код получения">{code.padEnd(6, '•').split('').join(' ')}</output>
+        <div className="display-keys pickup-keys">{keys.map((key) => <button key={key} type="button" onClick={() => setCode(digits(code + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => setCode(code.slice(0,-1))}>⌫</button></div>
+        {state.error ? <p className="display-boundary-note" role="alert">{state.error}</p> : null}
+        <button className="display-primary pickup-code-submit" type="button" disabled={code.length !== 6 || state.status === 'checking'} onClick={redeem}>
+          {state.status === 'checking' ? 'Проверяем…' : 'Получить по коду'}
+        </button>
+      </div>
+
+      <div className="pickup-camera-panel">
+        <h2>Покажите QR-код</h2>
+        <div className={`pickup-camera-shell ${camera.status === 'active' ? 'is-active' : ''}`}>
+          <video ref={videoRef} className="pickup-camera-video" muted playsInline aria-label="Камера для QR-кода" />
+          {camera.status !== 'active' ? <div className="pickup-camera-placeholder"><span>QR</span><p>Нажмите «Я тут», чтобы включить камеру</p></div> : null}
+          {camera.status === 'active' ? <div className="pickup-camera-frame" aria-hidden="true" /> : null}
+          {camera.status === 'active' ? <p className="pickup-camera-hint">Держите QR внутри рамки — камера считает его сама</p> : null}
+        </div>
+        <p className="pickup-camera-status">
+          {camera.status === 'active' ? 'Камера включена · ищем QR-код автоматически' : camera.status === 'starting' ? 'Включаем камеру…' : camera.status === 'error' ? 'Камера недоступна' : 'Камера готова к запуску'}
+        </p>
+        <button className="display-primary pickup-camera-start" type="button" onClick={camera.status === 'active' ? stopCamera : startCamera} disabled={camera.status === 'starting'}>
+          {camera.status === 'starting' ? 'Включаем камеру…' : camera.status === 'active' ? 'Выключить камеру' : 'Я тут — включить камеру'}
+        </button>
+        {camera.error ? <p className="display-boundary-note" role="alert">{camera.error}</p> : null}
+      </div>
+    </div>
+
+    <div className="display-phone-actions pickup-footer-actions">
+      <button className="display-secondary" type="button" onClick={() => { stopCamera(); onBack(); }}>Назад</button>
+    </div>
   </section>;
 }
 

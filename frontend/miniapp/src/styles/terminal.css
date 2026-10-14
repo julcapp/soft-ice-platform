@@ -1297,3 +1297,204 @@
   .pickup-camera-frame{inset:14% 16%}
   .pickup-camera-hint{white-space:normal;width:88%;text-align:center}
 }
+
+/* === PREPAID PICKUP ADAPTIVE CAMERA LAYOUT 2026-10-14 === */
+.pickup-screen{
+  width:min(1260px,96vw);
+  margin:0 auto;
+  padding:6px 0 18px;
+}
+.pickup-screen-heading{
+  width:min(980px,94vw);
+  margin:0 auto 14px;
+  text-align:center;
+}
+.pickup-screen-heading h1{
+  margin:4px 0 8px;
+  font-size:clamp(42px,4.4vw,72px);
+  line-height:.98;
+  letter-spacing:-.04em;
+}
+.pickup-screen-heading>p:last-child{
+  margin:0 auto;
+  max-width:860px;
+  font-size:clamp(18px,1.45vw,24px);
+  line-height:1.32;
+  color:var(--display-muted);
+}
+.pickup-layout{
+  display:grid;
+  grid-template-columns:minmax(360px,.92fr) minmax(420px,1.08fr);
+  gap:clamp(28px,3vw,52px);
+  align-items:start;
+  width:min(1180px,94vw);
+  margin:18px auto 0;
+}
+.pickup-manual-panel,
+.pickup-camera-panel{
+  min-width:0;
+}
+.pickup-manual-panel h2,
+.pickup-camera-panel h2{
+  margin:0 0 12px;
+  text-align:center;
+  font-size:clamp(24px,2vw,34px);
+  line-height:1.1;
+}
+.pickup-code-output{
+  min-width:0!important;
+  width:100%!important;
+  max-width:520px;
+  min-height:88px;
+  margin:0 auto 12px!important;
+  padding:14px 18px!important;
+  display:grid!important;
+  place-items:center;
+  font-size:clamp(38px,4vw,62px)!important;
+}
+.pickup-keys{
+  width:min(100%,520px)!important;
+  margin:0 auto!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px!important;
+}
+.pickup-keys button{
+  min-height:64px!important;
+  font-size:clamp(28px,2.5vw,40px)!important;
+  border-radius:18px!important;
+}
+.pickup-code-submit{
+  display:block;
+  width:min(100%,520px);
+  min-height:62px;
+  margin:14px auto 0;
+}
+.pickup-camera-panel{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.pickup-camera-shell{
+  position:relative;
+  display:block!important;
+  width:min(470px,100%)!important;
+  aspect-ratio:1/1!important;
+  margin:0 auto!important;
+  border-radius:28px;
+  overflow:hidden;
+  background:#171717;
+  border:3px solid rgba(30,143,99,.18);
+  box-shadow:0 16px 46px rgba(42,36,31,.10);
+}
+.pickup-camera-shell.is-active{
+  border-color:rgba(30,143,99,.72);
+}
+.pickup-camera-video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  background:#171717;
+}
+.pickup-camera-placeholder{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:14px;
+  padding:32px;
+  text-align:center;
+  color:#fff;
+  background:radial-gradient(circle at 50% 42%,rgba(30,143,99,.20),rgba(0,0,0,.08) 42%,rgba(0,0,0,.36));
+}
+.pickup-camera-placeholder span{
+  width:112px;
+  height:112px;
+  display:grid;
+  place-items:center;
+  border:4px solid rgba(255,255,255,.92);
+  border-radius:22px;
+  font-size:34px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.pickup-camera-placeholder p{
+  margin:0;
+  max-width:310px;
+  color:#fff;
+  font-size:20px;
+  font-weight:800;
+  line-height:1.25;
+}
+.pickup-camera-frame{
+  position:absolute!important;
+  inset:13%!important;
+  border:4px solid #fff!important;
+  border-radius:24px!important;
+  box-shadow:0 0 0 999px rgba(0,0,0,.22),0 0 0 5px rgba(30,143,99,.68) inset!important;
+}
+.pickup-camera-hint{
+  bottom:18px!important;
+  width:82%!important;
+  white-space:normal!important;
+  text-align:center!important;
+  font-size:16px;
+}
+.pickup-camera-status{
+  min-height:26px;
+  margin:12px 0 8px;
+  color:var(--display-muted);
+  font-size:16px;
+  font-weight:750;
+  text-align:center;
+}
+.pickup-camera-start{
+  width:min(470px,100%)!important;
+  min-width:0!important;
+  min-height:62px;
+  margin:0 auto!important;
+}
+.pickup-footer-actions{
+  justify-content:flex-start!important;
+  width:min(1180px,94vw)!important;
+  margin:14px auto 0!important;
+}
+.pickup-footer-actions .display-secondary{
+  min-width:180px;
+}
+@media (orientation:landscape) and (max-height:820px){
+  .pickup-screen-heading h1{font-size:clamp(36px,3.8vw,58px)}
+  .pickup-screen-heading{margin-bottom:8px}
+  .pickup-layout{margin-top:8px;gap:28px}
+  .pickup-camera-shell{width:min(390px,100%)!important}
+  .pickup-code-output{min-height:70px;font-size:clamp(34px,3.5vw,52px)!important}
+  .pickup-keys button{min-height:54px!important}
+  .pickup-code-submit,.pickup-camera-start{min-height:54px}
+  .pickup-camera-status{margin:8px 0 6px}
+}
+@media (max-width:900px), (orientation:portrait){
+  .pickup-screen{
+    width:min(760px,94vw);
+  }
+  .pickup-layout{
+    grid-template-columns:1fr;
+    width:100%;
+    gap:30px;
+  }
+  .pickup-camera-panel{
+    order:-1;
+  }
+  .pickup-camera-shell{
+    width:min(520px,88vw)!important;
+  }
+  .pickup-manual-panel{
+    width:min(560px,92vw);
+    margin:0 auto;
+  }
+  .pickup-footer-actions{
+    width:min(560px,92vw)!important;
+  }
+}
