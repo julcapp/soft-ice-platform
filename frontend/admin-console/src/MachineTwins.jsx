@@ -3,6 +3,7 @@ import { getMachineTwin, getMachineConnectivity, listMachineTwins } from './api/
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from './components';
 import { ComponentList, ConnectivityCard, FaultTimeline, FreshnessIndicator, MachineTwinCard, MachineTwinDiagram, PredictionSummaryCard, SnapshotHistory, SourceStatusPanel, TwinSummaryPanel } from './machineTwinComponents';
 import { CameraSurveillancePanel } from './VideoSurveillance';
+import { MachineSettingsPanel } from './MachineSettings';
 import { EventFeed } from './EventCenter';
 
 export function MachineTwinsList({ data, onOpen }) {
@@ -17,11 +18,12 @@ export function MachineTwinDetail({ twin, section = 'overview' }) {
     snapshots: <SnapshotHistory snapshots={twin.snapshots || []} />,
     health: <><ComponentList components={twin.components} /><PredictionSummaryCard prediction={twin.predictionSummary} /></>,
     camera: <CameraSurveillancePanel machineId={twin.machineId} />,
+    settings: <MachineSettingsPanel machineId={twin.machineId} />,
   };
   return <div className="dashboard">{twin.dataMode === 'DEMO' && <div className="demo-marker"><StatusBadge status="DEMO" /> Симулятор автомата · сформировано {new Date(twin.generatedAt).toLocaleString('ru-RU')}</div>}<DetailTabs machineId={twin.machineId} />{sections[section] || sections.overview}</div>;
 }
 function Identity({ twin }) { return <section className="card"><div className="card-heading"><h2>Идентификация автомата</h2><StatusBadge status={twin.operationalStatus} /></div><dl className="identity-list"><dt>Название</dt><dd>{twin.name}</dd><dt>Внешний идентификатор</dt><dd>{twin.externalMachineId || '—'}</dd><dt>Модель</dt><dd>{twin.model || '—'}</dd><dt>Серийный номер</dt><dd>{twin.serialNumber || '—'}</dd><dt>Расположение</dt><dd>{twin.location || '—'}</dd><dt>Последний сигнал</dt><dd>{twin.lastHeartbeatAt ? new Date(twin.lastHeartbeatAt).toLocaleString('ru-RU') : 'Недоступно'}</dd><dt>Меню / цена</dt><dd>{twin.currentMenu?.name || 'Недоступно'} · {twin.activePrice ? `${twin.activePrice.amount} ${twin.activePrice.currency}` : 'Недоступно'}</dd><dt>Реклама</dt><dd>{twin.activeAdvertisingPlacement?.name || 'Только базовая реализация'}</dd><dt>Назначенный оператор</dt><dd>{twin.assignedOperator?.name || 'Не назначен'}</dd><dt>Последний тест</dt><dd>{twin.recentTestRuns?.[0]?.status || 'Недоступно'}</dd></dl></section>; }
-function DetailTabs({ machineId }) { const sections = { overview: 'Обзор', components: 'Компоненты', events: 'События', snapshots: 'Снимки', health: 'Состояние', camera: 'Камера и видеонаблюдение' }; return <nav className="detail-tabs" aria-label="Разделы цифрового двойника">{Object.entries(sections).map(([section, label]) => <a key={section} href={`#machine-twins/${machineId}/${section}`}>{label}</a>)}</nav>; }
+function DetailTabs({ machineId }) { const sections = { overview: 'Обзор', components: 'Компоненты', events: 'События', snapshots: 'Снимки', health: 'Состояние', settings: 'Настройка аппарата', camera: 'Камера и видеонаблюдение' }; return <nav className="detail-tabs" aria-label="Разделы цифрового двойника">{Object.entries(sections).map(([section, label]) => <a key={section} href={`#machine-twins/${machineId}/${section}`}>{label}</a>)}</nav>; }
 export function MachineTwinsPage({ listClient = listMachineTwins, detailClient = getMachineTwin, connectivityClient = getMachineConnectivity, route = 'machine-twins' }) {
   const [state, setState] = useState({ status: 'loading' });
   const [, machineId, section = 'overview'] = route.split('/');

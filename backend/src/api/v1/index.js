@@ -44,6 +44,7 @@ const { createCRMRouter } = require('./crmRoutes');
 const { createCustomer360Router, createAdminCustomer360Router } = require('./customer360Routes');
 const { createExternalChannelRouter } = require('./externalChannelRoutes');
 const { createMachineConnectivityRouter } = require('./machineConnectivityRoutes');
+const { createAdminMachineSettingsRouter } = require('./adminMachineSettingsRoutes');
 const { createVideoSurveillanceRouter } = require('./videoSurveillanceRoutes');
 const { createEventCenterRouter } = require('./eventCenterRoutes');
 const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./giftTransferRoutes');
@@ -140,6 +141,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/customer-360', createAdminCustomer360Router(runtimeDependencies));
   router.use('/admin/customers', createExternalChannelRouter(runtimeDependencies));
   router.use('/admin/machines', createMachineConnectivityRouter(runtimeDependencies));
+  router.use('/admin/machines', createAdminMachineSettingsRouter(runtimeDependencies));
   router.use('/admin', createVideoSurveillanceRouter(runtimeDependencies));
   if (runtimeDependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(runtimeDependencies));
   if (runtimeDependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(runtimeDependencies));

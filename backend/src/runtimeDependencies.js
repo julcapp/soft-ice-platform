@@ -16,6 +16,7 @@ const { MachineRepository } = require('./modules/machine/MachineRepository');
 const { MachineRuntime } = require('./modules/machine/MachineRuntime');
 const { MachineService } = require('./modules/machine/MachineService');
 const { MachineOperationsRepository, MachineOperationsRuntime, MachineOperationsService } = require('./modules/machine_operations');
+const { AdminMachineSettingsService } = require('./modules/machine_operations/AdminMachineSettingsService');
 const { MachineGatewayRuntime, MachineSession, XmlCommandBuilder, XmlResponseParser, MachineErrorMapper, TelemetryStore } = require('./modules/machine_gateway');
 const { OrderRepository } = require('./modules/order/OrderRepository');
 const { OrderRuntime } = require('./modules/order/OrderRuntime');
@@ -229,6 +230,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineOperationsRuntime = new MachineOperationsRuntime({
     service: new MachineOperationsService({ repository: machineOperationsRepository, auditRepository }),
   });
+  const adminMachineSettingsService = new AdminMachineSettingsService({ prisma, auditRepository });
 
   const orderService = new OrderService({
     orderRepository,
@@ -465,6 +467,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,
+    adminMachineSettingsService,
     orderRuntime,
     giftTransferRuntime,
     giftNotificationOutboxWorker,
