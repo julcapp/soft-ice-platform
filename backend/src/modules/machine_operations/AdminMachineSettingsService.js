@@ -56,6 +56,36 @@ class AdminMachineSettingsService {
     };
   }
 
+  async reportHardwareInventory(machineId, input = {}) {
+    const machine = await this.requireMachine(machineId);
+    const snapshot = validateHardwareInventory(input);
+    const operator = await this.ensureEdgeOperator(machine);
+    const setting = await this.prisma.machineSetting.upsert({
+      where: { machineId_key: { machineId: machine.id, key: KEYS.HARDWARE_INVENTORY_RUNTIME } },
+      create: { machineId: machine.id, key: KEYS.HARDWARE_INVENTORY_RUNTIME, value: snapshot, updatedById: operator.id },
+      update: { value: snapshot, updatedById: operator.id },
+    });
+    await this.auditRepository.record({
+      eventType: 'Machine.HardwareInventoryReported',
+      subjectType: 'machine',
+      subjectId: machine.id,
+      targetType: 'Machine',
+      targetId: machine.id,
+      action: 'report_hardware_inventory',
+      decision: 'success',
+      authMethod: 'equipment_api_key',
+      sourceChannel: 'machine_edge',
+      correlationId: input.correlationId || snapshot.scanId,
+      metadata: {
+        machine_code: machine.machineCode,
+        scan_id: snapshot.scanId,
+        device_count: snapshot.devices.length,
+        agent_version: snapshot.agentVersion,
+      },
+    });
+    return { machineId: machine.id, machineCode: machine.machineCode, key: setting.key, value: setting.value, updatedAt: setting.updatedAt };
+  }
+
   async update(machineId, key, value, context = {}) {
     this.authorize(context);
     if (![KEYS.CAMERA_QR, KEYS.STARTUP_HARDWARE_SCAN].includes(key)) {
@@ -111,6 +141,15 @@ class AdminMachineSettingsService {
       update: { role: 'ADMIN', status: 'ACTIVE' },
     });
   }
+
+  async ensureEdgeOperator(machine) {
+    const externalSubject = 'machine-edge:' + machine.machineCode;
+    return this.prisma.operator.upsert({
+      where: { externalSubject },
+      create: { displayName: 'Edge agent ' + machine.machineCode, externalSubject, role: 'OPERATOR', status: 'ACTIVE' },
+      update: { status: 'ACTIVE' },
+    });
+  }
 }
 
 function validateCameraQr(value) {
@@ -139,6 +178,40 @@ function validateStartupScan(value) {
     scanNetwork: value.scanNetwork !== false,
   };
 }
+
+function validateHardwareInventory(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('hardware_inventory');
+  const scanId = String(value.scanId || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(scanId)) invalid('hardware_inventory.scanId');
+  const capturedAt = new Date(value.capturedAt);
+  if (Number.isNaN(capturedAt.getTime())) invalid('hardware_inventory.capturedAt');
+  const agentVersion = cleanText(value.agentVersion, 80) || 'unknown';
+  const platform = cleanText(value.platform, 120) || 'unknown';
+  const devices = Array.isArray(value.devices) ? value.devices.slice(0, 100).map((device, index) => normalizeDevice(device, index)) : [];
+  const capabilities = value.capabilities && typeof value.capabilities === 'object' && !Array.isArray(value.capabilities) ? safeJson(value.capabilities) : {};
+  return { scanId, capturedAt: capturedAt.toISOString(), agentVersion, platform, devices, capabilities };
+}
+
+function normalizeDevice(device, index) {
+  if (!device || typeof device !== 'object' || Array.isArray(device)) invalid('hardware_inventory.devices.' + index);
+  const type = String(device.type || '').toUpperCase();
+  if (!['CAMERA', 'QR_SCANNER', 'POS', 'MDB', 'NETWORK', 'SERIAL', 'OTHER'].includes(type)) invalid('hardware_inventory.devices.' + index + '.type');
+  const status = String(device.status || 'UNKNOWN').toUpperCase();
+  if (!['ONLINE', 'OFFLINE', 'DEGRADED', 'UNSUPPORTED', 'UNKNOWN'].includes(status)) invalid('hardware_inventory.devices.' + index + '.status');
+  return {
+    id: cleanText(device.id, 240) || type + '-' + index,
+    type,
+    name: cleanText(device.name, 240) || type,
+    vendor: cleanText(device.vendor, 160),
+    model: cleanText(device.model, 240),
+    driver: cleanText(device.driver, 240),
+    status,
+    capabilities: device.capabilities && typeof device.capabilities === 'object' && !Array.isArray(device.capabilities) ? safeJson(device.capabilities) : {},
+  };
+}
+
+function cleanText(value, max) { const text = typeof value === 'string' ? value.trim() : ''; return text ? text.slice(0, max) : null; }
+function safeJson(value) { return JSON.parse(JSON.stringify(value)); }
 
 function invalid(field) {
   throw new ApiError({ statusCode: 400, code: 'MACHINE_SETTING_INVALID', message: 'Некорректная настройка аппарата.', details: [{ field }], source: 'admin_machine_settings' });

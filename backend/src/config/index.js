@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const { getDatabaseConfig } = require('./databaseConfig');
 
 class EnvironmentSecretProvider {
@@ -27,6 +28,8 @@ function parseInteger(value, fallback, name, { min = 1, max = Number.MAX_SAFE_IN
 
 function createConfig(environment = process.env, secretProvider = new EnvironmentSecretProvider(environment)) {
   const profile = environment.NODE_ENV || 'development';
+  const purchaseContactMasterSecret = secretProvider.get('TERMINAL_CHANNEL_CHALLENGE_SECRET');
+  const equipmentApiKey = secretProvider.get('EQUIPMENT_INTEGRATION_API_KEY') || deriveSubkey(purchaseContactMasterSecret, 'softice.machine-edge.v1');
   if (!['development', 'test', 'production'].includes(profile)) {
     throw new Error('NODE_ENV must be development, test, or production.');
   }
@@ -59,13 +62,13 @@ function createConfig(environment = process.env, secretProvider = new Environmen
     },
     equipmentIntegration: {
       enabled: parseBoolean(environment.EQUIPMENT_INTEGRATION_ENABLED, false),
-      apiKey: secretProvider.get('EQUIPMENT_INTEGRATION_API_KEY'),
+      apiKey: equipmentApiKey,
       testMachineId: environment.EQUIPMENT_INTEGRATION_TEST_MACHINE_ID || 'TEST-MACHINE-001',
       telemetryLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT, 200, 'EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT'),
       eventLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_EVENT_LIMIT, 200, 'EQUIPMENT_INTEGRATION_EVENT_LIMIT'),
     },
     purchaseContacts: {
-      masterSecret: secretProvider.get('TERMINAL_CHANNEL_CHALLENGE_SECRET'),
+      masterSecret: purchaseContactMasterSecret,
     },
     payments: {
       yooKassa: {
@@ -105,6 +108,18 @@ function createConfig(environment = process.env, secretProvider = new Environmen
 
   validateConfig(config);
   return Object.freeze(config);
+}
+
+function deriveSubkey(masterSecret, purpose) {
+  if (!masterSecret) return '';
+  const derived = crypto.hkdfSync(
+    'sha256',
+    Buffer.from(String(masterSecret), 'utf8'),
+    Buffer.from('softice.config.v1', 'utf8'),
+    Buffer.from(String(purpose), 'utf8'),
+    32,
+  );
+  return Buffer.from(derived).toString('base64url');
 }
 
 function validateConfig(config) {

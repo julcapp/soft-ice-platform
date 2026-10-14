@@ -3,6 +3,7 @@ const { ServiceMobileSession } = require('./modules/operator_workspace/ServiceMo
 const { createMobileServiceRouter } = require('./api/v1/mobileServiceRoutes');
 const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
 const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
+const { createMachineEdgeRouter } = require('./api/machineEdgeRoutes');
 const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
@@ -117,6 +118,7 @@ function createApp(options = {}) {
     app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   }
+  if (dependencies.adminMachineSettingsService) app.use('/api/v1/machine-edge', createMachineEdgeRouter(dependencies, { config, logger }));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {
