@@ -83,12 +83,17 @@ class PaymentService {
   }
 
   async applySuccess(tx, payment, now, context = {}) {
-    const orderChanged = await tx.order.updateMany({ where: { id: payment.orderId, status: { in: ['CREATED', 'PAYMENT_PENDING'] } }, data: { status: 'PAID', paymentStatus: 'paid', amountPaidRub: Number(payment.amount), paidAt: now } });
+    const prepaidChannel = ['MINIAPP', 'WEB'].includes(String(payment.channel || '').toUpperCase());
+    const pickupExpiresAt = prepaidChannel ? new Date(now.getTime() + 48 * 60 * 60 * 1000) : null;
+    const orderChanged = await tx.order.updateMany({ where: { id: payment.orderId, status: { in: ['CREATED', 'PAYMENT_PENDING'] } }, data: { status: 'PAID', paymentStatus: 'paid', amountPaidRub: Number(payment.amount), paidAt: now, ...(pickupExpiresAt ? { expiresAt: pickupExpiresAt } : {}) } });
     if (orderChanged.count !== 1) throw error('PAYMENT_ORDER_TRANSITION_FAILED', 'Order не может быть подтверждён.', 409);
     const flow = await tx.saleFlow.findFirst({ where: { flowId: payment.saleFlowId, organizationId: payment.organizationId } });
     if (!flow || flow.currentState !== 'AWAITING_PAYMENT') throw error('PAYMENT_SALE_FLOW_TRANSITION_FAILED', 'Sale Flow не ожидает оплату.', 409);
+    if (prepaidChannel && flow.inventoryReservationReference) {
+      await tx.inventoryRuntimeReservation.updateMany({ where: { reservationId: flow.inventoryReservationReference, organizationId: payment.organizationId, status: 'RESERVED' }, data: { expiresAt: pickupExpiresAt } });
+    }
     const paidFlow=await tx.saleFlow.update({ where: { flowId: flow.flowId }, data: { currentState: 'PAID', paymentReference: payment.id, version: { increment: 1 }, recoveryStatus: 'SAFE_TO_RESUME', updatedAt: now } });
-    if (this.machineDispense) await this.machineDispense.createAuthorizedFromPaidFlow(tx,paidFlow,payment,context);
+    if (this.machineDispense && !prepaidChannel) await this.machineDispense.createAuthorizedFromPaidFlow(tx,paidFlow,payment,context);
   }
 
   async applyFailure(tx, payment, status, now) {

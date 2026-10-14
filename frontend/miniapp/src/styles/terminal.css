@@ -1281,3 +1281,5 @@
 @keyframes display-pos-tap{50%{transform:translate(-48px,12px)}}
 @media(max-width:600px){.display-payment-pos{grid-template-columns:1fr;gap:8px;padding:16px}.display-payment-pos svg{max-height:220px}.display-payment-pos p{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.display-pos-card.is-active{animation:none}}
+
+.pickup-code-output{display:block;min-width:min(520px,80vw);margin:24px auto;padding:20px 28px;border:3px solid var(--display-green);border-radius:22px;background:#fff;font-size:clamp(38px,5vw,68px);font-weight:900;letter-spacing:.18em;color:var(--display-ink)}.pickup-keys{width:min(600px,90vw);margin-top:8px}.display-prepaid .display-spinner{margin:0 auto 24px}.display-prepaid .display-phone-actions{width:min(720px,92vw)}

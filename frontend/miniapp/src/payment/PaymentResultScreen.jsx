@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { refreshOrderPaymentStatus } from './PaymentCheckoutApi.js';
 import { getTerminalOrderPaymentStatus } from '../terminal/TerminalPaymentApi.js';
+import { issuePickupCode } from '../pickup/PrepaidPickupApi.js';
 
 const MAX_AUTO_CHECKS = 24;
 const POLL_MS = 2500;
@@ -23,6 +24,7 @@ function safeFailureMessage(code) {
 
 export function PaymentResultScreen({ orderId, source = null, machineId = null, onDone, onRetry }) {
   const [state, setState] = useState({ status: 'loading', payment: null, error: null });
+  const [pickup, setPickup] = useState({ status: 'idle', data: null, error: null });
   const [checkCount, setCheckCount] = useState(0);
   const controller = useRef(null);
 
@@ -91,6 +93,23 @@ export function PaymentResultScreen({ orderId, source = null, machineId = null, 
     return () => window.clearTimeout(timer);
   }, [state.status, state.payment?.providerStatus, checkCount]);
 
+  useEffect(() => {
+    if (state.status !== 'success' || source !== 'terminal' || typeof onDone !== 'function') return undefined;
+    const timer = window.setTimeout(() => onDone(), 1200);
+    return () => window.clearTimeout(timer);
+  }, [state.status, source, onDone]);
+
+  const requestPickupCode = async () => {
+    if (!orderId || pickup.status === 'loading') return;
+    setPickup({ status: 'loading', data: null, error: null });
+    try {
+      const data = await issuePickupCode(orderId);
+      setPickup({ status: 'ready', data, error: null });
+    } catch (error) {
+      setPickup({ status: 'error', data: null, error });
+    }
+  };
+
   const amount = useMemo(() => money(state.payment?.amount, state.payment?.currency), [state.payment]);
 
   if (state.status === 'loading' || state.status === 'pending') {
@@ -107,9 +126,14 @@ export function PaymentResultScreen({ orderId, source = null, machineId = null, 
     return <main className="app-shell payment-result-screen"><section className="card">
       <p className="eyebrow">Оплата</p>
       <h1>Оплата прошла успешно</h1>
-      <p>Банк подтвердил платёж. Заказ оплачен.</p>
+      <p>{source === 'terminal' ? 'Банк подтвердил платёж. Ничего нажимать не нужно — заказ уже передаётся аппарату.' : 'Банк подтвердил платёж. Заказ оплачен и ждёт вас у аппарата.'}</p>
       {amount ? <p><strong>{amount}</strong></p> : null}
-      <button className="button primary" type="button" onClick={onDone}>Продолжить</button>
+      {source === 'terminal' ? <div className="display-spinner" aria-label="Переходим к приготовлению заказа" /> : null}
+      {source !== 'terminal' && pickup.status === 'idle' ? <button className="button primary" type="button" onClick={requestPickupCode}>Я у аппарата — получить код</button> : null}
+      {source !== 'terminal' && pickup.status === 'loading' ? <p>Готовим код получения…</p> : null}
+      {source !== 'terminal' && pickup.status === 'ready' ? <div className="pickup-code-card"><span>Код получения</span><strong>{pickup.data.code}</strong><small>На аппарате нажмите «Получить оплаченный заказ» и введите этот код. Код действует до {new Date(pickup.data.expiresAt).toLocaleString('ru-RU')}.</small><button className="button" type="button" onClick={requestPickupCode}>Получить новый код</button></div> : null}
+      {source !== 'terminal' && pickup.status === 'error' ? <><p role="alert">Оплата подтверждена, но код пока не удалось получить. Повторно оплачивать не нужно.</p><button className="button" type="button" onClick={requestPickupCode}>Повторить</button></> : null}
+      {source !== 'terminal' ? <button className="button" type="button" onClick={onDone}>Вернуться в Клуб</button> : null}
     </section></main>;
   }
 

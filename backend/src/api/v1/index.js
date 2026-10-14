@@ -97,6 +97,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
     res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
 
+  router.use('/miniapp-test-preorders', require('./miniAppTestPreorderRoutes').createMiniAppTestPreorderRouter(runtimeDependencies));
   router.use('/auth', createAuthRouter(runtimeDependencies));
   router.use('/customers', createCustomerRouter(runtimeDependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
