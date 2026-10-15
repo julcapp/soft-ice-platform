@@ -8,6 +8,7 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
   const [code, setCode] = useState('');
   const [state, setState] = useState({ status: 'input', attemptId: null, error: null });
   const [camera, setCamera] = useState({ status: 'idle', error: null });
+  const [doneSeconds, setDoneSeconds] = useState(15);
   const controller = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -33,6 +34,19 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
     if (scanTimerRef.current) window.clearTimeout(scanTimerRef.current);
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
+
+  useEffect(() => {
+    if (state.status !== 'done') {
+      setDoneSeconds(15);
+      return undefined;
+    }
+    if (doneSeconds <= 0) {
+      onDone();
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setDoneSeconds((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [state.status, doneSeconds, onDone]);
 
   useEffect(() => {
     if (!state.attemptId || !['transmitting','preparing'].includes(state.status)) return undefined;
@@ -132,7 +146,7 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
 
   if (state.status === 'transmitting') return <section className="display-prepaid"><div className="display-spinner" /><p className="display-kicker">Оплаченный заказ</p><h1>Передаём заказ аппарату</h1><p>Оплата подтверждена. Повторно оплачивать ничего не нужно.</p></section>;
   if (state.status === 'preparing') return <section className="display-prepaid"><div className="display-spinner" /><p className="display-kicker">Оплаченный заказ</p><h1>Ваше мороженое готовится</h1><p>Пожалуйста, дождитесь завершения приготовления.</p></section>;
-  if (state.status === 'done') return <section className="display-prepaid"><div className="display-prepaid-icon">✓</div><p className="display-kicker">Готово</p><h1>Заберите мороженое</h1><p>Спасибо за покупку у Тимоши!</p><button className="display-primary" type="button" onClick={onDone}>Завершить</button></section>;
+  if (state.status === 'done') return <section className="display-prepaid"><div className="display-prepaid-icon">✓</div><p className="display-kicker">Готово</p><h1>Заберите мороженое</h1><p>Спасибо за покупку у Тимоши!</p><p className="display-done-countdown" aria-live="polite">Возврат на главный экран через <strong>{doneSeconds}</strong> сек.</p><button className="display-primary" type="button" onClick={onDone}>Завершить</button></section>;
   if (state.status === 'error') return <section className="display-prepaid"><div className="display-prepaid-icon">!</div><p className="display-kicker">Нужна проверка</p><h1>Не удалось завершить выдачу</h1><p>{state.error}</p><button className="display-primary" type="button" onClick={onDone}>Завершить</button></section>;
 
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
