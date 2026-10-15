@@ -107,15 +107,16 @@ export function PrepaidPickupScreen({ machineId, onBack, onDone }) {
     setCamera({ status: 'starting', error: null });
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('CAMERA_UNAVAILABLE');
-      if (!('BarcodeDetector' in window)) throw new Error('QR_DETECTOR_UNAVAILABLE');
-      const formats = await window.BarcodeDetector.getSupportedFormats?.();
+      const Detector = window.SoftIceQrDetector || window.BarcodeDetector;
+      if (!Detector) throw new Error('QR_DETECTOR_UNAVAILABLE');
+      const formats = await Detector.getSupportedFormats?.();
       if (Array.isArray(formats) && !formats.includes('qr_code')) throw new Error('QR_DETECTOR_UNAVAILABLE');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
-      detectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] });
+      detectorRef.current = new Detector({ formats: ['qr_code'] });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
