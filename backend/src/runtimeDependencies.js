@@ -59,6 +59,7 @@ const { PrivateChannelBillingService } = require('./modules/private_channel/Priv
 const { YooKassaPrivateChannelPaymentAdapter } = require('./modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
 const { PrivateChannelRenewalService } = require('./modules/private_channel/PrivateChannelRenewalService');
 const { CustomerAutoTopupService } = require('./modules/auto_topup/CustomerAutoTopupService');
+const { LegacyTmaIdentityBridgeService } = require('./modules/identity_bridge/LegacyTmaIdentityBridgeService');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -233,6 +234,12 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     prisma,
     paymentAdapter: privateChannelPaymentAdapter,
     clubAccountRuntime,
+  });
+  const legacyTmaIdentityBridgeService = new LegacyTmaIdentityBridgeService({
+    prisma,
+    customerRepository,
+    clubAccountRuntime,
+    auditRepository,
   });
 
   const machineService = new MachineService({
@@ -487,6 +494,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     consentRuntime,
     clubAccountRuntime,
     customerAutoTopupService,
+    legacyTmaIdentityBridgeService,
     machineRuntime,
     adminMachineSettingsService,
     orderRuntime,

@@ -4,6 +4,7 @@ const { createMobileServiceRouter } = require('./api/v1/mobileServiceRoutes');
 const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
 const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
 const { createMachineEdgeRouter } = require('./api/machineEdgeRoutes');
+const { createLegacyTmaIdentityBridgeRouter } = require('./api/legacyTmaIdentityBridgeRoutes');
 const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
@@ -119,6 +120,7 @@ function createApp(options = {}) {
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   }
   if (dependencies.adminMachineSettingsService) app.use('/api/v1/machine-edge', createMachineEdgeRouter(dependencies, { config, logger }));
+  if (dependencies.legacyTmaIdentityBridgeService) app.use('/internal/v1/legacy-tma', createLegacyTmaIdentityBridgeRouter(dependencies, { logger }));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {

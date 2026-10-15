@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
+from shared_preorder_proxy import request_preorder
 
 
 ROOT = Path(__file__).resolve().parent
@@ -23,6 +24,8 @@ DATA_FILE = Path(os.environ.get("SOFT_ICE_DATA_FILE", str(ROOT / "crm_test_data.
 HOST = os.environ.get("SOFT_ICE_HOST", "127.0.0.1").strip() or "127.0.0.1"
 PORT = int(os.environ.get("SOFT_ICE_PORT", "8780"))
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_TEST_BOT_TOKEN = os.environ.get("TELEGRAM_TEST_BOT_TOKEN", "").strip()
+TELEGRAM_TEST_ALLOWED_USER_IDS = frozenset(value.strip() for value in os.environ.get("TELEGRAM_TEST_ALLOWED_USER_IDS", "").split(",") if value.strip())
 MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "").strip()
 TELEGRAM_WEBAPP_URL = os.environ.get("TELEGRAM_WEBAPP_URL", "https://app.utimoshi.ru/").strip()
 TELEGRAM_EXPECTED_USERNAME = os.environ.get("TELEGRAM_EXPECTED_USERNAME", "desserty_bot").strip().lstrip("@").lower()
@@ -31,8 +34,13 @@ PUBLIC_BASE_URL = os.environ.get("SOFT_ICE_PUBLIC_URL", "https://app.utimoshi.ru
 DEMO_MODE = os.environ.get("SOFT_ICE_DEMO_MODE", "0").strip().lower() in {"1", "true", "yes"}
 TELEGRAM_AUTH_MAX_AGE = 24 * 60 * 60
 MAX_AUTH_MAX_AGE = 60 * 60
+CORE_BACKEND_URL = os.environ.get("SOFT_ICE_CORE_BACKEND_URL", "http://127.0.0.1:8800").strip().rstrip("/")
+IDENTITY_BRIDGE_PURPOSE = "softice.legacy-tma-identity-bridge.v1"
 
 PUBLIC_GET_ROUTES = {
+    "/preorder-test.html",
+    "/preorder-test.js",
+    "/preorder-return.html",
     "/tma.html",
     "/tma.js",
     "/tma.css",
@@ -342,8 +350,19 @@ def webapp_identity(platform: object, init_data: object) -> tuple[dict, str]:
         if not MAX_BOT_TOKEN:
             raise ValueError("MAX-авторизация недоступна: токен MAX ещё не настроен на сервере")
         return validate_max_init_data(raw, MAX_BOT_TOKEN), "max"
-    if provider == "telegram" and TELEGRAM_BOT_TOKEN:
-        return validate_telegram_init_data(raw, TELEGRAM_BOT_TOKEN), "telegram"
+    if provider == "telegram" and (TELEGRAM_BOT_TOKEN or TELEGRAM_TEST_BOT_TOKEN):
+        if TELEGRAM_BOT_TOKEN:
+            try:
+                return validate_telegram_init_data(raw, TELEGRAM_BOT_TOKEN), "telegram"
+            except ValueError as error:
+                if str(error) != "Подпись Telegram недействительна":
+                    raise
+        if TELEGRAM_TEST_BOT_TOKEN and TELEGRAM_TEST_ALLOWED_USER_IDS:
+            user = validate_telegram_init_data(raw, TELEGRAM_TEST_BOT_TOKEN)
+            if str(user["id"]) not in TELEGRAM_TEST_ALLOWED_USER_IDS:
+                raise ValueError("Тестовый вход недоступен этому пользователю")
+            return user, "telegram"
+        raise ValueError("Подпись Telegram недействительна")
     if provider == "telegram":
         raise ValueError("Telegram-авторизация недоступна: сервер запущен без рабочего токена")
     if DEMO_MODE and not raw and provider in {"", "browser", "demo"}:
@@ -401,6 +420,7 @@ def upsert_webapp_profile(user: dict, auth_mode: str) -> dict:
         "bonus_balance": int(client.get("bonus_balance", 0)),
         "club_balance": int(client.get("club_balance", 0)),
         "money_balance": int(client.get("money_balance", 0)),
+        "core_customer_id": str(client.get("core_customer_id") or ""),
     }
 
 
@@ -531,6 +551,83 @@ def register_referral(profile: dict, start_param: str) -> dict:
     return {"status": "registered", "warning": ""}
 
 
+def identity_bridge_key() -> bytes:
+    if not MAX_BOT_TOKEN:
+        raise ValueError("Identity bridge is unavailable: MAX token is not configured")
+    return hmac.new(MAX_BOT_TOKEN.encode("utf-8"), IDENTITY_BRIDGE_PURPOSE.encode("utf-8"), hashlib.sha256).digest()
+
+
+def bridge_core_identity(profile: dict) -> dict:
+    if str(profile.get("auth_mode") or "") == "demo":
+        return {"status": "skipped_demo", "customer_id": ""}
+
+    provider = str(profile.get("provider") or "").strip().lower()
+    if provider not in {"telegram", "max"}:
+        return {"status": "unsupported_provider", "customer_id": ""}
+
+    body_obj = {
+        "provider": provider,
+        "subject": str(profile.get("id") or ""),
+        "username": str(profile.get("username") or ""),
+        "displayName": " ".join(
+            part for part in [
+                str(profile.get("first_name") or "").strip(),
+                str(profile.get("last_name") or "").strip(),
+            ] if part
+        )[:160],
+    }
+    raw = json.dumps(body_obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        identity_bridge_key(),
+        timestamp.encode("utf-8") + b"\n" + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    request = Request(
+        CORE_BACKEND_URL + "/internal/v1/legacy-tma/identity-bridge",
+        data=raw,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "X-TMA-Bridge-Timestamp": timestamp,
+            "X-TMA-Bridge-Signature": signature,
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=3) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        if error.code == 409:
+            return {"status": "conflict", "customer_id": ""}
+        raise
+    except (URLError, TimeoutError, OSError):
+        return {"status": "unavailable", "customer_id": ""}
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict) or not data.get("customerId"):
+        return {"status": "invalid_response", "customer_id": ""}
+
+    customer_id = str(data["customerId"])
+    with LOCK:
+        db = load_db()
+        client = db.get("clients", {}).get(str(profile.get("client_key") or ""))
+        if isinstance(client, dict):
+            client["core_customer_id"] = customer_id
+            client["core_identity_provider"] = provider
+            client["core_identity_linked_at"] = int(time.time())
+            client["updated_at"] = int(time.time())
+            save_db(db)
+
+    profile["core_customer_id"] = customer_id
+    return {
+        "status": "linked",
+        "customer_id": customer_id,
+        "created": bool(data.get("created")),
+        "identity_format": str(data.get("identityFormat") or ""),
+    }
+
+
 def authenticate_webapp(payload: dict) -> dict:
     user, auth_mode = webapp_identity(payload.get("platform"), payload.get("init_data"))
     profile = upsert_webapp_profile(user, auth_mode)
@@ -605,9 +702,11 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             payload = self.read_json()
             route = urlparse(self.path).path
-            if route not in PUBLIC_POST_ROUTES:
+            if route not in PUBLIC_POST_ROUTES and not route.startswith("/api/tma/shared-preorder/"):
                 return self.json_response(404, {"error": "Маршрут не найден"})
-            if route == "/api/tma/auth":
+            if route.startswith("/api/tma/shared-preorder/"):
+                result = request_preorder(route.removeprefix("/api/tma/shared-preorder/"), payload)
+            elif route == "/api/tma/auth":
                 result = self.tma_auth(payload)
             elif route == "/api/catalog":
                 result = self.catalog()
@@ -689,7 +788,8 @@ class Handler(SimpleHTTPRequestHandler):
     @staticmethod
     def tma_auth(payload: dict) -> dict:
         profile = authenticate_webapp(payload)
-        return {"authenticated": True, "mode": profile["auth_mode"], "provider": profile["provider"], "user": profile}
+        bridge = bridge_core_identity(profile)
+        return {"authenticated": True, "mode": profile["auth_mode"], "provider": profile["provider"], "identity_bridge": bridge, "user": profile}
 
     def referral_landing(self, raw_path: str) -> None:
         parts = [part for part in str(raw_path or "").split("/") if part]
