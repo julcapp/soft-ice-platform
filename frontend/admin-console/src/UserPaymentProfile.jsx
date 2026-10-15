@@ -85,6 +85,16 @@ export function UserPaymentProfile({ customerId, client = getCustomerPaymentProf
     </div>
 
     <div className="crm-grid" style={{ marginTop: 14 }}>
+      <DataTable title="Ежемесячное автопополнение лицевого счёта" rows={data.autoTopup ? [data.autoTopup] : []} columns={[
+        { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={String(value || '').toUpperCase()} /> },
+        { key: 'amountRub', label: 'Сумма', render: money },
+        { key: 'billingDay', label: 'День месяца', render: (value) => `${value}-е число` },
+        { key: 'paymentMethodType', label: 'Способ оплаты', render: methodLabel },
+        { key: 'paymentMethodSaved', label: 'Метод сохранён', render: (value) => <StatusBadge status={value ? 'READY' : 'NOT_READY'} /> },
+        { key: 'nextChargeAt', label: 'Следующее списание', render: dateTime },
+        { key: 'lastSucceededAt', label: 'Последнее успешное', render: dateTime },
+        { key: 'offerVersion', label: 'Версия оферты' },
+      ]} emptyTitle="Ежемесячное автопополнение не настроено" />
       <DataTable title="Сохранённые способы оплаты" rows={(data.paymentMethods || []).map((item) => ({ id: item.fingerprint, ...item }))} columns={[
         { key: 'provider', label: 'Провайдер' }, { key: 'type', label: 'Тип', render: () => 'Сохранённый способ оплаты' }, { key: 'maskedReference', label: 'Provider reference' }, { key: 'fingerprint', label: 'Внутренний fingerprint' },
       ]} emptyTitle="Сохранённых способов оплаты нет" />

@@ -11,7 +11,7 @@ class CustomerPaymentProfileService {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
     if (!customer) throw new ApiError({ statusCode: 404, code: 'CUSTOMER_NOT_FOUND', message: 'Customer was not found.', source: 'payment_profile' });
 
-    const [payments, privatePayments, subscriptions, receipts, refunds, providerCosts] = await Promise.all([
+    const [payments, privatePayments, subscriptions, receipts, refunds, providerCosts, autoTopupRows] = await Promise.all([
       this.prisma.$queryRawUnsafe(
         `SELECT "id","clubTopupId","orderId","amount","currency","provider","providerPaymentId","providerStatus","status","paymentMethodType","channel","description","metadata","createdAt","succeededAt","canceledAt"
          FROM "Payment" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
@@ -49,6 +49,10 @@ class CustomerPaymentProfileService {
       this.prisma.$queryRawUnsafe(
         `SELECT "paymentSourceType","paymentSourceId","grossAmountRub","netSettlementRub","processorCostTotalRub","processorCommissionRub","processorCommissionVatRub","commissionRatePct","calculationSource","isFinal"
          FROM "PaymentProviderCost" WHERE "customerId"=$1 ORDER BY "occurredAt" DESC LIMIT 100`,
+        customerId,
+      ),
+      this.prisma.$queryRawUnsafe(
+        `SELECT * FROM "CustomerAutoTopupSchedule" WHERE "customerId"=$1 LIMIT 1`,
         customerId,
       ),
     ]);
@@ -168,8 +172,27 @@ class CustomerPaymentProfileService {
       createdAt: row.createdAt,
     }));
 
+    const autoTopupRow = autoTopupRows?.[0] || null;
+    const autoTopup = autoTopupRow ? {
+      id: autoTopupRow.id,
+      status: autoTopupRow.status,
+      amountRub: Number(autoTopupRow.amountRub || 0),
+      currency: autoTopupRow.currency || 'RUB',
+      frequency: autoTopupRow.frequency,
+      billingDay: Number(autoTopupRow.billingDay || 1),
+      provider: autoTopupRow.provider,
+      paymentMethodSaved: Boolean(autoTopupRow.providerPaymentMethodRef),
+      paymentMethodType: normalizePaymentMethodType(autoTopupRow.paymentMethodType),
+      offerVersion: autoTopupRow.offerVersion,
+      offerAcceptedAt: autoTopupRow.offerAcceptedAt,
+      nextChargeAt: autoTopupRow.nextChargeAt,
+      lastSucceededAt: autoTopupRow.lastSucceededAt,
+      disabledAt: autoTopupRow.disabledAt,
+    } : null;
+
     return {
       customerId,
+      autoTopup,
       paymentMethods: [...methodsByFingerprint.values()],
       recurringSubscriptions,
       paymentHistory: history,

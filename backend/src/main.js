@@ -138,6 +138,7 @@ let paymentInboxTimer;
 let machineCommandTimer;
 let machineRecoveryTimer;
 let privateChannelRenewalTimer;
+let customerAutoTopupTimer;
 
 function startServer() {
   if (server) {
@@ -166,6 +167,11 @@ function startServer() {
     privateChannelRenewalTimer = setInterval(() => privateChannelRenewalService.processDue({ limit: 100 }).catch((error) => getApp().locals.platform.logger.error('private.channel.renewal.worker.failed', { code: error.code || 'PRIVATE_CHANNEL_RENEWAL_WORKER_FAILED' })), 60 * 60 * 1000);
     privateChannelRenewalTimer.unref();
   }
+  const customerAutoTopupService = getApp().locals.platform.dependencies.customerAutoTopupService;
+  if (customerAutoTopupService && !customerAutoTopupTimer) {
+    customerAutoTopupTimer = setInterval(() => customerAutoTopupService.processDue({ limit: 100 }).catch((error) => getApp().locals.platform.logger.error('customer.auto.topup.worker.failed', { code: error.code || 'CUSTOMER_AUTO_TOPUP_WORKER_FAILED' })), 60 * 60 * 1000);
+    customerAutoTopupTimer.unref();
+  }
 
   return server;
 }
@@ -189,6 +195,7 @@ async function shutdown(signal, options = {}) {
   if (machineCommandTimer) { clearInterval(machineCommandTimer); machineCommandTimer = undefined; }
   if (machineRecoveryTimer) { clearInterval(machineRecoveryTimer); machineRecoveryTimer = undefined; }
   if (privateChannelRenewalTimer) { clearInterval(privateChannelRenewalTimer); privateChannelRenewalTimer = undefined; }
+  if (customerAutoTopupTimer) { clearInterval(customerAutoTopupTimer); customerAutoTopupTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();

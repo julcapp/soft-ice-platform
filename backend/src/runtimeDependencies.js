@@ -58,6 +58,7 @@ const { PrepaidPickupService } = require('./modules/order/PrepaidPickupService')
 const { PrivateChannelBillingService } = require('./modules/private_channel/PrivateChannelBillingService');
 const { YooKassaPrivateChannelPaymentAdapter } = require('./modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
 const { PrivateChannelRenewalService } = require('./modules/private_channel/PrivateChannelRenewalService');
+const { CustomerAutoTopupService } = require('./modules/auto_topup/CustomerAutoTopupService');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -227,6 +228,11 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const clubAccountRuntime = new ClubAccountRuntime({
     clubAccountRepository,
     auditRepository,
+  });
+  const customerAutoTopupService = new CustomerAutoTopupService({
+    prisma,
+    paymentAdapter: privateChannelPaymentAdapter,
+    clubAccountRuntime,
   });
 
   const machineService = new MachineService({
@@ -480,6 +486,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
+    customerAutoTopupService,
     machineRuntime,
     adminMachineSettingsService,
     orderRuntime,

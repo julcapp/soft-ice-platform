@@ -36,7 +36,7 @@ class SchedulerService {
 
   async runtimeFacts() {
     if (!this.prisma) return {};
-    const [payment, commands, recovery, renewals] = await Promise.all([
+    const [payment, commands, recovery, renewals, autoTopups] = await Promise.all([
       this.prisma.paymentProviderInbox.aggregate({
         _max: { processedAt: true, receivedAt: true },
         _count: { _all: true },
@@ -59,6 +59,14 @@ class SchedulerService {
           (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='FAILED') AS "failedCount",
           (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='EXHAUSTED') AS "exhaustedCount",
           (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='PAID') AS "paidCount"
+      `).then((rows) => rows?.[0] || null).catch(() => null),
+      this.prisma.$queryRawUnsafe(`
+        SELECT
+          (SELECT COUNT(*)::int FROM "CustomerAutoTopupSchedule" WHERE "status"='ACTIVE') AS "activeCount",
+          (SELECT COUNT(*)::int FROM "CustomerAutoTopupSchedule" WHERE "status"='ACTIVE' AND "nextChargeAt" IS NOT NULL AND "nextChargeAt" <= CURRENT_TIMESTAMP) AS "dueCount",
+          (SELECT MAX("updatedAt") FROM "CustomerAutoTopupAttempt") AS "lastActivityAt",
+          (SELECT COUNT(*)::int FROM "CustomerAutoTopupAttempt" WHERE "status"='FAILED') AS "failedCount",
+          (SELECT COUNT(*)::int FROM "CustomerAutoTopupAttempt" WHERE "status"='CREDITED') AS "creditedCount"
       `).then((rows) => rows?.[0] || null).catch(() => null),
     ]);
 
@@ -90,6 +98,13 @@ class SchedulerService {
         exhaustedCount: Number(renewals.exhaustedCount || 0),
         paidCount: Number(renewals.paidCount || 0),
       } : null,
+      autoTopups: autoTopups ? {
+        lastActivityAt: autoTopups.lastActivityAt || null,
+        activeCount: Number(autoTopups.activeCount || 0),
+        dueCount: Number(autoTopups.dueCount || 0),
+        failedCount: Number(autoTopups.failedCount || 0),
+        creditedCount: Number(autoTopups.creditedCount || 0),
+      } : null,
     };
   }
 
@@ -97,13 +112,13 @@ class SchedulerService {
     const backup = readBackupLog();
     const facts = await this.runtimeFacts();
 
-    const runtimeJob = ({ id, name, category, intervalMs, description, fact }) => ({
+    const runtimeJob = ({ id, name, category, intervalMs, description, fact, scheduleHuman = null }) => ({
       id,
       name,
       category,
       source: 'Node.js setInterval',
       unit: 'softice-display-backend-8800.service',
-      scheduleHuman: intervalMs === 60 * 60 * 1000 ? 'Каждый час' : `Каждые ${intervalMs / 1000} секунд`,
+      scheduleHuman: scheduleHuman || (intervalMs === 60 * 60 * 1000 ? 'Каждый час' : `Каждые ${intervalMs / 1000} секунд`),
       scheduleTechnical: `setInterval(..., ${intervalMs})`,
       timezone: 'Не применяется',
       enabled: true,
@@ -124,6 +139,15 @@ class SchedulerService {
         intervalMs: 5000,
         description: 'Проверяет очередь входящих платёжных событий и передаёт их в PaymentService для обработки.',
         fact: facts.payment,
+      }),
+      runtimeJob({
+        id: 'monthly-customer-auto-topup-worker',
+        name: 'Ежемесячное автопополнение лицевых счетов',
+        category: 'PAYMENTS',
+        intervalMs: 60 * 60 * 1000,
+        scheduleHuman: 'Раз в месяц по выбранному дню; техническая проверка каждый час',
+        description: 'Каждый час проверяет графики MONTHLY, но создаёт платёж только когда наступил nextChargeAt конкретного пользователя. После подтверждённого succeeded от ЮKassa сумма зачисляется на клубный/лицевой счёт идемпотентной проводкой.',
+        fact: facts.autoTopups,
       }),
       runtimeJob({
         id: 'private-channel-renewal-worker',

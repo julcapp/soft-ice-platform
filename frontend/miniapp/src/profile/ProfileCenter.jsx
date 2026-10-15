@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getNotifications, getProfileState, markNotificationRead, patchProfile, requestEmailVerification, saveMarketingEmailConsent } from './CustomerProfileApi.js';
+import { disableAutoTopup, getAutoTopup, getNotifications, getProfileState, markNotificationRead, patchProfile, requestEmailVerification, saveMarketingEmailConsent, setupAutoTopup } from './CustomerProfileApi.js';
 
 export function ProfileCenter({ onBack }) {
   const [state, setState] = useState(null);
@@ -7,15 +7,24 @@ export function ProfileCenter({ onBack }) {
   const [birthday, setBirthday] = useState('');
   const [email, setEmail] = useState('');
   const [marketing, setMarketing] = useState(false);
+  const [autoTopup, setAutoTopup] = useState(null);
+  const [autoTopupAmount, setAutoTopupAmount] = useState('');
+  const [autoTopupDay, setAutoTopupDay] = useState('1');
+  const [autoTopupBusy, setAutoTopupBusy] = useState(false);
   const [message, setMessage] = useState('');
 
   async function refresh() {
-    const [profile, items] = await Promise.all([getProfileState(), getNotifications()]);
+    const [profile, items, recurring] = await Promise.all([getProfileState(), getNotifications(), getAutoTopup()]);
     setState(profile);
     setNotifications(items || []);
+    setAutoTopup(recurring || null);
     setBirthday(profile.customer?.birthday ? String(profile.customer.birthday).slice(0, 10) : '');
     setEmail(profile.customer?.email || '');
     setMarketing(Boolean(profile.marketingConsent?.isGranted && !profile.marketingConsent?.revokedAt));
+    if (recurring) {
+      setAutoTopupAmount(String(recurring.amountRub || ''));
+      setAutoTopupDay(String(recurring.billingDay || 1));
+    }
   }
 
   useEffect(() => { refresh().catch(() => setMessage('Не удалось загрузить личный кабинет.')); }, []);
@@ -39,6 +48,38 @@ export function ProfileCenter({ onBack }) {
     setMarketing(next);
     setMessage(next ? 'Согласие на информационную и рекламную рассылку зафиксировано.' : 'Согласие на рассылку отозвано.');
     await refresh();
+  }
+
+  async function saveAutoTopup() {
+    const amountRub = Number(autoTopupAmount);
+    const billingDay = Number(autoTopupDay);
+    if (!(amountRub > 0) || !Number.isInteger(billingDay) || billingDay < 1 || billingDay > 28) {
+      setMessage('Укажите сумму больше 0 и день месяца от 1 до 28.');
+      return;
+    }
+    setAutoTopupBusy(true);
+    try {
+      const result = await setupAutoTopup({ amountRub, billingDay, offerVersion: 'AUTO_TOPUP_OFFER_V1' });
+      if (result.setupPayment?.confirmationUrl) {
+        window.location.href = result.setupPayment.confirmationUrl;
+        return;
+      }
+      setMessage('Настройки ежемесячного автопополнения сохранены.');
+      await refresh();
+    } finally {
+      setAutoTopupBusy(false);
+    }
+  }
+
+  async function stopAutoTopup() {
+    setAutoTopupBusy(true);
+    try {
+      await disableAutoTopup();
+      setMessage('Ежемесячное автопополнение отключено.');
+      await refresh();
+    } finally {
+      setAutoTopupBusy(false);
+    }
   }
 
   async function read(item) {
@@ -70,6 +111,21 @@ export function ProfileCenter({ onBack }) {
       <input aria-label="Электронная почта" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.ru" />
       <button type="button" disabled={!email} onClick={() => saveEmail().catch(() => setMessage('Не удалось сохранить или отправить подтверждение.'))}>Сохранить и подтвердить</button>
       <p><strong>Статус:</strong> {verificationStatus === 'VERIFIED' ? 'подтверждена' : verificationStatus === 'PENDING' ? 'ожидает подтверждения' : 'не подтверждена'}</p>
+    </section>
+
+    <section className="hero-card">
+      <h3>Ежемесячное автопополнение</h3>
+      <p>Раз в месяц выбранная сумма автоматически списывается сохранённым способом оплаты и после подтверждения ЮKassa зачисляется на ваш лицевой счёт.</p>
+      <label>Сумма, ₽
+        <input type="number" min="1" step="1" value={autoTopupAmount} onChange={(e) => setAutoTopupAmount(e.target.value)} placeholder="Например, 500" />
+      </label>
+      <label>День месяца
+        <input type="number" min="1" max="28" step="1" value={autoTopupDay} onChange={(e) => setAutoTopupDay(e.target.value)} />
+      </label>
+      {autoTopup && <p><strong>Статус:</strong> {autoTopup.status} · <strong>Следующее пополнение:</strong> {autoTopup.nextChargeAt ? new Date(autoTopup.nextChargeAt).toLocaleString('ru-RU') : 'не назначено'} · <strong>Способ оплаты:</strong> {autoTopup.paymentMethodSaved ? 'сохранён' : 'ещё не сохранён'}</p>}
+      <p><small>Подключая автопополнение, вы принимаете условия автоплатежей, указанные в оферте. Отдельное подтверждение каждого последующего платежа не требуется. Автопополнение можно отключить в любой момент.</small></p>
+      <button type="button" disabled={autoTopupBusy || !(Number(autoTopupAmount) > 0)} onClick={() => saveAutoTopup().catch(() => setMessage('Не удалось настроить автопополнение.'))}>{autoTopupBusy ? 'Сохраняем…' : autoTopup?.status === 'ACTIVE' ? 'Сохранить настройки' : 'Подключить автопополнение'}</button>
+      {autoTopup && autoTopup.status !== 'DISABLED' && <button type="button" disabled={autoTopupBusy} onClick={() => stopAutoTopup().catch(() => setMessage('Не удалось отключить автопополнение.'))}>Отключить автопополнение</button>}
     </section>
 
     <section className="hero-card">

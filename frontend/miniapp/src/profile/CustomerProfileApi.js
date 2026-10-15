@@ -11,6 +11,22 @@ async function parse(response, fallback) {
   return body.data;
 }
 
+export async function getAutoTopup({ signal } = {}) {
+  return parse(await fetch('/api/v1/club-account/me/auto-topup', { signal, headers: authHeaders() }), 'Не удалось загрузить автопополнение.');
+}
+
+export async function setupAutoTopup({ amountRub, billingDay = 1, offerVersion = 'AUTO_TOPUP_OFFER_V1' }) {
+  return parse(await fetch('/api/v1/club-account/me/auto-topup', {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json', 'Idempotency-Key': `auto-topup-ui:${Date.now()}` },
+    body: JSON.stringify({ amountRub, billingDay, offerVersion }),
+  }), 'Не удалось настроить автопополнение.');
+}
+
+export async function disableAutoTopup() {
+  return parse(await fetch('/api/v1/club-account/me/auto-topup/disable', { method: 'POST', headers: authHeaders() }), 'Не удалось отключить автопополнение.');
+}
+
 export async function getProfileState({ signal } = {}) {
   return parse(await fetch('/api/v1/customers/me/profile-state', { signal, headers: authHeaders() }), 'Не удалось загрузить профиль.');
 }
