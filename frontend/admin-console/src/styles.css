@@ -143,3 +143,33 @@
 .settings-notice{position:sticky;bottom:16px;justify-self:center;margin:0;padding:11px 18px;border-radius:999px;background:#173f39;color:#fff;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.15)}
 .empty-state.compact{padding:16px 0}
 @media(max-width:980px){.machine-settings-grid{grid-template-columns:1fr}}
+
+/* === CUSTOMER 360 HISTORY / REFERRALS 2026-10-15 === */
+.customer-history-card{display:grid;gap:14px}
+.customer-history-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.customer-history-tabs button{
+  border:1px solid #e1d5ca;
+  background:#fffaf6;
+  color:#4c4139;
+  border-radius:999px;
+  padding:8px 13px;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+.customer-history-tabs button.is-active{
+  background:#dff3ef;
+  border-color:#9fd4cb;
+  color:#087365;
+}
+.customer-history-scroll{
+  max-height:620px;
+  overflow:auto;
+  padding-right:6px;
+  scrollbar-gutter:stable;
+}
+.customer-history-scroll::-webkit-scrollbar{width:10px}
+.customer-history-scroll::-webkit-scrollbar-thumb{background:#d8ccc2;border-radius:999px;border:2px solid #fff}
+@media(max-width:900px){
+  .customer-history-scroll{max-height:520px}
+}

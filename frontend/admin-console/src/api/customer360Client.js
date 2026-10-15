@@ -12,6 +12,7 @@ async function request(path, options = {}) {
 export const getCustomer360 = (customerId, { signal } = {}) => request(`/customers/${customerId}`, { signal });
 export const getCustomerTimeline = (customerId, { signal } = {}) => request(`/customers/${customerId}/timeline`, { signal });
 export const getCustomerPaymentProfile = (customerId, { signal } = {}) => request(`/customers/${customerId}/payment-profile`, { signal });
+export const disableCustomerRecurring = (customerId, subscriptionId) => request(`/customers/${customerId}/subscriptions/${subscriptionId}/disable-recurring`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
 export const createCustomerRefund = (customerId, payload, { idempotencyKey } = {}) => request(`/customers/${customerId}/refunds`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, body: JSON.stringify(payload) });
 async function requestAdmin(path, { signal } = {}) {
   const response = await fetch(`/api/v1/admin/customers${path}`, { signal, headers });

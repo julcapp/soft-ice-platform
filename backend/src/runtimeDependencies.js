@@ -55,6 +55,9 @@ const { PricingRepository } = require('./modules/promotion_engine');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 const { TestMachineProviderAdapter } = require('./modules/machine_dispense/TestMachineProviderAdapter');
 const { PrepaidPickupService } = require('./modules/order/PrepaidPickupService');
+const { PrivateChannelBillingService } = require('./modules/private_channel/PrivateChannelBillingService');
+const { YooKassaPrivateChannelPaymentAdapter } = require('./modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
+const { PrivateChannelRenewalService } = require('./modules/private_channel/PrivateChannelRenewalService');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -74,6 +77,14 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
     })
     : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const privateChannelBillingService = new PrivateChannelBillingService({ prisma });
+  const privateChannelPaymentAdapter = new YooKassaPrivateChannelPaymentAdapter({
+    shopId: config?.payments?.yooKassa?.shopId,
+    secretKey: config?.payments?.yooKassa?.secretKey,
+    baseUrl: config?.payments?.yooKassa?.apiBaseUrl,
+    receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
+  });
+  const privateChannelRenewalService = new PrivateChannelRenewalService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = config?.features?.terminalTestMachineSimulatorEnabled
@@ -430,6 +441,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     transactionalOutboxRepository,
     outboxAdminService,
     paymentRepository,
+    privateChannelBillingService,
+    privateChannelPaymentAdapter,
+    privateChannelRenewalService,
     paymentService,
     paymentCheckoutService,
     terminalCheckoutService,

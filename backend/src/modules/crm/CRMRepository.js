@@ -66,7 +66,14 @@ class CRMRepository {
   async findCustomersByIds(customerIds = []) {
     const ids = [...new Set(customerIds.filter(Boolean))];
     if (!ids.length) return [];
-    return this.prisma.customer.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, phone: true, email: true, status: true } });
+    return this.prisma.customer.findMany({
+      where: { id: { in: ids } },
+      include: {
+        orders: { orderBy: { createdAt: 'desc' }, take: 1 },
+        channelSubscriptions: { where: { isSubscribed: true }, orderBy: { updatedAt: 'desc' } },
+        _count: { select: { orders: true } },
+      },
+    });
   }
 
   async findActiveSubscription(customerId, channelType) {

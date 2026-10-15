@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createCustomerRefund, getCustomerPaymentProfile } from './api/customer360Client';
+import { createCustomerRefund, disableCustomerRecurring, getCustomerPaymentProfile } from './api/customer360Client';
 import { DataTable, ErrorState, Skeleton, StatusBadge } from './components';
 
 const money = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -8,8 +8,9 @@ const channelLabel = (value) => ({ TELEGRAM: 'Telegram', MAX: 'MAX', VK: 'VK' }[
 const methodLabel = (value) => ({ SBP: 'СБП', BANK_CARD: 'Банковская карта', CLUB_BALANCE: 'Внутренний баланс', SBERBANK: 'SberPay', TINKOFF_BANK: 'T-Pay', MOBILE_BALANCE: 'Баланс телефона', UNKNOWN: 'Не зафиксирован' }[String(value || 'UNKNOWN').toUpperCase()] || value || 'Не зафиксирован');
 const entityLabel = (entity) => entity ? `${({ ORDER: 'Заказ', CLUB_TOPUP: 'Пополнение клуба', PRIVATE_CHANNEL_SUBSCRIPTION: 'Подписка' }[entity.type] || entity.type)} · ${entity.id}` : '—';
 
-export function UserPaymentProfile({ customerId, client = getCustomerPaymentProfile, refundClient = createCustomerRefund }) {
+export function UserPaymentProfile({ customerId, client = getCustomerPaymentProfile, refundClient = createCustomerRefund, disableRecurringClient = disableCustomerRecurring }) {
   const [state, setState] = useState({ status: 'loading' });
+  const [recurringState, setRecurringState] = useState({ subscriptionId: null, status: 'idle', message: '' });
   const [refundTarget, setRefundTarget] = useState(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
@@ -47,6 +48,17 @@ export function UserPaymentProfile({ customerId, client = getCustomerPaymentProf
     setRefundState({ status: 'idle', message: '' });
   }
 
+  async function disableRecurring(subscriptionId) {
+    setRecurringState({ subscriptionId, status: 'sending', message: '' });
+    try {
+      await disableRecurringClient(customerId, subscriptionId);
+      setRecurringState({ subscriptionId, status: 'success', message: 'Автопродление отключено. Текущий оплаченный период сохранён.' });
+      await load();
+    } catch (error) {
+      setRecurringState({ subscriptionId, status: 'error', message: error.message || 'Не удалось отключить автопродление.' });
+    }
+  }
+
   async function submitRefund() {
     const amount = Number(refundAmount);
     if (!refundTarget || !(amount > 0) || amount > refundTarget.remainingRefundRub || refundReason.trim().length < 3) return;
@@ -77,9 +89,20 @@ export function UserPaymentProfile({ customerId, client = getCustomerPaymentProf
         { key: 'provider', label: 'Провайдер' }, { key: 'type', label: 'Тип', render: () => 'Сохранённый способ оплаты' }, { key: 'maskedReference', label: 'Provider reference' }, { key: 'fingerprint', label: 'Внутренний fingerprint' },
       ]} emptyTitle="Сохранённых способов оплаты нет" />
       <DataTable title="Рекуррентные подписки" rows={data.recurringSubscriptions || []} columns={[
-        { key: 'channelType', label: 'Канал', render: channelLabel }, { key: 'planName', label: 'Тариф' }, { key: 'priceRub', label: 'Стоимость', render: money }, { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={String(value || '').toUpperCase()} /> }, { key: 'recurringEnabled', label: 'Автопродление', render: (value) => <StatusBadge status={value ? 'ACTIVE' : 'INACTIVE'} /> }, { key: 'currentPeriodEnd', label: 'Оплачено до', render: dateTime },
+        { key: 'channelType', label: 'Канал', render: channelLabel },
+        { key: 'planName', label: 'Тариф' },
+        { key: 'priceRub', label: 'Сумма', render: money },
+        { key: 'scheduleHuman', label: 'Период' },
+        { key: 'paymentMethodType', label: 'Способ оплаты', render: methodLabel },
+        { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={String(value || '').toUpperCase()} /> },
+        { key: 'recurringEligible', label: 'Готовность', render: (value) => <StatusBadge status={value ? 'READY' : 'CONSENT_REQUIRED'} /> },
+        { key: 'recurringEnabled', label: 'Автопродление', render: (value) => <StatusBadge status={value ? 'ACTIVE' : 'INACTIVE'} /> },
+        { key: 'currentPeriodEnd', label: 'Оплачено до', render: dateTime },
+        { key: 'nextRenewalAt', label: 'Следующее списание', render: (value, row) => row.recurringEnabled && !row.cancelAtPeriodEnd ? dateTime(value) : '—' },
+        { key: 'id', label: 'Действие', render: (value, row) => row.recurringEnabled ? <button type="button" disabled={recurringState.status === 'sending' && recurringState.subscriptionId === value} onClick={() => disableRecurring(value)}>{recurringState.status === 'sending' && recurringState.subscriptionId === value ? 'Отключаем…' : 'Отключить автопродление'}</button> : (row.recurringEligible ? 'Можно включить только в клиентском потоке' : 'Нужно согласие пользователя') },
       ]} emptyTitle="Рекуррентных подписок нет" />
     </div>
+    {recurringState.message ? <p role="status" style={{ marginTop: 10 }}><strong>{recurringState.message}</strong></p> : null}
 
     <DataTable title="Согласия на рекуррентные платежи" rows={(data.recurringSubscriptions || []).filter((item) => item.recurringConsent).map((item) => ({ id: `consent:${item.id}`, channelType: item.channelType, version: item.recurringConsent.version, grantedAt: item.recurringConsent.grantedAt, savedMethod: item.recurringConsent.hasSavedPaymentMethod ? 'VERIFIED' : 'UNKNOWN', recurring: item.recurringEnabled ? 'ACTIVE' : 'INACTIVE' }))} columns={[
       { key: 'channelType', label: 'Канал', render: channelLabel }, { key: 'version', label: 'Версия согласия' }, { key: 'grantedAt', label: 'Дата и время согласия', render: dateTime }, { key: 'savedMethod', label: 'Способ оплаты сохранён', render: (value) => <StatusBadge status={value} /> }, { key: 'recurring', label: 'Автопродление сейчас', render: (value) => <StatusBadge status={value} /> },

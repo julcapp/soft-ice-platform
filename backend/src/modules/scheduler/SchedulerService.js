@@ -36,7 +36,7 @@ class SchedulerService {
 
   async runtimeFacts() {
     if (!this.prisma) return {};
-    const [payment, commands, recovery] = await Promise.all([
+    const [payment, commands, recovery, renewals] = await Promise.all([
       this.prisma.paymentProviderInbox.aggregate({
         _max: { processedAt: true, receivedAt: true },
         _count: { _all: true },
@@ -52,6 +52,14 @@ class SchedulerService {
         _count: { _all: true },
         _max: { updatedAt: true },
       }).catch(() => []),
+      this.prisma.$queryRawUnsafe(`
+        SELECT
+          (SELECT COUNT(*)::int FROM "PrivateChannelSubscription" WHERE "status"='ACTIVE' AND "recurringEnabled"=TRUE AND "cancelAtPeriodEnd"=FALSE AND "providerPaymentMethodRef" IS NOT NULL AND "currentPeriodEnd" IS NOT NULL AND "currentPeriodEnd" <= CURRENT_TIMESTAMP) AS "dueCount",
+          (SELECT MAX("updatedAt") FROM "PrivateChannelRenewalAttempt") AS "lastActivityAt",
+          (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='FAILED') AS "failedCount",
+          (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='EXHAUSTED') AS "exhaustedCount",
+          (SELECT COUNT(*)::int FROM "PrivateChannelRenewalAttempt" WHERE "status"='PAID') AS "paidCount"
+      `).then((rows) => rows?.[0] || null).catch(() => null),
     ]);
 
     const latest = (rows) => rows.reduce((max, row) => {
@@ -75,6 +83,13 @@ class SchedulerService {
         activeCount: recovery.filter((x) => ['DISPATCHING','SENT','ACCEPTED','DISPENSING','TIMED_OUT'].includes(x.status)).reduce((n, x) => n + (x._count?._all || 0), 0),
         manualReviewCount: recovery.find((x) => x.status === 'RECONCILIATION_REQUIRED')?._count?._all || 0,
       },
+      renewals: renewals ? {
+        lastActivityAt: renewals.lastActivityAt || null,
+        dueCount: Number(renewals.dueCount || 0),
+        failedCount: Number(renewals.failedCount || 0),
+        exhaustedCount: Number(renewals.exhaustedCount || 0),
+        paidCount: Number(renewals.paidCount || 0),
+      } : null,
     };
   }
 
@@ -88,7 +103,7 @@ class SchedulerService {
       category,
       source: 'Node.js setInterval',
       unit: 'softice-display-backend-8800.service',
-      scheduleHuman: `Каждые ${intervalMs / 1000} секунд`,
+      scheduleHuman: intervalMs === 60 * 60 * 1000 ? 'Каждый час' : `Каждые ${intervalMs / 1000} секунд`,
       scheduleTechnical: `setInterval(..., ${intervalMs})`,
       timezone: 'Не применяется',
       enabled: true,
@@ -96,7 +111,7 @@ class SchedulerService {
       description,
       retention: 'Не применяется',
       lastRunAt: fact?.lastActivityAt || null,
-      lastRunStatus: 'ACTIVE',
+      lastRunStatus: (fact?.failedCount > 0 || fact?.manualReviewCount > 0 || fact?.exhaustedCount > 0) ? 'WARNING' : 'ACTIVE',
       lastRunDetails: fact ? [{ section: 'runtime', status: 'active', ...fact }] : [],
       nextRunAt: null,
     });
@@ -109,6 +124,14 @@ class SchedulerService {
         intervalMs: 5000,
         description: 'Проверяет очередь входящих платёжных событий и передаёт их в PaymentService для обработки.',
         fact: facts.payment,
+      }),
+      runtimeJob({
+        id: 'private-channel-renewal-worker',
+        name: 'Автопродление подписок',
+        category: 'PAYMENTS',
+        intervalMs: 60 * 60 * 1000,
+        description: 'Раз в час проверяет только подписки, у которых наступил конец оплаченного периода. Реальное списание выполняется по сохранённому способу оплаты только при ранее зафиксированном согласии пользователя. Для месячного тарифа списание происходит раз в 30 дней.',
+        fact: facts.renewals,
       }),
       runtimeJob({
         id: 'machine-command-worker',

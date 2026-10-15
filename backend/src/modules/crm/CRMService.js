@@ -115,7 +115,7 @@ function toCustomerSummary(customer) {
 }
 
 function toCustomerCard(customer, referredCustomers = []) {
-  const referredById = new Map(referredCustomers.map((item) => [item.id, item]));
+  const referredById = new Map(referredCustomers.map((item) => [item.id, toReferralCustomerSummary(item)]));
   const invited = (customer.referralsMade || []).map((referral) => ({ ...referral, referredCustomer: referral.referredCustomerId ? referredById.get(referral.referredCustomerId) || null : null }));
   return {
     ...toCustomerSummary({ ...customer, _count: { orders: customer.orders?.length || 0, referralsMade: customer.referralsMade?.length || 0 } }),
@@ -124,6 +124,20 @@ function toCustomerCard(customer, referredCustomers = []) {
     loyalty: { clubAccount: customer.clubAccount && { id: customer.clubAccount.id, status: customer.clubAccount.status, clubActive: customer.clubAccount.clubActive, activatedAt: customer.clubAccount.activatedAt, currency: customer.clubAccount.currency, availableBalanceRub: customer.clubAccount.availableBalanceRub, reservedBalanceRub: customer.clubAccount.reservedBalanceRub, lastTopupAt: customer.clubAccount.lastTopupAt }, bonusAccount: customer.bonusAccount },
     operations: customer.clubAccount?.transactions || [], purchases: customer.orders || [], accruals: customer.bonusTransactions || [],
     referrals: { invited, source: customer.referredBy?.[0] || null }, notifications: customer.notificationDeliveries || [],
+  };
+}
+
+function toReferralCustomerSummary(customer) {
+  const activeChannels = [...new Set((customer.channelSubscriptions || []).filter((item) => item.isSubscribed).map((item) => String(item.channelType).toUpperCase()))];
+  return {
+    id: customer.id,
+    name: customer.name || 'Без имени',
+    phone: customer.phone || null,
+    email: customer.email || null,
+    status: customer.status,
+    purchasesCount: Number(customer._count?.orders || 0),
+    lastPurchaseAt: customer.orders?.[0]?.createdAt || null,
+    activeChannels,
   };
 }
 

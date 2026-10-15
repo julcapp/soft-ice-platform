@@ -137,6 +137,7 @@ let server;
 let paymentInboxTimer;
 let machineCommandTimer;
 let machineRecoveryTimer;
+let privateChannelRenewalTimer;
 
 function startServer() {
   if (server) {
@@ -160,6 +161,11 @@ function startServer() {
     machineRecoveryTimer = setInterval(() => machineRecoveryWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.recovery.worker.failed', { code: error.code || 'MACHINE_RECOVERY_WORKER_FAILED' })), 15000);
     machineRecoveryTimer.unref();
   }
+  const privateChannelRenewalService = getApp().locals.platform.dependencies.privateChannelRenewalService;
+  if (privateChannelRenewalService && !privateChannelRenewalTimer) {
+    privateChannelRenewalTimer = setInterval(() => privateChannelRenewalService.processDue({ limit: 100 }).catch((error) => getApp().locals.platform.logger.error('private.channel.renewal.worker.failed', { code: error.code || 'PRIVATE_CHANNEL_RENEWAL_WORKER_FAILED' })), 60 * 60 * 1000);
+    privateChannelRenewalTimer.unref();
+  }
 
   return server;
 }
@@ -182,6 +188,7 @@ async function shutdown(signal, options = {}) {
   if (paymentInboxTimer) { clearInterval(paymentInboxTimer); paymentInboxTimer = undefined; }
   if (machineCommandTimer) { clearInterval(machineCommandTimer); machineCommandTimer = undefined; }
   if (machineRecoveryTimer) { clearInterval(machineRecoveryTimer); machineRecoveryTimer = undefined; }
+  if (privateChannelRenewalTimer) { clearInterval(privateChannelRenewalTimer); privateChannelRenewalTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();
