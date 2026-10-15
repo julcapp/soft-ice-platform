@@ -43,3 +43,14 @@ test('first real purchase awards both referral sides and one threshold gift',asy
  const repeat=await new CustomerBenefitService({prisma:tx}).evaluate(tx,order,{rules,createdAt:new Date(0)});
  assert.deepEqual(repeat.map(r=>r.ruleKey),['purchase_percent']);
 });
+
+test('historical preview keeps anonymous orders without querying a null bonus customer',async()=>{
+ let saved;
+ const p={$queryRawUnsafe:async()=>[{version:1,rules:INITIAL_RULES}],$executeRawUnsafe:async(sql,id,version,actor,result)=>{saved=JSON.parse(result);},
+ order:{findMany:async()=>[{id:'anonymous-order',customerId:null,status:'CREATED',payment:null,machineDispenseAttempts:[],customer:null}]},
+ saleFlow:{findUnique:async()=>null},giftTransfer:{findFirst:async()=>null},
+ bonusTransaction:{findFirst:async()=>{throw Error('Anonymous customer must not reach bonus lookup');}}};
+ const result=await new CustomerBenefitService({prisma:p}).preview({version:1,actorId:'auditor'});
+ assert.equal(result.examined,1);assert.equal(result.applied,0);assert.equal(result.totalBonus,0);
+ assert.equal(result.entries[0].customerId,null);assert.equal(result.entries[0].reason,'ORDER_NOT_COMPLETED');assert.equal(saved.entries.length,1);
+});
