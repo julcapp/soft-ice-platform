@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DataTable, EmptyState, ErrorState, Skeleton, StatisticCard, StatusBadge } from './components';
+import { OrganizationCreate } from './OrganizationCreate';
 import * as api from './api/organizationClient';
 
 const roleLabels = { OWNER:'Владелец', ADMINISTRATOR:'Администратор', MANAGER:'Руководитель', OPERATOR:'Оператор', SERVICE_SPECIALIST:'Сервисный специалист', MACHINE_RESPONSIBLE:'Ответственный за аппарат', LOCATION_RESPONSIBLE:'Ответственный за точку', FINANCIALLY_RESPONSIBLE:'Финансово ответственный сотрудник' };
@@ -9,22 +10,24 @@ const tabs = [['overview','Обзор'],['structure','Структура'],['mem
 
 export function OrganizationsPage({ route, clients = api }) {
   const [, organizationId, requestedTab = 'overview'] = route.split('/');
+  const [revision,setRevision]=useState(0);
   const [state,setState]=useState({status:'loading'});
   useEffect(()=>{const controller=new AbortController(); const load=organizationId ? Promise.all([
     clients.getOrganization(organizationId,{signal:controller.signal}), clients.getOrganizationUnits(organizationId,{signal:controller.signal}), clients.getOrganizationMembers(organizationId,{signal:controller.signal}), clients.getOrganizationLocations(organizationId,{signal:controller.signal}), clients.getOrganizationMachines(organizationId,{signal:controller.signal}), clients.getOrganizationResponsibilities(organizationId,{signal:controller.signal}), clients.getOrganizationEvents(organizationId,{signal:controller.signal}), clients.getOrganizationMetrics(organizationId,{signal:controller.signal}),
   ]).then(([organization,units,members,locations,machines,responsibilities,events,metrics])=>({organization,units,members,locations,machines,responsibilities,events:events.items||events,metrics})) : clients.getOrganizations({signal:controller.signal});
-  load.then(data=>setState({status:'ready',data})).catch(error=>{if(error.name!=='AbortError')setState({status:error.status===403?'denied':'error'});}); return()=>controller.abort();},[organizationId,clients]);
+  load.then(data=>setState({status:'ready',data})).catch(error=>{if(error.name!=='AbortError')setState({status:error.status===403?'denied':'error'});}); return()=>controller.abort();},[organizationId,clients,revision]);
   if(state.status==='loading')return <Skeleton/>; if(state.status==='denied')return <ErrorState kind="denied"/>; if(state.status==='error')return <ErrorState/>;
-  if(!organizationId)return <OrganizationList organizations={state.data}/>;
-  return <OrganizationCard data={state.data} tab={tabs.some(([id])=>id===requestedTab)?requestedTab:'overview'}/>;
+  if(!organizationId)return <><OrganizationCreate organizations={state.data} onSaved={() => setRevision(revision + 1)} /><OrganizationList organizations={state.data}/></>;
+  return <OrganizationCard onSaved={() => setRevision(revision + 1)} data={state.data} tab={tabs.some(([id])=>id===requestedTab)?requestedTab:'overview'}/>;
 }
 
 export function OrganizationList({organizations=[]}) { return <div className="organization-workspace"><DataTable title="Список организаций" rows={organizations} emptyTitle="Организации ещё не созданы" columns={[
   {key:'shortName',label:'Организация',render:(value,row)=><a href={`#organizations/${row.id}/overview`}>{value}</a>},{key:'organizationType',label:'Тип'},{key:'inn',label:'ИНН',render:value=>value||'Не указан'},{key:'status',label:'Статус',render:value=><StatusBadge status={value}/>} ]}/></div>; }
 
-export function OrganizationCard({data,tab}) { const {organization,units,members,locations,machines,responsibilities,events,metrics}=data; return <div className="organization-workspace">
+export function OrganizationCard({data,tab,onSaved}) { const {organization,units,members,locations,machines,responsibilities,events,metrics}=data; return <div className="organization-workspace">
   <a className="back-link" href="#organizations">← Все организации</a>
   <section className="card organization-heading"><div><p>{organization.organizationType}</p><h2>{organization.fullName}</h2><span>{organization.inn?`ИНН ${organization.inn}`:'ИНН не указан'} · сотрудничество с {date(organization.cooperationStartedAt)}</span></div><StatusBadge status={organization.status}/></section>
+  <OrganizationCreate organizations={[organization]} initialOrganizationId={organization.id} onSaved={onSaved} />
   <nav className="detail-tabs" aria-label="Разделы организации">{tabs.map(([id,title])=><a className={tab===id?'active':''} href={`#organizations/${organization.id}/${id}`} key={id}>{title}</a>)}</nav>
   {tab==='overview'&&<Overview metrics={metrics}/>} {tab==='structure'&&<Structure units={units}/>} {tab==='members'&&<Members members={members}/>} {tab==='locations'&&<Locations locations={locations}/>} {tab==='machines'&&<Machines machines={machines}/>} {tab==='responsibilities'&&<Responsibilities items={responsibilities}/>} {tab==='events'&&<Events events={events}/>} {tab==='metrics'&&<Metrics metrics={metrics}/>} </div>; }
 

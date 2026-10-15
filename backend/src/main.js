@@ -1,12 +1,30 @@
+const { ServiceDeviceBinding } = require('./modules/operator_workspace/ServiceDeviceBinding');
+const { ServiceMobileSession } = require('./modules/operator_workspace/ServiceMobileSession');
+const { createMobileServiceRouter } = require('./api/v1/mobileServiceRoutes');
+const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
+const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
 const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
+const { createAdminAuthRouter, createAdminBearerContextMiddleware } = require('./api/v1/adminAuthRoutes');
+const { AdminAuthService } = require('./platform/security/AdminAuthService');
+const { AdminSecurityDelivery } = require('./platform/security/AdminSecurityDelivery');
+const { createServiceWorkspaceRouter } = require('./api/v1/serviceWorkspaceRoutes');
+const { ServiceVisitService } = require('./modules/operator_workspace/ServiceVisitService');
+const { LocalPhotoStorageAdapter } = require('./modules/photo_verification/LocalPhotoStorageAdapter');
+const { ServiceAccountAccess } = require('./modules/operator_workspace/ServiceAccountAccess');
+const { createServiceAccountRouter } = require('./api/v1/serviceAccountRoutes');
+const { AuditRepository } = require('./platform/audit/AuditRepository');
+const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
+const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
+const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
 const { createHealthRouter } = require('./common/http/healthRouter');
-const { disconnectDatabase } = require('./common/database');
+const { getPrismaClient, disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
 const { moduleManifests } = require('./modules');
 const { createRuntimeDependencies } = require('./runtimeDependencies');
+const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
 const { METRICS, MetricsRegistry } = require('./platform/observability/MetricsRegistry');
@@ -16,8 +34,16 @@ function createApp(options = {}) {
   const config = options.config || backendConfig;
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
-  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
+  const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
+  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
+  if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
+  const adminAuthService = options.adminAuthService || dependencies.adminAuthService || (!options.dependencies && new AdminAuthService({
+    prisma: getPrismaClient(), auditRepository: new AuditRepository(getPrismaClient()),
+    securityDelivery: new AdminSecurityDelivery(),
+  }));
+  dependencies.adminAuthService = adminAuthService || null;
+  dependencies.adminAuth = dependencies.adminAuth || { environment: config.environment };
 
   app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
   app.use(attachCorrelationId);
@@ -39,6 +65,58 @@ function createApp(options = {}) {
   });
 
   app.use('/health', createHealthRouter(options.health));
+
+  const botWebhooksEnabled = options.botWebhooksEnabled ?? process.env.BOT_WEBHOOKS_ENABLED === 'true';
+  if (botWebhooksEnabled) {
+    const botRuntime = options.botRuntime || createBotRuntimeComposition({ dependencies, env: process.env, clients: botClients, logger });
+    const handlers = createBotWebhookHandlers({
+      botRuntime,
+      logger,
+      telegramSecret: process.env.TELEGRAM_WEBHOOK_SECRET || null,
+      maxSecret: process.env.MAX_WEBHOOK_SECRET || null,
+    });
+    app.post('/webhooks/telegram', handlers.handleTelegram);
+    app.post('/webhooks/max', handlers.handleMax);
+    app.locals.botRuntime = botRuntime;
+    app.locals.botClients = botClients;
+    logger.info('bot.webhooks.enabled', {
+      telegram: '/webhooks/telegram',
+      max: '/webhooks/max',
+      previewMode: !hasConfiguredBotClients(botClients),
+    });
+  }
+
+  if (adminAuthService) {
+    app.use('/api/v1/admin/auth', createAdminAuthRouter({ adminAuthService }));
+    app.use('/api/v1', createAdminBearerContextMiddleware(adminAuthService));
+    if (process.env.MESSAGE_CENTER_ENABLED === 'true') {
+      const { MessageCenterService } = require('./modules/message_center/MessageCenterService');
+      const { createMessageCenterRouter } = require('./api/v1/messageCenterRoutes');
+      app.use('/api/v1/admin/messages', createMessageCenterRouter({ service: new MessageCenterService({ prisma: getPrismaClient() }) }));
+    }
+    const serviceVisitService = dependencies.serviceVisitService || (!options.dependencies && new ServiceVisitService({
+      prisma: getPrismaClient(),
+      storage: new LocalPhotoStorageAdapter({ rootDir: process.env.SERVICE_REPORT_UPLOAD_DIR || '/var/lib/soft-ice/media/service-reports' }),
+    }));
+    if (serviceVisitService) app.use('/api/v1/service-workspace', createServiceWorkspaceRouter({ serviceVisitService }));
+    if (serviceVisitService && process.env.SERVICE_MOBILE_ENABLED === 'true') {
+      const prisma = getPrismaClient();
+      const mobileSessions = new ServiceMobileSession({ prisma, adminAuthService, deviceBinding: new ServiceDeviceBinding({ prisma }) });
+      app.use('/api/v1/mobile-service', createMobileServiceRouter({ mobileSessions, serviceVisitService }));
+      const devices = new ServiceDeviceBinding({ prisma });
+      app.post('/api/v1/admin/service-devices/:memberId', require('./platform/http/apiResponse').asyncHandler(async (req, res) => require('./platform/http/apiResponse').sendData(res, req, await devices.register(req.params.memberId, req.body, req.securityContext), 201)));
+      app.post('/api/v1/admin/service-devices/:bindingId/revoke', require('./platform/http/apiResponse').asyncHandler(async (req, res) => require('./platform/http/apiResponse').sendData(res, req, await devices.revoke(req.params.bindingId, req.body?.reason, req.securityContext))));
+    }
+    const serviceAccountAccess = dependencies.serviceAccountAccess || (!options.dependencies && new ServiceAccountAccess({ prisma: getPrismaClient() }));
+    if (serviceAccountAccess) app.use('/api/v1/admin/service-access', createServiceAccountRouter({ serviceAccountAccess }));
+  }
+
+  // Equipment Sandbox is optional. Existing application scenarios must keep
+  // working when the equipment integration service is not configured.
+  if (dependencies.equipmentIntegrationService) {
+    app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
+    app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
+  }
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {

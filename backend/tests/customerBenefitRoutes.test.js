@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),express=require('express');
+const {createCustomerBenefitRouter}=require('../src/api/v1/customerBenefitRoutes');
+async function run(roles,work){const app=express();app.use(express.json());if(roles)app.use((req,res,next)=>{req.securityContext={roles,actor_id:'admin'};next();});app.use('/benefits',createCustomerBenefitRouter({adminAuth:{environment:'production'},customerBenefitService:{read:async()=>({current:{version:1},active:null})}}));app.use((e,req,res,next)=>res.status(e.statusCode||500).json({code:e.code}));const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});try{await work(`http://127.0.0.1:${server.address().port}/benefits`);}finally{await new Promise(resolve=>server.close(resolve));}}
+test('production rejects forged development role headers',async()=>run(null,async url=>{const r=await fetch(url,{headers:{'X-Admin-Role':'OWNER'}});assert.equal(r.status,401);}));
+test('technician cannot read global benefits',async()=>run(['TECHNICIAN'],async url=>{assert.equal((await fetch(url)).status,403);}));
+test('platform owner can read policy',async()=>run(['PLATFORM_OWNER'],async url=>{assert.equal((await fetch(url)).status,200);}));

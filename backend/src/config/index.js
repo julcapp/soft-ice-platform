@@ -57,6 +57,30 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       queueMaxSize: parseInteger(environment.HUAXIN_COMMAND_QUEUE_SIZE, 100, 'HUAXIN_COMMAND_QUEUE_SIZE'),
       telemetryLimit: parseInteger(environment.HUAXIN_TELEMETRY_LIMIT, 100, 'HUAXIN_TELEMETRY_LIMIT'),
     },
+    equipmentIntegration: {
+      enabled: parseBoolean(environment.EQUIPMENT_INTEGRATION_ENABLED, false),
+      apiKey: secretProvider.get('EQUIPMENT_INTEGRATION_API_KEY'),
+      testMachineId: environment.EQUIPMENT_INTEGRATION_TEST_MACHINE_ID || 'TEST-MACHINE-001',
+      telemetryLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT, 200, 'EQUIPMENT_INTEGRATION_TELEMETRY_LIMIT'),
+      eventLimit: parseInteger(environment.EQUIPMENT_INTEGRATION_EVENT_LIMIT, 200, 'EQUIPMENT_INTEGRATION_EVENT_LIMIT'),
+    },
+    botNotifications: {
+      telegramEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_TELEGRAM_ENABLED, false),
+      maxEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_MAX_ENABLED, false),
+      recipientEncryptionKey: secretProvider.get('BOT_RECIPIENT_ENCRYPTION_KEY'),
+      telegramConfigured: Boolean(secretProvider.get('TELEGRAM_BOT_TOKEN') || secretProvider.get('TELEGRAM_TEST_BOT_TOKEN')),
+      maxConfigured: Boolean(secretProvider.get('MAX_BOT_TOKEN') || secretProvider.get('MAX_TEST_BOT_TOKEN')),
+      miniAppUrl: environment.BOT_MINI_APP_URL || environment.MINI_APP_URL || 'https://app.utimoshi.ru',
+      providerTimeoutMs: parseInteger(environment.BOT_PROVIDER_TIMEOUT_MS, 15000, 'BOT_PROVIDER_TIMEOUT_MS'),
+      outbox: {
+        workerEnabled: parseBoolean(environment.GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED, false),
+        batchSize: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE, 25, 'GIFT_NOTIFICATION_OUTBOX_BATCH_SIZE', { max: 500 }),
+        leaseMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_LEASE_MS, 60000, 'GIFT_NOTIFICATION_OUTBOX_LEASE_MS'),
+        retryBaseDelayMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_RETRY_BASE_DELAY_MS, 5000, 'GIFT_NOTIFICATION_OUTBOX_RETRY_BASE_DELAY_MS'),
+        retryMaxDelayMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_RETRY_MAX_DELAY_MS, 300000, 'GIFT_NOTIFICATION_OUTBOX_RETRY_MAX_DELAY_MS'),
+        maxAttempts: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS, 8, 'GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS', { max: 100 }),
+      },
+    },
     features: Object.freeze({
       paymentsEnabled: parseBoolean(environment.FEATURE_PAYMENTS_ENABLED, false),
       machineDispatchEnabled: parseBoolean(environment.FEATURE_MACHINE_DISPATCH_ENABLED, false),
@@ -71,6 +95,17 @@ function validateConfig(config) {
   const missing = [];
   if (config.isProduction && !config.database.url) missing.push('DATABASE_URL');
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
+  if (config.equipmentIntegration.enabled && !config.equipmentIntegration.apiKey) missing.push('EQUIPMENT_INTEGRATION_API_KEY');
+  if ((config.botNotifications.telegramEnabled || config.botNotifications.maxEnabled) && !config.botNotifications.recipientEncryptionKey) missing.push('BOT_RECIPIENT_ENCRYPTION_KEY');
+  if (config.botNotifications.telegramEnabled && !config.botNotifications.telegramConfigured) missing.push('TELEGRAM_BOT_TOKEN');
+  if (config.botNotifications.maxEnabled && !config.botNotifications.maxConfigured) missing.push('MAX_BOT_TOKEN');
+  if (config.botNotifications.outbox.workerEnabled && !config.botNotifications.telegramEnabled && !config.botNotifications.maxEnabled) missing.push('GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED');
+  const enabledNotificationChannels = Number(config.botNotifications.telegramEnabled)
+    + Number(config.botNotifications.maxEnabled);
+  if (config.botNotifications.outbox.workerEnabled
+    && config.botNotifications.providerTimeoutMs * enabledNotificationChannels >= config.botNotifications.outbox.leaseMs) {
+    throw new Error('Combined bot provider timeout budget must be less than GIFT_NOTIFICATION_OUTBOX_LEASE_MS.');
+  }
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
   return config;
 }

@@ -35,3 +35,9 @@ backup_git_conflict/
 
 # Isolated local PostgreSQL cluster and credentials used by Sale Flow audits.
 /.tmp/durable-sale-flow-audit/
+
+# Generated catalog/display migration rehearsal evidence and staged migrations.
+/.tmp/catalog-rehearsal/
+
+frontend/admin-console/dist-benefits/
+backend/scripts/__pycache__/

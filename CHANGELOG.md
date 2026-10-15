@@ -1,5 +1,165 @@
 # CHANGELOG
 
+## 2026-10-15 — Акции и условия
+
+- Добавлены таблица правил с суммами/процентами, режимами и источниками, версии с защитой конкурентной правки, отдельное включение, журнал начислений и сухой расчёт истории.
+- Серверное начисление подключено к транзакции подтверждённого завершения выдачи; первая версия DRAFT/demo, без автоматических начислений и без переноса JSON-балансов.
+- Проверяются оплата, выдача, возвраты, предоплата/подарки, тестовый режим; ключ проводки независим от версии. Реферальные награды обеим сторонам и однократный порог, PostgreSQL-квалификация.
+- Отдельный подарок 50-й покупки отображён без изменения прежней механики. Историческая проводка и отмена уже начисленных бонусов после будущего возврата ещё не включены. Подробности: docs/business/CUSTOMER_BENEFIT_RULES_ADMIN.md.
+
+
+## 2026-10-15 — Аудит покупательских условий
+
+- Сверены старые Mini App настройки 5% demo / 50+50 / 100 за 3 друзей, общий сервер начислений, приветствие, подарок 50-й покупки, фото, предоплата и денежный баланс. Результаты и нерешённые параметры: docs/business/CUSTOMER_BENEFITS_AUDIT_2026-10-15.md. Коммерческие правила, балансы и операции не изменялись.
+
+
+## 2026-10-14 — Сверка тестовой выдачи
+
+- Для ae527931-55d6-4ef8-99e1-7f5b4a8dd2e4 выполнена штатная reconcileAttempt через тестовый адаптер с сохранённым доказательством LOCAL_DISPENSED_PROVIDER_UNKNOWN / INVENTORY_RESERVATION_EXPIRED. Создан аудит ADMIN_RECOVERY_REQUESTED. Результат: DISPENSED, заказ COMPLETED, резерв CONSUMED, количество попыток 1. Повторная команда изготовления и новый платёж не отправлялись. Физическая выдача не подтверждалась: это TEST-MACHINE-001.
+
+
+## 2026-10-14 — Оплаченный истёкший резерв
+
+- finish передаёт ключ команды из request в контекст проверки оплаченного резерва. При просроченном TTL списание всё ещё требует SUCCEEDED и соответствующую DISPENSED попытку в той же транзакции; отсутствие подтверждения блокирует списание.
+- Два регрессионных теста проходят. Ошибка обнаружена в тестовом заказе ae527931-55d6-4ef8-99e1-7f5b4a8dd2e4: INVENTORY_RESERVATION_EXPIRED после завершения адаптером. Статус старой попытки вручную не переписан.
+
+
+## 2026-10-14 — Опрос выдачи после QR
+
+- Исправлен одноразовый polling в опубликованном экране: одинаковый промежуточный статус не останавливает проверки. Новый опрос планируется после ответа; запросы не пересекаются, при уходе/конечном статусе прекращаются. Новая команда выдачи не создаётся.
+- В БД заказ 67105bcd-189c-4a70-b9ab-0477a1ad40d6 уже COMPLETED/DISPENSED в 11:12:47 UTC, одна тестовая попытка, активный код удалён.
+
+
+## 2026-10-14 — Распознавание QR камерой
+
+- Добавлен локальный декодер jsQR 1.4.0 (Apache-2.0, лицензия сохранена), общий адаптер нативного и резервного распознавания. Видео не отправляется на сервер. Подключён к действующей опубликованной механике UTP1 и серверной проверке заказа; таймер/ручной ввод сохранены.
+- Пять проверок проходят: обычный, повёрнутый, инвертированный QR, отказ native detector, пустой/неподготовленный кадр. Реальная камера и QR оплаченного заказа требуют проверки на аппарате.
+
+
+## 2026-10-14 — Возврат после таймера
+
+- По уточнению владельца таймер получения возвращает на предыдущий экран HOME, а не IDLE; поток камеры останавливается.
+
+
+## 2026-10-14 — Отступы получения
+
+- Строки экрана сохраняют естественную высоту, чтобы заголовки не перекрывались. Компактный таймер расположен между клавиатурой и камерой; на узком экране остаётся в потоке.
+
+
+## 2026-10-14 — Таймер получения
+
+- На опубликованном экране ввод/запуск камеры обновляет 30-секундный обратный отсчёт; бездействие выключает камеру и возвращает в ожидание. Проверка и выдача заказа не прерываются. Кнопка «Назад» выделена зелёным.
+
+
+## 2026-10-14 — Запуск камеры
+
+- Запуск видео отделён от поддержки BarcodeDetector: отсутствие распознавания QR не блокирует изображение камеры. Для текущей опубликованной версии применена точечная замена с резервной копией, без смены остального интерфейса. QR без встроенного детектора остаётся недоступен.
+
+## 2026-10-14 — Адаптивный экран получения
+
+- Ошибка получения выделена контрастным розовым блоком с трёхкратной мягкой пульсацией; при prefers-reduced-motion анимация отключена.
+
+- Исправлены размер строки и вертикальное выравнивание цифр/заполнителей в поле кода. Метка «Оплаченный заказ» по уточнению владельца — зелёная (#009b35). В live браузере проверен ввод шести цифр без redeem.
+
+- Кнопка «Я тут — включить камеру» размещена внутри квадратного окна камеры с сохранением обработчика запуска; повторяющаяся подсказка скрыта. Проверено положение кнопки внутри границ кадра в опубликованной версии.
+
+- Подогнаны размеры заголовка, клавиатуры, квадратной камеры и кнопок под высоту окна. Широкий экран использует две колонки, узкий/портретный — одну с безопасным скроллом. Надпись «Оплаченный заказ» — оранжевая. Обновлён только внешний вид текущей опубликованной версии, механика получения сохранена.
+
+## 2026-10-14 — Получение предзаказа на аппарате
+
+- Заглушка заменена экраном ввода 6 цифр, приёма QR от сканера с клавиатурным интерфейсом и камеры при наличии BarcodeDetector/getUserMedia. Камера проверяется при входе и включается по кнопке; отказ доступа сохраняет ручной ввод. Сервер проверяет оплату и код, запускает получение; экран опрашивает состояние выдачи и не сообщает успех до DISPENSED. Ожидание выдачи защищено от idle reset.
+- Проверка общей БД: бонусный счёт/проводки тестового клиента и эффективные кампании отсутствуют. Правила бонусов за покупку остаются незавершёнными; произвольные начисления не добавлены.
+
+## 2026-10-14 — Общий вход TEST Mini App
+
+- Общий TEST интерфейс оформлен по образцу MAX: фирменная шапка, Главное/Кабинет/Клуб, серверные балансы и компактная история; получение доступно из строки заказа. Сохранены параллельно добавленные QR-код, recent-order и страница возврата после оплаты. Фильтры Python proxy требуют перезапуска сервиса после слияния.
+
+- История TEST заказов загружается по 10 строк с серверными фильтрами; подробности раскрываются в строке. Новая выдача/перевыпуск кода атомарно сохраняет хеш, событие истории клиента и сообщение MINIAPP со статусом AVAILABLE. Значение кода не попадает в журналы. Ранее выданные коды не восстанавливаются задним числом.
+
+- Новые Mini App-кнопки тестового Telegram-бота для allowlist ведут в серверный каталог и кабинет. Проверяются TEST bot ID, совпадение ключа с TEST-конфигурацией, личный чат и участник теста. Боевые и MAX-кнопки сохраняют свои адреса. Ранее отправленные сообщения не редактируются.
+
+## 2026-10-13 — Подготовка общего каталога Mini App
+
+- Добавлен read-only адаптер shared_catalog.py для старого Python Mini App: позиции, цены и доступность из backend, без fallback к demo JSON. Адаптер пока не подключён к работающему HTTP-маршруту.
+- Старый preorder/complete принимает результат оплаты от клиента. Перед включением общего заказа требуется заменить его серверной проверкой PaymentCheckoutService. Миграция заказов и оплаты не завершена.
+
+- 2026-10-09: уточнено приветствие тестового бота — «Добро пожаловать в клуб „У Тимоши“!» и пояснение следующего шага подтверждения согласий.
+
+## 2026-10-09 — Телефон в Telegram-боте (подготовлено)
+
+- После /start неподтверждённому пользователю предлагается передать собственный контакт. Сервер проверяет совпадение Telegram user ID и владельца контакта, запрещает замену уже подтверждённого номера и не объединяет конфликтующие аккаунты.
+- Кнопка Mini App использует web_app в личном чате; подтверждение согласий не заменяется подтверждением номера.
+
+## 2026-10-09 — Ответ Telegram-бота на /start
+
+- Результат регистрации содержит текст и действия для транспортного renderer; бот больше не отправляет пустой текст. До подтверждения телефона доступны только переход в Mini App и приветствие.
+- Идентификатор входящего события преобразуется в строку перед аудитом PostgreSQL.
+
+## 2026-10-08 — Исправление установки Центра сообщений
+
+- Установщик использует `/etc/softice/display-backend.env`, подключённый к рабочему backend-сервису, и проверяет эту связь до изменений. Исправлен откат из-за включения флага в неиспользуемом файле настроек.
+
+## 2026-10-06 — Мобильные сессии и выбранная роль (подготовлено)
+
+- Отдельный мобильный токен, обязательная подпись устройства на рабочих запросах, проверка действующей привязки.
+- Активная роль сохраняется на сервере; работа и фотоотчёты закрепляются за ролью начала.
+- Маршруты выключены по умолчанию; миграции и приёмка на рабочем сервере ещё не выполнены.
+
+## 2026-10-06 — Основа привязки Android-устройства
+
+- Добавлены модель БД с единственной активной привязкой сотрудника и модуль регистрации/отзыва/проверки подписи устройства.
+- Публичные мобильные маршруты и APK ещё не подключены; на рабочем сервере ограничение не включено. Контракт: docs/mobile/DEVICE_BINDING.md.
+
+## 2026-10-06 — Выбор сотрудников и совмещение ролей (подготовлено)
+
+- Одна карточка сотрудника может использоваться для логинов техника и мастера; роль добавляется только после подтверждения и с аудитом.
+- Формы предлагают выбор действующего сотрудника из базы или создание новой карточки.
+- Пароль можно показать/скрыть при входе, создании сотрудника и смене пароля.
+- ФИО новых/редактируемых сотрудников и руководителя приводится к заглавным буквам, включая двойные фамилии; браузерная проверка написания включена.
+- Права каждого логина и назначенного аппарата проверяются отдельно. Подробности: docs/staff-person-selection-v1.md.
+
+## 2026-10-06 — Организации и проверка ИНН (подготовлено к установке)
+
+- Выбор существующей организации из базы перед добавлением сотрудника.
+- Создание и изменение реквизитов с ФИО руководителя, должностью, телефоном и почтой; подтверждение сохранения.
+- Серверный поиск по ИНН через DaData, с настройкой ключа и ручным заполнением при отсутствии подключения.
+- Добавляющая миграция и установщик с резервной копией и защитой текущей версии. Подробности: docs/organization-details-v1.md.
+
+## 2026-10-05 — Служебный вход и фотоотчёты (подготовка)
+
+- Восстановлены серверный парольный вход и сессии Admin Console.
+- Добавлены кабинет обслуживания, серверная проверка назначений аппаратов,
+  загрузка реальных фотографий до/после и транзакционный аудит.
+- Фотоотчёты отделены от пользовательского контента; добавлен sharp.
+- Подробности и незавершённая серверная приёмка: docs/service-access-media-v1.md.
+
+## [Unreleased] — Display customer recognition v1 (issue #24)
+
+- Display обращается к server-backed recognition API: RETURNING / NEW / UNAVAILABLE без PII и customer session.
+- Добавлена fail-closed verification boundary: TTL 5 минут, 3 попытки, resend invalidation, salted code hash; настоящий SMS provider не подключён.
+- Экран сохраняет анонимную покупку, очищает телефон и recognition state при idle/выходе, игнорирует поздние ответы.
+- Добавлены targeted/backend/API/browser tests, локальный acceptance harness и ADR-053. Production abuse/provider integration остаётся закрытой.
+
+## [Unreleased] — Unified display catalog and pricing (issue #17)
+
+- Issue #22: hardened the canonical Mini App terminal visual surface for safe-area insets, touch interaction, portrait/landscape layouts, deterministic screenshot hooks, and verified catalog-provided hero media. Added a safe bounded `Получить оплаченный заказ` entry point without code simulation, order creation, payment mutation, or dispense. The payment state now uses an explicitly non-scannable placeholder until Payment Runtime creates a real payment session; fake/pseudo QR patterns are prohibited. No `frontend/terminal` runtime was added.
+
+- CI blockers inherited from the integration base are removed: Equipment Sandbox now uses the Admin Console's pinned `pnpm@10.15.1`, YooKassa orchestration is wired to the existing canonical `PaymentAttemptRepository`, and Promotion E2E no longer expects payment confirmation to recreate the disabled legacy dispense path.
+- `display.utimoshi.ru` закреплён за единым responsive `frontend/miniapp?mode=terminal`; утверждённые idle/home/club/choice/summary/payment решения и прозрачный hero asset перенесены из reference-ветки без создания второго terminal-приложения.
+- Добавлены PostgreSQL `CatalogItem` / `MachineCatalogItem`, additive-only drift reconciliation, machine-specific active catalog и единственный current flavor.
+- Серверный pricing resolver больше не импортирует frontend pricing repository: базовые цены и доступность читаются из PostgreSQL, затем применяются существующие Promotion Engine и immutable PricingQuote/PricingSnapshot.
+- Admin Console получил русскоязычный раздел «Каталог и цены» с созданием позиций, ценами, activation, machine availability и выбором текущего вкуса; коммерческие mutations аудируются.
+- Review acceptance для «Каталог и цены»: добавлены одно пакетное сохранение цен, устойчивый dirty-state, четыре статуса конфигурации, шесть фильтров, backend machine selector и customer preview из канонического display catalog.
+- Customer preview теперь показывает location аппарата, перечитывает display catalog после смены current flavor и fail-closed выводит «Каталог не готов / Для текущего вкуса не задана цена» вместо готового к продаже состояния.
+- Catalog API errors отображаются по-русски на основе стабильного error code; исправлена битая кодировка пункта «Выдачи аппаратов».
+- Desktop-таблица «Каталог и цены» уплотнена без изменения API: название/SKU/категория/тип/порядок/дата собраны в колонку позиции, назначения и current flavor показаны компактными badges, а действия перенесены в доступное touch/mouse-меню; внутренний overflow на `1440×900` уменьшен с `259 px` до `0 px` при zoom 100%.
+- Усилены catalog/pricing границы: только RUB до расширения Pricing Engine, запрет деактивации назначенного current flavor и явная validation legacy CHECK/FK constraints после reconciliation.
+- Mini App quote теперь включает выбранные добавки, а terminal idle reset очищает введённый телефон.
+- Добавлены fail-closed проверки отсутствующей цены, защищённые нулевые no-option items, unit-тесты и acceptance-сценарии четырёх terminal viewport.
+- Удалён устаревший client-priced `SalesTerminalService`; terminal UI принимает коммерческую сумму только из серверного `PricingQuote` и отклоняет неполный денежный response.
+- Production, DNS/Nginx/systemd и реальные миграции не изменялись; применение миграции требует отдельной test-DB репетиции и release approval.
+
+## [Unreleased] — Gift Notification Outbox review hardening
 ## 2026-08-25 — Machine/Inventory crash-restart verification hardening
 
 - PostgreSQL Machine suite расширен до полной 12-point failure-injection/crash-restart matrix с доказательством отсутствия physical resend и повторных Inventory/Order/Sale Flow/terminal Machine effects.
@@ -17,17 +177,62 @@
 
 ## 2026-08-23 — Payment Lifecycle & Reconciliation v1
 
-- Устранены три HIGH-дефекта повторной ревизии: create-idempotency теперь сверяет persisted server-side fingerprint и fail-closed отклоняет изменённый Order/amount/currency/provider, включая concurrent race и restart.
-- Payment связан с tenant-scoped составным ключом Sale Flow; Refund/Inbox/Reconciliation/Audit сохраняют составные Payment FK, а PostgreSQL CHECK запрещают несовместимые status/temporal fields.
-- PostgreSQL test cleanup ограничен собственными fixture ID и выполняется в dependency order; полный backend regression проходит без ослабления production FK.
-- Устранены дефекты независимой ревизии: добавлены mounted webhook ingress и durable lease/retry worker; tenant webhook выводится из provider reference, а не из недоверенного запроса.
-- Refund request отделён от provider-driven completion; без связанного Inbox event завершение возврата fail-closed.
-- Reconciliation получил persistent fingerprint, legacy migration — явный validated mapping и pre-DDL fail-closed для несопоставимых строк.
-- Payment выделен в durable PostgreSQL authoritative domain с Decimal money, строгой state machine и persistent idempotency.
-- Добавлены tenant-scoped provider Inbox, Refund lifecycle, audit, reconciliation manual review и события существующего Transactional Outbox.
-- Подтверждение Payment, Order и Sale Flow выполняется атомарно; Inventory reserve сохраняется до физической выдачи, failure/cancel release выполняется в той же транзакции.
-- Добавлены русскоязычный read-only Admin Console, migration, unit/PostgreSQL/failure-injection tests и ADR-044.
-- Реальные ЮKassa/СБП, production payment/refund operations и webhook signature verification остаются `BLOCKED_EXTERNAL`.
+- Ожидание Telegram/MAX recipient binding переведено в отложенный retry без расходования provider attempt budget.
+- Переход приглашения в `SENT` сделан условным и больше не может перезаписать конкурентную отмену подарка.
+- Worker забирает события непосредственно перед обработкой; Telegram/MAX HTTP-вызовы получили abort timeout меньше outbox lease.
+- Активный outbox lease продлевается во время provider-вызова и перед финальной записью, оставляя время для БД-операций.
+- Provider smoke принимает только положительный private user ID и требует отдельный HTTPS URL тестового Mini App для MAX без production fallback.
+- Исправлены точные имена переменных Rich Message в runbook; production и delivery-флаги не изменены.
+
+## [Unreleased] — Test Bot Gift Notification Acceptance
+
+- Добавлен guarded smoke-скрипт для одного явно помеченного сообщения тестовому Telegram или MAX получателю.
+- Smoke-скрипт запрещает production, совпадение test/production token, неподтверждённый или некорректный destination.
+- Telegram обычное сообщение, Rich Message и disabled button принимаются отдельно; MAX имеет независимый запуск.
+- Добавлен runbook полного Gift Transfer → Outbox → provider сценария и production gate. Никакие сообщения автоматически не отправляются; workflow в integration намеренно не создаётся, поскольку GitHub разрешает ручной dispatch только из `main`.
+
+## [Unreleased] — Durable Gift Notification Outbox
+
+- Создание подарка зарегистрированному получателю и событие доставки теперь фиксируются одной PostgreSQL-транзакцией.
+- Отдельный worker обрабатывает только `GIFT_INVITATION_DELIVERY_REQUESTED`, использует lease, экспоненциальные повторы и dead letter.
+- Частично успешная доставка не отправляет повторно уже успешный канал; просроченные и закрытые подарки пропускаются.
+- Outbox payload не содержит телефон, invitation token, provider destination или финансовые данные.
+- Добавлены миграция, fail-closed конфигурация, тесты, DECISION-072 и ADR-051. Worker и канальные флаги выключены; production не изменён.
+
+## [Unreleased] — Unified Development Workflow v2
+
+- Добавлены канонические документы состояния проекта, разработки, PR и доменных точек входа.
+- Одна задача продолжается в одной ветке при переходе между телефоном и ПК; новые ветки не кодируют устройство.
+- `AGENTS.md` и workflow используют единые `feature/fix/docs/hotfix` соглашения.
+- `admin`, `tehnik` и `master` закреплены за одной Admin Console; backend роли приведены к `SERVICE_SPECIALIST` и `MACHINE_RESPONSIBLE`.
+- Добавлены DECISION-071 и ADR-050. Продакшен не изменён.
+
+## [Unreleased] — Safe Bot Gift Invitation Delivery
+
+- Telegram/MAX recipient destinations are learned only from trusted inbound bot webhooks after canonical Customer Identity resolution.
+- Destinations are encrypted with AES-256-GCM and customer/channel associated data; only provider subject hashes remain searchable.
+- Real Telegram and MAX gift invitations use independent fail-closed feature flags, both disabled by default.
+- Invitation status changes to `SENT` only after an actual provider send; disabled or unbound channels remain `CREATED`.
+- Invitation tokens, phones, redemption codes and financial data are never included in provider messages.
+- Added the official MAX `POST /messages` client, migration, tests, DECISION-070 and ADR-049. Production was not changed.
+
+## [Unreleased] — Bot Gift Acceptance
+
+- В меню Telegram/MAX Bot Core добавлен раздел «Мои подарки».
+- Кнопка принятия использует только канонический customer context и `GiftTransferRuntime.accept`; callback не содержит телефон, invitation token, код выдачи или финансовые данные.
+- Повторное принятие идемпотентно; просроченный подарок не принимается и возвращается отправителю.
+- Telegram показывает завершённое действие как disabled только за feature flag, MAX удаляет повторное действие.
+- Подтверждение принятия не использует ephemeral; получение кода остаётся в Mini App.
+- Добавлены backend-тесты, DECISION-068, ADR-047 и сценарии приёмки. Продакшен не изменён.
+
+
+## [Unreleased] — Telegram Bot API 10.3
+
+- Добавлен Telegram-only `sendRichMessage` с обычным текстовым fallback при выключенном feature flag.
+- Добавлены персональные ephemeral-подтверждения только для явно некритичных сообщений; коды, чеки, оплаченные заказы и финансовые факты остаются обычными сообщениями.
+- Добавлен `DisabledButton` для уже завершённых действий; при выключенном флаге такое действие скрывается, а не активируется повторно.
+- Все возможности 10.3 выключены по умолчанию тремя независимыми флагами; MAX и production-конфигурация не изменены.
+- Добавлены transport, renderer, fallback и safety regression tests, а также ADR-046.
 
 ## 2026-08-21 — устранение критических дефектов Inventory Reservation & Locking v1
 
@@ -545,3 +750,100 @@
 - Production Sale Flow composition дополнена явными Payment/Machine production boundaries со статусом `BLOCKED_EXTERNAL`, без fake adapters и silent fallback.
 - Order creation и успешное завершение продажи включены в общую PostgreSQL transaction с Inventory, Sale Flow и Transactional Outbox; добавлены rollback-инъекции и multi-item success test.
 - Исправлен перенос terminal legacy reservations: `reserved`, `consumed` и `released` quantities сохраняют исторический факт; добавлены executable migration fixtures и invariant assertions.
+
+## 31.08.2026 — Gift Transfer PostgreSQL Runtime
+
+### Добавлено
+
+- производственный `PrismaGiftTransferRepository` для подарков, приглашений, claim, redemption, реферальных связей и попыток уведомлений;
+- транзакционное сохранение связанных изменений Gift Transfer;
+- миграция `OrderStatus.GIFT_TRANSFERRED`;
+- тесты Prisma-репозиторного контракта и ADR-048.
+
+### Изменено
+
+- runtime-композиция переведена с временного `Map` на PostgreSQL;
+- Gift Transfer Service, пользовательский API, административный API и Notification Orchestrator используют асинхронный репозиторный контракт;
+- in-memory-репозиторий оставлен только для изолированных тестов.
+
+### Безопасность развёртывания
+
+- реальные Telegram/MAX-отправители не включены;
+- production не изменён и требует отдельного применения миграции и приёмки.
+
+# 2026-09-25 — Catalog / price / display migration rehearsal
+
+- Added a guarded PostgreSQL rehearsal harness for `20260923000100_catalog_price_reconciliation_v1` with fixture and custom-format backup modes.
+- Added before/after schema, migration, row-count, null-price, pricing-history fingerprint, and constraint evidence collection.
+- Added full backend/Admin/Mini App verification orchestration without production access, deployment, payments, or machine dispense.
+- Added an explicit production-shaped backup contract, restore-only recovery plan, and separate GO/NO-GO report/checklist.
+- Rehearsed the checksum-verified `utimoshi_crm_v036_stage` staging-shaped backup in an isolated PostgreSQL 16 cluster; the target migration passed while the next stage remained `NO-GO` because of three missing canonical migration directories, absent commercial catalog/current flavor data, and safety-skipped SQL-`DROP` payment tests.
+- Hardened Backup mode for pre-target databases where catalog tables do not yet exist, added machine/current-flavor fingerprints, switched frontend verification to the declared `pnpm@10.15.1`, and made safety skips explicit.
+- Restored the exact `20260911000100_admin_owner_auth_v1`, `20260911093000_admin_security_otp_v1`, and `20260911104500_admin_max_security_link_v1` migration directories from `integration/unified-v0.36.0-main-sync` and added a fail-fast comparison with the checksums recorded in the restored backup.
+- Repeated the backup-mode rehearsal in a fresh isolated database: migration history and all three checksums matched, the target migration and application checks passed, while catalog/current-flavor readiness and the intentionally safety-skipped SQL-`DROP` payment tests kept the release decision at `NO-GO`.
+
+### Служебный доступ: создание сотрудников
+- Формы создания организации, техника и мастера с подтверждением сохранения.
+- Атомарное создание карточки сотрудника и логина; поддержка существующих логинов без смены пароля.
+
+- Подготовлен guarded-скрипт восстановления подключения администраторского входа и сервисных разделов без замены платёжных workers; резервная копия, проверка маршрута входа и откат.
+
+- Исправлена проверка установщика: сервисный раздел без контекста возвращает 403 SERVICE_ACCOUNT_ACCESS_DENIED; проверяется код причины отказа.
+
+- Подготовлен install-mobile-service.py: точечное подключение мобильных маршрутов, две SQL-миграции в одной транзакции, резервная копия PostgreSQL, проверка отказа без авторизации и откат файлов.
+
+- Android service 0.1.0: нативный клиент входа, EC P-256 Android Keystore, подписи запросов, выбор роли и назначенные аппараты; SDK-сборка тестового APK проверена.
+
+- Админ-панель: подсветка текущего раздела с aria-current и поиск разделов по названию в шапке.
+
+- Исправлено обрезание длинного левого меню: отдельная вертикальная прокрутка навигации в высоте окна.
+
+- Служебный доступ: добавлена форма привязки смартфона по данным Android-приложения с выбором сотрудника и подтверждением сохранения.
+
+- Главное меню на всех страницах админки и обслуживания; сохранение цен, настроек, черновика акции и комментариев перед переходом. Ошибки и действия с отдельным подтверждением удерживают страницу.
+
+- Центр сообщений: общий номер MSG, список и карточка, текст, получатель, канал, время и история статусов. Запись CRM и личного кабинета через транзакционные триггеры; журнал ответов ботов, подарков, промо и security-уведомлений. OTP скрыты, подтверждение доставки не подменяется отправкой.
+
+## 2026-10-12 — Управление учётными записями клиентов (подготовлено)
+
+- Карточка клиента: редактирование имени, временная/бессрочная блокировка, снятие блокировки, удаление доступа с сохранением финансовой истории. Только настоящая сессия PLATFORM_OWNER; изменения и аудит в одной транзакции.
+- Сервер проверяет блокировку в действующих Mini App сессиях, при новом Telegram входе и в Bot Gateway. По окончании срока доступ разрешается автоматически.
+
+- 2026-10-12: установщик управления клиентами проверяет и устанавливает зависимости сборки до изменения исходников и БД; устранена остановка `vite: not found`.
+
+## 2026-10-12 — Переход из карточки клиента (подготовлено)
+
+- Кнопка «Назад к списку пользователей». Для несохранённых действий: сохранить и перейти, перейти без сохранения, остаться; при ошибке сохранения переход отменяется.
+
+- 2026-10-12: подготовлен установщик восстановления прокрутки sidebar без пересборки; правила также сохраняются в серверных исходниках CSS.
+
+## 2026-10-13 — Тест Rich-карточки покупки
+
+- Подготовлен изолированный тест @exgorod_bot по завершённому заказу: сумма и бонусы берутся из записи заказа, неизвестный состав явно обозначается. Подтверждается соответствие Telegram identity клиенту; проверяется username тестового бота.
+- Отправка проходит через MessageJournal, повторный запуск подавляется по уникальному sourceId под блокировкой БД. Автоматические уведомления и боевой бот не переключаются.
+
+## 2026-10-13 — Ограниченный тестовый вход Mini App (подготовлено)
+
+- Отдельный токен @exgorod_bot принимается только для разрешённого тестового Telegram ID. Основная авторизация остаётся прежней. Неверные, повторяющиеся и устаревшие данные не принимаются.
+- Установщик сохраняет исходники, добавляет отдельный закрытый env-файл и проверяет реальный HTTP-вход после перезапуска, с откатом при ошибке.
+
+## 2026-10-13 — Оплаченный заказ и истечение резерва
+
+- Оплаченные резервы не освобождаются по TTL. Списание истёкшего, всё ещё удерживаемого резерва разрешается только при SUCCEEDED платеже и DISPENSED попытке соответствующего заказа в транзакции финализации.
+- Сверка не превращает подтверждённое промежуточное состояние в неизвестность. Терминал показывает ATTENTION_REQUIRED для неопределённой/ошибочной выдачи.
+- Только тестовый симулятор восстанавливает известную ошибку истечения резерва по сохранённому факту неудавшейся финализации; команда выдачи не повторяется.
+
+
+## 2026-10-13 — Общий предзаказ Mini App (установочный пакет)
+
+- Подготовлены TEST-only API и отдельный экран preorder-test.html: серверный каталог/quote, общий PostgreSQL Order/PricingSnapshot/SaleFlow, единый PaymentCheckoutService и серверный статус.
+- Предоплата не запускает приготовление; срок получения 48 часов с оплаты. Защищены владелец, подпись, повторное оформление и тестовый магазин. Основной интерфейс не переключён.
+- Установка с проверкой исходников, резервной копией и откатом требует root-перезапуска Python Mini App. Сквозная оплата и получение пока не пройдены.
+
+- 2026-10-14: исправлены runtime-группа новых файлов и разрешённые маршруты Python Mini App; добавлены проверки фактических GET/POST методов. Неудачные установки откатились, тестовый сценарий пока не включён.
+
+- 2026-10-14: подтверждено имя TEST-бота Exgorod_bot; установщик проверяет username без учёта регистра и неизменный bot ID. Начат общий транспортный адаптер React Mini App для Telegram/MAX (ещё не подключён к рабочему интерфейсу), с signed initData и проверкой ссылок оплаты.
+
+- 2026-10-14: поиск TEST Mini App учитывает подтверждённые Telegram-привязки Bot Core (SHA256 ID) и старого AuthCore (SHA256 telegram:ID); конфликт разных клиентов отклоняется без объединения или новой регистрации.
+
+- 2026-10-14: в TEST Mini App добавлен кабинет из общей PostgreSQL: собственные Order/Payment/PricingSnapshot, фактические клубный и бонусный счета; отсутствующие значения не заменяются фиктивными. Существующий серверный pickup-code сохранён. Проверка магазина использует GET /me, test=true, enabled, совпадение account_id и bank_card. Установка обновления с проверкой исходников и резервной копией выполнена через разрешённый backend restart. Полное переключение старого Mini App и MAX не завершено.

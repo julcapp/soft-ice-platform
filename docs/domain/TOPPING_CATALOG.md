@@ -85,3 +85,7 @@ Topping Catalog описывает топпинги, доступные для �
 - `docs/domain/SYRUP_CATALOG.md`
 - `docs/domain/PRODUCT_IMAGE_MODEL.md`
 - `docs/design/PHOTO_STANDARD.md`
+
+## 8. Runtime mapping
+
+Для display v1 добавки публикуются как независимые `CatalogItem` категорий `SPRINKLE` и `TOPPING`. Доступность задаётся на уровне автомата. В каждой категории должна присутствовать защищённая системная позиция «Без ...» с явной ценой 0; отсутствие цены у обычной активной позиции блокирует публикацию.

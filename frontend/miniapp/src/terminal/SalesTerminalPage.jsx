@@ -1,222 +1,182 @@
-import React, { useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { trackEvent } from '../analytics/trackEvent.js';
-import { salesTerminalService } from './SalesTerminalService.js';
-import { PAYMENT_METHODS, SALES_CHANNELS } from './salesChannelData.js';
+import { PromotionPricePanel } from '../promotion/PromotionPricePanel.jsx';
+import { resolveMachineId } from '../promotion/PricingQuoteApi.js';
+import { usePricingQuote } from '../promotion/usePricingQuote.js';
+import { recognizeDisplayPhone } from './DisplayRecognitionApi.js';
+import { RecognitionState } from './RecognitionState.jsx';
+import { getMachineCatalog } from './MachineCatalogApi.js';
+import { PrepaidPickupScreen } from './PrepaidPickupScreen.jsx';
 
-const STEP_LABELS = ['Выбор', 'Оплата', 'Выдача'];
+const IDLE_TIMEOUT_MS = 120_000;
+const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', SPRINKLE: 'sprinkle', TOPPING: 'topping', SUMMARY: 'summary', PAYMENT: 'payment' });
+const ProductMediaContext = createContext(null);
+const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.png';
+const OWNER_PORTRAIT = '/media/brand/owner.jpg';
+const TEST_DISPLAY_CITY = 'Обнинск';
+const ADMIN_URL = 'https://admin.utimoshi.ru/';
+const digits = (value) => value.replace(/\D/g, '').slice(0, 10);
+const phoneText = (value) => { const v = digits(value).padEnd(10, '_'); return `+7 (${v.slice(0, 3)}) ${v.slice(3, 6)}-${v.slice(6, 8)}-${v.slice(8, 10)}`; };
+const money = (value, currency = 'RUB') => {
+  const amount = Number(value);
+  if (value === null || value === undefined || value === '' || !Number.isFinite(amount) || amount < 0) return '—';
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+};
 
-function BrandMark() {
-  return (
-    <div className="terminal-brand">
-      <span className="terminal-logo" aria-hidden="true">🍦</span>
-      <span><strong>У Тимоши</strong><small>панель продаж</small></span>
+function Header({ catalog }) {
+  const clickCount = useRef(0);
+  const clickTimer = useRef(null);
+  const rawLocation = String(catalog?.machine?.location || '').trim();
+  const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
+  const machineNumber = catalog?.machine?.machineCode || catalog?.machine?.id || '—';
+  const openAdminOnThirdClick = () => {
+    clickCount.current += 1;
+    window.clearTimeout(clickTimer.current);
+    if (clickCount.current >= 3) {
+      clickCount.current = 0;
+      window.location.assign(ADMIN_URL);
+      return;
+    }
+    clickTimer.current = window.setTimeout(() => { clickCount.current = 0; }, 1400);
+  };
+  return <header className="display-header" data-testid="display-header">
+    <div className="display-brand"><img className="display-owner-photo" src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
+    <button className="display-machine display-machine-button" type="button" onClick={openAdminOnThirdClick} aria-label="Номер аппарата"><i aria-hidden="true" /><div><strong>Аппарат № {machineNumber}</strong>{address ? <small>{address}</small> : null}</div></button>
+  </header>;
+}
+function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
+function useDisplayClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
+  return now;
+}
+
+function weatherIcon(code) {
+  if (code === 0) return '☀';
+  if ([1,2].includes(code)) return '🌤';
+  if ([3,45,48].includes(code)) return '☁';
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return '🌧';
+  if ([71,73,75,77,85,86].includes(code)) return '❄';
+  if ([95,96,99].includes(code)) return '⛈';
+  return '☁';
+}
+
+function useCurrentWeather(place) {
+  const [weather, setWeather] = useState(null);
+  useEffect(() => {
+    if (!place) return undefined;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=ru&format=json`, { signal: controller.signal }).then((r) => r.json());
+        const point = geo?.results?.[0];
+        if (!point) return;
+        const data = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${point.latitude}&longitude=${point.longitude}&current=temperature_2m,weather_code&timezone=auto`, { signal: controller.signal }).then((r) => r.json());
+        if (Number.isFinite(Number(data?.current?.temperature_2m))) setWeather({ temperature: Math.round(Number(data.current.temperature_2m)), code: Number(data.current.weather_code) });
+      } catch (error) { if (error?.name !== 'AbortError') setWeather(null); }
+    };
+    load();
+    const timer = window.setInterval(load, 15 * 60_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [place]);
+  return weather;
+}
+
+function IdleScreen({ onStart, heroPath, catalog, machineId }) {
+  const machineClickCount = useRef(0);
+  const machineClickTimer = useRef(null);
+  const now = useDisplayClock();
+  const dateText = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
+  const timeText = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const rawLocation = String(catalog?.machine?.location || '').trim();
+  const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
+  const displayLocation = address || TEST_DISPLAY_CITY;
+  const openAdminOnThirdMachineClick = (event) => {
+    event.stopPropagation();
+    machineClickCount.current += 1;
+    window.clearTimeout(machineClickTimer.current);
+    if (machineClickCount.current >= 3) {
+      machineClickCount.current = 0;
+      window.location.assign(ADMIN_URL);
+      return;
+    }
+    machineClickTimer.current = window.setTimeout(() => { machineClickCount.current = 0; }, 1400);
+  };
+  const weather = useCurrentWeather(machineId === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : displayLocation);
+  const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
+  return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
+    <div className="idle-topbar">
+      <div className="idle-owner"><img src={OWNER_PORTRAIT} alt="Собственник бренда У Тимоши" /><div><strong>У Тимоши</strong><small>Счастье в одном стаканчике</small></div></div>
+      <div className="idle-clock"><span>{dateText}</span><strong>{timeText}</strong><i aria-hidden="true">{weatherIcon(weather?.code)}</i><b>{temperature}</b></div>
+      <div className="idle-machine-card" role="button" tabIndex={0} onClick={openAdminOnThirdMachineClick} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openAdminOnThirdMachineClick(event); }}><strong>Аппарат № {machineId || '—'}</strong>{address ? <span>{address}</span> : null}</div>
     </div>
-  );
-}
-
-function Stepper({ step }) {
-  return (
-    <ol className="terminal-stepper" aria-label="Этапы покупки">
-      {STEP_LABELS.map((label, index) => (
-        <li className={index <= step ? 'is-active' : ''} key={label}>
-          <span>{index + 1}</span>{label}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function ChoiceCard({ active, children, onClick }) {
-  return (
-    <button className={active ? 'terminal-choice is-selected' : 'terminal-choice'} type="button" onClick={onClick}>
-      {children}<span className="choice-check" aria-hidden="true">{active ? '✓' : ''}</span>
-    </button>
-  );
-}
-
-function ProductArtwork({ syrupId, toppingId }) {
-  return (
-    <div className={`terminal-artwork ${syrupId}`} aria-label="Ванильное мягкое мороженое">
-      <span className="soft-serve">●</span>
-      <span className="soft-serve middle">●</span>
-      <span className="soft-serve top">●</span>
-      <span className="sprinkles">{toppingId === 'topping_oreo' ? '●  ●' : toppingId === 'topping_rainbow_sprinkles' ? '•  •  •' : '▪  ▪'}</span>
-      <span className="cup">У ТИМОШИ</span>
+    <div className="idle-location">{displayLocation}</div>
+    <div className="idle-stage">
+      <div className="idle-note idle-note-left">Счастье<br />рядом! <span>♡</span></div>
+      <ProductHero alt={catalog?.currentFlavor?.nameRu || 'Сливочное мягкое мороженое У Тимоши'} src={heroPath} />
+      <div className="idle-note idle-note-right">Натуральный<br />вкус <span>♡</span></div>
     </div>
-  );
+    <div className="idle-footnote">* Вкус дня может быть изменён</div>
+    <div className="idle-start-prompt">Коснитесь экрана, чтобы начать</div>
+  </button>;
 }
 
-function QrPattern() {
-  return (
-    <svg className="payment-qr" viewBox="0 0 120 120" role="img" aria-label="Демонстрационный QR-код оплаты">
-      <rect width="120" height="120" rx="12" fill="#fff" />
-      <path fill="#241b16" d="M10 10h34v34H10zm8 8v18h18V18zM76 10h34v34H76zm8 8v18h18V18zM10 76h34v34H10zm8 8v18h18V84zM54 12h10v10H54zm0 20h10v20H44V42h10zm18 22h12v10H72zm20 0h18v10H92zM48 68h12v12H48zm20 0h10v20H68zm20 0h22v10H98v12H86V78h2zM48 90h12v20H48zm20 8h12v12H68zm20 0h22v12H88z" />
-    </svg>
-  );
+function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
+  const keys = ['1','2','3','4','5','6','7','8','9','0'];
+  return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Введите номер телефона</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без скидки</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
 }
+
+function PrepaidBoundary({ onBack }) {
+  return <section className="display-prepaid" aria-labelledby="display-prepaid-title"><div className="display-prepaid-icon" aria-hidden="true">⌁</div><p className="display-kicker">Оплаченный заказ</p><h1 id="display-prepaid-title">Получение скоро будет доступно</h1><p>Получить оплаченный заказ здесь можно будет после подключения сервиса проверки кода и предзаказа.</p><p className="display-boundary-note">Сейчас экран не проверяет код, не создаёт заказ и не запускает выдачу.</p><button className="display-secondary" type="button" onClick={onBack}>Назад</button></section>;
+}
+
+function OptionCard({ item, selected, onClick }) { return <button className={`display-option ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}><span className={`option-art option-${item.category.toLowerCase()}`} aria-hidden="true">{item.systemItem ? '×' : item.category === 'SPRINKLE' ? '✦' : '●'}</span><strong>{item.nameRu}</strong><small>{item.basePrice === 0 ? 'Без доплаты' : money(item.basePrice, item.currency)}</small><i>{selected ? '✓' : ''}</i></button>; }
 
 export function SalesTerminalPage() {
-  const catalog = useMemo(() => salesTerminalService.getCatalogView(), []);
-  const [channelId, setChannelId] = useState('vending');
-  const [syrupId, setSyrupId] = useState(catalog.syrups[0].id);
-  const [toppingId, setToppingId] = useState(catalog.toppings[0].id);
-  const [methodId, setMethodId] = useState('sbp');
-  const [step, setStep] = useState(0);
-  const [payment, setPayment] = useState(null);
-  const preview = useMemo(
-    () => salesTerminalService.createOrderPreview({ syrupId, toppingId }),
-    [syrupId, toppingId],
-  );
-  const selectedChannel = SALES_CHANNELS.find(({ id }) => id === channelId);
-  const syrup = catalog.syrups.find(({ id }) => id === syrupId);
-  const topping = catalog.toppings.find(({ id }) => id === toppingId);
-
-  function startPayment() {
-    const intent = salesTerminalService.createPaymentIntent({
-      channelId,
-      methodId,
-      orderPreview: preview,
-    });
-    setPayment(intent);
-    setStep(1);
-    trackEvent('TerminalPaymentStarted', { channel_id: channelId, payment_method: methodId });
-  }
-
-  function confirmDemoPayment() {
-    const confirmed = salesTerminalService.applyDemoPaymentConfirmation(payment);
-    setPayment(confirmed);
-    setStep(2);
-    trackEvent('TerminalDemoPaymentConfirmed', { channel_id: channelId, order_id: payment.orderId });
-  }
-
-  function restart() {
-    setPayment(null);
-    setStep(0);
-  }
-
-  return (
-    <main className="terminal-shell">
-      <header className="terminal-header">
-        <BrandMark />
-        <div className="terminal-point">
-          <span className="online-dot" />Точка № 07 · готова к продажам
-        </div>
-      </header>
-
-      <Stepper step={step} />
-
-      {step === 0 && (
-        <div className="terminal-layout">
-          <section className="terminal-main">
-            <div className="terminal-title">
-              <div><p className="terminal-kicker">Мягкое мороженое</p><h1>Соберите свой десерт</h1></div>
-              <span className="terminal-price">{preview.pricing.finalPrice} ₽</span>
-            </div>
-            <div className="terminal-product">
-              <ProductArtwork syrupId={syrupId} toppingId={toppingId} />
-              <div>
-                <span className="terminal-pill">Вкус дня</span>
-                <h2>{catalog.flavor.name.ru}</h2>
-                <p>Нежное ванильное мороженое, один сироп и один топпинг уже входят в стоимость.</p>
-                <div className="included-list"><span>✓ Стаканчик</span><span>✓ Сироп</span><span>✓ Топпинг</span></div>
-              </div>
-            </div>
-
-            <div className="terminal-config">
-              <section>
-                <p className="config-number">01</p><h3>Выберите сироп</h3>
-                <div className="choice-grid">
-                  {catalog.syrups.map((item) => (
-                    <ChoiceCard active={syrupId === item.id} key={item.id} onClick={() => setSyrupId(item.id)}>
-                      <span className={`flavor-swatch ${item.id}`} /><strong>{item.name.ru}</strong>
-                    </ChoiceCard>
-                  ))}
-                </div>
-              </section>
-              <section>
-                <p className="config-number">02</p><h3>Добавьте топпинг</h3>
-                <div className="choice-grid">
-                  {catalog.toppings.map((item) => (
-                    <ChoiceCard active={toppingId === item.id} key={item.id} onClick={() => setToppingId(item.id)}>
-                      <span className={`topping-symbol ${item.id}`}>✦</span><strong>{item.name.ru}</strong>
-                    </ChoiceCard>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <aside className="terminal-summary">
-            <div>
-              <p className="terminal-kicker">Формат выдачи</p>
-              <div className="channel-switch">
-                {SALES_CHANNELS.map((channel) => (
-                  <button className={channel.id === channelId ? 'is-active' : ''} key={channel.id} type="button" onClick={() => setChannelId(channel.id)}>
-                    <span>{channel.icon}</span>{channel.name}
-                  </button>
-                ))}
-              </div>
-              <p className="channel-note">{selectedChannel.description}</p>
-            </div>
-            <div className="receipt">
-              <p className="terminal-kicker">Ваш заказ</p>
-              <h3>{catalog.product.name.ru}</h3>
-              <dl><dt>Сироп</dt><dd>{syrup.name.ru}</dd><dt>Топпинг</dt><dd>{topping.name.ru}</dd></dl>
-              <div className="receipt-total"><span>К оплате</span><strong>{preview.pricing.finalPrice} ₽</strong></div>
-            </div>
-            <button className="terminal-cta" type="button" onClick={startPayment}>Перейти к оплате <span>→</span></button>
-            <p className="safe-payment">Безопасная оплата через ЮKassa</p>
-          </aside>
-        </div>
-      )}
-
-      {step === 1 && (
-        <section className="payment-screen">
-          <div className="payment-panel">
-            <button className="terminal-back" type="button" onClick={restart}>← Вернуться к заказу</button>
-            <p className="terminal-kicker">Заказ {payment.orderId}</p>
-            <h1>Оплатите {payment.amount} ₽</h1>
-            <p>Выберите удобный способ. Терминал дождётся подтверждения от платёжной системы.</p>
-            <div className="payment-methods">
-              {PAYMENT_METHODS.map((method) => (
-                <ChoiceCard active={methodId === method.id} key={method.id} onClick={() => setMethodId(method.id)}>
-                  <span className="method-icon">{method.icon}</span><span><strong>{method.name}</strong><small>{method.description}</small></span>
-                </ChoiceCard>
-              ))}
-            </div>
-            <div className="payment-action">
-              {methodId === 'sbp' ? <QrPattern /> : <div className="card-redirect">Ю<span>Касса</span></div>}
-              <div><strong>{methodId === 'sbp' ? 'Наведите камеру телефона' : 'Откройте защищённую форму'}</strong><p>После оплаты не закрывайте экран — статус обновится автоматически.</p></div>
-            </div>
-            <div className="pending-status"><span className="status-spinner" />Ожидаем подтверждение оплаты</div>
-            <button className="demo-confirm" type="button" onClick={confirmDemoPayment}>Демо: получить подтверждение Payment Runtime</button>
-            <p className="demo-disclaimer">В рабочей системе эту кнопку заменяет подтверждённый webhook ЮKassa. Возврат на страницу сам по себе оплату не подтверждает.</p>
-          </div>
-          <aside className="payment-order-card">
-            <ProductArtwork syrupId={syrupId} toppingId={toppingId} />
-            <h2>{catalog.product.name.ru}</h2>
-            <p>{syrup.name.ru} · {topping.name.ru}</p>
-            <strong>{payment.amount} ₽</strong>
-          </aside>
-        </section>
-      )}
-
-      {step === 2 && (
-        <section className="success-screen">
-          <div className="success-check">✓</div>
-          <p className="terminal-kicker">Оплата подтверждена</p>
-          <h1>{payment.fulfillment === 'machine' ? 'Начинаем готовить!' : 'Покажите код продавцу'}</h1>
-          <p>{payment.fulfillment === 'machine'
-            ? 'Заказ передан автомату. Заберите десерт после сигнала готовности.'
-            : 'Продавец уже получил уведомление об оплаченном заказе.'}</p>
-          <div className="sale-code"><span>Заказ</span><strong>{payment.orderId}</strong><span>Код выдачи</span><b>{payment.saleCode}</b></div>
-          <div className="fulfillment-status">
-            <span>✓ Оплата подтверждена</span>
-            <span>{payment.fulfillment === 'machine' ? '● Команда выдачи отправлена автомату' : '● Продавец уведомлён и сверит код'}</span>
-          </div>
-          <button className="terminal-cta compact" type="button" onClick={restart}>Новый заказ</button>
-        </section>
-      )}
-    </main>
-  );
+  const machineId = useMemo(() => resolveMachineId(), []);
+  const [catalogState, setCatalogState] = useState({ status: 'loading', catalog: null, error: null });
+  const [step, setStep] = useState(STEPS.IDLE);
+  const [phone, setPhone] = useState('');
+  const [recognition, setRecognition] = useState(null);
+  const recognitionRequest = useRef(null);
+  const clearRecognition = () => {
+    recognitionRequest.current?.abort();
+    recognitionRequest.current = null;
+    setPhone('');
+    setRecognition(null);
+  };
+  useEffect(() => () => recognitionRequest.current?.abort(), []);
+  const recognize = async () => {
+    recognitionRequest.current?.abort();
+    const controller = new AbortController();
+    recognitionRequest.current = controller;
+    setRecognition({ state: 'LOADING' });
+    const result = await recognizeDisplayPhone(machineId, `+7${phone}`, { signal: controller.signal });
+    if (recognitionRequest.current !== controller || controller.signal.aborted) return;
+    setPhone('');
+    setRecognition(result);
+  };
+  const continueAnonymous = () => { clearRecognition(); setStep(STEPS.SPRINKLE); };
+  const [sprinkleSku, setSprinkleSku] = useState(null);
+  const [toppingSku, setToppingSku] = useState(null);
+  const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
+  useEffect(() => { const controller = new AbortController(); getMachineCatalog(machineId, { signal: controller.signal }).then((catalog) => { setCatalogState({ status: 'ready', catalog, error: null }); setSprinkleSku(catalog.sprinkles[0]?.sku || null); setToppingSku(catalog.toppings[0]?.sku || null); }).catch((error) => { if (error.name !== 'AbortError') setCatalogState({ status: 'error', catalog: null, error }); }); return () => controller.abort(); }, [machineId]);
+  useEffect(() => { if (step === STEPS.IDLE || step === STEPS.PREPAID) return undefined; const reset = () => { clearRecognition(); setStep(STEPS.IDLE); }; let timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); const activity = () => { window.clearTimeout(timer); timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); }; window.addEventListener('pointerdown', activity); window.addEventListener('keydown', activity); return () => { window.clearTimeout(timer); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); }; }, [step]);
+  const catalog = catalogState.catalog;
+  const selectedItems = useMemo(() => catalog ? [catalog.currentFlavor, catalog.sprinkles.find((item) => item.sku === sprinkleSku), catalog.toppings.find((item) => item.sku === toppingSku)].filter(Boolean) : [], [catalog, sprinkleSku, toppingSku]);
+  const pricing = usePricingQuote({ machineId, channel: 'TERMINAL', items: step === STEPS.IDLE ? [] : selectedItems, refreshKey: quoteRefreshKey });
+  const canContinue = pricing.status === 'ready' && !pricing.lockExpired;
+  const begin = () => { setStep(STEPS.HOME); trackEvent('TerminalSessionStarted', { machine_id: machineId }); };
+  if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} catalog={catalog} machineId={machineId} />;
+  if (catalogState.status === 'loading') return <main className="display-state" data-testid="display-loading"><div className="display-spinner" /><h1>Загружаем меню…</h1></main>;
+  if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
+  return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />
+    {step === STEPS.HOME && <section className="display-home"><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-home-copy"><p className="display-kicker">Сегодня в аппарате</p><h1>{catalog.currentFlavor.nameRu}</h1><p>Собери свой вкус: выберите посыпку и топпинг.</p><div className="display-home-price">от {money(catalog.currentFlavor.basePrice, catalog.currency)}</div><div className="display-home-actions"><button className="display-primary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Собрать мороженое</button><button className="display-secondary" data-testid="display-prepaid-entry" type="button" onClick={() => setStep(STEPS.PREPAID)}>Получить оплаченный заказ</button></div><button className="display-club" type="button" onClick={() => setStep(STEPS.CLUB)}><span>♡</span><div><strong>Клуб Тимоши</strong><small>Каждая 50-я покупка — в подарок</small></div><b>Получить свою скидку</b></button><div className="display-values"><span>Натуральные ингредиенты</span><span>Улыбка с каждым стаканчиком</span><span>Подари свою улыбку!</span></div></div></section>}
+    {step === STEPS.CLUB && (recognition ? <RecognitionState result={recognition} onSkip={continueAnonymous} onReset={clearRecognition} /> : <PhoneKeypad value={phone} onChange={setPhone} onSkip={continueAnonymous} onContinue={recognize} />)}
+    {step === STEPS.PREPAID && <PrepaidPickupScreen machineId={machineId} onBack={() => setStep(STEPS.HOME)} />}
+    {step === STEPS.SPRINKLE && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 1 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Собери свой вкус</p><h1>Выберите посыпку</h1><div className="display-option-grid">{catalog.sprinkles.map((item) => <OptionCard key={item.id} item={item} selected={sprinkleSku === item.sku} onClick={() => setSprinkleSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.HOME)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.TOPPING)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Далее: топпинг'}</button></div></div></section>}
+    {step === STEPS.TOPPING && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 2 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Собери свой вкус</p><h1>Выберите топпинг</h1><div className="display-option-grid">{catalog.toppings.map((item) => <OptionCard key={item.id} item={item} selected={toppingSku === item.sku} onClick={() => setToppingSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад к посыпке</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.SUMMARY)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Продолжить'}</button></div></div></section>}
+    {step === STEPS.SUMMARY && <section className="display-summary"><div><p className="display-kicker">Ваш заказ</p><h1>Всё верно?</h1><ul>{selectedItems.map((item) => <li key={item.id}><span>{item.nameRu}</span><strong>{money(item.basePrice, item.currency)}</strong></li>)}</ul><div className="display-total"><span>К оплате</span><strong>{money(pricing.quote?.finalAmount, pricing.quote?.currency)}</strong></div><p className="display-price-proof">Цена подтверждена сервером · quote {pricing.quote?.id}</p></div><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Изменить</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.PAYMENT)}>Перейти к оплате</button></div></section>}
+    {step === STEPS.PAYMENT && <section className="display-payment"><p className="display-kicker">Безналичная оплата</p><h1>{Number(pricing.quote?.finalAmount) === 0 ? 'Подтверждаем подарок' : `К оплате ${money(pricing.quote?.finalAmount, pricing.quote?.currency)}`}</h1><div className="display-payment-placeholder" role="status"><span aria-hidden="true">⌛</span><strong>QR-код появится после создания платёжной сессии</strong></div><p>Платёж создаёт и подтверждает Payment Runtime. Этот экран не может самостоятельно отметить оплату или выдачу успешной.</p><div className="display-waiting"><span />Ожидаем подтверждение сервера</div><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SUMMARY)}>Вернуться к заказу</button></section>}
+  </main></ProductMediaContext.Provider>;
 }

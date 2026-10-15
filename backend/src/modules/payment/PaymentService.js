@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const { assertPaymentTransition, money, sameMoney, error } = require('./PaymentModels');
+const { isPickupPreorder, pickupExpiry } = require('./PreorderFulfillmentPolicy');
 
 class PaymentService {
   constructor({ repository, providers = {}, inventory = null, machineDispense = null, clock = () => new Date() }) { Object.assign(this, { repository, providers, inventory, machineDispense, clock }); }
@@ -88,7 +89,10 @@ class PaymentService {
     const flow = await tx.saleFlow.findFirst({ where: { flowId: payment.saleFlowId, organizationId: payment.organizationId } });
     if (!flow || flow.currentState !== 'AWAITING_PAYMENT') throw error('PAYMENT_SALE_FLOW_TRANSITION_FAILED', 'Sale Flow не ожидает оплату.', 409);
     const paidFlow=await tx.saleFlow.update({ where: { flowId: flow.flowId }, data: { currentState: 'PAID', paymentReference: payment.id, version: { increment: 1 }, recoveryStatus: 'SAFE_TO_RESUME', updatedAt: now } });
-    if (this.machineDispense) await this.machineDispense.createAuthorizedFromPaidFlow(tx,paidFlow,payment,context);
+    if (isPickupPreorder(flow)) {
+      await tx.order.update({ where: { id: payment.orderId }, data: { expiresAt: pickupExpiry(flow, now) } });
+      await tx.saleFlow.update({ where: { flowId: flow.flowId }, data: { expiresAt: pickupExpiry(flow, now), recoveryStatus: 'NONE' } });
+    } else if (this.machineDispense) await this.machineDispense.createAuthorizedFromPaidFlow(tx,paidFlow,payment,context);
   }
 
   async applyFailure(tx, payment, status, now) {

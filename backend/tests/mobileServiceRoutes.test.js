@@ -1,0 +1,8 @@
+const test=require('node:test');const assert=require('node:assert/strict');const express=require('express');const {createMobileServiceRouter}=require('../src/api/v1/mobileServiceRoutes');
+test('мобильный маршрут отклоняет неподписанный запрос и требует выбор роли',async()=>{
+ const app=express();app.use(express.json({verify:(req,_res,b)=>{req.rawBody=Buffer.from(b);}}));let activeRole=null;
+ const sessions={authenticate:async(_token,proof)=>{if(!proof.signature)throw Object.assign(new Error('proof'),{statusCode:401});return {subject_type:'administrator',auth_method:'password',active_service_role:activeRole,roles:activeRole?[activeRole]:[]};},selectRole:async(_c,role)=>{activeRole=role;return {activeRole:role};}};
+ app.use('/api/v1/mobile-service',createMobileServiceRouter({mobileSessions:sessions,serviceVisitService:{workspace:async c=>({roles:c.roles})}}));app.use((e,_req,res,_next)=>res.status(e.statusCode||500).json({error:e.message}));
+ const server=app.listen(0);await new Promise(resolve=>server.once('listening',resolve));const base=`http://127.0.0.1:${server.address().port}/api/v1/mobile-service`;
+ try{assert.equal((await fetch(base+'/workspace')).status,401);assert.equal((await fetch(base+'/workspace',{headers:{'X-Device-Signature':'test'}})).status,403);const r=await fetch(base+'/role',{method:'POST',headers:{'Content-Type':'application/json','X-Device-Signature':'test'},body:JSON.stringify({role:'MACHINE_RESPONSIBLE'})});assert.equal(r.status,200);const data=await (await fetch(base+'/workspace',{headers:{'X-Device-Signature':'test'}})).json();assert.deepEqual(data.data.roles,['MACHINE_RESPONSIBLE']);}finally{await new Promise(resolve=>server.close(resolve));}
+});

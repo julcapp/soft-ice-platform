@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { MainMenuButton, useNavigation } from '../NavigationSave';
+import { AdminNotificationBell } from '../AdminNotificationCenter';
 
 export function StatusBadge({ status }) {
   const labels = {
@@ -10,7 +12,9 @@ export function StatusBadge({ status }) {
     READ_ONLY: 'Только чтение', RESERVED: 'Зарезервировано', RUNNING: 'Выполняется',
     STALE: 'Устарело', SUCCESS: 'Успешно', UNAVAILABLE: 'Недоступно', UNKNOWN: 'Неизвестно',
     WARNING: 'Предупреждение', SUSPENDED: 'Приостановлена', ARCHIVED: 'Архив', BLOCKED: 'Заблокирована',
-    INACTIVE: 'Неактивен', INFO: 'Информация',
+    INACTIVE: 'Неактивен', INFO: 'Информация', MANAGED: 'Управляемый модуль', VERIFIED: 'Подтверждено',
+    CONTROLLED: 'Управляемый контур',
+    SANDBOX: 'Тестовый контур',
   };
   return <span className={`status-badge status-${String(status).toLowerCase()}`}>{labels[status] || String(status).replaceAll('_', ' ')}</span>;
 }
@@ -68,13 +72,53 @@ export function PermissionGate({ allowed, children }) {
   return allowed ? children : <ErrorState kind="denied" />;
 }
 
+export const navigationItems = [
+    { label: 'Панель управления', href: '#dashboard' },
+    { label: 'Бизнес-статистика', href: '#business-analytics', managed: true },
+    { label: 'Пользователи', href: '#users', managed: true },
+    { label: 'Организации', href: '#organizations' },
+    { label: 'Акции и условия', href: '#customer-benefits', managed: true },
+    { label: 'Promotion Engine', href: '#promotions', managed: true },
+    { label: 'Парк автоматов', href: '#machines' },
+    { label: 'Цифровой двойник автомата', href: '#machine-twins' },
+    { label: 'Контур управления автоматами', href: '#machine-runtime' },
+    { label: 'Выдачи аппаратов', href: '#machine-dispenses', managed: true },
+    { label: 'Тестовый стенд оборудования', href: '#equipment-sandbox', sandbox: true },
+    { label: 'Складской учёт', href: '#inventory' },
+    { label: 'Рабочее место оператора', href: '#operators' },
+    { label: 'Техническое обслуживание', href: '#maintenance' },
+    { label: 'Фотоотчёты обслуживания', href: '#service-workspace', managed: true },
+    { label: 'Безопасность учётной записи', href: '#account-security', managed: true },
+    { label: 'Служебный доступ', href: '#service-access', managed: true },
+    { label: 'Платежи', href: '#payments' },
+    { label: 'Каталог и цены', href: '#catalog-prices', managed: true },
+    { label: 'Проверка фотографий', href: '#photo-verification', managed: true },
+    { label: 'Центр сообщений', href: '#message-center', managed: true },
+    { label: 'Центр событий', href: '#event-center' },
+    { label: 'Transactional Outbox', href: '#transactional-outbox' },
+    { label: 'Журнал доставки', href: '#platform-events' },
+    { label: 'Хранилище недоставленных событий', href: '#dead-letter' },
+  ];
+
+function useCurrentSection() {
+  const current = () => window.location.hash || '#dashboard';
+  const [section, setSection] = useState(current);
+  useEffect(() => { const change = () => setSection(current()); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
+  return section;
+}
 export function Sidebar({ open, onClose }) {
-  const items = [{ label: 'Панель управления', href: '#dashboard' }, { label: 'Организации', href: '#organizations' }, { label: 'Парк автоматов', href: '#machines' }, { label: 'Цифровой двойник автомата', href: '#machine-twins' }, { label: 'Контур управления автоматами', href: '#machine-runtime' }, { label: 'Выдачи аппаратов', href: '#machine-dispenses' }, { label: 'Складской учёт', href: '#inventory' }, { label: 'Рабочее место оператора', href: '#operators' }, { label: 'Техническое обслуживание', href: '#maintenance' }, { label: 'Платежи', href: '#payments' }, { label: 'Центр событий', href: '#event-center' }, { label: 'Transactional Outbox', href: '#transactional-outbox' }, { label: 'Журнал доставки', href: '#platform-events' }, { label: 'Хранилище недоставленных событий', href: '#dead-letter' }];
-  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Автоматы</small>{items.map((item, index) => <a href={item.href} key={item.label} onClick={onClose}><span aria-hidden="true">◇</span>{item.label}{![0,2].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Рабочая область только для чтения</div></aside>;
+  const section = useCurrentSection();
+  return <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}><div className="brand"><span>SI</span><div><strong>Soft ICE</strong><small>Консоль администратора</small></div></div><nav aria-label="Основная навигация"><small className="nav-group">Управление платформой</small>{navigationItems.map((item, index) => <a href={item.href} key={item.label} onClick={onClose} className={(section === item.href || section.startsWith(item.href + '/')) ? "nav-active" : undefined} aria-current={(section === item.href || section.startsWith(item.href + '/')) ? "page" : undefined}><span aria-hidden="true">◇</span>{item.label}{item.sandbox ? <small>Тестовый контур</small> : item.managed ? <small>Управляемый модуль</small> : ![0,4].includes(index) && <small>Базовая версия</small>}</a>)}</nav><div className="readonly-mark">Доступ зависит от роли и возможностей раздела</div></aside>;
 }
 
 export function Header({ onMenu }) {
-  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Глобальный поиск" placeholder="Поиск (скоро)" disabled /></label><div className="header-actions"><button className="notification" aria-label="2 уведомления">♢<i>2</i></button><div className="user-menu"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></div></div></header>;
+  const navigation = useNavigation();
+  const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+  const normalize = (value) => value.toLocaleLowerCase('ru').replaceAll('ё', 'е').trim();
+  const matches = navigationItems.filter((item) => normalize(item.label).includes(normalize(query)));
+  const close = () => { setQuery(''); setFocused(false); };
+  return <header className="header"><button className="menu-button" onClick={onMenu} aria-label="Открыть навигацию">☰</button><div className="section-search" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Поиск разделов" placeholder="Найти раздел по названию" value={query} onFocus={() => setFocused(true)} onChange={(event) => { setQuery(event.target.value); setFocused(true); }} onKeyDown={(event) => { if (event.key === 'Escape') close(); if (event.key === 'Enter' && query.trim() && matches.length) { navigation ? navigation.navigate(matches[0].href) : window.location.hash = matches[0].href; close(); } }} /></label>{focused && query.trim() && <div className="section-search-results" aria-label="Найденные разделы">{matches.length ? matches.map((item) => <a key={item.href} href={item.href} onClick={close}>{item.label}</a>) : <p role="status">Раздел не найден</p>}</div>}</div><div className="header-actions"><MainMenuButton /><AdminNotificationBell /><div className="user-menu"><span>АИ</span><div><strong>Александр Ильин</strong><small>Владелец платформы</small></div></div></div></header>;
 }
 
 export function PageHeader() {

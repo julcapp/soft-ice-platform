@@ -11,6 +11,7 @@ enum OrderStatus {
   CREATED
   PAYMENT_PENDING
   PAID
+  GIFT_TRANSFERRED
   DISPENSING
   COMPLETED
   FAILED
@@ -23,6 +24,12 @@ enum MachineStatus {
   OFFLINE
   MAINTENANCE
   ERROR
+}
+
+enum CatalogCategory {
+  ICE_CREAM
+  SPRINKLE
+  TOPPING
 }
 
 enum OrganizationStatus {
@@ -71,6 +78,7 @@ enum DispenseRequestState {
 }
 
 model Customer {
+  benefitPostings CustomerBenefitPosting[]
   id                      String    @id @default(uuid())
   phone                   String?   @unique
   phoneVerifiedAt         DateTime?
@@ -82,6 +90,9 @@ model Customer {
   birthday                DateTime?
   vkProfile               String?
   status                  String    @default("active")
+  blockedUntil            DateTime?
+  blockReason             String?
+  deletedAt               DateTime?
   trustedStatus           Boolean   @default(false)
   trustedStatusAt         DateTime?
   createdAt               DateTime  @default(now())
@@ -110,6 +121,12 @@ model Customer {
   externalProfiles        CustomerExternalProfile[]
   channelSubscriptions    CustomerChannelSubscription[]
   organizationMemberships OrganizationMember[]
+  promotionApplications   PromotionApplication[]
+  pricingQuotes           PricingQuote[]
+  rewardCounters          CustomerMachineRewardCounter[]
+  giftRewardReservations  GiftRewardReservation[]
+  welcomeBonusGrants      WelcomeBonusGrant[]
+  botRecipientBindings    BotRecipientBinding[]
 }
 
 model CustomerPreference {
@@ -436,8 +453,9 @@ model Segment {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  rules       SegmentRule[]
-  assignments CustomerSegment[]
+  rules              SegmentRule[]
+  assignments        CustomerSegment[]
+  promotionAudiences PromotionAudience[]
 
   @@index([status, type])
 }
@@ -493,6 +511,28 @@ model CustomerIdentity {
   customer Customer @relation(fields: [customerId], references: [id])
 
   @@unique([provider, externalSubjectHash])
+}
+
+model BotRecipientBinding {
+  id                  String   @id @default(uuid())
+  customerId          String
+  channel             String
+  externalSubjectHash String
+  recipientCiphertext String
+  recipientType       String
+  keyVersion          Int      @default(1)
+  status              String   @default("ACTIVE")
+  source              String
+  verifiedAt          DateTime
+  lastSeenAt          DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, channel])
+  @@unique([channel, externalSubjectHash])
+  @@index([status, lastSeenAt])
 }
 
 model AuthSession {
@@ -680,6 +720,7 @@ model BonusAccount {
 }
 
 model BonusTransaction {
+  benefitPosting CustomerBenefitPosting?
   id                  String   @id @default(uuid())
   customerId          String
   orderId             String?
@@ -724,8 +765,51 @@ model Machine {
   connectivityEvents           MachineConnectivityEvent[]
   organizationAssignments      OrganizationMachineAssignment[]
   organizationResponsibilities OrganizationResponsibility[]
-  dispenseAttempts             MachineDispenseAttempt[]
-  dispenseInboxEvents          MachineCallbackInbox[]
+  promotionApplications        PromotionApplication[]
+  promotionGroupMemberships    PromotionMachineGroupMember[]
+  pricingQuotes                PricingQuote[]
+  rewardCounters               CustomerMachineRewardCounter[]
+  giftRewardReservations       GiftRewardReservation[]
+  machineDispenseAttempts      MachineDispenseAttempt[]
+  machineCallbackInboxes       MachineCallbackInbox[]
+  catalogItems                 MachineCatalogItem[]
+}
+
+model CatalogItem {
+  id            String          @id @default(uuid())
+  sku           String          @unique
+  category      CatalogCategory
+  nameRu        String
+  descriptionRu String?
+  basePrice     Decimal?        @db.Decimal(12, 2)
+  currency      String          @default("RUB")
+  active        Boolean         @default(true)
+  systemItem    Boolean         @default(false)
+  freeItem      Boolean         @default(false)
+  sortOrder     Int             @default(0)
+  mediaPath     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  machines MachineCatalogItem[]
+
+  @@index([category, active, sortOrder])
+}
+
+model MachineCatalogItem {
+  id              String   @id @default(uuid())
+  machineId       String
+  catalogItemId   String
+  available       Boolean  @default(true)
+  isCurrentFlavor Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  machine     Machine     @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
+
+  @@unique([machineId, catalogItemId])
+  @@index([machineId, available])
 }
 
 model Organization {
@@ -733,6 +817,8 @@ model Organization {
   fullName             String
   shortName            String
   organizationType     String
+  directorName         String?
+  directorPosition     String?
   inn                  String?
   kpp                  String?
   ogrn                 String?
@@ -885,7 +971,6 @@ model OrganizationMachineAssignment {
   serviceSpecialist    OrganizationMember?   @relation("OrganizationMachineService", fields: [serviceSpecialistId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@index([organizationId, unassignedAt])
-  @@unique([id, organizationId, machineId, locationId], map: "OrgMachineAssignment_dispense_scope_key")
   @@index([machineId, unassignedAt])
   @@index([locationId, unassignedAt])
 }
@@ -1153,13 +1238,12 @@ model InventoryRuntimeReservation {
   createdAt      DateTime                          @default(now())
   updatedAt      DateTime                          @updatedAt
 
-  location                InventoryRuntimeLocation          @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  items                   InventoryRuntimeReservationItem[]
+  location InventoryRuntimeLocation          @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  items    InventoryRuntimeReservationItem[]
+
   machineDispenseAttempts MachineDispenseAttempt[]
 
-  @@unique([organizationId, reservationId])
   @@unique([organizationId, reservationId, machineId, locationId], map: "InventoryReservation_machine_scope_key")
-  @@unique([organizationId, reservationId, machineId, locationId, orderId, saleFlowId], map: "InventoryReservation_dispense_scope_key")
   @@index([organizationId, status, createdAt])
   @@index([machineId, status])
   @@index([locationId, status])
@@ -1531,6 +1615,7 @@ model MaintenanceAuditEntryV1 {
 }
 
 model Order {
+  benefitPostings CustomerBenefitPosting[]
   id         String      @id @default(uuid())
   customerId String
   status     OrderStatus @default(CREATED)
@@ -1556,13 +1641,18 @@ model Order {
   activePickupCodeHash String?
   cancelledToBalanceAt DateTime?
 
-  customer                Customer                 @relation(fields: [customerId], references: [id])
-  machine                 Machine?                 @relation(fields: [machineId], references: [id])
-  dispenseRequest         DispenseRequest?
-  bonusTransactions       BonusTransaction[]
-  photoChallenge          PhotoChallenge?
-  birthdayReward          BirthdayReward?
-  payment                 Payment?
+  customer              Customer               @relation(fields: [customerId], references: [id])
+  machine               Machine?               @relation(fields: [machineId], references: [id])
+  dispenseRequest       DispenseRequest?
+  bonusTransactions     BonusTransaction[]
+  photoChallenge        PhotoChallenge?
+  birthdayReward        BirthdayReward?
+  promotionApplications PromotionApplication[]
+  pricingQuote          PricingQuote?
+  pricingSnapshot       PricingSnapshot?
+  paymentAttempts       PaymentAttempt[]
+  payment               Payment?
+
   machineDispenseAttempts MachineDispenseAttempt[]
 
   @@index([customerId, createdAt])
@@ -1726,9 +1816,44 @@ model Referral {
   milestoneBonusPaid Boolean   @default(false)
   createdAt          DateTime  @default(now())
 
-  referrer          Customer           @relation("Referrer", fields: [referrerCustomerId], references: [id])
-  referred          Customer?          @relation("Referred", fields: [referredCustomerId], references: [id])
+  referrer          Customer               @relation("Referrer", fields: [referrerCustomerId], references: [id])
+  referred          Customer?              @relation("Referred", fields: [referredCustomerId], references: [id])
   bonusTransactions BonusTransaction[]
+  qualification     ReferralQualification?
+}
+
+model ReferralQualification {
+  id            String   @id @default(uuid())
+  referralId    String   @unique
+  action        String
+  sourceEventId String?  @unique
+  occurredAt    DateTime
+  createdAt     DateTime @default(now())
+
+  referral Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@index([action, occurredAt])
+}
+
+model WelcomeBonusGrant {
+  id                String    @id @default(uuid())
+  customerId        String
+  amountGranted     Int
+  amountRemaining   Int
+  status            String    @default("ACTIVE")
+  issuedAt          DateTime  @default(now())
+  expiresAt         DateTime
+  qualifiedAt       DateTime?
+  qualifyingAction  String?
+  qualifyingEventId String?   @unique
+  convertedAt       DateTime?
+  expiredAt         DateTime?
+  metadata          Json?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@index([expiresAt, status])
 }
 
 model PhotoChallenge {
@@ -1745,8 +1870,128 @@ model PhotoChallenge {
   reviewedAt    DateTime?
   createdAt     DateTime  @default(now())
 
-  customer Customer @relation(fields: [customerId], references: [id])
-  order    Order    @relation(fields: [orderId], references: [id])
+  customer            Customer                  @relation(fields: [customerId], references: [id])
+  order               Order                     @relation(fields: [orderId], references: [id])
+  verificationResults PhotoVerificationResult[]
+  verificationEvents  PhotoVerificationEvent[]
+  fingerprint         PhotoFingerprint?
+  publications        PhotoPublication[]
+  sourceDeletion      PhotoSourceDeletion?
+}
+
+model PhotoVerificationResult {
+  id               String   @id @default(uuid())
+  photoChallengeId String
+  provider         String?
+  model            String?
+  decision         String
+  confidence       Float?
+  fraudScore       Float?
+  reasonCode       String?
+  checks           Json     @default("{}")
+  aiResponse       Json?
+  metadataResult   Json?
+  antifraudResult  Json?
+  promptVersion    String?
+  rulesVersion     String?
+  agentVersion     String   @default("0.1")
+  processedAt      DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([photoChallengeId, processedAt])
+}
+
+model PhotoVerificationEvent {
+  id               String   @id @default(uuid())
+  photoChallengeId String
+  eventType        String
+  eventSource      String
+  payload          Json     @default("{}")
+  actorId          String?
+  correlationId    String?
+  createdAt        DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([photoChallengeId, createdAt])
+  @@index([correlationId])
+}
+
+model PhotoFingerprint {
+  id               String   @id @default(uuid())
+  photoChallengeId String   @unique
+  sha256           String
+  pHash            String?
+  dHash            String?
+  createdAt        DateTime @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@index([sha256])
+  @@index([pHash])
+}
+
+model PhotoPublication {
+  id                    String    @id @default(uuid())
+  photoChallengeId      String
+  channel               String
+  targetId              String?
+  status                String    @default("pending")
+  externalPublicationId String?
+  publicationUrl        String?
+  publishedAt           DateTime?
+  confirmedAt           DateTime?
+  errorCode             String?
+  errorMessage          String?
+  attemptCount          Int       @default(0)
+  lastAttemptAt         DateTime?
+  idempotencyKey        String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+
+  @@unique([photoChallengeId, channel])
+  @@unique([channel, externalPublicationId])
+  @@index([photoChallengeId, status])
+  @@index([status, lastAttemptAt])
+}
+
+model PhotoSourceDeletion {
+  id               String    @id @default(uuid())
+  photoChallengeId String    @unique
+  storageKey       String
+  status           String    @default("pending")
+  deleteReason     String    @default("publication_confirmed")
+  requestedAt      DateTime?
+  deletedAt        DateTime?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now())
+
+  photoChallenge PhotoChallenge @relation(fields: [photoChallengeId], references: [id], onDelete: Cascade)
+}
+
+model PhotoVerificationSettings {
+  scopeKey               String   @id
+  enabled                Boolean  @default(false)
+  mode                   String   @default("manual_only")
+  publishingEnabled      Boolean  @default(false)
+  requiredChannels       Json     @default("[\"VK\",\"TELEGRAM\",\"MAX\"]")
+  approvalThreshold      Float    @default(0.9)
+  rejectionThreshold     Float    @default(0.65)
+  maxFraudScore          Float    @default(0.5)
+  duplicateChecksEnabled Boolean  @default(true)
+  metadataChecksEnabled  Boolean  @default(true)
+  challengeCodeEnabled   Boolean  @default(false)
+  rewardBonusUnits       Int?
+  retentionPolicy        String   @default("delete_after_publication")
+  provider               String?
+  model                  String?
+  updatedBy              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now())
 }
 
 model BirthdayReward {
@@ -2012,7 +2257,8 @@ model SaleFlow {
   idempotencyKeys                   SaleFlowIdempotencyKey[]
   outboxEvents                      TransactionalOutboxEvent[]
   payment                           Payment?
-  machineDispenseAttempts           MachineDispenseAttempt[]
+
+  machineDispenseAttempts MachineDispenseAttempt[]
 
   @@unique([organizationId, orderId, flowId])
   @@index([orderId])
@@ -2025,167 +2271,6 @@ model SaleFlow {
   @@index([updatedAt])
 }
 
-enum MachineDispenseStatus {
-  CREATED
-  AUTHORIZED
-  QUEUED
-  DISPATCHING
-  SENT
-  ACCEPTED
-  DISPENSING
-  DISPENSED
-  FAILED
-  TIMED_OUT
-  CANCELED
-  RECONCILIATION_REQUIRED
-}
-
-enum MachineDispenseOperationType {
-  CUSTOMER_SALE
-  OPERATOR_TEST
-  MAINTENANCE_TEST
-}
-
-enum MachineCallbackInboxStatus {
-  RECEIVED
-  PROCESSING
-  PROCESSED
-  FAILED
-}
-
-enum MachineReconciliationStatus {
-  OPEN
-  MANUAL_REVIEW
-  RESOLVED
-}
-
-model MachineDispenseAttempt {
-  id                     String                       @id @default(uuid())
-  dispenseAttemptId      String                       @unique
-  organizationId         String
-  machineId              String
-  locationId             String
-  orderId                String?
-  saleFlowId             String?
-  inventoryReservationId String
-  operationType          MachineDispenseOperationType @default(CUSTOMER_SALE)
-  commandId              String                       @unique
-  idempotencyKey         String
-  status                 MachineDispenseStatus        @default(CREATED)
-  requestedAt            DateTime                     @default(now())
-  sentAt                 DateTime?
-  acceptedAt             DateTime?
-  startedAt              DateTime?
-  completedAt            DateTime?
-  failedAt               DateTime?
-  timedOutAt             DateTime?
-  provider               String
-  providerCommandId      String?
-  providerEventId        String?
-  failureCode            String?
-  failureMessageSafe     String?
-  correlationId          String
-  causationId            String?
-  requestedByActorType   String?
-  requestedByActorId     String?
-  operationReason        String?
-  serviceContextSafe     Json?
-  recoveryLockedAt       DateTime?
-  recoveryLockedBy       String?
-  recoveryAttemptCount   Int                          @default(0)
-  version                Int                          @default(0)
-  createdAt              DateTime                     @default(now())
-  updatedAt              DateTime                     @updatedAt
-  machine                Machine                      @relation(fields: [machineId], references: [id], onDelete: Restrict)
-  order                  Order?                       @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  saleFlow               SaleFlow?                    @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
-  reservation            InventoryRuntimeReservation  @relation(fields: [organizationId, inventoryReservationId, machineId, locationId], references: [organizationId, reservationId, machineId, locationId], onDelete: Restrict, map: "MachineDispenseAttempt_inventory_ownership_fkey")
-  inboxEvents            MachineCallbackInbox[]
-  reconciliations        MachineReconciliation[]
-  auditEntries           MachineDispenseAuditEntry[]
-
-  @@unique([organizationId, id])
-  @@unique([organizationId, id, machineId])
-  @@unique([organizationId, idempotencyKey])
-  @@unique([organizationId, orderId, saleFlowId])
-  @@index([machineId, status])
-  @@index([orderId])
-  @@index([saleFlowId])
-  @@index([status, createdAt])
-  @@unique([provider, providerCommandId])
-  @@index([correlationId])
-  @@index([status, recoveryLockedAt, updatedAt], map: "MachineDispenseAttempt_recovery_claim_idx")
-}
-
-model MachineCallbackInbox {
-  id                String                     @id @default(uuid())
-  organizationId    String
-  dispenseAttemptId String?
-  provider          String
-  providerEventId   String
-  machineId         String
-  providerCommandId String
-  receivedAt        DateTime                   @default(now())
-  processingStartedAt DateTime?
-  processedAt       DateTime?
-  failedAt          DateTime?
-  status            MachineCallbackInboxStatus @default(RECEIVED)
-  attemptCount      Int                        @default(0)
-  payloadSafe       Json
-  payloadFingerprint String
-  callbackStatus     String
-  correlationId     String?
-  lastFailureCode   String?
-  callbackFailureCode String?
-  callbackFailureMessageSafe String?
-  physicalConsumptionUnknown Boolean?
-  processingLockedAt DateTime?
-  processingLockedBy String?
-  processingLeaseVersion Int                   @default(0)
-  attempt           MachineDispenseAttempt?    @relation(fields: [organizationId, dispenseAttemptId, machineId], references: [organizationId, id, machineId], onDelete: Restrict, map: "MachineCallbackInbox_attempt_machine_fkey")
-  machine           Machine                    @relation(fields: [machineId], references: [id], onDelete: Restrict)
-
-  @@unique([provider, providerEventId])
-  @@index([organizationId, machineId, receivedAt])
-  @@index([status, receivedAt])
-  @@index([status, processingLockedAt, receivedAt], map: "MachineCallbackInbox_processing_claim_idx")
-  @@index([provider, providerCommandId])
-}
-
-model MachineReconciliation {
-  id                String                      @id @default(uuid())
-  organizationId    String
-  dispenseAttemptId String
-  category          String
-  fingerprint       String
-  status            MachineReconciliationStatus @default(OPEN)
-  localStatus       String
-  providerStatus    String?
-  detailsSafe       Json?
-  detectedAt        DateTime                    @default(now())
-  resolvedAt        DateTime?
-  resolutionNote    String?
-  attempt           MachineDispenseAttempt      @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
-
-  @@unique([organizationId, fingerprint])
-  @@index([organizationId, status, detectedAt])
-}
-
-model MachineDispenseAuditEntry {
-  id                String                 @id @default(uuid())
-  organizationId    String
-  dispenseAttemptId String
-  action            String
-  actorType         String
-  actorId           String?
-  correlationId     String?
-  detailsSafe       Json?
-  occurredAt        DateTime               @default(now())
-  attempt           MachineDispenseAttempt @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
-
-  @@index([organizationId, dispenseAttemptId, occurredAt])
-}
-
 model TransactionalOutboxEvent {
   id             String            @id @default(uuid())
   eventId        String            @unique
@@ -2193,7 +2278,7 @@ model TransactionalOutboxEvent {
   eventVersion   Int               @default(1)
   aggregateType  String
   aggregateId    String
-  organizationId String
+  organizationId String?
   machineId      String?
   saleFlowId     String?
   payload        Json
@@ -2406,4 +2491,637 @@ model EventDeletionAudit {
   metadata        Json?
 
   @@index([eventId, deletedAt])
+}
+
+model PromotionCampaign {
+  id                 String    @id @default(uuid())
+  code               String    @unique
+  name               String
+  description        String?
+  status             String    @default("DRAFT")
+  currentVersionId   String?
+  effectiveVersionId String?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  archivedAt         DateTime?
+
+  currentVersion   PromotionVersion?      @relation("PromotionCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  effectiveVersion PromotionVersion?      @relation("PromotionEffectiveVersion", fields: [effectiveVersionId], references: [id], onDelete: SetNull)
+  versions         PromotionVersion[]     @relation("PromotionVersions")
+  approvals        PromotionApproval[]
+  events           PromotionEvent[]
+  applications     PromotionApplication[]
+  pricingQuotes    PricingQuote[]
+
+  @@index([status, createdAt])
+  @@index([effectiveVersionId])
+}
+
+model PromotionVersion {
+  id                         String    @id @default(uuid())
+  campaignId                 String
+  version                    Int
+  status                     String    @default("DRAFT")
+  benefitType                String
+  benefitValue               Decimal?  @db.Decimal(12, 4)
+  priority                   Int       @default(0)
+  stackingMode               String    @default("BEST_PRICE")
+  exclusiveGroup             String?
+  priceLockSeconds           Int       @default(300)
+  startsAt                   DateTime?
+  endsAt                     DateTime?
+  timezone                   String    @default("Europe/Moscow")
+  approvalPolicy             String    @default("SINGLE_APPROVAL")
+  isManualOverride           Boolean   @default(false)
+  budgetAmount               Decimal?  @db.Decimal(14, 2)
+  budgetAction               String    @default("STOP")
+  maxApplications            Int?
+  maxApplicationsPerCustomer Int?
+  minimumFinalPrice          Decimal?  @db.Decimal(12, 2)
+  metadata                   Json?
+  createdBy                  String
+  createdAt                  DateTime  @default(now())
+
+  campaign              PromotionCampaign      @relation("PromotionVersions", fields: [campaignId], references: [id], onDelete: Restrict)
+  currentForCampaigns   PromotionCampaign[]    @relation("PromotionCurrentVersion")
+  effectiveForCampaigns PromotionCampaign[]    @relation("PromotionEffectiveVersion")
+  schedules             PromotionSchedule[]
+  targets               PromotionTarget[]
+  audiences             PromotionAudience[]
+  rules                 PromotionRule[]
+  channels              PromotionChannel[]
+  approvals             PromotionApproval[]
+  events                PromotionEvent[]
+  applications          PromotionApplication[]
+  pricingQuotes         PricingQuote[]
+
+  @@unique([campaignId, version])
+  @@index([campaignId, createdAt])
+  @@index([campaignId, status])
+  @@index([startsAt, endsAt])
+}
+
+model PromotionSchedule {
+  id                 String   @id @default(uuid())
+  promotionVersionId String
+  dayOfWeek          Int
+  startTime          DateTime @db.Time(0)
+  endTime            DateTime @db.Time(0)
+  isEnabled          Boolean  @default(true)
+  windowOrder        Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionVersionId, dayOfWeek, isEnabled])
+}
+
+model PromotionMachineGroup {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members PromotionMachineGroupMember[]
+
+  @@index([active, name])
+}
+
+model PromotionMachineGroupMember {
+  id        String    @id @default(uuid())
+  groupId   String
+  machineId String
+  addedBy   String
+  addedAt   DateTime  @default(now())
+  removedAt DateTime?
+
+  group   PromotionMachineGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  machine Machine               @relation(fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, removedAt])
+  @@index([machineId, removedAt])
+}
+
+model PromotionTarget {
+  id                 String   @id @default(uuid())
+  promotionVersionId String
+  targetType         String
+  targetId           String?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionVersionId, targetType])
+  @@index([targetType, targetId])
+}
+
+model PromotionAudience {
+  id                 String   @id @default(uuid())
+  promotionVersionId String
+  audienceType       String
+  audienceReference  String?
+  segmentId          String?
+  criteria           Json?
+  createdAt          DateTime @default(now())
+
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+  segment          Segment?         @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+
+  @@index([promotionVersionId, audienceType])
+  @@index([segmentId])
+}
+
+model PromotionRule {
+  id                 String   @id @default(uuid())
+  promotionVersionId String
+  ruleType           String
+  operator           String
+  value              Json
+  priority           Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionVersionId, ruleType, priority])
+}
+
+model PromotionChannel {
+  id                     String   @id @default(uuid())
+  promotionVersionId     String
+  channel                String
+  enabled                Boolean  @default(true)
+  popupEnabled           Boolean  @default(false)
+  countdownEnabled       Boolean  @default(true)
+  preNotificationMinutes Int?
+  startMessageTemplate   String?
+  activeMessageTemplate  String?
+  endMessageTemplate     String?
+  ctaLabel               String?
+  metadata               Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  promotionVersion PromotionVersion @relation(fields: [promotionVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionVersionId, channel])
+  @@index([channel, enabled])
+}
+
+model PromotionApproval {
+  id                 String    @id @default(uuid())
+  campaignId         String
+  promotionVersionId String
+  approvalPolicy     String
+  status             String    @default("PENDING")
+  requestedBy        String
+  requestedAt        DateTime  @default(now())
+  decidedBy          String?
+  decidedAt          DateTime?
+  reason             String?
+  metadata           Json?
+
+  campaign         PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion  @relation(fields: [promotionVersionId], references: [id], onDelete: Restrict)
+
+  @@index([campaignId, status, requestedAt])
+  @@index([promotionVersionId, status])
+}
+
+model PromotionEvent {
+  id                 String   @id @default(uuid())
+  campaignId         String
+  promotionVersionId String?
+  eventType          String
+  actorType          String
+  actorId            String?
+  correlationId      String?
+  idempotencyKey     String?  @unique
+  oldValue           Json?
+  newValue           Json?
+  reason             String?
+  metadata           Json?
+  occurredAt         DateTime @default(now())
+
+  campaign         PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion? @relation(fields: [promotionVersionId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, occurredAt])
+  @@index([promotionVersionId, occurredAt])
+  @@index([correlationId])
+}
+
+model PromotionApplication {
+  id                 String   @id @default(uuid())
+  orderId            String
+  customerId         String
+  machineId          String?
+  campaignId         String
+  promotionVersionId String
+  baseAmount         Decimal  @db.Decimal(12, 2)
+  discountAmount     Decimal  @db.Decimal(12, 2)
+  finalAmount        Decimal  @db.Decimal(12, 2)
+  pricingSnapshotId  String?
+  appliedItems       Json?
+  reason             String?
+  appliedAt          DateTime @default(now())
+  metadata           Json?
+
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  machine          Machine?          @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  campaign         PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  promotionVersion PromotionVersion  @relation(fields: [promotionVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, promotionVersionId])
+  @@index([campaignId, appliedAt])
+  @@index([machineId, appliedAt])
+  @@index([customerId, appliedAt])
+}
+
+model PricingQuote {
+  id                         String    @id
+  customerId                 String?
+  machineId                  String
+  channel                    String
+  currency                   String    @default("RUB")
+  baseAmount                 Decimal   @db.Decimal(12, 2)
+  giftAmount                 Decimal   @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount    Decimal   @default(0) @db.Decimal(12, 2)
+  finalAmount                Decimal   @db.Decimal(12, 2)
+  bonusPaymentAllowed        Boolean   @default(true)
+  partialBonusPaymentAllowed Boolean   @default(true)
+  transferAllowed            Boolean   @default(true)
+  paymentRequired            Boolean   @default(true)
+  campaignId                 String?
+  promotionVersionId         String?
+  orderId                    String?   @unique
+  createdAt                  DateTime  @default(now())
+  lockedUntil                DateTime
+  consumedAt                 DateTime?
+  metadata                   Json?
+
+  customer              Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  machine               Machine                @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  campaign              PromotionCampaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  promotionVersion      PromotionVersion?      @relation(fields: [promotionVersionId], references: [id], onDelete: SetNull)
+  order                 Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  snapshot              PricingSnapshot?
+  giftRewardReservation GiftRewardReservation?
+
+  @@index([customerId, createdAt])
+  @@index([machineId, createdAt])
+  @@index([lockedUntil])
+  @@index([campaignId, createdAt])
+}
+
+model PricingSnapshot {
+  id                      String   @id @default(uuid())
+  quoteId                 String   @unique
+  orderId                 String?  @unique
+  currency                String   @default("RUB")
+  baseAmount              Decimal  @db.Decimal(12, 2)
+  giftAmount              Decimal  @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount Decimal  @default(0) @db.Decimal(12, 2)
+  bonusAmount             Decimal  @default(0) @db.Decimal(12, 2)
+  finalAmount             Decimal  @db.Decimal(12, 2)
+  pricingRuleVersion      String   @default("pricing-v1")
+  createdAt               DateTime @default(now())
+  lockedUntil             DateTime
+  rules                   Json?
+  metadata                Json?
+
+  quote PricingQuote          @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  order Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  items PricingSnapshotItem[]
+}
+
+model PricingSnapshotItem {
+  id                      String  @id @default(uuid())
+  pricingSnapshotId       String
+  itemId                  String?
+  sku                     String?
+  name                    String?
+  quantity                Int     @default(1)
+  baseAmount              Decimal @db.Decimal(12, 2)
+  giftAmount              Decimal @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount Decimal @default(0) @db.Decimal(12, 2)
+  finalAmount             Decimal @db.Decimal(12, 2)
+  giftApplied             Boolean @default(false)
+  campaignId              String?
+  promotionVersionId      String?
+  metadata                Json?
+
+  pricingSnapshot PricingSnapshot @relation(fields: [pricingSnapshotId], references: [id], onDelete: Cascade)
+
+  @@index([pricingSnapshotId])
+}
+
+model PaymentAttempt {
+  id                String    @id
+  orderId           String
+  provider          String    @default("YOOKASSA")
+  providerPaymentId String?   @unique
+  paymentMethod     String
+  status            String    @default("CREATED")
+  amount            Decimal   @db.Decimal(12, 2)
+  currency          String    @default("RUB")
+  confirmationUrl   String?
+  idempotencyKey    String    @unique
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  succeededAt       DateTime?
+  cancelledAt       DateTime?
+  metadata          Json?
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+}
+
+model CustomerMachineRewardCounter {
+  id                   String   @id
+  customerId           String
+  machineId            String
+  completedPurchases   Int      @default(0)
+  lastCompletedOrderId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  customer             Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  machine              Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, machineId])
+}
+
+model GiftRewardReservation {
+  id              String       @id
+  quoteId         String       @unique
+  customerId      String
+  machineId       String
+  purchaseOrdinal Int
+  itemId          String
+  status          String       @default("RESERVED")
+  reservedAt      DateTime     @default(now())
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  orderId         String?
+  metadata        Json?
+  quote           PricingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  machine         Machine      @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, machineId, status, expiresAt])
+}
+
+model MachineCallbackInbox {
+  id                         String                     @id @default(uuid())
+  organizationId             String
+  dispenseAttemptId          String?
+  provider                   String
+  providerEventId            String
+  machineId                  String
+  providerCommandId          String
+  receivedAt                 DateTime                   @default(now())
+  processingStartedAt        DateTime?
+  processedAt                DateTime?
+  failedAt                   DateTime?
+  status                     MachineCallbackInboxStatus @default(RECEIVED)
+  attemptCount               Int                        @default(0)
+  payloadSafe                Json
+  payloadFingerprint         String
+  callbackStatus             String
+  correlationId              String?
+  lastFailureCode            String?
+  callbackFailureCode        String?
+  callbackFailureMessageSafe String?
+  physicalConsumptionUnknown Boolean?
+  processingLockedAt         DateTime?
+  processingLockedBy         String?
+  processingLeaseVersion     Int                        @default(0)
+  attempt                    MachineDispenseAttempt?    @relation(fields: [organizationId, dispenseAttemptId, machineId], references: [organizationId, id, machineId], onDelete: Restrict, map: "MachineCallbackInbox_attempt_machine_fkey")
+  machine                    Machine                    @relation(fields: [machineId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, machineId, receivedAt])
+  @@index([status, receivedAt])
+  @@index([status, processingLockedAt, receivedAt], map: "MachineCallbackInbox_processing_claim_idx")
+  @@index([provider, providerCommandId])
+}
+
+enum MachineCallbackInboxStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model MachineDispenseAttempt {
+  id                     String                       @id @default(uuid())
+  dispenseAttemptId      String                       @unique
+  organizationId         String
+  machineId              String
+  locationId             String
+  orderId                String?
+  saleFlowId             String?
+  inventoryReservationId String
+  operationType          MachineDispenseOperationType @default(CUSTOMER_SALE)
+  commandId              String                       @unique
+  idempotencyKey         String
+  status                 MachineDispenseStatus        @default(CREATED)
+  requestedAt            DateTime                     @default(now())
+  sentAt                 DateTime?
+  acceptedAt             DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  failedAt               DateTime?
+  timedOutAt             DateTime?
+  provider               String
+  providerCommandId      String?
+  providerEventId        String?
+  failureCode            String?
+  failureMessageSafe     String?
+  correlationId          String
+  causationId            String?
+  requestedByActorType   String?
+  requestedByActorId     String?
+  operationReason        String?
+  serviceContextSafe     Json?
+  recoveryLockedAt       DateTime?
+  recoveryLockedBy       String?
+  recoveryAttemptCount   Int                          @default(0)
+  version                Int                          @default(0)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  machine                Machine                      @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  order                  Order?                       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  saleFlow               SaleFlow?                    @relation(fields: [organizationId, orderId, saleFlowId], references: [organizationId, orderId, flowId], onDelete: Restrict)
+  reservation            InventoryRuntimeReservation  @relation(fields: [organizationId, inventoryReservationId, machineId, locationId], references: [organizationId, reservationId, machineId, locationId], onDelete: Restrict, map: "MachineDispenseAttempt_inventory_ownership_fkey")
+  inboxEvents            MachineCallbackInbox[]
+  reconciliations        MachineReconciliation[]
+  auditEntries           MachineDispenseAuditEntry[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, id, machineId])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, orderId, saleFlowId])
+  @@unique([provider, providerCommandId])
+  @@index([machineId, status])
+  @@index([orderId])
+  @@index([saleFlowId])
+  @@index([status, createdAt])
+  @@index([correlationId])
+  @@index([status, recoveryLockedAt, updatedAt], map: "MachineDispenseAttempt_recovery_claim_idx")
+}
+
+model MachineDispenseAuditEntry {
+  id                String                 @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  action            String
+  actorType         String
+  actorId           String?
+  correlationId     String?
+  detailsSafe       Json?
+  occurredAt        DateTime               @default(now())
+  attempt           MachineDispenseAttempt @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, dispenseAttemptId, occurredAt])
+}
+
+enum MachineDispenseOperationType {
+  CUSTOMER_SALE
+  OPERATOR_TEST
+  MAINTENANCE_TEST
+}
+
+enum MachineDispenseStatus {
+  CREATED
+  AUTHORIZED
+  QUEUED
+  DISPATCHING
+  SENT
+  ACCEPTED
+  DISPENSING
+  DISPENSED
+  FAILED
+  TIMED_OUT
+  CANCELED
+  RECONCILIATION_REQUIRED
+}
+
+model MachineReconciliation {
+  id                String                      @id @default(uuid())
+  organizationId    String
+  dispenseAttemptId String
+  category          String
+  fingerprint       String
+  status            MachineReconciliationStatus @default(OPEN)
+  localStatus       String
+  providerStatus    String?
+  detailsSafe       Json?
+  detectedAt        DateTime                    @default(now())
+  resolvedAt        DateTime?
+  resolutionNote    String?
+  attempt           MachineDispenseAttempt      @relation(fields: [organizationId, dispenseAttemptId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, detectedAt])
+}
+
+enum MachineReconciliationStatus {
+  OPEN
+  MANUAL_REVIEW
+  RESOLVED
+}
+
+model ProjectMessage {
+  id String @id
+  number BigInt @unique @default(autoincrement())
+  source String
+  sourceId String
+  recipientType String
+  recipientId String?
+  recipientName String?
+  subject String?
+  body String?
+  sender String @default("Сервер")
+  correlationId String?
+  redacted Boolean @default(false)
+  createdAt DateTime @default(now())
+  deliveries ProjectMessageDelivery[]
+  @@unique([source, sourceId])
+  @@index([createdAt(sort: Desc), number(sort: Desc)])
+}
+model ProjectMessageDelivery {
+  id String @id
+  messageId String
+  channel String
+  recipientAddress String?
+  status String
+  providerMessageId String?
+  failureCode String?
+  failureMessage String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+  sentAt DateTime?
+  deliveredAt DateTime?
+  readAt DateTime?
+  message ProjectMessage @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  history ProjectMessageDeliveryHistory[]
+  @@index([messageId])
+  @@index([status, channel])
+}
+model ProjectMessageDeliveryHistory {
+  id BigInt @id @default(autoincrement())
+  deliveryId String
+  status String
+  occurredAt DateTime
+  providerMessageId String?
+  failureCode String?
+  failureMessage String?
+  delivery ProjectMessageDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  @@index([deliveryId, occurredAt])
+}
+
+
+model CustomerBenefitPolicyVersion {
+  version Int @id @default(autoincrement())
+  rules Json
+  status String
+  actorId String
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  postings CustomerBenefitPosting[]
+  previews CustomerBenefitPreview[]
+}
+
+model CustomerBenefitPosting {
+  id String @id
+  operationKey String @unique
+  policyVersion Int
+  customerId String
+  orderId String
+  ruleKey String
+  amountBonus Int
+  bonusTransactionId String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+  customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  order Order @relation(fields:[orderId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  bonusTransaction BonusTransaction @relation(fields:[bonusTransactionId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  @@index([orderId],map:"CustomerBenefitPosting_order_idx")
+}
+
+model CustomerBenefitPreview {
+  id String @id
+  policyVersion Int
+  actorId String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
 }

@@ -1,0 +1,86 @@
+// Pricing Engine v1 — merge-ready Prisma fragment for backend/prisma/schema.prisma.
+
+model PricingQuote {
+  id                         String    @id
+  customerId                 String?
+  machineId                  String
+  channel                    String
+  currency                   String    @default("RUB")
+  baseAmount                 Decimal   @db.Decimal(12, 2)
+  giftAmount                 Decimal   @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount    Decimal   @default(0) @db.Decimal(12, 2)
+  finalAmount                Decimal   @db.Decimal(12, 2)
+  bonusPaymentAllowed        Boolean   @default(true)
+  partialBonusPaymentAllowed Boolean   @default(true)
+  transferAllowed            Boolean   @default(true)
+  paymentRequired            Boolean   @default(true)
+  campaignId                 String?
+  promotionVersionId         String?
+  orderId                    String?   @unique
+  createdAt                  DateTime  @default(now())
+  lockedUntil                DateTime
+  consumedAt                 DateTime?
+  metadata                   Json?
+
+  customer         Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  machine          Machine            @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  campaign         PromotionCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  promotionVersion PromotionVersion?  @relation(fields: [promotionVersionId], references: [id], onDelete: SetNull)
+  order            Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  snapshot         PricingSnapshot?
+  giftRewardReservation GiftRewardReservation?
+
+  @@index([customerId, createdAt])
+  @@index([machineId, createdAt])
+  @@index([lockedUntil])
+  @@index([campaignId, createdAt])
+}
+
+model PricingSnapshot {
+  id                      String    @id @default(uuid())
+  quoteId                 String    @unique
+  orderId                 String?   @unique
+  currency                String    @default("RUB")
+  baseAmount              Decimal   @db.Decimal(12, 2)
+  giftAmount              Decimal   @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount Decimal   @default(0) @db.Decimal(12, 2)
+  bonusAmount             Decimal   @default(0) @db.Decimal(12, 2)
+  finalAmount             Decimal   @db.Decimal(12, 2)
+  pricingRuleVersion      String    @default("pricing-v1")
+  createdAt               DateTime  @default(now())
+  lockedUntil             DateTime
+  rules                   Json?
+  metadata                Json?
+
+  quote PricingQuote           @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  order Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  items PricingSnapshotItem[]
+}
+
+model PricingSnapshotItem {
+  id                      String    @id @default(uuid())
+  pricingSnapshotId       String
+  itemId                  String?
+  sku                     String?
+  name                    String?
+  quantity                Int       @default(1)
+  baseAmount              Decimal   @db.Decimal(12, 2)
+  giftAmount              Decimal   @default(0) @db.Decimal(12, 2)
+  promotionDiscountAmount Decimal   @default(0) @db.Decimal(12, 2)
+  finalAmount             Decimal   @db.Decimal(12, 2)
+  giftApplied             Boolean   @default(false)
+  campaignId              String?
+  promotionVersionId      String?
+  metadata                Json?
+
+  pricingSnapshot PricingSnapshot @relation(fields: [pricingSnapshotId], references: [id], onDelete: Cascade)
+
+  @@index([pricingSnapshotId])
+}
+
+// Opposite relation fields to merge into existing models:
+// Customer: pricingQuotes PricingQuote[]
+// Machine: pricingQuotes PricingQuote[]
+// Order: pricingQuote PricingQuote?; pricingSnapshot PricingSnapshot?
+// PromotionCampaign: pricingQuotes PricingQuote[]
+// PromotionVersion: pricingQuotes PricingQuote[]

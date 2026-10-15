@@ -1,3 +1,4 @@
+const { assertCustomerAccess } = require('../../modules/customer/CustomerAccessPolicy');
 const { ApiError } = require('../errors/ApiError');
 const { createOpaqueToken, sha256 } = require('./hash');
 const { verifyTelegramInitData } = require('./telegramMiniAppVerifier');
@@ -48,6 +49,8 @@ class AuthCoreService {
         sourceChannel: request.source_channel,
       },
     );
+
+    assertCustomerAccess(customerResult.customer, this.clock());
 
     const clubAccountResult = await this.clubAccountRuntime.ensureAccountForCustomer(
       customerResult.customer,
@@ -127,6 +130,7 @@ class AuthCoreService {
       });
     }
 
+    assertCustomerAccess(session.customer, this.clock());
     await this.authSessionRepository.touch(session.id);
 
     return {

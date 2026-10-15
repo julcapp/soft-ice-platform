@@ -1,3 +1,4 @@
+import { useBeforeNavigation } from './NavigationSave';
 import React, { useEffect, useMemo, useState } from 'react';
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from './components';
 import * as api from './api/eventCenterClient';
@@ -41,15 +42,26 @@ function EventRow({ event }) {
 }
 export function EventDetail({ eventId, client }) {
   const [state, setState] = useState({ status: 'loading' }); const [comment, setComment] = useState(''); const [tag, setTag] = useState('');
+  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState('');
+  async function saveNotes() {
+    setSaving(true); setSaveError('');
+    try {
+      if (comment.trim()) { await client.addEventComment(eventId, comment); setComment(''); }
+      if (tag.trim()) { await client.addEventTag(eventId, tag); setTag(''); }
+      await load(); return true;
+    } catch (error) { setSaveError(error.message || 'Не удалось сохранить комментарий или тег.'); return false; }
+    finally { setSaving(false); }
+  }
+  useBeforeNavigation(() => ({ block: saving ? 'Дождитесь сохранения комментария.' : '', save: comment || tag ? saveNotes : null }));
   const load = () => Promise.all([client.getEvent(eventId), client.getEvidence(eventId), client.getComments(eventId)]).then(([event, evidence, comments]) => client.getCorrelation(event.correlationId).then((chain) => setState({ status: 'ready', event, evidence, comments, chain: chain.items })));
   useEffect(() => { load().catch((error) => setState({ status: error.status === 403 ? 'forbidden' : 'error' })); }, [eventId, client]);
   if (state.status === 'loading') return <Skeleton />; if (state.status === 'forbidden') return <ErrorState kind="denied" />; if (state.status === 'error') return <ErrorState />;
   const { event } = state; const action = (work) => work.then(load);
-  return <div className="event-detail"><a className="back-link" href="#event-center">← Вернуться к событиям</a><section className="card event-hero"><div><div className="event-row-badges"><StatusBadge status={event.severity} /><span>{label(event.category)}</span></div><h1>{event.title}</h1><p>{event.summary}</p></div><StatusBadge status={event.processingState?.status || 'NEW'} /></section>
+  return <div className="event-detail">{saveError && <p role="alert">{saveError}</p>}<a className="back-link" href="#event-center">← Вернуться к событиям</a><section className="card event-hero"><div><div className="event-row-badges"><StatusBadge status={event.severity} /><span>{label(event.category)}</span></div><h1>{event.title}</h1><p>{event.summary}</p></div><StatusBadge status={event.processingState?.status || 'NEW'} /></section>
     <section className="event-actions"><button onClick={() => action(client.acknowledgeEvent(eventId, 'Подтверждено в консоли'))}>Подтвердить</button><button onClick={() => action(client.setProcessingState(eventId, 'IN_PROGRESS'))}>Взять в работу</button><button onClick={() => action(client.setProcessingState(eventId, 'RESOLVED'))}>Отметить решённым</button><button onClick={() => action(client.setLegalHold(eventId, !event.processingState?.legalHold, 'Решение администратора'))}>{event.processingState?.legalHold ? 'Снять запрет удаления' : 'Установить запрет удаления'}</button></section>
     <section className="detail-grid"><Facts event={event} /><section className="card"><h2>Цепочка операции</h2><EventFeed events={state.chain} groupBy="correlation" compact /></section></section>
     <section className="card"><h2>Связанные материалы</h2>{state.evidence.length ? state.evidence.map((item) => <article key={item.id}><strong>{item.title}</strong><p>{item.description || label(item.evidenceType)}</p></article>) : <EmptyState title="Материалов нет" />}</section>
-    <section className="card"><h2>Комментарии</h2>{state.comments.map((item) => <p key={item.id}>{item.body}</p>)}<form onSubmit={(e) => { e.preventDefault(); action(client.addEventComment(eventId, comment)); setComment(''); }}><label>Новый комментарий<textarea value={comment} onChange={(e) => setComment(e.target.value)} required /></label><button>Добавить комментарий</button></form><form onSubmit={(e) => { e.preventDefault(); action(client.addEventTag(eventId, tag)); setTag(''); }}><label>Тег<input value={tag} onChange={(e) => setTag(e.target.value)} required /></label><button>Добавить тег</button></form></section>
+    <section className="card"><h2>Комментарии</h2>{state.comments.map((item) => <p key={item.id}>{item.body}</p>)}<form onSubmit={(e) => { e.preventDefault(); saveNotes(); }}><label>Новый комментарий<textarea value={comment} onChange={(e) => setComment(e.target.value)} required /></label><button>Добавить комментарий</button></form><form onSubmit={(e) => { e.preventDefault(); saveNotes(); }}><label>Тег<input value={tag} onChange={(e) => setTag(e.target.value)} required /></label><button>Добавить тег</button></form></section>
     {event.payload && <details className="card"><summary>Технические данные</summary><pre>{JSON.stringify(event.payload, null, 2)}</pre></details>}
   </div>;
 }

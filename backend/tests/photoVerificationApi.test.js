@@ -1,0 +1,79 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const { createPhotoVerificationRouter, createAdminPhotoVerificationRouter } = require('../src/api/v1/photoVerificationRoutes');
+const { attachPhotoVerificationRuntime } = require('../src/photoVerificationRuntime');
+
+function routeSignatures(router) {
+  return router.stack.filter((layer) => layer.route).map((layer) => ({ path: layer.route.path, methods: Object.keys(layer.route.methods).filter((method) => layer.route.methods[method]).sort() }));
+}
+
+test('customer photo verification router exposes own history and camera challenge endpoints', () => {
+  const router = createPhotoVerificationRouter({ photoPublicationReadModel: { listForCustomer: async () => [] }, photoSubmissionIntakeService: {}, authCoreService: {} });
+  assert.deepEqual(routeSignatures(router), [
+    { path: '/me/publications', methods: ['get'] },
+    { path: '/me/challenges/active', methods: ['get'] },
+    { path: '/me/challenges/:photoChallengeId/photo', methods: ['post'] },
+  ]);
+});
+
+test('admin photo verification router exposes settings, readiness, metrics, recommendation history/application/rollback, review and recovery endpoints', () => {
+  const router = createAdminPhotoVerificationRouter({
+    photoVerificationAdminService: {}, photoManualReviewService: {}, photoVerificationMetricsService: {}, photoVerificationReadinessService: {},
+    photoAiRecommendationJournalService: {}, photoAiRecommendationApplicationService: {}, photoAiRecommendationRollbackService: {},
+    photoAiRecommendationApplicationHistoryService: {}, adminAuth: {},
+  });
+  assert.deepEqual(routeSignatures(router), [
+    { path: '/settings', methods: ['get'] },
+    { path: '/settings', methods: ['patch'] },
+    { path: '/readiness', methods: ['get'] },
+    { path: '/metrics', methods: ['get'] },
+    { path: '/recommendations/evaluate', methods: ['post'] },
+    { path: '/recommendations/history', methods: ['get'] },
+    { path: '/recommendations/:recommendationKey/viewed', methods: ['post'] },
+    { path: '/recommendations/:recommendationKey/decision', methods: ['post'] },
+    { path: '/recommendation-changes/history', methods: ['get'] },
+    { path: '/recommendations/:recommendationKey/prepare-change', methods: ['post'] },
+    { path: '/recommendation-changes/:preparationId/apply', methods: ['post'] },
+    { path: '/recommendation-changes/:preparationId/prepare-rollback', methods: ['post'] },
+    { path: '/recommendation-rollbacks/:rollbackId/apply', methods: ['post'] },
+    { path: '/reviews', methods: ['get'] },
+    { path: '/reviews/:photoChallengeId', methods: ['get'] },
+    { path: '/reviews/:photoChallengeId/preview', methods: ['get'] },
+    { path: '/reviews/:photoChallengeId/decision', methods: ['post'] },
+    { path: '/operations', methods: ['get'] },
+    { path: '/operations/:photoChallengeId/retry', methods: ['post'] },
+  ]);
+});
+
+test('composition root attaches shared repository-backed photo services', () => {
+  const result = attachPhotoVerificationRuntime({}, { prisma: {} });
+  assert.ok(result.photoVerificationRepository);
+  assert.ok(result.photoVerificationAdminService);
+  assert.ok(result.photoManualReviewService);
+  assert.ok(result.photoVerificationMetricsService);
+  assert.ok(result.photoVerificationReadinessService);
+  assert.ok(result.photoAiRecommendationJournalService);
+  assert.ok(result.photoAiRecommendationApplicationService);
+  assert.ok(result.photoAiRecommendationRollbackService);
+  assert.ok(result.photoAiRecommendationApplicationHistoryService);
+  assert.equal(result.photoAiRecommendationApplicationService.metricsService, result.photoVerificationMetricsService);
+  assert.equal(result.photoAiRecommendationApplicationService.journalService, result.photoAiRecommendationJournalService);
+  assert.equal(result.photoAiRecommendationApplicationService.adminService, result.photoVerificationAdminService);
+  assert.equal(result.photoAiRecommendationRollbackService.adminService, result.photoVerificationAdminService);
+  assert.equal(result.photoAiRecommendationApplicationHistoryService.adminService, result.photoVerificationAdminService);
+});
+
+test('composition root preserves explicitly injected recommendation application, rollback and history services', () => {
+  const applicationService = { custom: true };
+  const rollbackService = { custom: true };
+  const historyService = { custom: true };
+  const result = attachPhotoVerificationRuntime({
+    photoAiRecommendationApplicationService: applicationService,
+    photoAiRecommendationRollbackService: rollbackService,
+    photoAiRecommendationApplicationHistoryService: historyService,
+  }, { prisma: {} });
+  assert.equal(result.photoAiRecommendationApplicationService, applicationService);
+  assert.equal(result.photoAiRecommendationRollbackService, rollbackService);
+  assert.equal(result.photoAiRecommendationApplicationHistoryService, historyService);
+});

@@ -1,0 +1,189 @@
+openapi: 3.1.0
+info:
+  title: Soft_ICE Equipment Integration API
+  version: 1.0.0-sandbox
+  description: Vendor-neutral sandbox API for vending equipment integration.
+servers:
+  - url: https://api-test.example.com/equipment/v1
+    description: Placeholder sandbox URL; replace at deployment.
+security:
+  - ApiKeyAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      summary: Equipment API health check
+      responses:
+        '200': { description: Online }
+  /machines/register:
+    post:
+      summary: Register sandbox machine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [machine_id]
+              properties:
+                machine_id: { type: string }
+                serial_number: { type: string }
+                controller_model: { type: string }
+      responses:
+        '200': { description: Registered }
+        '401': { description: Invalid sandbox credentials }
+  /machines/{id}/heartbeat:
+    post:
+      summary: Send heartbeat
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Heartbeat' }
+      responses:
+        '202': { description: Accepted }
+  /machines/{id}/telemetry:
+    post:
+      summary: Send capability-driven telemetry
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Telemetry' }
+      responses:
+        '202': { description: Accepted }
+  /machines/{id}/status:
+    post:
+      summary: Send aggregate status
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Heartbeat' }
+      responses:
+        '202': { description: Accepted }
+  /machines/{id}/commands:
+    get:
+      summary: Poll pending commands
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      responses:
+        '200':
+          description: Pending commands
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Command' }
+  /machines/{id}/commands/{commandId}/ack:
+    post:
+      summary: Acknowledge command receipt
+      parameters:
+        - { $ref: '#/components/parameters/MachineId' }
+        - name: commandId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202': { description: Acknowledged }
+  /machines/{id}/dispense/result:
+    post:
+      summary: Report terminal physical dispense result
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DispenseResult' }
+      responses:
+        '202': { description: Accepted/idempotent }
+        '409': { description: Conflicting result for completed command }
+  /machines/{id}/events:
+    post:
+      summary: Send equipment event
+      parameters: [ { $ref: '#/components/parameters/MachineId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EquipmentEvent' }
+      responses:
+        '202': { description: Accepted }
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    MachineId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    MachineStatus:
+      type: string
+      enum: [READY, BUSY, ERROR, SERVICE, OFFLINE]
+    Heartbeat:
+      type: object
+      required: [machine_id, status]
+      properties:
+        machine_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/MachineStatus' }
+        online: { type: boolean }
+        controller_version: { type: string }
+        firmware_version: { type: string }
+    Telemetry:
+      type: object
+      required: [machine_id, telemetry]
+      properties:
+        machine_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        telemetry:
+          type: object
+          additionalProperties: true
+          description: Exact fields depend on verified controller capabilities.
+        errors:
+          type: array
+          items: { type: object, additionalProperties: true }
+    Command:
+      type: object
+      required: [command_id, type, machine_id, payload, expires_at]
+      properties:
+        command_id: { type: string }
+        type: { type: string, enum: [DISPENSE] }
+        machine_id: { type: string }
+        payload: { type: object, additionalProperties: true }
+        issued_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [PENDING, ACKNOWLEDGED, SUCCESS, FAILED] }
+    DispenseResult:
+      type: object
+      required: [command_id, status]
+      properties:
+        command_id: { type: string }
+        machine_id: { type: string }
+        status: { type: string, enum: [SUCCESS, FAILED] }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+        error_code: { type: [string, 'null'] }
+        actual_mix_amount: { type: number }
+        actual_topping_amount: { type: number }
+    EquipmentEvent:
+      type: object
+      required: [event_type]
+      properties:
+        event_id: { type: string }
+        machine_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        event_type: { type: string }
+        severity: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] }
+        error_code: { type: string }
+        details: { type: object, additionalProperties: true }

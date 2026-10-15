@@ -1,5 +1,73 @@
 # TEST_SCENARIOS
 
+## Служебный вход и фотоотчёты — 05.10.2026
+
+1. Пароль проверяется по scrypt; неверный пароль и некорректный хэш отклоняются.
+2. Отозванная сессия и отключённая учётная запись не проходят авторизацию.
+3. Роли загружаются повторно; X-Operator-Role не авторизует рабочий кабинет.
+4. Техник/мастер без действующего членства и назначения не видит чужой аппарат.
+5. Загрузка передаёт реальные байты изображения; не-изображение отклоняется.
+6. sharp нормализует PNG в JPEG; размер файла ограничен 8 МБ.
+7. До серверного выпуска проверить на отдельной PostgreSQL: миграцию, конкурентное
+   открытие обслуживания, отзыв назначения, доступ к фото, завершение без фото,
+   откат и атомарность журналирования.
+8. Папки фотоотчётов и пользовательского контента независимы; сервисные фото не
+   публикуются в каналы. Смена пароля владельца отзывает старые сессии.
+
+## Display phone recognition — issue #24
+
+1. RU +7 / 7 / 8 / ten-digit forms normalize; malformed, foreign and Kazakhstan ranges return safe 400.
+2. Real CustomerRepository searches only verified phone; RETURNING DTO and audit contain no raw phone or customer data; domain rows and sessions remain unchanged.
+3. Unknown/unverified => NEW; missing provider => NEW with verification UNAVAILABLE; missing abuse guard/lookup => UNAVAILABLE.
+4. Challenge expires at five minutes; three wrong/malformed attempts invalidate; correct code cannot revive expired/invalid state; resend invalidates even if new delivery fails. Raw code is never stored.
+5. Test adapter is rejected outside NODE_ENV=test. Runtime default is fail-closed.
+6. Keypad, loading, RETURNING greeting, NEW, provider unavailable and anonymous continuation render at 1920x1080, 1280x720, 1080x1920, 768x1024. Console errors/warnings=0, horizontal overflow=0, all CTA targets >=72px.
+7. Skip works in every state. Idle clears phone, recognition and verification; delayed response after skip/idle cannot restore state. API/network errors produce Russian copy without backend text.
+8. Run commands and use loopback fixtures from ADR-053; no external DB, SMS, session, personal discount, payment or dispense is exercised.
+
+## Catalog / price / display migration rehearsal
+
+1. Create a new isolated PostgreSQL database named `soft_ice_rehearsal_*`; refuse an existing database and any production-looking host/database.
+2. Capture the pre-target schema, migration list, row counts, null-price IDs, and immutable pricing-history fingerprints.
+3. Before applying anything new in backup mode, verify that the restored canonical Admin migration SQL SHA-256 values match the checksums already recorded in `_prisma_migrations`; stop on any mismatch without replacing SQL or editing migration history.
+4. Apply the complete canonical Prisma migration chain through `20260923000100_catalog_price_reconciliation_v1` without `db push`, reset, `DROP`, or `TRUNCATE`.
+5. Verify `CatalogItem` and `MachineCatalogItem` constraints and projections.
+6. Verify `sprinkle_none` and `topping_none` are active protected system items with explicit `0 RUB`.
+7. Verify every pre-existing `null` catalog price remains `null`, rather than becoming zero.
+8. Verify `PricingQuote`, `PricingSnapshot`, and `PricingSnapshotItem` counts and fingerprints are unchanged.
+9. Verify two machines can retain different valid current flavors and one machine cannot have two current flavors.
+10. Verify Admin Console bulk save uses one request, marks edited rows dirty, retains drafts on validation/API failure, and renders customer preview from the machine catalog API.
+11. Verify client-supplied prices are ignored and the server catalog resolves base and add-on prices before Promotion Engine.
+12. Run the full backend suite, Admin Console tests/build, and Mini App/display build.
+13. Produce a report with PostgreSQL version, migrations/counts before/after, constraints, test results, problems, restore plan, and GO/NO-GO checklist.
+
+Expected result: fixture mode proves mechanics but remains `NO-GO`; only a fully green backup-mode rehearsal from an accurately identified authorized environment, with no migration-history drift or safety-skipped required tests, can become a GO candidate for separate release approval. No production connection, deployment, real payment, or physical dispense occurs.
+
+## Bot Core — безопасная доставка приглашения о подарке
+
+1. Private Telegram update binds only when canonical Customer Identity matches the sender and `chat_id == user_id`.
+2. Telegram group/supergroup/channel updates never become personal delivery bindings.
+3. MAX binding uses the verified inbound `user_id`; a subject already linked to another customer is rejected.
+4. Database contains only the subject hash and AES-256-GCM ciphertext, never a plaintext destination.
+5. Ciphertext cannot be decrypted under another customer/channel associated-data context.
+6. Both delivery flags default to false and provider clients are not called while disabled.
+7. A registered, bound recipient receives the message independently in each enabled channel.
+8. An unregistered or unbound recipient produces `UNAVAILABLE` delivery attempts without an external call.
+9. Message text and provider request contain no invitation token, phone, redemption code or payment data.
+10. `GiftInvitation.status` becomes `SENT` and emits `GIFT_INVITATION_SENT` only if at least one provider returns `SENT` or `DELIVERED`.
+
+## Bot Core — принятие подарка
+
+1. Неаутентифицированный callback `gift_accept` не вызывает Gift Transfer Runtime и предлагает завершить вход.
+2. Раздел «Мои подарки» показывает только подарки текущего получателя в состояниях `AVAILABLE`, `ACCEPTED` и `REDEMPTION_READY`.
+3. Подарок отправителя, другого получателя, отменённый или возвращённый подарок не создаёт кнопку принятия.
+4. Валидный callback передаёт канонический `customerId` и `giftId` в `GiftTransferRuntime.accept`.
+5. Повторное принятие не создаёт повторное событие и возвращает текущее состояние.
+6. Просроченный подарок не принимается и возвращается отправителю существующим доменным сценарием.
+7. После успеха Telegram показывает disabled button только при включённом флаге; при выключенном флаге кнопка скрывается.
+8. После успеха MAX не показывает повторную кнопку принятия.
+9. Подтверждение принятия не содержит ephemeral delivery; код получения, invitation token, телефон и финансовые сведения не выводятся.
+10. Ошибки доступа и недоступного статуса преобразуются в безопасный пользовательский текст без внутренних подробностей.
 ## Machine callback PROCESSING recovery и test actor validation
 
 - persisted `PROCESSING` callback после crash/restart и истечения lease reclaim-ится ровно одним из 20 PostgreSQL workers;
@@ -10,19 +78,6 @@
 
 ## Payment Lifecycle & Reconciliation v1
 
-- Создание Payment читает authoritative amount/currency из Order; client amount mismatch отклоняется без записи.
-- Один create idempotency key с тем же каноническим server-side запросом возвращает тот же Payment без второго outbox event; другой Order, authoritative amount, currency, provider, description или metadata даёт `PAYMENT_IDEMPOTENCY_CONFLICT`.
-- Concurrent identical create даёт один Payment и duplicate; concurrent conflicting create даёт один Payment и один conflict; оба сценария сохраняются после restart.
-- Допустимые переходы проходят, terminal/повторные неподдержанные переходы fail-closed.
-- Create, confirmation, cancel, provider event и refund сохраняют idempotency после нового Prisma client.
-- Повторный provider event создаёт одну Inbox запись; sensitive provider fields не сохраняются.
-- `SUCCEEDED` атомарно фиксирует Payment + Order + Sale Flow + Outbox и не consume Inventory reserve.
-- Failure/cancel release reserve; refund не восстанавливает физически выданный товар.
-- Tenant другой организации не читает и не меняет Payment/Refund/Inbox.
-- Прямая PostgreSQL-запись не может связать Payment с Order/Sale Flow другого tenant или Refund с Payment другого tenant.
-- PostgreSQL отклоняет Payment/Refund status без требуемого timestamp и взаимоисключающие terminal timestamps.
-- Payment, Order, Sale Flow, Inventory и Outbox failure injection оставляют `NO PARTIAL STATE`.
-- Reconciliation классифицирует mismatch, создаёт manual review/audit/outbox и не исправляет Payment молча.
 
 ## Сквозная продажа Soft ICE v1 — ревизия orchestration boundary
 
@@ -389,6 +444,18 @@ Automated coverage includes legal/illegal transitions; purchase, test, and maint
 - Gift Redemption не начисляет purchase-бонусы и не считается first own purchase.
 - Telegram и MAX вызываются одновременно; проверяются частичный успех, оба unavailable и достоверность статусов.
 - Все события передачи имеют общий `correlationId`; Customer Timeline, роли и русские UI-тексты проверяются отдельно.
+
+# Telegram Bot API 10.3 — поэтапная приёмка
+
+- При трёх выключенных флагах Bot Core отправляет прежний `sendMessage`, не добавляет ephemeral-параметры и не передаёт `disabled` в Telegram.
+- При включённом rich-message флаге подготовленный Telegram view вызывает `sendRichMessage`; при выключенном флаге тот же view отправляет обычный текстовый fallback.
+- Rich-message ошибка не запускает автоматическую повторную отправку обычного сообщения после неопределённого результата сети, чтобы не создавать дубликат.
+- Ephemeral отправляется только при `critical=false`, известном `receiver_user_id` и включённом флаге.
+- Код получения, чек, оплаченный заказ и другое критичное сообщение всегда отправляются обычным способом, даже если view ошибочно запросил ephemeral.
+- При включённом disabled-button флаге завершённое действие отображается как `InlineKeyboardButton.disabled={}`.
+- При выключенном disabled-button флаге завершённое действие отсутствует в клавиатуре и не становится активным повторно.
+- MAX renderer для тех же shared actions не получает Telegram `disabled`, `rich_message` или `ephemeral_message_parameters`.
+- Повторный callback по завершённому действию остаётся безопасным за счёт backend-идемпотентности, независимо от вида кнопки.
 # Сквозная продажа Soft ICE v1
 
 - Happy path: заказ → PAID → AUTHORIZED → DISPENSING → DISPENSED → Inventory → Sale → CRM/Customer 360 → Loyalty → COMPLETED.
@@ -431,6 +498,32 @@ Service restart остаётся непроверяемым до durable reposit
 - Tenant не читает события другой организации; platform scope явный.
 - Admin retry разрешён только роли администратора и создаёт audit trail; payload не редактируется.
 - Известные secret fields в payload отклоняются.
+
+# Durable Gift Notification Outbox — 2026-09-08
+
+- Gift Transfer и `GIFT_INVITATION_DELIVERY_REQUESTED` создаются одной Prisma-транзакцией; ошибка Outbox откатывает весь bundle.
+- Только явно разрешённое платформенное событие Gift Notification может иметь `organizationId = NULL`; произвольное событие без tenant отклоняется.
+- Gift worker выбирает только свой `eventType` и не забирает Sale Flow события.
+- Временный provider failure переводит событие в `RETRY` с backoff; постоянная ошибка — сразу в `DEAD_LETTER`.
+- Если Telegram уже отправлен, а MAX временно ошибся, повтор вызывает только MAX.
+- `SENT` фиксируется лишь после реального успеха хотя бы одного канала.
+- Просроченные, отменённые и уже выданные подарки не отправляются.
+- В Outbox и provider notification отсутствуют телефон, invitation token, redemption code и платёжные данные.
+- Worker не запускается при выключенном флаге и не может быть включён без хотя бы одного разрешённого канала.
+- Отсутствующий Telegram/MAX binding переводит событие в отложенный `RETRY` без увеличения `attemptCount`; после появления binding доставка продолжается, а при достижении TTL приглашение завершается без отправки.
+- Поздний provider success после конкурентной отмены не перезаписывает `CANCELLED` и не создаёт `GIFT_INVITATION_SENT`.
+- Worker забирает каждое событие непосредственно перед обработкой, продлевает lease во время медленного provider-вызова и перед финальной записью; суммарный timeout включённых providers меньше lease и прерывает зависший HTTP-запрос.
+
+# Test Bot Gift Notification Acceptance — 2026-09-08
+
+- Smoke отказывается запускаться при `NODE_ENV=production`.
+- Test token не может совпадать с соответствующим production token.
+- Получатель задаётся только положительным числовым secret ID и требует точного подтверждения `YES_TEST_RECIPIENT`; group/supergroup chat ID Telegram отклоняется.
+- Telegram standard отправляет явно тестовый текст и disabled button.
+- Telegram Rich Message проверяется отдельным ручным запуском.
+- MAX использует отдельный test token, test user ID и обязательный HTTPS URL тестового Mini App; production URL и неявный fallback отклоняются.
+- Результат smoke не выводит token или recipient ID.
+- Каждый smoke-запуск отправляет не более одного сообщения и не создаёт подарок, заказ или бонус.
 # Transactional Outbox v1 revision defects — 2026-08-20
 
 - Рекурсивная payload validation отклоняет точные sensitive keys в корне, nested objects, arrays и objects внутри arrays без раскрытия значения в ошибке.
@@ -459,8 +552,17 @@ Service restart остаётся непроверяемым до durable reposit
 - Одна Prisma/PostgreSQL transaction фиксирует Order, multi-item Inventory reservation/stock, Sale Flow и Outbox; инъекции отказа Order, Inventory, Sale Flow и Outbox дают полный rollback.
 - Legacy migration fixtures покрывают `ACTIVE`, `CONSUMED`, `RELEASED`, `EXPIRED`, single-item и multi-item; terminal rows сохраняют `reservedQuantity = quantity`, а невосстановимое ownership приводит к abort всей migration transaction.
 
-# Payment Lifecycle & Reconciliation v1 — повторная ревизия 2026-08-23
+## Gift Transfer PostgreSQL Runtime
 
+- Создание подарка атомарно сохраняет transfer, invitation и referral link.
+- После создания нового экземпляра runtime ранее сохранённый подарок доступен отправителю и получателю.
+- Принятие сохраняет `ACCEPTED` и реферальную стадию; повторный вызов идемпотентен.
+- Claim сохраняет получателя, приглашение, claim и реферальную связь одной транзакцией репозитория.
+- Выдача сохраняет redemption и состояние подарка; хеш кода остаётся в базе, открытый код — только в ответе Mini App.
+- Попытка уведомления повторно использует уникальную пару `notificationId + channel`.
+- Пользовательский и административный API корректно ожидают асинхронные чтения Prisma.
+- Prisma schema и чистая цепочка миграций содержат `OrderStatus.GIFT_TRANSFERRED`.
+- Перезапуск backend не удаляет подарки и историю попыток доставки.
 # Machine Lifecycle / Dispense Runtime v1
 
 - Stale callback owner: claim A → expiry → claim B → A fail/finalize даёт no-op; после B completion terminal Inbox immutable.
@@ -489,3 +591,208 @@ Service restart остаётся непроверяемым до durable reposit
 - Повтор reconciliation одного snapshot создаёт ровно один manual-review record, audit и outbox event; state/amount mismatch не исправляется автоматически.
 - Failure injection Payment, Order, Sale Flow, Inventory и Outbox подтверждает `NO PARTIAL STATE`.
 - Legacy migration: clean DB, полная chain, пустая legacy Payment, explicit valid mapping и unmapped row. Последняя останавливается до DDL, сохраняя строку и исходную схему.
+
+# Unified Display / Catalog Pricing — issue #17
+
+- Equipment Sandbox Admin Console installs with the package-manager version pinned by `frontend/admin-console/package.json`; YooKassa `PaymentOrchestrator` production composition and Promotion purchase E2E use the canonical `PaymentAttemptRepository` attempt contract without adapting the authoritative lifecycle `PaymentRepository`; payment confirmation does not create a legacy `DispenseRequest`, because physical fulfillment remains owned by `MachineDispenseService`.
+- Prisma schema содержит `CatalogItem` и `MachineCatalogItem`; migration reconciliation не содержит `DROP`, не создаёт RetailPriceList/Recipe/CatalogPublication и безопасно проходит на clean DB и production-shaped fixture с уже существующими таблицами.
+- Активная коммерческая позиция без `basePrice` не попадает в display catalog и не может участвовать в quote; отрицательная цена отклоняется.
+- Явный 0 разрешён для защищённых «Без посыпки» / «Без топпинга» и осознанно бесплатной позиции; обычный товар с 0 без marker отклоняется.
+- System item нельзя деактивировать или убрать из machine availability через обычный Admin API.
+- У machine A и machine B могут быть разные текущие `ICE_CREAM`; на каждом автомате одновременно не более одного текущего вкуса.
+- Клиентские `unitPrice`, `price` и `amount` отбрасываются; quote использует PostgreSQL catalog base prices, после чего Promotion Engine применяет подарок/скидку.
+- Изменение цены в «Каталог и цены» влияет на следующий quote/display response, но не изменяет существующие `PricingQuote`, `PricingSnapshot` и `PricingSnapshotItem`.
+- Изменение нескольких цен помечает строки как несохранённые и отправляет одно явное пакетное сохранение; dirty-state очищается только после успешной backend-транзакции и повторного чтения каталога, а ошибка сохраняет введённые значения.
+- Таблица различает `Активно`, `Неактивно`, `Нет цены` и `Ошибка настройки`; платная позиция с отсутствующей/некорректной ценой не маскируется как неактивная или бесплатная.
+- Фильтры `Все позиции`, `Мороженое`, `Добавки`, `Активные`, `Без цены`, `По аппарату` возвращают ожидаемые строки; аппарат выбирается из backend-списка без ручного UUID.
+- Блок «Что увидит покупатель» читает тот же machine catalog endpoint, что и display, и для готового каталога показывает аппарат, текущий вкус, базовую цену и доступные добавки с пояснением про Pricing/Promotion Engine.
+- После выбора нового current flavor блок «Что увидит покупатель» перечитывается без повторного выбора аппарата; `CATALOG_PRICE_INVALID` при nullable цене текущего вкуса fail-closed отображается как «Каталог не готов / Для текущего вкуса не задана цена», а таблица каталога сохраняет явный статус «Нет цены».
+- Desktop visual acceptance выполняется при browser zoom 100% в `1440×900` и `1920×1080`: страница и таблица не получают горизонтальный overflow, machineCode остаётся одной читаемой строкой, sticky save bar не перекрывает изменённую строку, а все действия доступны через компактное touch/mouse-меню. Проверка `1440×900` должна подтверждать уменьшение внутреннего overflow с baseline `259 px` до `0 px`; в `1920×1080` сгруппированные данные позиции, цена, статус, назначения/current flavor и действия остаются полностью читаемыми.
+- Ошибки catalog API отображаются в Admin Console русскоязычным сообщением по стабильному error code; сырой backend message пользователю не показывается.
+- Деактивация назначенного текущего вкуса отклоняется; non-RUB catalog price отклоняется до Pricing Engine; legacy CHECK/FK constraints явно валидируются migration и не оставляют некорректные строки grandfathered.
+- Каждая create/update/price/availability/current-flavor mutation создаёт `AuditEvent` с actor и correlation ID.
+- Display fail-closed показывает недоступность покупки при отсутствующем machineId, текущем вкусе, цене или backend catalog response.
+- Один React-поток проверяется в `1920×1080`, `1280×720`, `1080×1920`, `768×1024`; layout меняется CSS media/orientation rules, дублированных экранов нет.
+- Idle возвращается через 120 секунд; сохранены утверждённые idle/home/club/phone/choice/summary/payment тексты и hero asset; phone flow можно пропустить.
+- Idle timeout очищает введённый телефон; Mini App quote включает выбранные add-on SKU и не разрешает checkout по цене только базового мороженого.
+- На payment screen до получения реальной payment session нет QR или похожего на QR узора: показан явно несканируемый placeholder `QR-код появится после создания платёжной сессии`; нет кнопки, способной клиентом подтвердить оплату/выдачу; Payment Runtime и Machine Runtime остаются владельцами успеха.
+- `display.utimoshi.ru` остаётся единственной документированной vending UI точкой; `frontend/terminal` отсутствует.
+
+### Issue #22 — canonical display visual acceptance
+
+- Запустить `frontend/miniapp` через `npm run visual:acceptance` и открыть `/?mode=terminal&machineId=visual-machine`.
+- Проверить idle → home → choice → summary → payment на 1920×1080, 1280×720, 1080×1920 и 768×1024.
+- Проверить, что `catalog.currentFlavor.mediaPath` равен `/media/ice/UT-ICE-Hero-001.png`, URL возвращает настоящий `image/png`, а idle показывает полностью загруженное изображение без broken-image icon; production React не содержит SKU→path mapping.
+- Проверить отдельный home entry point `Получить оплаченный заказ` → безопасный информационный prepaid state → `Назад`; state не выдаёт код, не создаёт заказ, не сообщает об успехе и не вызывает payment/machine runtime.
+- Проверить payment state без payment session: нет fake/pseudo QR и checker/repeating pattern; видны несканируемый placeholder, текст о подтверждении через Payment Runtime, ожидание сервера и кнопка `Вернуться к заказу`.
+- Зафиксировать отсутствие горизонтального overflow, сохранение hero/цены/главного CTA и touch targets не менее 72px для terminal display.
+- Проверить `data-testid="display-idle"` и `data-testid="display-screen-*"` как устойчивые visual acceptance hooks.
+- Сохранить screenshots только из локального fixture; production, staging, hardware, payment, dispense и `frontend/terminal` runtime не использовать.
+
+
+### Организации и контакты — 2026-10-06
+
+- Выбрать существующую организацию в служебном доступе; при создании техника/мастера она выбрана по умолчанию, другую можно выбрать вручную.
+- Изменить ФИО директора, должность, телефон и почту; до подтверждения сохранения запрос изменения не отправляется.
+- Создать новую организацию; проверить обязательные контактные поля и ошибку при совпадающем ИНН существующей карточки.
+- Без DADATA_API_TOKEN автозаполнение недоступно, ручное заполнение работает.
+- С ключом: ИНН 10/12 цифр, отсутствие результатов, таймаут/ошибка сервиса; ключ и текст внутренних ошибок провайдера не выдаются.
+- Найденные реквизиты можно исправить; статус реестра не меняет внутренний статус организации. Отсутствующие контакты не стирают вручную введённые значения.
+- Миграция и сохранение/изменение директора проверяются на отдельной PostgreSQL, только структура читается из рабочей БД.
+
+
+### Сотрудник с двумя ролями — 2026-10-06
+
+- Для незаполненного логина техника выбрать из списка того же сотрудника, который связан с мастером. После подтверждения добавляется SERVICE_SPECIALIST без второй OrganizationMember; прежний пароль не меняется.
+- В форме нового логина выбрать сотрудника из базы, организация фильтрует список; данные сохраняются только после подтверждения.
+- Повторная привязка не добавляет дубликат действующей роли. Сотрудник другой организации не может быть выбран в форме создания; организационный администратор ограничен своим контуром.
+- Человек с двумя ролями сохраняет раздельные права логинов: диагностика через техника доступна на назначенном аппарате, через мастера отклоняется.
+- Глазок показывает/скрывает пароль без изменения текста, отправки формы и отключения ограничения 9–128 символов.
+- Ввести ФИО строчными буквами, лишними пробелами и двойной фамилией: нормализация после выхода из поля и на сервере при сохранении. Проверить lang=ru и spellCheck; фамилия не заменяется по словарю автоматически.
+
+
+### Android: привязка смартфона
+
+- Одинаковые модели с разными ключами считаются разными устройствами. Второй активный ключ не заменяет первый.
+- Чужой ключ, чужой сотрудник, повтор challenge, истёкший challenge и отозванная привязка отклоняются.
+- Перед выпуском: проверить SQL-ограничение конкурентной регистрации на PostgreSQL, подпись Android Keystore на двух телефонах, отзыв всех мобильных сессий и обязательность привязки на каждом маршруте.
+
+
+### Мобильные сессии
+
+- Переключение мастера/техника требует действующей роли сотрудника и нового подтверждения ключом.
+- Изменение пути, метода или тела запроса после получения challenge отклоняется.
+- Отзыв устройства, сотрудника или активной роли закрывает доступ; мобильный токен не используется в веб-API.
+- Отчёт исходной роли не виден и не продолжается в другой роли.
+
+### Восстановление подключения сервисных разделов
+
+`restore-admin-composition.py` без --apply проверяет hash main.js, точки подключения, наличие зависимостей и синтаксис без изменения runtime. После --apply пустой POST admin/auth/login должен вернуть ADMIN_INVALID_CREDENTIALS (401), service-access без токена — 403 SERVICE_ACCOUNT_ACCESS_DENIED либо 401 ADMIN_AUTHENTICATION_REQUIRED, health — 200. При изменении main.js остановка до записи; при ошибке после записи возврат файла и перезапуск.
+
+### Установка мобильного сервиса
+
+Перед --apply скрипт сверяет SHA-256 main.js и ServiceVisitService.js, отсутствие новых файлов и синтаксис. --apply требует root, создаёт и проверяет pg_dump16, применяет обе миграции транзакционно с checksum в _prisma_migrations. После перезапуска health=200, пустой mobile-service/login и admin/auth/login возвращают ADMIN_INVALID_CREDENTIALS (401), mobile workspace без токена — 401. При ошибке возвращаются файлы и systemd drop-in, добавленная структура БД сохраняется. При повторном запуске после частичного отката требуется сверка уже применённых миграций.
+
+### Android service 0.1.0, устройство
+
+Установить APK на Android 8+, открыть вход, переключить видимость пароля. Передать публичные данные и зарегистрировать ключ для правильного сотрудника. Войти, выбрать каждую доступную роль, сверить назначенные аппараты. На втором телефоне тот же пароль не должен дать подписанный доступ. После отзыва первого ключа workspace запрещён. Переустановка требует новой регистрации. Без сети понятное сообщение. Эти сценарии на физическом устройстве пока не выполнены. Компиляция и подписи APK v2/v3 прошли.
+
+### Навигация админ-панели
+
+При открытии #catalog-prices отмечен пункт «Каталог и цены»; после перехода на другой hash подсветка меняется, назад/вперёд обновляют выбранный пункт. В поиске ввод части названия показывает ссылки, регистр и ё/е не влияют. Enter открывает первый результат, Escape закрывает список, при отсутствии совпадений показано «Раздел не найден». На мобильном экране поиск доступен. Сборки admin и miniapp прошли, 42 теста admin прошли.
+
+На экране 1080px и на телефоне меню прокручивается отдельно: доступны последние пункты, бренд и подпись остаются на месте. Скролл меню не прокручивает содержимое страницы.
+
+### Форма регистрации смартфона
+
+До подтверждения запрос не отправляется. В подтверждении видны сотрудник, производитель, модель и версии. Запрос использует выбранный memberId и только разрешённые поля. Конфликт активного устройства сохраняет форму и показывает сообщение сервера. Некорректный JSON и пустой выбор не допускаются. UI-тест подтверждения и конфликта PASS; 42 остальных теста и обе сборки прошли. Реальный телефон пока не зарегистрирован.
+
+### Главное меню и сохранение перед переходом
+
+На странице каталога изменить цену и нажать «Главное меню»: сначала updatePrices и перечитывание, затем #dashboard. При отказе сервера цена и раздел остаются. Повторные нажатия во время сохранения не создают запросов. Боковые ссылки, поиск, hash-навигация и назад/вперёд используют тот же механизм. При перезагрузке браузер предупреждает о несохранённых изменениях.
+
+Настройки проверки фотографий, DRAFT акции, комментарии и теги сохраняются через собственные API. До сохранения проверяются все блокирующие формы. Незавершённые подтверждения организаций, сотрудников, устройства, пароля, возврата, модерации, сообщений и планирования акции удерживают страницу. Отчёт обслуживания с изменённым текстом требует явного завершения: API сохранения черновика ещё отсутствует. У служебных ролей «Главное меню» возвращает к назначенным аппаратам; администратор возвращается к dashboard. Фотографии уже сохраняются при загрузке.
+
+### Центр сообщений
+
+Установщик сверяет EnvironmentFiles рабочего systemd-сервиса с выбранным env-файлом до изменений; несовпадение останавливает установку. Флаг включается в фактически подключённом файле. После перезапуска требуется именно ответ MESSAGE_CENTER_ACCESS_DENIED (403) нового маршрута, а не ответ общего администрационного middleware.
+
+Проверить поиск по MSG-номеру, получателю и тексту; фильтры канал/статус/даты по Томску; пагинацию 50 записей; карточку и отдельные статусы каналов, provider ID и историю. HTML в тексте отображается как текст. Ошибка доступа не выглядит как пустой список. Доступ по поддельному заголовку роли или учётной записи техника/мастера запрещён; текущие роли проверяются по AdminUser.
+
+До отправки сохраняется намерение; ошибка БД не допускает незарегистрированный вызов провайдера. После принятия каналом — SENT, без фиктивного DELIVERED. Ошибка фиксации результата не повторяет принятую отправку. Не настроенный бот — UNAVAILABLE. Security OTP отсутствует во всех сохранённых аргументах, в карточке текст скрыт. Исторические отсутствующие тексты и sentAt показаны явно.
+
+message-center-acceptance.py запускает миграцию в отдельной схеме внутри откатываемой транзакции PostgreSQL: backfill, обновление CRM, прочтение Mini App, gift confirmation, общий номер эскалации по двум каналам, сохранение истории и выполнение реальных SQL read-запросов. Реальным получателям сообщения в тестах не отправляются.
+
+Проверка этого изменения: admin 50/50 PASS; backend 562 PASS, 88 environment-gated SKIP, ошибок нет; обе Vite-сборки и Prisma validate PASS. PostgreSQL acceptance выполнен на сервере, все тестовые изменения откатились. Guarded preflight установщика подтвердил совместимость текущих рабочих файлов.
+# Telegram /start: проверка доставки (2026-10-09)
+
+- Передача собственного контакта в личном чате: номер нормализуется, сохраняется с датой подтверждения и аудитом; согласия не устанавливаются автоматически. Чужой контакт, контакт без user_id и групповой чат не подтверждают номер.
+- Уже подтверждённый номер нельзя заменить через регистрацию; повторная передача того же номера не создаёт новую запись аудита.
+- В личном чате Mini App открывается кнопкой web_app; в группе остаётся обычной ссылкой.
+
+- Настоящие BotOnboardingService, BotRuntime, TelegramRenderer и TelegramBotApiClient с подменённым HTTP: отправляется непустой текст и корректный chat_id; числовой update_id становится строковым correlationId.
+- Неподтверждённый телефон: приветствие и ссылка Mini App без действий клубного меню. Подтверждённый телефон: клубное меню доступно.
+- На сервере: отправить /start, проверить ответ и запись «Отправлено» с provider message ID в Центре сообщений. Повторные входящие запросы при прежних ошибках остаются в журнале.
+
+
+## Управление учётной записью клиента — 12.10.2026
+
+- Открыть карточку из таблицы, изменить имя, сохранить; телефон и email не меняются без верификации.
+- Блокировка требует причины и будущей даты; бессрочная не имеет окончания. Проверить отказ по уже выданному токену и через бот. На границе срока доступ восстанавливается.
+- Удаление требует ID; история платежей и заказов остаётся. Удалённую запись нельзя разблокировать, включая параллельный запрос.
+- Заголовки разработки, анонимный запрос и роли техника/мастера не дают права менять аккаунты.
+- Ошибка аудита должна откатывать изменение. Несохранённая форма удерживает навигацию.
+
+### Карточка клиента: подтверждение перехода
+
+Изменить имя и нажать «Назад»: проверить все три решения. Успешное сохранение разрешает переход; отказ API оставляет карточку открытой. Запрос блокировки без обязательных полей не должен закрыть карточку. Черновик сообщения не отправляется автоматически.
+
+### Rich-карточка покупки
+
+Проверить --preview без отправки, затем один запуск --send через тестового бота. Ноль начисленных бонусов отображается как ноль. Незавершённый/чужой заказ отвергается. Повтор не создаёт новую отправку; Центр сообщений содержит текст, статус и providerMessageId. Вручную проверить Mini App кнопку в личном Telegram чате.
+
+### Test Telegram Mini App auth
+
+Primary valid signature accepted for ordinary users; test signature accepted only for allowlist. Invalid/expired/duplicate parameters and missing allowlist rejected. After deployment, close old Telegram Web App and reopen to obtain fresh initData. Verify cabinet and Message Center journal separately.
+
+### Оплата у границы TTL резерва
+
+Оплатить около пяти минут после создания резерва; дождаться окончания тестового приготовления. Проверить CONSUMED резерв, один расход ингредиентов, COMPLETED заказ. Неоплаченный истёкший резерв не списывается. UNKNOWN без свидетельства результата не превращается в DISPENSED. При RECONCILIATION_REQUIRED терминал показывает внимание, а не бесконечную проверку готовности.
+
+
+## Mini App — общий каталог (13.10.2026)
+
+Автоматически: python3 -m unittest test_shared_catalog.py из legacy/soft-ice-miniapp-v0.35.1. Проверены точные серверные цены и ID, недоступность позиции, отклонение NaN/Infinity/отрицательной/отсутствующей цены, отсутствие demo fallback при сетевой ошибке и запрет запроса без выбранного аппарата.
+
+До приёмки предзаказа обязательны: подписанный вход тестового и боевого бота; общий Order/PricingSnapshot/SaleFlow/Payment; несовпадение владельца; повторное создание; изменение цены; запрет client succeeded; серверный SUCCEEDED без команды выдачи; позднее получение; повторное получение; возврат. Эти сквозные сценарии пока не выполнены.
+
+
+## TEST-only предзаказ (13.10.2026)
+
+node --test backend/tests/miniAppPreorder.test.js: чужая подпись/allowlist/verified identity, повторные ключи initData и будущая дата, чужой заказ без provider-вызова, истёкший quote до записи заказа, оплата предзаказа без команды выдачи и срок 48 часов, сохранение автоматической выдачи терминального заказа. Сопутствующие paymentLifecycle/payment-orchestrator — 16 проверок суммарно. Build Mini App проходит. Сквозной PostgreSQL/provider тест после установки обязателен; сам тестовый платёж пользователь выполняет отдельно.
+
+- Регрессия установки: python3 -m unittest test_shared_preorder_routes.py test_shared_catalog.py из legacy/soft-ice-miniapp-v0.35.1 — 7 проверок. Страница/JS разрешены, shared POST попадает в proxy, server.py и посторонние POST остаются закрытыми. Проверка чтения новых backend-файлов и TEST-конфигурации от softice выполняется установщиком до перезапуска.
+
+- 14.10.2026: регрессия регистра имени TEST-бота и неизменного bot ID — python3 -m unittest backend/scripts/test_preorder_installer.py; транспорт Telegram/MAX, отсутствие/конфликт SDK и небезопасные платёжные URL — node --test frontend/miniapp/src/platform/MiniAppPlatform.test.mjs (3 проверки). Рабочий общий интерфейс/авторизация MAX ещё не прошли сквозную приёмку.
+
+- Проверка TEST authentication теперь требует поиск Bot Core hash и отклоняет одновременные подтверждённые привязки к разным клиентам. Существующие карточки не изменяются.
+
+- TEST account: выборка ограничена customerId; PAID без Payment не считается подтверждённым, REFUNDED не даёт paidAmount, отсутствующие счета возвращают null. 7 проверок miniAppPreorder проходят.
+
+- TEST bot entry: node --test backend/tests/test-miniapp-entry.test.js — новая web_app-кнопка allowlisted TEST покупателя открывает общий интерфейс; production, чужой ключ/ID, неучастник, группа, отсутствующий конфиг и внешние ссылки сохраняют исходный адрес. MAX и исходный объект view не изменяются. Проверка в чате: заново /start → новая кнопка приложения → «Мои заказы»; старые сообщения остаются со старыми URL.
+
+- История заказов: сервер возвращает 10 строк и hasMore, фильтр возвратов сохраняет customerId, отрицательная страница отклоняется. pickup-code-journal.test.js проверяет блокировку заказа, запись истории и AVAILABLE в одной транзакции, отсутствие секрета в журналах и отказ выдачи при конкурентном завершении заказа. После установки: подписанный TEST запрос выдачи кода → CustomerTimelineEvent и ProjectMessage/Delivery/History в БД; команда выдачи аппарату отсутствует.
+
+- Приёмка общей оболочки: Главная → Кабинет → раскрыть оплаченный заказ → Получить заказ; Клуб показывает только существующие серверные балансы. После восстановления recent-order Главная должна загружать каталог без возврата в предыдущий заказ. QR-код и возврат после оплаты сохранены. Node syntax, 10 backend tests и Mini App build проходят; визуальная приёмка в мессенджере и фильтрация через Python после перезапуска ещё обязательны.
+
+- Терминальный pickup: node --test frontend/miniapp/src/terminal/PrepaidPickupApi.test.js — передача кода/QR без клиентской суммы или paid, machine-scoped polling, сохранение отказа сервера. Build проходит. Приёмка на устройстве: короткий/неверный/истёкший код, перевыпуск, другой аппарат, повторный ввод; AUTHORISED/SENT не считается готовностью; только DISPENSED → успех. Проверить отказ камеры, отсутствие камеры/BarcodeDetector, сканер с Enter и остановку камеры при уходе. Физическое устройство удалённо не проверено; автоматическое тестирование не запускает выдачу.
+
+- 14.10.2026: live display browser проверен без redeem: три цифры → кнопка отключена; шесть → включена; камера отсутствует в проверочном браузере и ручной ввод доступен. Публикация сборки index-BNDCk1tc.js выполнена из актуальных серверных исходников, платежный экран сохранён. Пользовательская выдача заказа ca849b5f…: один DISPENSED/test-machine event, Order/SaleFlow COMPLETED 09:19:38 UTC; резерв CONSUMED и по одной порции BASE_MIX/TOPPING/SPRINKLE. MSG-57 подтверждён. Бонусный счёт/проводки отсутствуют. Это не приёмка физического фризера.
+
+- Адаптивные стили pickup-fit.css: в live браузере при 1363×936 нижняя кнопка заканчивается на y=917, камера квадратная 412×412, документ помещается по высоте. Проверен computed color метки rgb(179,77,0). Узкий и портретный режим используют одну колонку; проверка на физическом мониторе остаётся пользовательской приёмкой.
+
+
+### Камера без BarcodeDetector
+- Нажать запуск камеры в браузере без BarcodeDetector: запрос доступа и видео доступны, статус объясняет отсутствие QR распознавания.
+- При запрете доступа показать ошибку, ручной ввод остаётся доступен; при уходе с экрана остановить поток.
+
+### Таймер получения
+- Без действий 30 секунд: вернуться в HOME (предыдущий экран), остановить поток камеры. Ввод цифры и запуск камеры начинают новый отсчёт. Проверка/выдача не прерывается таймером.
+
+### QR без BarcodeDetector
+- Камера сканирует UTP1 QR через локальный jsQR. При распознавании передаёт только payload прежнему серверному redeem, останавливая поток. Чужой QR не запускает выдачу. Сервер отказывает для просроченного/использованного кода. После 30 секунд бездействия поток закрывается, HOME открывается.
+- Автотест: node --test frontend/miniapp/src/terminal/PickupQrDetector.test.js.
+
+### Повторный опрос выдачи
+- AUTHORIZED → AUTHORIZED → DISPENSED: экран должен перейти к готовности, несмотря на повторяющийся статус. Только GET статуса, без повторного redeem. При уходе остановить опрос; долгий запрос не пересекать следующим.
+
+### Долгая оплата и резерв
+- TTL резерва истекает до подтверждения оплаты. После SUCCEEDED и подтверждённой DISPENSED попытки штатная транзакция списывает резерв один раз. Без подтверждённой попытки истёкший резерв нельзя списать.
+
+### Акции и условия
+- Первая версия — DRAFT/demo, боевых правил нет; счета не меняются.
+- Правка создаёт новую версию; stale baseVersion даёт 409. Включение требует отдельного подтверждения.
+- Только подтверждённый нетестовый оплаченный завершённый заказ может начислить бонус; предоплата/подарок/возврат/неизвестный режим исключаются.
+- Повторное завершение не создаёт вторую проводку; новая версия не меняет ключ операции.
+- Сухой расчёт сохраняет отчёт, показывает причины и ограничение 500 заказов, не пишет бонусы.
+- Техник не имеет доступа, production role headers не подменяют авторизацию.

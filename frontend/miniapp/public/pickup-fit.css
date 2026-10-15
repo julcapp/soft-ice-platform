@@ -1,0 +1,66 @@
+/* Pickup-only layout: use the browser viewport, preserve other screens. */
+.display-shell:has(.pickup-screen){height:100dvh;min-height:100dvh;box-sizing:border-box;display:flex;flex-direction:column;overflow:auto;padding:clamp(12px,2vh,24px) clamp(16px,3vw,56px);gap:clamp(10px,2vh,20px)}
+.display-shell:has(.pickup-screen) .display-header{flex:0 0 auto;margin:0;padding:0;min-height:54px}
+.display-prepaid.pickup-screen{flex:1;min-height:0;width:100%;max-width:1280px;margin:0 auto;padding:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(8px,1.5vh,16px);text-align:center}
+.pickup-screen-heading h1{font-size:clamp(26px,4.8vh,52px);line-height:1.08;margin:4px 0 8px}
+.pickup-screen-heading p{font-size:clamp(15px,2vh,20px);line-height:1.3;margin:4px 0}
+.pickup-screen-heading .display-kicker{font-size:clamp(12px,1.7vh,16px);margin:0}
+.pickup-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(20px,4vw,72px);align-items:start;min-height:0;width:100%;margin:0}
+.pickup-manual-panel,.pickup-camera-panel{width:100%;min-width:0;max-width:540px;margin:0 auto}
+.pickup-layout h2{font-size:clamp(20px,3vh,32px);line-height:1.2;margin:0 0 10px}
+.pickup-manual-panel output,.pickup-manual-panel input{width:100%;box-sizing:border-box;min-height:52px;height:clamp(52px,8vh,88px);padding:8px 12px;font-size:clamp(28px,4.5vh,48px);margin:0;border-radius:20px}
+.pickup-keys.display-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(6px,1vh,10px);width:100%;margin:10px 0}
+.pickup-keys.display-keys button{height:clamp(38px,6vh,64px);min-height:38px;padding:4px;font-size:clamp(22px,3.5vh,36px);border-radius:16px}
+.pickup-screen .display-primary,.pickup-screen .display-secondary{min-height:44px;height:auto;padding:10px 18px;font-size:clamp(18px,2.7vh,28px);line-height:1.15}
+.pickup-camera-shell{width:min(100%,44dvh,420px)!important;height:auto!important;aspect-ratio:1;max-height:none!important;margin:0 auto;overflow:hidden;border-radius:24px;position:relative}
+.pickup-camera-video{width:100%!important;height:100%!important;object-fit:cover;aspect-ratio:1}
+.pickup-camera-placeholder{inset:0;box-sizing:border-box;font-size:clamp(16px,2.2vh,22px)}
+.pickup-camera-placeholder p{font-size:clamp(16px,2.2vh,22px);line-height:1.3;margin:12px}
+.pickup-camera-panel>p{font-size:clamp(14px,1.8vh,18px);line-height:1.3;margin:8px 0}
+.pickup-camera-panel .display-boundary-note{padding:10px 14px;font-size:clamp(14px,1.9vh,18px);line-height:1.35;margin:8px 0;overflow-wrap:anywhere}
+.pickup-footer-actions.display-phone-actions{display:flex;justify-content:center;gap:12px;width:100%;margin:0;padding:0}
+.pickup-footer-actions button{width:min(100%,360px)}
+@media(max-width:760px),(orientation:portrait){
+ .display-shell:has(.pickup-screen){height:auto;min-height:100dvh;overflow:visible;padding:16px;gap:16px}
+ .display-prepaid.pickup-screen{display:flex;flex-direction:column;gap:20px}
+ .pickup-layout{grid-template-columns:minmax(0,1fr);gap:24px}
+ .pickup-camera-shell{width:min(100%,34dvh,420px)!important}
+ .pickup-screen-heading h1{font-size:clamp(26px,5vw,46px)}
+ .pickup-layout h2{font-size:26px}
+}
+
+.display-shell .pickup-screen .pickup-screen-heading .display-kicker{color:#009b35!important;font-weight:800;letter-spacing:.09em}
+/* Keep the original camera button and handler; place it inside the square. */
+.pickup-camera-panel{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;justify-items:center}
+.pickup-camera-panel>h2{grid-column:1;grid-row:1}
+.pickup-camera-panel>.pickup-camera-shell{grid-column:1;grid-row:2}
+.pickup-camera-panel>.pickup-camera-status{grid-column:1;grid-row:3}
+.pickup-camera-panel>.pickup-camera-start{grid-column:1;grid-row:2;align-self:end;justify-self:center;z-index:3;width:82%!important;max-width:350px;margin:0 0 12%;white-space:normal}
+.pickup-camera-placeholder p{display:none}
+.pickup-manual-panel output{display:flex;align-items:center;justify-content:center;line-height:1}
+
+.display-shell .pickup-screen .pickup-manual-panel output.pickup-code-output{display:flex!important;align-items:center;justify-content:center;height:clamp(64px,8vh,88px);min-height:64px;padding:8px 12px;box-sizing:border-box;font-size:clamp(28px,4vh,44px)!important;line-height:1!important;letter-spacing:.1em;font-variant-numeric:tabular-nums;white-space:pre;overflow:hidden}
+/* Announce pickup errors with a brief, non-flashing emphasis. */
+.display-shell .pickup-screen [role="alert"]{
+ color:#9f1239!important;background:#fff1f2!important;border:2px solid #e11d48!important;
+ border-radius:18px;padding:12px 16px;font-weight:750;font-size:clamp(17px,2.2vh,22px);
+ line-height:1.35;box-sizing:border-box;max-width:100%;overflow-wrap:anywhere;
+ animation:pickup-alert-emphasis .85s ease-in-out 3;
+}
+@keyframes pickup-alert-emphasis{
+ 0%,100%{box-shadow:0 0 0 0 rgba(225,29,72,0)}
+ 50%{box-shadow:0 0 0 6px rgba(225,29,72,.2)}
+}
+@media(prefers-reduced-motion:reduce){
+ .display-shell .pickup-screen [role="alert"]{animation:none}
+}
+.display-shell .pickup-screen .pickup-footer-actions button,.display-shell .pickup-screen .display-nav button{background:#00866f!important;color:#fff!important;border:2px solid #006653!important;box-shadow:0 4px 12px #00866f30;font-weight:800}
+.pickup-idle-countdown{font-size:16px!important;color:#57605d;margin:0!important;grid-column:1/-1}
+/* Keep content rows at their natural height; the timer must not compress headings. */
+.display-prepaid.pickup-screen{position:relative;grid-template-rows:auto auto auto;align-content:start;gap:20px}
+.pickup-screen-heading{min-height:max-content;padding-bottom:8px}
+.pickup-layout{align-self:start}
+.display-shell .pickup-screen .pickup-idle-countdown{position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);width:68px;box-sizing:border-box;padding:10px 4px;margin:0!important;border:1px solid #c9ded6;border-radius:16px;background:#fff;color:#006653;font-size:18px!important;font-weight:800;text-align:center;line-height:1.4;z-index:2}
+@media(max-width:760px),(orientation:portrait){
+ .display-shell .pickup-screen .pickup-idle-countdown{position:static;transform:none;align-self:center;width:auto;padding:8px 20px}
+}

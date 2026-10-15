@@ -1,5 +1,22 @@
 # PROJECT_DECISIONS.md
 
+# Decision: DECISION-074 — Display Recognition Does Not Authenticate
+
+**Date:** 2026-09-29
+
+**Status:** Implementation for review (issue #24)
+
+Verified phone lookup may produce a safe greeting only. Authentication, enrollment and loyalty remain separate. The display recognition/challenge API creates no customer session or domain mutation; production abuse and delivery adapters fail closed. See `ADR/ADR-053-display-phone-recognition-boundary.md`.
+
+# Decision: DECISION-073 — Display Uses One UI and PostgreSQL Catalog Pricing
+
+**Date:** 2026-09-23
+
+**Status:** Accepted
+
+`display.utimoshi.ru` is the only vending-machine customer UI and uses the Mini App terminal mode with one responsive React implementation. PostgreSQL `CatalogItem` / `MachineCatalogItem` own base catalog prices, machine availability and the current flavor. Server pricing resolves those values before Promotion Engine and persists immutable quote/snapshot evidence. Existing production drift is reconciled only through an additive, test-first migration; `feature/terminal-ui-v1` remains a design reference and is not merged as a second application. Details: `docs/architecture/ADR/ADR-052-unified-display-catalog-pricing.md`.
+
+# Decision: DECISION-072 — Gift Invitation Delivery Uses a Dedicated Transactional Outbox Stream
 # Decision: DECISION-071 — Machine Callback Mutation Requires Durable Ownership
 
 **Date:** 2026-08-24
@@ -26,11 +43,49 @@ Machine Runtime владеет lifecycle команды, callback и физич�
 
 # Decision: DECISION-068 — Payment Is the Authoritative Monetary Lifecycle
 
-**Date:** 2026-08-23
+**Date:** 2026-09-08
 
 **Status:** Accepted
 
-Payment владеет денежной state machine, persistent idempotency, provider Inbox, Refund и Reconciliation. Подтверждение меняет Payment, Order, Sale Flow и Transactional Outbox одной PostgreSQL-транзакцией, но не означает выдачу и не consume Inventory. Реальные provider operations и webhook signature verification остаются `BLOCKED_EXTERNAL`. Подробности: `docs/architecture/ADR/ADR-044-payment-lifecycle-reconciliation-v1.md`.
+Для зарегистрированного получателя Gift Transfer создаёт подарок, приглашение,
+реферальную связь и `GIFT_INVITATION_DELIVERY_REQUESTED` в одной PostgreSQL-
+транзакции. Отдельный worker выбирает только этот тип события, повторяет временные
+ошибки с backoff и не переотправляет уже успешный канал. Платформенное событие
+может не иметь `organizationId` только через явный allow-list. Телефон, invitation
+token, provider destination и финансовые данные запрещены в Outbox payload.
+Включение worker и Telegram/MAX каналов требует отдельной приёмки. Подробности:
+ADR-051.
+
+# Decision: DECISION-071 — One Task Branch Across Phone and PC; One Role-Scoped Admin Console
+
+**Date:** 2026-09-08
+
+**Status:** Accepted
+
+Ветка идентифицирует задачу, а не устройство: новая работа использует
+`feature/*`, `fix/*`, `docs/*` или отдельно согласованную `hotfix/*` ветку и
+продолжается в ней же при переходе телефон ↔ ПК. Прямые изменения `main` и
+`integration/*` запрещены. Административные домены используют одну Admin Console;
+полномочия выдаёт только backend RBAC. Для технического специалиста и ответственного
+за аппарат используются канонические роли `SERVICE_SPECIALIST` и
+`MACHINE_RESPONSIBLE`, а не UI-имена. Подробности: ADR-050.
+
+# Decision: DECISION-070 — Bot Recipient Delivery Uses Verified Encrypted Bindings
+
+**Date:** 2026-09-02
+
+**Status:** Accepted
+
+Telegram/MAX destination identifiers are learned only from trusted inbound bot webhooks after the external subject resolves to the same canonical customer. Telegram accepts only a private chat whose `chat_id` equals the sender subject; MAX delivery uses the verified inbound `user_id`. The destination is encrypted with AES-256-GCM and customer/channel associated data. Gift delivery is transactional, not marketing, but remains disabled per channel until credentials, encryption key, migration and acceptance checks are present. Invitation tokens and redemption secrets never leave the server. Details: `docs/architecture/ADR/ADR-049-safe-bot-recipient-delivery.md`.
+
+# Decision: DECISION-068 — Bot Gift Acceptance Uses Gift Transfer Runtime
+
+**Date:** 2026-08-31
+
+**Status:** Accepted
+
+Bot Core показывает подарки и принимает callback только после разрешения канальной идентичности в канонический customer. Изменение состояния выполняется исключительно через идемпотентный `GiftTransferRuntime.accept`; callback не содержит телефон, invitation token, код выдачи или финансовые данные. Подтверждение не является ephemeral, Telegram disabled button остаётся только отображением серверного состояния, а MAX после успеха не показывает повторное действие. Код получения остаётся в Mini App. Подробности: `docs/architecture/ADR/ADR-047-bot-gift-accept-action.md`.
+
 
 # Decision: DECISION-067 — Sale Commit Uses One PostgreSQL Transaction
 
@@ -2404,3 +2459,75 @@ Event Center is a separate bounded context subscribed to Platform Event Bus. It 
 **Status:** Accepted
 
 `sale_flow` принимает организационный контекст только через authoritative machine/location relation. Создание заказа, provider transaction, callbacks, fulfillment token и финальные эффекты имеют независимые idempotency keys. Оплаченная неуспешная выдача передаёт в Order/Payment требование `REFUND_REQUIRED`, не уничтожая payment history; Sale Flow хранит только одноимённое recovery state. Текущая in-memory реализация остаётся `FOUNDATION_ONLY`; production требует durable repository, уникальных ограничений, возобновляемого workflow и transactional outbox.
+
+## DECISION-069 — Gift Transfer Runtime хранится в PostgreSQL
+
+**Статус:** принято 31.08.2026.
+
+Производственная композиция Gift Transfer использует `PrismaGiftTransferRepository`; in-memory-репозиторий разрешён только для изолированных тестов. Передача, приглашение, claim, принятие, выдача, реферальная связь и попытки уведомлений должны переживать перезапуск backend. Статус заказа `GIFT_TRANSFERRED` закреплён в Prisma enum и миграции. Реальные отправители Telegram/MAX и production deployment остаются отдельными решениями. См. ADR-048.
+
+
+# Decision: Organization registry lookup — 2026-10-06
+
+Существующая организация выбирается из PostgreSQL. Автозаполнение новой или редактируемой карточки использует серверный адаптер DaData findById/party с branch_type=MAIN. DADATA_API_TOKEN хранится только в окружении backend. Доступ соответствует организационным ролям; запросы ограничены по администратору и таймауту. Результат не сохраняется автоматически: оператор проверяет реквизиты и подтверждает запись. ФИО руководителя и должность добавлены nullable полями для совместимости с существующими карточками; телефон и почта используют существующие поля. Статус реестра отделён от внутреннего статуса организации.
+
+
+# Decision: Shared service employee identity — 2026-10-06
+
+OrganizationMember описывает человека, OrganizationRoleAssignment — его полномочия в организации. Два отдельных служебных логина могут ссылаться на одного сотрудника с SERVICE_SPECIALIST и MACHINE_RESPONSIBLE. Права логина остаются отдельными и пересекаются с действующими ролями сотрудника и назначением аппарата. Добавление роли требует подтверждённого действия управляющего администратора, выполняется вместе с привязкой в транзакции и аудируется. Сотрудник блокируется FOR UPDATE, чтобы повторные параллельные назначения не создавали дубликаты действующей роли. ФИО не используется как уникальный идентификатор; объединение только через явный выбор ID карточки.
+
+
+# Decision: One active Android service device — 2026-10-06
+
+Привязка к OrganizationMember, а не к роли; модель смартфона только справочная. EC P-256 ключ и одноразовая серверная проверка подписи. Закрытый ключ Android Keystore. Новый смартфон не заменяет прежний без административного отзыва. Публичная интеграция должна проверять bindingId и выбранную роль на каждом рабочем запросе. До мобильных сессий ограничение не считается включённым.
+
+
+# Decision: Mobile service sessions and request proof — 2026-10-06
+
+Мобильные токены отделены от веб-сессий. Каждый рабочий запрос требует одноразовой подписи ключом привязанного устройства, связанной с ID сессии и хешем метода, пути и точных байтов тела. Сессия повторно проверяет пользователя, сотрудника, организацию, роли и отзыв устройства. Выбранная роль серверная; у рабочего контекста ровно одна роль. ServiceVisit.actingRole закрепляет исходную роль отчёта. Переключение роли аудируется, смена пароля делает ранее созданные мобильные сессии недействительными. Включение только после миграций и приёмки под SERVICE_MOBILE_ENABLED; APK ещё не выпущен.
+
+### Android service 0.1.0
+
+Первый клиент нативный Java без сторонних runtime-зависимостей. Android Keystore хранит ключ; секреты входа только в памяти. Публичный ключ передаётся для администраторской регистрации. Роли и аппараты задаются сервером. APK пока debug; hardware attestation и фотоотчёты отложены.
+
+### 2026-10-08: единый переход с сохранением в админке
+
+NavigationSaveProvider принимает от страниц декларативные планы {block, save}. Сначала проверяет все блокировки, затем последовательно вызывает явные API сохранения; маршрутизация происходит только после успеха. Запросы завершения обслуживания, назначения прав, возврата и отправки сообщений не выполняются автоматически. Пароли и тексты форм не записываются в browser storage. Новые редактируемые страницы должны регистрировать план через useBeforeNavigation.
+
+### 2026-10-08: Центр сообщений
+
+ProjectMessage хранит логическое исходящее сообщение с уникальным постоянным номером MSG, ProjectMessageDelivery — отправки по каналам, ProjectMessageDeliveryHistory — историю фиксации статусов. Центр сообщений доступен только активным PLATFORM_OWNER/ADMIN, проверенным по БД и password-сессии. API только для чтения, без повторной отправки. Номера последовательности могут иметь пропуски после отката транзакции.
+
+CRM и CustomerNotification зеркалируются в той же транзакции триггерами; служебная эскалация по нескольким каналам сохраняет общий номер. MessageJournal оборачивает ответы бота, подарки, webhook-промо и security-доставку; перед вызовом провайдера сохраняется SENDING. Ошибка записи результата после принятия провайдером не инициирует повтор отправки. Статус SENT — подтверждение принятия каналом; ACCEPTED — принятие промежуточным сервисом; DELIVERED только по явному подтверждению, READ только по факту прочтения.
+
+MESSAGE_CENTER_ENABLED включается в общем env-файле при развёртывании. Старые CRM, Mini App и gift delivery записи импортируются; отсутствующие исторические тексты/время отправки не восстанавливаются догадками. Коды подтверждения не сохраняются в body. Для нового транспорта обязателен MessageJournal; неподключённые каналы не начинают отправлять сообщения от появления страницы.
+
+## 12.10.2026 — Состояние доступа клиента
+
+Блокировка и удаление доступа хранятся в Customer: status, blockedUntil, blockReason, deletedAt. Временная блокировка истекает при серверной проверке времени, без зависимости от планировщика. Удаление в админке закрывает доступ и сохраняет доменную финансовую историю; это не процедура уничтожения персональных данных. Полномочие изменения принадлежит PLATFORM_OWNER с настоящей сессией.
+
+## 13.10.2026 — Защита оплаченного резерва
+
+TTL ограничивает ожидание оплаты. После SUCCEEDED резерв не освобождается автоматически. Позднее списание требует совпадающих организации, заказа, saleFlow, аппарата, резерва и команды, а также DISPENSED в той же транзакции. Удержанный резерв освобождается явной операцией домена при отмене/возврате; неизвестный физический результат требует сверки.
+
+
+## 13.10.2026 — Общий предзаказ Mini App (реализация начата)
+
+Рабочий Mini App использует legacy Python, поэтому замена только React ProductScreen не изменит пользовательский сценарий. Каталог читается из backend для выбранного аппарата; при недоступности нельзя показывать demo цены. Общий предзаказ должен атомарно связывать Order, PricingSnapshot и SaleFlow с каналом MINIAPP, использовать единый PaymentCheckoutService и журнал финансов. Оплата не должна создавать команду выдачи: резерв ингредиентов и команда создаются при получении. Старый клиентский callback succeeded не является доказательством оплаты. Тестовая Telegram авторизация требует отдельного проверенного allowlist; рабочая авторизация сохраняется. Пока реализован только read-only адаптер каталога, включения на сервере нет.
+
+
+## 13.10.2026 — Тестовый общий предзаказ (подготовлен к установке)
+
+Отдельный miniapp-test-preorders API проверяет подпись только тестового бота, allowlist и существующую активную verified CustomerIdentity; профиль не объединяется по имени или телефону. CatalogService и PricingEngine создают расчёт для TEST-MACHINE-001. Order, PricingSnapshot, SaleFlow и outbox связываются в одной транзакции под блокировкой PricingQuote. Повтор того же quote/key возвращает заказ, чужой владелец или другой key отклоняются. Акции и бесплатные подарки в первом тесте отклоняются до подключения их полного учёта. PaymentCheckoutService использует только подтверждённый тестовый магазин 1368517. Для metadata sourceChannel=MINIAPP/fulfillmentMode=PICKUP оплата не авторизует выдачу; 48 часов начинаются от подтверждённой оплаты. Экран получения ещё не включён. Production Mini App не переключается: тестовый интерфейс опубликован отдельным путём после root-установки.
+
+
+## 14.10.2026 — Пересборка Mini App для Telegram и MAX
+
+Визуальная основа общего приложения — существующий фирменный интерфейс MAX: шапка «У Тимоши», навигация Главная/Кабинет/Клуб, компактная история. История серверных заказов загружается по 10 строк с фильтрами. Старые JSON-заказы и балансы не считаются подтверждёнными данными общей БД. Каждый новый выпуск кода фиксируется атомарно в CustomerTimelineEvent и Центре сообщений с каналом MINIAPP/status AVAILABLE; это доступность в API, а не подтверждение просмотра пользователем. Значение кода в журналы не записывается.
+
+Одна React-кодовая база и общие серверные Order/Pricing/Payment/Profile. Различия SDK изолируются в MiniAppPlatform; adapter передаёт только raw signed initData, не устанавливает права и не доверяет initDataUnsafe. Для отсутствующего/неоднозначного канала авторизация закрыта. Транспортный адаптер реализован, но общий интерфейс ещё не подключён; Node MAX server authentication и переключение работающего Python Mini App требуют отдельных завершённых проверок. На текущем шаге устанавливается только TEST Telegram предзаказ.
+
+
+### 2026-10-15: Версии условий покупателей
+
+Условия вынесены в неизменяемые PostgreSQL-снимки DRAFT/LIVE. Сохранение и включение разделены, первая версия demo. Сервер начисляет только от завершения подтверждённой обычной продажи в той же транзакции; ключ проводки не зависит от версии. Исторические операции сначала проходят сохраняемый сухой расчёт, массовой проводки и импорта demo-балансов нет. Порог 50-й покупки остаётся у существующего отдельного resolver. Детали: `docs/business/CUSTOMER_BENEFIT_RULES_ADMIN.md`.

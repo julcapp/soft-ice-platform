@@ -3,6 +3,7 @@ const { ClubAccountRuntime } = require('./modules/club_account/ClubAccountRuntim
 const { CustomerRepository } = require('./modules/customer/CustomerRepository');
 const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
+const { DisplayCustomerRecognitionService, AllowDisplayRecognitionAbuseGuard } = require('./modules/customer/DisplayCustomerRecognitionService');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
@@ -35,14 +36,17 @@ const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalC
 const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
 const { EventCenterRepository, EventCenterRuntime, EventCenterService, EventIngestionService, EventQueryService, EventNormalizationService, EventRetentionService, DefaultEventPayloadSanitizer, BasicEventSchemaValidator, InMemoryEventRecordPublisher, EventMetricsAdapter, ExistingEventBusSubscriber, createEventTypeRegistry } = require('./modules/event_center');
-const { GiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter } = require('./modules/gift_transfer');
+const { PrismaGiftTransferRepository, GiftTransferService, GiftTransferRuntime, NotificationOrchestrator, TelegramNotificationAdapter, MaxNotificationAdapter, GiftNotificationOutboxPublisher, EVENT_TYPE: GIFT_NOTIFICATION_EVENT_TYPE } = require('./modules/gift_transfer');
 const { OrganizationRepository, OrganizationService, OrganizationRuntime } = require('./modules/organization');
 const { PrismaSaleFlowRepository, SaleFlowService, PostgresOrganizationContext, PostgresOrderDomain, ProductEnginePriceCalculator, BlockedExternalPaymentAdapter, BlockedExternalMachineAdapter, createProductionSaleFlowService } = require('./modules/sale_flow');
-const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transactional_outbox');
+const { PrismaOutboxRepository, OutboxAdminService, OutboxWorker, RetryPolicy } = require('./modules/transactional_outbox');
+const { BotRecipientBindingRepository } = require('./modules/bot_core/BotRecipientBindingRepository');
+const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientBindingService');
+const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
-function createRuntimeDependencies({ logger, metrics, config } = {}) {
+function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
   const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
@@ -141,6 +145,13 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     auditRepository,
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
+  const displayCustomerRecognitionService = new DisplayCustomerRecognitionService({
+    customerRepository,
+    auditRepository,
+    // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
+    // All other machines continue to fail closed until the shared abuse guard is integrated.
+    abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
+  });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
@@ -182,6 +193,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const machineAdapter = new BlockedExternalMachineAdapter();
   const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
   const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
+  machineDispenseService.customerBenefits = new (require('./modules/customer_benefits/CustomerBenefitService').CustomerBenefitService)({ prisma });
   paymentService.machineDispense = machineDispenseService;
   const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
@@ -204,9 +216,64 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
       maxAgeSeconds: config.auth.telegramInitDataMaxAgeSeconds,
     }) : undefined,
   });
-  const giftTransferRepository = new GiftTransferRepository();
-  const notificationOrchestrator = new NotificationOrchestrator({ repository: giftTransferRepository, adapters: [new TelegramNotificationAdapter(), new MaxNotificationAdapter()] });
-  const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({ repository: giftTransferRepository, orderRepository, customerRepository, clubAccountRuntime, notificationOrchestrator, eventPublisher: platformEventBus, auditRepository }) });
+  const giftTransferRepository = new PrismaGiftTransferRepository(prisma);
+  const botRecipientBindingRepository = new BotRecipientBindingRepository(prisma);
+  const recipientEncryptionKey = config?.botNotifications?.recipientEncryptionKey;
+  const botRecipientBindingService = recipientEncryptionKey
+    ? new BotRecipientBindingService({
+      repository: botRecipientBindingRepository,
+      customerRepository,
+      codec: new AesGcmValueCodec({ key: recipientEncryptionKey }),
+      logger,
+    })
+    : null;
+  const notificationOrchestrator = new NotificationOrchestrator({
+    repository: giftTransferRepository,
+    adapters: [
+      new TelegramNotificationAdapter({
+        bindingService: botRecipientBindingService,
+        client: botClients.telegram || null,
+        enabled: config?.botNotifications?.telegramEnabled === true,
+        miniAppUrl: config?.botNotifications?.miniAppUrl,
+      }),
+      new MaxNotificationAdapter({
+        bindingService: botRecipientBindingService,
+        client: botClients.max || null,
+        enabled: config?.botNotifications?.maxEnabled === true,
+        miniAppUrl: config?.botNotifications?.miniAppUrl,
+      }),
+    ],
+  });
+  const giftOutboxConfig = config?.botNotifications?.outbox || {};
+  const giftNotificationOutboxPublisher = new GiftNotificationOutboxPublisher({
+    repository: giftTransferRepository,
+    notificationOrchestrator,
+    eventPublisher: platformEventBus,
+    logger,
+  });
+  const giftNotificationOutboxWorker = new OutboxWorker({
+    repository: transactionalOutboxRepository,
+    publisher: giftNotificationOutboxPublisher,
+    workerId: `gift-notification-${process.pid}`,
+    eventType: GIFT_NOTIFICATION_EVENT_TYPE,
+    batchSize: giftOutboxConfig.batchSize || 25,
+    leaseMs: giftOutboxConfig.leaseMs || 60000,
+    retryPolicy: new RetryPolicy({
+      baseDelayMs: giftOutboxConfig.retryBaseDelayMs || 5000,
+      maxDelayMs: giftOutboxConfig.retryMaxDelayMs || 300000,
+    }),
+  });
+  const giftTransferRuntime = new GiftTransferRuntime({ service: new GiftTransferService({
+    repository: giftTransferRepository,
+    orderRepository,
+    customerRepository,
+    clubAccountRuntime,
+    notificationOrchestrator,
+    eventPublisher: platformEventBus,
+    auditRepository,
+    notificationDeliveryMode: config?.environment === 'production' || giftOutboxConfig.workerEnabled ? 'OUTBOX' : 'DIRECT',
+    outboxMaxAttempts: giftOutboxConfig.maxAttempts || 8,
+  }) });
   const crmRuntime = new CRMRuntime({ service: new CRMService({
     repository: new CRMRepository(prisma),
     clubAccountRuntime,
@@ -316,11 +383,14 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     deadLetterStore,
     authCoreService,
     customerRuntime,
+    displayCustomerRecognitionService,
     consentRuntime,
     clubAccountRuntime,
     machineRuntime,
     orderRuntime,
     giftTransferRuntime,
+    giftNotificationOutboxWorker,
+    botRecipientBindingService,
     domainEventPublisher,
   };
 }

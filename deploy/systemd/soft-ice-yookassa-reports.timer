@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Soft ICE YooKassa report reconciliation hourly
+
+[Timer]
+OnCalendar=*-*-* *:15:00
+Persistent=true
+RandomizedDelaySec=120
+Unit=soft-ice-yookassa-reports.service
+
+[Install]
+WantedBy=timers.target
