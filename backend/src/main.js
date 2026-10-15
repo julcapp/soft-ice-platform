@@ -65,6 +65,7 @@ function createApp(options = {}) {
   });
 
   app.use('/health', createHealthRouter(options.health));
+  app.use('/api/supplier-demo', require('./supplier_demo/router').createSupplierDemoRouter());
 
   const botWebhooksEnabled = options.botWebhooksEnabled ?? process.env.BOT_WEBHOOKS_ENABLED === 'true';
   if (botWebhooksEnabled) {

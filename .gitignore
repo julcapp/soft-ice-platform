@@ -41,3 +41,6 @@ backup_git_conflict/
 
 frontend/admin-console/dist-benefits/
 backend/scripts/__pycache__/
+
+frontend/miniapp/dist-supplier-demo/
+backend/public/supplier-demo/

@@ -1,0 +1,93 @@
+{
+  "snapshotDate": "2026-10-15",
+  "currency": "RUB",
+  "machine": {
+    "id": "DEMO-SUPPLIER",
+    "machineCode": "DEMO",
+    "location": "Демонстрационный аппарат"
+  },
+  "currentFlavor": {
+    "id": "demo-ice",
+    "sku": "icecream_creamy",
+    "nameRu": "Сливочный вкус",
+    "category": "ICE_CREAM",
+    "basePrice": 5,
+    "currency": "RUB"
+  },
+  "sprinkles": [
+    {
+      "id": "demo-sprinkle_none",
+      "sku": "sprinkle_none",
+      "nameRu": "Без посыпки",
+      "category": "SPRINKLE",
+      "basePrice": 0,
+      "currency": "RUB",
+      "systemItem": true
+    },
+    {
+      "id": "demo-sprinkle_nuts",
+      "sku": "sprinkle_nuts",
+      "nameRu": "Ореховый микс",
+      "category": "SPRINKLE",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    },
+    {
+      "id": "demo-sprinkle_confetti",
+      "sku": "sprinkle_confetti",
+      "nameRu": "Конфетти",
+      "category": "SPRINKLE",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    },
+    {
+      "id": "demo-sprinkle_wafer",
+      "sku": "sprinkle_wafer",
+      "nameRu": "Вафельная крошка",
+      "category": "SPRINKLE",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    }
+  ],
+  "toppings": [
+    {
+      "id": "demo-topping_none",
+      "sku": "topping_none",
+      "nameRu": "Без топпинга",
+      "category": "TOPPING",
+      "basePrice": 0,
+      "currency": "RUB",
+      "systemItem": true
+    },
+    {
+      "id": "demo-topping_chocolate",
+      "sku": "topping_chocolate",
+      "nameRu": "Шоколадный топпинг",
+      "category": "TOPPING",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    },
+    {
+      "id": "demo-topping_strawberry",
+      "sku": "topping_strawberry",
+      "nameRu": "Клубничный топпинг",
+      "category": "TOPPING",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    },
+    {
+      "id": "demo-topping_caramel",
+      "sku": "topping_caramel",
+      "nameRu": "Карамельный топпинг",
+      "category": "TOPPING",
+      "basePrice": 1,
+      "currency": "RUB",
+      "systemItem": false
+    }
+  ]
+}

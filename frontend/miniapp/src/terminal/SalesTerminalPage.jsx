@@ -23,13 +23,14 @@ const money = (value, currency = 'RUB') => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 };
 
-function Header({ catalog }) {
+export function Header({ catalog, preview = false }) {
   const clickCount = useRef(0);
   const clickTimer = useRef(null);
   const rawLocation = String(catalog?.machine?.location || '').trim();
   const address = rawLocation && !/^Тестовая/i.test(rawLocation) ? rawLocation : '';
   const machineNumber = catalog?.machine?.machineCode || catalog?.machine?.id || '—';
   const openAdminOnThirdClick = () => {
+    if (preview) return;
     clickCount.current += 1;
     window.clearTimeout(clickTimer.current);
     if (clickCount.current >= 3) {
@@ -44,7 +45,7 @@ function Header({ catalog }) {
     <button className="display-machine display-machine-button" type="button" onClick={openAdminOnThirdClick} aria-label="Номер аппарата"><i aria-hidden="true" /><div><strong>Аппарат № {machineNumber}</strong>{address ? <small>{address}</small> : null}</div></button>
   </header>;
 }
-function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
+export function ProductHero({ alt, src }) { const catalogSrc = useContext(ProductMediaContext); const resolvedSrc = src || catalogSrc || DEFAULT_PRODUCT_MEDIA; return <figure className="display-product"><img src={resolvedSrc} alt={alt} /><figcaption>Мягкое мороженое — приготовим прямо сейчас.</figcaption></figure>; }
 function useDisplayClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
@@ -82,7 +83,7 @@ function useCurrentWeather(place) {
   return weather;
 }
 
-function IdleScreen({ onStart, heroPath, catalog, machineId }) {
+export function IdleScreen({ onStart, heroPath, catalog, machineId, preview = false }) {
   const machineClickCount = useRef(0);
   const machineClickTimer = useRef(null);
   const now = useDisplayClock();
@@ -93,6 +94,7 @@ function IdleScreen({ onStart, heroPath, catalog, machineId }) {
   const displayLocation = address || TEST_DISPLAY_CITY;
   const openAdminOnThirdMachineClick = (event) => {
     event.stopPropagation();
+    if (preview) return;
     machineClickCount.current += 1;
     window.clearTimeout(machineClickTimer.current);
     if (machineClickCount.current >= 3) {
@@ -102,7 +104,7 @@ function IdleScreen({ onStart, heroPath, catalog, machineId }) {
     }
     machineClickTimer.current = window.setTimeout(() => { machineClickCount.current = 0; }, 1400);
   };
-  const weather = useCurrentWeather(machineId === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : displayLocation);
+  const weather = useCurrentWeather(preview ? null : machineId === 'TEST-MACHINE-001' ? TEST_DISPLAY_CITY : displayLocation);
   const temperature = weather ? `${weather.temperature > 0 ? '+' : ''}${weather.temperature}°` : '—°';
   return <button className="display-idle display-idle-v2" data-testid="display-idle" type="button" onClick={onStart} aria-label="Коснитесь экрана, чтобы начать">
     <div className="idle-topbar">
@@ -121,7 +123,7 @@ function IdleScreen({ onStart, heroPath, catalog, machineId }) {
   </button>;
 }
 
-function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
+export function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
   return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Введите номер телефона</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без скидки</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
 }
@@ -130,7 +132,7 @@ function PrepaidBoundary({ onBack }) {
   return <section className="display-prepaid" aria-labelledby="display-prepaid-title"><div className="display-prepaid-icon" aria-hidden="true">⌁</div><p className="display-kicker">Оплаченный заказ</p><h1 id="display-prepaid-title">Получение скоро будет доступно</h1><p>Получить оплаченный заказ здесь можно будет после подключения сервиса проверки кода и предзаказа.</p><p className="display-boundary-note">Сейчас экран не проверяет код, не создаёт заказ и не запускает выдачу.</p><button className="display-secondary" type="button" onClick={onBack}>Назад</button></section>;
 }
 
-function OptionCard({ item, selected, onClick }) { return <button className={`display-option ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}><span className={`option-art option-${item.category.toLowerCase()}`} aria-hidden="true">{item.systemItem ? '×' : item.category === 'SPRINKLE' ? '✦' : '●'}</span><strong>{item.nameRu}</strong><small>{item.basePrice === 0 ? 'Без доплаты' : money(item.basePrice, item.currency)}</small><i>{selected ? '✓' : ''}</i></button>; }
+export function OptionCard({ item, selected, onClick }) { return <button className={`display-option ${selected ? 'is-selected' : ''}`} type="button" onClick={onClick}><span className={`option-art option-${item.category.toLowerCase()}`} aria-hidden="true">{item.systemItem ? '×' : item.category === 'SPRINKLE' ? '✦' : '●'}</span><strong>{item.nameRu}</strong><small>{item.basePrice === 0 ? 'Без доплаты' : money(item.basePrice, item.currency)}</small><i>{selected ? '✓' : ''}</i></button>; }
 
 export function SalesTerminalPage() {
   const machineId = useMemo(() => resolveMachineId(), []);
