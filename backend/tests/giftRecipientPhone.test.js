@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict');const {validateGiftRecipientPhone}=require('../src/modules/gift_transfer/GiftRecipientPhone');
+test('server accepts only fixed +7 followed by ten digits',()=>{assert.equal(validateGiftRecipientPhone('+79138207050'),'+79138207050');for(const p of ['9138207050','+791382070500','+7913','+7abcdefghij','+89138207050',null])assert.throws(()=>validateGiftRecipientPhone(p),{code:'GIFT_PHONE_INVALID'});});

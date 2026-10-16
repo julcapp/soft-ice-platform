@@ -24,6 +24,7 @@ const { getPrismaClient, disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
 const { moduleManifests } = require('./modules');
 const { createRuntimeDependencies } = require('./runtimeDependencies');
+const { CustomerBenefitEventService } = require('./modules/customer_benefits/CustomerBenefitEventService');
 const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
@@ -36,7 +37,10 @@ function createApp(options = {}) {
   const metrics = options.metrics || new MetricsRegistry();
   const botClients = options.botClients ?? createBotClientsFromEnv(process.env);
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
-  if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
+  if (!options.dependencies) {
+    attachPhotoVerificationRuntime(dependencies, { logger });
+    dependencies.stopBenefitEvents = new CustomerBenefitEventService({prisma:require('./common/database').getPrismaClient()}).start(logger);
+  }
   dependencies.featureFlags = dependencies.featureFlags || config.features;
   const adminAuthService = options.adminAuthService || dependencies.adminAuthService || (!options.dependencies && new AdminAuthService({
     prisma: getPrismaClient(), auditRepository: new AuditRepository(getPrismaClient()),

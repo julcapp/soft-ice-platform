@@ -6,14 +6,14 @@ const DEFINITIONS = [
   ['milestone_count','Количество активных друзей для награды','друзей',3,'demo','Первый порог, награда однократная.','legacy/server.py: REFERRAL_MILESTONE_SIZE'],
   ['milestone_bonus','Награда за активных друзей','бонусов',100,'demo','Однократно пригласившему после достижения порога.','legacy/server.py: REFERRAL_MILESTONE_BONUS'],
   ['fiftieth_count','Подарочная покупка по счётчику','покупок',50,'existing','Действующий отдельный механизм: клиент + аппарат. Эта таблица его пока не переключает.','FiftiethPurchaseGiftResolver.js'],
-  ['welcome_bonus','Награда за регистрацию','бонусов',null,'draft','Размер и квалифицирующее событие ещё не утверждены.','WelcomeBonusService.js'],
-  ['birthday_bonus','День рождения','бонусов',null,'draft','Размер, окно и периодичность ещё не утверждены.','BONUS_DOMAIN.md'],
+  ['welcome_bonus','Награда за регистрацию','бонусов',null,'draft','Один раз после регистрации и подтверждения телефона; новые регистрации после включения версии.','WelcomeBonusService.js'],
+  ['birthday_bonus','День рождения','бонусов',null,'draft','Один раз за календарный год в указанную дату рождения по времени Томска; подтверждённый активный профиль.','BONUS_DOMAIN.md'],
   ['photo_bonus','Фото с Тимошей','бонусов',null,'draft','После подтверждения публикации; отдельный PhotoReward engine.','BonusRewardEngine.js'],
   ['club_discount','Клубная скидка','%',null,'draft','Ставка и совмещение требуют уточнения.','Аудит 15.10.2026'],
-  ['club_initial_topup','Первоначальное пополнение клубного счёта','₽',150,'draft','Деньги зачисляются на клубный денежный счёт. Пополнение предусмотрено для всех участников, включая приглашённых по реферальной ссылке. Оплата только через Mini App. Платёжный сценарий ещё не включён.','Решение владельца 16.10.2026'],
+  ['club_initial_topup','Первоначальное пополнение клубного счёта','₽',150,'draft','Деньги зачисляются на клубный денежный счёт. Пополнение предусмотрено для всех участников, включая приглашённых по реферальной ссылке. Оплата только через Mini App. Тестовое пополнение в @exgorod_bot учитывается отдельно от реального денежного остатка.','Решение владельца 16.10.2026'],
 ];
 const INITIAL_RULES = DEFINITIONS.map(([key,label,unit,value,mode,condition,source]) => ({key,label,unit,value,mode,condition,source}));
-const ENGINE_KEYS = new Set(['purchase_percent','referral_invitee','referral_inviter','milestone_count','milestone_bonus']);
+const ENGINE_KEYS = new Set(['purchase_percent','referral_invitee','referral_inviter','milestone_count','milestone_bonus','welcome_bonus','birthday_bonus','photo_bonus','club_initial_topup']);
 function problem(code, message, statusCode=400) { return Object.assign(new Error(message), {code,statusCode}); }
 function validateRules(input) {
   if (!Array.isArray(input) || input.length < INITIAL_RULES.length || input.length > 100) throw problem('BENEFIT_RULES_INVALID','Требуется полный набор условий.');
@@ -40,7 +40,7 @@ function validateRules(input) {
   const byKey = Object.fromEntries(normalized.map(row => [row.key,row]));
   const referralLive = ['referral_invitee','referral_inviter'].map(key => byKey[key].mode === 'live');
   if (referralLive[0] !== referralLive[1]) throw problem('BENEFIT_REFERRAL_PAIR','Для боевой реферальной программы включите обе стороны.');
-  for (const key of ['referral_invitee','referral_inviter','milestone_bonus']) if(byKey[key].mode === 'live' && byKey[key].value < 1) throw problem('BENEFIT_VALUE_INVALID','Боевая награда должна быть больше нуля.');
+  for (const key of ['referral_invitee','referral_inviter','milestone_bonus','welcome_bonus','birthday_bonus','photo_bonus','club_initial_topup']) if(byKey[key].mode === 'live' && byKey[key].value < 1) throw problem('BENEFIT_VALUE_INVALID','Боевая награда должна быть больше нуля.');
   if (byKey.milestone_bonus.mode === 'live' && (byKey.milestone_count.mode !== 'live' || !referralLive.every(Boolean))) throw problem('BENEFIT_MILESTONE_DEPENDENCY','Для награды за друзей включите порог и реферальные награды обеим сторонам.');
   return normalized;
 }

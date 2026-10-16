@@ -78,6 +78,8 @@ enum DispenseRequestState {
 }
 
 model Customer {
+  miniAppClubTopups MiniAppClubTopupCheckout[]
+  eventBenefitPostings CustomerBenefitEventPosting[]
   botReferralInvite BotReferralInvite?
   benefitPostings CustomerBenefitPosting[]
   id                      String    @id @default(uuid())
@@ -721,6 +723,7 @@ model BonusAccount {
 }
 
 model BonusTransaction {
+  eventBenefitPosting CustomerBenefitEventPosting?
   benefitPosting CustomerBenefitPosting?
   id                  String   @id @default(uuid())
   customerId          String
@@ -3089,7 +3092,6 @@ model ProjectMessageDeliveryHistory {
   @@index([deliveryId, occurredAt])
 }
 
-
 model CustomerBenefitPolicyVersion {
   version Int @id @default(autoincrement())
   rules Json
@@ -3097,6 +3099,8 @@ model CustomerBenefitPolicyVersion {
   actorId String
   reason String
   createdAt DateTime @default(now()) @db.Timestamptz()
+  clubTopups MiniAppClubTopupCheckout[]
+  eventPostings CustomerBenefitEventPosting[]
   postings CustomerBenefitPosting[]
   previews CustomerBenefitPreview[]
 }
@@ -3127,7 +3131,6 @@ model CustomerBenefitPreview {
   policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
 }
 
-
 // Additive Bot Core attribution tables; services use raw SQL to avoid runtime client regeneration.
 model BotReferralInvite {
   code String @id
@@ -3144,4 +3147,34 @@ model BotReferralIntent {
   createdAt DateTime @default(now())
   appliedAt DateTime?
   @@id([scope, subjectHash])
+}
+
+model CustomerBenefitEventPosting {
+ id String @id
+ operationKey String @unique
+ policyVersion Int
+ customerId String
+ ruleKey String
+ amountBonus Int
+ bonusTransactionId String @unique
+ createdAt DateTime @default(now()) @db.Timestamptz()
+ policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+ customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ bonusTransaction BonusTransaction @relation(fields:[bonusTransactionId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ @@index([customerId,createdAt],map:"CustomerBenefitEventPosting_customer_idx")
+}
+
+model MiniAppClubTopupCheckout {
+ id String @id
+ customerId String
+ customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ policyVersion Int
+ policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+ amountCents Int
+ shopId String
+ test Boolean @default(true)
+ status String @default("CREATING")
+ providerPaymentId String? @unique
+ createdAt DateTime @default(now()) @db.Timestamptz()
+ confirmedAt DateTime? @db.Timestamptz()
 }

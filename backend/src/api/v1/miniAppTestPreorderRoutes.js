@@ -68,6 +68,11 @@ function createMiniAppTestPreorderRouter(dependencies) {
     req.preorderCustomer = await authenticateTestBuyer(dependencies.prisma, req.body?.init_data, config);
     next();
   }));
+  const topupService=()=>new (require('../../modules/club_account/MiniAppClubTopupService').MiniAppClubTopupService)({prisma:dependencies.prisma,adapter:dependencies.paymentCheckoutService?.providers?.YOOKASSA});
+  let reconciling=false;
+  const topupTimer=setInterval(async()=>{if(reconciling||!dependencies.paymentCheckoutService?.providers?.YOOKASSA)return;reconciling=true;try{await topupService().reconcile();}catch(error){dependencies.logger?.error('club_topup_reconciliation_failed',{code:error.code||'CLUB_TOPUP_RETRY'});}finally{reconciling=false;}},60000);topupTimer.unref();
+  router.post('/club/topup',asyncHandler(async(req,res)=>sendData(res,req,await topupService().initiate(req.preorderCustomer.id))));
+  router.post('/club/topup/:id/status',asyncHandler(async(req,res)=>sendData(res,req,await topupService().refresh(req.preorderCustomer.id,req.params.id))));
   router.post('/catalog', asyncHandler(async (req, res) => {
     const service = getService();
     const [catalog, account] = await Promise.all([
@@ -97,7 +102,7 @@ function createMiniAppTestPreorderRouter(dependencies) {
     const payment = await dependencies.prisma.payment.findFirst({ where: { orderId: order.id, status: 'SUCCEEDED' } });
     if (!payment || !order.expiresAt || new Date(order.expiresAt) <= new Date()) throw fail('GIFT_ORDER_UNAVAILABLE', 'Проверьте оплату и срок получения заказа.');
     const result = await dependencies.giftTransferRuntime.createGift(req.preorderCustomer.id, order.id,
-      { recipientPhone: req.body.recipientPhone }, { actorId:req.preorderCustomer.id, actorType:'customer', sourceChannel:'miniapp_test', correlationId:req.requestId });
+      { recipientPhone: require('../../modules/gift_transfer/GiftRecipientPhone').validateGiftRecipientPhone(req.body.recipientPhone) }, { actorId:req.preorderCustomer.id, actorType:'customer', sourceChannel:'miniapp_test', correlationId:req.requestId });
     sendData(res, req, { giftId:result.giftTransfer.id, status:result.giftTransfer.status, expiresAt:result.giftTransfer.expiresAt,
       deliveryQueued:result.deliveryQueued, invitationStatus:result.invitation.status }, 201);
   }));

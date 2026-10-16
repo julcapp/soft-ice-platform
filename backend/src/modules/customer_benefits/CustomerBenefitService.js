@@ -87,6 +87,6 @@ class CustomerBenefitService{
   const result={policyVersion:policy.version,entries,truncated:orders.length>500,examined:Math.min(500,orders.length),totalBonus:entries.filter(e=>['READY','DEMO'].includes(e.reason)).reduce((s,e)=>s+e.amountBonus,0),applied:0,notice:'Сухой расчёт: балансы не изменены. Запись прошлых начислений не включена.'};
   const id=randomUUID();await this.prisma.$executeRawUnsafe('INSERT INTO "CustomerBenefitPreview" ("id","policyVersion","actorId","result") VALUES ($1,$2,$3,$4::jsonb)',id,policy.version,actorId,JSON.stringify(result));return {id,...result};
  }
- async journal(){return this.prisma.$queryRawUnsafe('SELECT * FROM "CustomerBenefitPosting" ORDER BY "createdAt" DESC LIMIT 100');}
+ async journal(){return this.prisma.$queryRawUnsafe('SELECT * FROM (SELECT * FROM "CustomerBenefitPosting" UNION ALL SELECT id,"operationKey","policyVersion","customerId",NULL AS "orderId","ruleKey","amountBonus","bonusTransactionId","createdAt" FROM "CustomerBenefitEventPosting") p ORDER BY "createdAt" DESC LIMIT 100');}
 }
 module.exports={CustomerBenefitService,orderReason,REASONS};

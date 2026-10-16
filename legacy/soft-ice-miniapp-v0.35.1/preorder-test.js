@@ -5,7 +5,9 @@
   const state = { catalog: null, quote: null, orderId: null, toppingId: null, sprinkleId: null, busy: false };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
   const money = (value, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency }).format(Number(value));
+  let activeCheckout=null,topupPoll=null;
   function shell(content, tab = 'buy') {
+    activeCheckout?.destroy();activeCheckout=null;clearTimeout(topupPoll);
     const name = state.catalog?.account?.customer?.name || 'Участник клуба';
     app.innerHTML = `<header class="app-header"><button class="back" id="shared-back" aria-label="Назад в кабинет">‹</button><a class="brand" href="#" id="shared-brand"><span style="background:var(--berry);color:white;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-family:Georgia,serif">У</span> Тимоши</a><button class="profile" id="shared-profile" aria-label="Личный кабинет">${esc(name.slice(0,1).toUpperCase())}</button></header>
       <section id="shared-content"><p class="shared-eyebrow">${tab === 'account' ? 'Личный кабинет' : tab === 'club' ? 'Клуб Тимоши' : 'У Тимоши'}</p>${content}</section>
@@ -27,8 +29,11 @@
       const data = catalog.account;
       shell(`<h1>Ваши балансы</h1><p>Денежный и бонусный балансы учитываются отдельно.</p>
         <section class="shared-card"><small>Денежный баланс</small><h2>${data.clubBalance === null ? 'Нет данных' : esc(money(data.clubBalance))}</h2></section>
+        <section class="shared-card"><small>Тестовый клубный счёт</small><h2>${esc(money(data.testClubBalanceRub || 0))}</h2><p>Тестовые пополнения учитываются отдельно от реальных денег.</p></section>
         <section class="shared-card"><small>Бонусный баланс</small><h2>${data.bonusBalance === null ? 'Счёт пока не открыт' : esc(data.bonusBalance)}</h2><p>${esc(catalog.account.bonusNotice || '')}</p></section>
-        ${data.clubOffer ? `<section class="shared-card"><h2>Пополнение клубного счёта</h2><p>Первоначальное пополнение: ${esc(money(data.clubOffer.initialTopupRub))}. Вся сумма зачисляется на ваш денежный клубный счёт для будущих покупок.</p><p>Пополнение для всех участников, в том числе по приглашению. Оплата только через Mini App; платёжный сценарий пока не подключён.</p></section>` : ''}`, 'club');
+        ${data.clubOffer ? `<section class="shared-card"><h2>Пополнение клубного счёта</h2><p>Первоначальное пополнение: ${esc(money(data.clubOffer.initialTopupRub))}. Вся сумма зачисляется на ваш денежный клубный счёт для будущих покупок.</p><p>Пополнение для всех участников, в том числе по приглашению. Оплата через Mini App.</p><button id="club-topup" ${data.clubOffer.checkoutEnabled ? '' : 'disabled'}>Пополнить на ${esc(money(data.clubOffer.initialTopupRub))}</button><p>Сейчас доступна тестовая оплата.</p></section>` : ''}`, 'club');
+      const topupButton=document.getElementById('club-topup');if(topupButton)topupButton.onclick=startClubTopup;
+      const savedTopup=localStorage.getItem('softice_club_topup');if(savedTopup&&topupButton){const button=document.createElement('button');button.textContent='Проверить пополнение';button.onclick=()=>showTopupStatus(savedTopup);topupButton.after(button);}
       app.scrollIntoView({ block: 'start' });
     } catch (error) { if (request === accountRequest) notice(error.message); }
   }
@@ -155,19 +160,77 @@
       await calculate();
     } catch (error) { notice(error.message); }
   }
+  let widgetLibrary=null;
+  function loadCheckoutWidget(){
+    if(window.YooMoneyCheckoutWidget)return Promise.resolve();
+    if(widgetLibrary)return widgetLibrary;
+    widgetLibrary=new Promise((resolve,reject)=>{
+      const script=document.createElement('script'),timer=setTimeout(()=>{script.remove();reject(new Error('Форма оплаты загружается дольше обычного. Проверьте статус пополнения перед повтором.'));},15000);
+      script.src='https://yookassa.ru/checkout-widget/v1/checkout-widget.js';
+      script.onload=()=>{clearTimeout(timer);window.YooMoneyCheckoutWidget?resolve():reject(new Error('Не удалось открыть форму оплаты.'));};
+      script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('Не удалось загрузить форму ЮKassa. Проверьте подключение.'));};
+      document.head.append(script);
+    }).catch(error=>{widgetLibrary=null;throw error;});return widgetLibrary;
+  }
+  async function showTopupStatus(id){
+    try{
+      const result=await api(`club/topup/${id}/status`);
+      if(result.status==='SUCCEEDED'){
+        localStorage.removeItem('softice_club_topup');
+        shell(`<h1>Пополнение подтверждено</h1><p>${esc(money(result.amountRub))} зачислено на тестовый клубный счёт. Реальный денежный остаток не изменён.</p><button id="topup-done">В клуб</button>`, 'club');
+        document.getElementById('topup-done').onclick=club;
+      }else if(result.status==='CANCELED'){
+        localStorage.removeItem('softice_club_topup');shell('<h1>Платёж отменён</h1><p>Пополнение не зачислено.</p><button id="topup-done">В клуб</button>','club');document.getElementById('topup-done').onclick=club;
+      }else{
+        const status=document.getElementById('topup-status');if(status)status.textContent='Оплата пока не подтверждена. Повторно платить не нужно.';
+      }
+      return result;
+    }catch(error){const status=document.getElementById('topup-status');if(status)status.textContent=error.message;else notice(error.message);}
+  }
+  async function startClubTopup(){
+    const button=document.getElementById('club-topup');if(button)button.disabled=true;
+    try{
+      const result=await api('club/topup');localStorage.setItem('softice_club_topup',result.id);
+      if(result.status==='SUCCEEDED'||result.status==='CANCELED')return showTopupStatus(result.id);
+      shell(`<h1>Пополнение клубного счёта</h1><p>Тестовая оплата: ${esc(money(result.amountRub))}</p><div id="club-payment-form" style="min-width:288px"></div><p id="topup-status" role="status">Загружаем форму оплаты…</p><button id="topup-check">Проверить оплату</button>`, 'club');
+      document.getElementById('topup-check').onclick=()=>showTopupStatus(result.id);
+      if(!result.confirmationToken){document.getElementById('topup-status').textContent='Проверяем ранее созданное пополнение. Повторно платить не нужно.';return showTopupStatus(result.id);}
+      await loadCheckoutWidget();if(!document.getElementById('club-payment-form'))return;
+      activeCheckout=new window.YooMoneyCheckoutWidget({confirmation_token:result.confirmationToken,error_callback:()=>{const status=document.getElementById('topup-status');if(status)status.textContent='Форма оплаты недоступна. Нажмите «Проверить оплату».';}});
+      activeCheckout.on('complete',()=>showTopupStatus(result.id));
+      await activeCheckout.render('club-payment-form');document.getElementById('topup-status').textContent='После оплаты дождитесь подтверждения сервера.';
+      let attempts=0;const poll=async()=>{if(!document.getElementById('club-payment-form'))return;const status=await showTopupStatus(result.id);if(status&&['SUCCEEDED','CANCELED'].includes(status.status))return;if(++attempts<24)topupPoll=setTimeout(poll,5000);};topupPoll=setTimeout(poll,5000);
+    }catch(error){notice(error.message);}
+  }
   function giftForm() {
     shell(`<h1>Сделать подарок</h1><p>Укажите телефон получателя. После подтверждения право получения передаётся ему, ваш прежний код перестанет действовать. Срок заказа сохраняется.</p>
       <p>Получатель сможет принять подарок в боте. Выдача подарков на аппарате пока проходит интеграцию; для немедленного получения передавать заказ не следует.</p>
-      <label>Телефон получателя<input id="gift-phone" type="tel" autocomplete="tel" maxlength="24" placeholder="+7 999 123-45-67"></label>
+      <label>Телефон получателя<div style="display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="font-weight:700">+7</span><input id="gift-phone" aria-label="Телефон получателя: 10 цифр после +7" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="15" placeholder="(999) 123-45-67"></div></label>
       <label><input id="gift-confirm" type="checkbox"> Подтверждаю передачу заказа этому получателю</label>
-      <button id="gift-submit">Передать подарок</button><button id="gift-back">Назад к заказу</button><p id="gift-error" role="alert"></p>`, 'account');
+      <button id="gift-submit" disabled>Передать подарок</button><button id="gift-back">Назад к заказу</button><p id="gift-error" role="alert"></p>`, 'account');
     document.getElementById('gift-back').onclick = checkStatus;
+    const phoneInput=document.getElementById('gift-phone'), confirmInput=document.getElementById('gift-confirm');
+    let phoneDigits='';
+    function updateGiftPhone(value){
+      let digits=String(value).replace(/\D/g,'');
+      if(digits.length>=11&&/^[78]/.test(digits))digits=digits.slice(1);
+      phoneDigits=digits.slice(0,10);
+      const d=phoneDigits;
+      phoneInput.value=d?`(${d.slice(0,3)}${d.length>=3?') ':''}${d.slice(3,6)}${d.length>6?'-'+d.slice(6,8):''}${d.length>8?'-'+d.slice(8,10):''}`:'';
+      document.getElementById('gift-submit').disabled=phoneDigits.length!==10||!confirmInput.checked;
+    }
+    phoneInput.oninput=()=>updateGiftPhone(phoneInput.value);
+    phoneInput.onkeydown=event=>{if(event.key==='Backspace'&&phoneInput.selectionStart===phoneInput.value.length&&phoneInput.selectionStart===phoneInput.selectionEnd){event.preventDefault();updateGiftPhone(phoneDigits.slice(0,-1));}};
+    phoneInput.onpaste=event=>{event.preventDefault();updateGiftPhone(event.clipboardData.getData('text'));};
+    confirmInput.onchange=()=>updateGiftPhone(phoneDigits);
+
     document.getElementById('gift-submit').onclick = async () => {
       const button = document.getElementById('gift-submit'), errorBox = document.getElementById('gift-error');
+      if (phoneDigits.length!==10) { errorBox.textContent='Введите 10 цифр номера после +7.'; return; }
       if (!document.getElementById('gift-confirm').checked) { errorBox.textContent = 'Подтвердите передачу заказа.'; return; }
       button.disabled = true;
       try {
-        const result = await api(`orders/${state.orderId}/gift`, { recipientPhone:document.getElementById('gift-phone').value });
+        const result = await api(`orders/${state.orderId}/gift`, { recipientPhone:'+7'+phoneDigits });
         localStorage.removeItem('softice_shared_preorder'); state.orderId = null;
         shell(`<h1>Подарок создан</h1><p>Номер: ${esc(result.giftId)}</p><p>Получить до ${esc(new Date(result.expiresAt).toLocaleString('ru-RU'))}.</p><p>${result.status === 'WAITING_FOR_REGISTRATION' ? 'Ожидается регистрация получателя с указанным телефоном.' : 'Подарок доступен получателю для принятия в боте.'}</p><p>${result.deliveryQueued ? 'Уведомление поставлено в очередь; доставка ещё не подтверждена.' : 'Доставка уведомления не подтверждена.'}</p><button id="gift-done">Мои заказы</button>`, 'account');
         document.getElementById('gift-done').onclick = account;

@@ -7,7 +7,7 @@ test('initial values are demo or draft; no automatic live rules',()=>{assert.equ
 test('whole bonus rounding uses paid amount; tiny test purchases yield zero',()=>{assert.equal(calculatePurchase(7,5),0);assert.equal(calculatePurchase(199.99,5),9);assert.equal(calculatePurchase(200,5),10);assert.equal(calculatePurchase(100,7),7);});
 test('reject unknown, duplicate, negative, excessive and unsupported live rules',()=>{
  for(const patch of [{key:'unknown'},{value:-1},{value:101},{value:1.001}]){const rules=structuredClone(INITIAL_RULES);Object.assign(rules[0],patch);assert.throws(()=>validateRules(rules));}
- const rules=structuredClone(INITIAL_RULES);rules[6].mode='live';rules[6].value=100;assert.throws(()=>validateRules(rules),{code:'BENEFIT_NOT_READY'});
+ const rules=structuredClone(INITIAL_RULES);rules[9].mode='live';rules[9].value=100;assert.throws(()=>validateRules(rules),{code:'BENEFIT_NOT_READY'});
 });
 test('only completed paid confirmed ordinary real order qualifies',()=>{assert.equal(orderReason(valid()),null);for(const [field,value,code] of [['status','PAID','ORDER_NOT_COMPLETED'],['machineId','TEST-MACHINE-001','TEST_PAYMENT']]){const o=valid();o[field]=value;assert.equal(orderReason(o),code);}const o=valid();o.payment.refunds=[{}];assert.equal(orderReason(o),'REFUND_EXISTS');});
 test('preorder, gift, unverified customer, unknown test mode are excluded',()=>{const o=valid();assert.equal(orderReason(o,{gift:true}),'GIFT_EXCLUDED');assert.equal(orderReason(o,{flow:{metadata:{fulfillmentMode:'PICKUP'}}}),'PREPAID_EXCLUDED');o.customer.phoneVerifiedAt=null;assert.equal(orderReason(o),'CUSTOMER_NOT_VERIFIED');o.customer.phoneVerifiedAt=new Date();o.payment.metadata={};assert.equal(orderReason(o),'PAYMENT_MODE_UNKNOWN');});
