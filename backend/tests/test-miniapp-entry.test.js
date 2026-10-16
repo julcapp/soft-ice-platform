@@ -32,3 +32,31 @@ test('production, unknown buyers, wrong token, groups and missing config retain 
   const external = { ...action, url: 'https://example.org/app' };
   assert.equal(policy()(external, context), external);
 });
+
+test('TEST menu combines cabinet actions, preserves gifts/referral/help and leaves other bots unchanged', () => {
+  const { buildMainMenu } = require('../src/modules/bot_core/OnboardingPolicy');
+  const actions = buildMainMenu({ miniAppUrl: 'https://miniapp.utimoshi.ru' });
+  const original = JSON.stringify(actions);
+  const compact = policy().mapMenu(actions, context);
+  assert.equal(compact.length, 4);
+  assert.deepEqual(compact.filter(x => x.action).map(x => x.action), ['gifts', 'referral', 'help']);
+  assert.match(compact[0].label, /заказы и получение/);
+  assert.equal(JSON.stringify(actions), original);
+  assert.equal(policy().mapMenu(actions, {...context, externalUserId:'456'}), actions);
+  assert.equal(policy({env:{NODE_ENV:'production'}}).mapMenu(actions, context), actions);
+  const back = [{type:'action', action:'menu', label:'Назад'}];
+  assert.equal(policy().mapMenu(back, context), back);
+});
+
+test('all legacy menu callbacks have a response and main_menu aliases menu', async () => {
+  const { BotActionRouter } = require('../src/modules/bot_core/BotActionRouter');
+  const calls = [];
+  const service = Object.fromEntries(['Club','Referral','MainMenu','MiniApp'].map(name => ['build'+name+'View', async input => {calls.push([name,input]);return {title:name,text:name,actions:[]};}]));
+  const router = new BotActionRouter({customerExperienceService:service});
+  for (const action of ['club','referral','gifts','order','locations','help','back','menu','main_menu']) {
+    const view=await router.route({action,customerId:'customer',channel:'telegram'});
+    assert.ok(view.text); assert.ok(!view.text.includes('Не удалось распознать'));
+  }
+  assert.equal(calls.filter(x=>x[0]==='MainMenu').length,3);
+  assert.equal(calls.filter(x=>x[0]==='MiniApp').length,2);
+});

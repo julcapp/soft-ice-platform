@@ -19,7 +19,7 @@ function buildClubSummary({ customerName = null, moneyBalanceRub = 0, bonusBalan
     actions: [
       { type: 'action', action: 'referral', label: '👥 Пригласить друга' },
       miniAppUrl ? { type: 'open_mini_app', label: '📱 Открыть личный кабинет', url: miniAppUrl } : null,
-      { type: 'action', action: 'main_menu', label: '← Назад' },
+      { type: 'action', action: 'menu', label: '← Назад' },
     ].filter(Boolean),
   };
 }

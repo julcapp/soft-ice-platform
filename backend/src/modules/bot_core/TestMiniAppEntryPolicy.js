@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 
 function createTestMiniAppEntryPolicy({ token, env = process.env, readConfig = readTestConfig } = {}) {
-  return (action, { chatType, externalUserId } = {}) => {
+  const entry = (action, { chatType, externalUserId } = {}) => {
     if (env.NODE_ENV === 'production' || chatType !== 'private' || !externalUserId || action.type !== 'open_mini_app') return action;
     let config;
     try { config = readConfig(); } catch { return action; }
@@ -14,6 +14,17 @@ function createTestMiniAppEntryPolicy({ token, env = process.env, readConfig = r
     url.search = previous.search;
     return { ...action, url: url.href };
   };
+  entry.mapMenu = (actions, { chatType, externalUserId } = {}) => {
+    if (env.NODE_ENV === 'production' || chatType !== 'private' || !externalUserId) return actions;
+    let config;
+    try { config = readConfig(); } catch { return actions; }
+    if (!token || token !== config.token || !token.startsWith('572898079:') || !config.allowedUserIds.has(String(externalUserId))) return actions;
+    const expected = ['club', 'gifts', 'referral', 'order', 'locations', 'help'];
+    if (!expected.every(name => actions.some(action => action.action === name))) return actions;
+    return actions.filter(action => action.type === 'open_mini_app' || ['gifts', 'referral', 'help'].includes(action.action))
+      .map(action => action.type === 'open_mini_app' ? { ...action, label: '📱 Кабинет · заказы и получение' } : action);
+  };
+  return entry;
 }
 
 function readTestConfig() {

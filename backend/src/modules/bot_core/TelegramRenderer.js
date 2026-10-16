@@ -11,7 +11,9 @@ class TelegramRenderer extends TransportRenderer {
 
   renderView(view, { chatType = null, externalUserId = null } = {}) {
     const base = super.renderView(view);
-    base.actions = base.actions.map(action => this.miniAppEntryPolicy(action, { chatType, externalUserId }));
+    const entryContext = { chatType, externalUserId };
+    base.actions = this.miniAppEntryPolicy.mapMenu?.(base.actions, entryContext) || base.actions;
+    base.actions = base.actions.map(action => this.miniAppEntryPolicy(action, entryContext));
     const telegram = view?.channelOptions?.telegram || {};
     const requestContact = chatType === 'private' && base.actions.some((action) => action.type === 'request_contact');
     return {
