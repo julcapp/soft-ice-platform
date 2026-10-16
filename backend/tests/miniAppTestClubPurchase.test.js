@@ -57,3 +57,11 @@ test('only completed TEST credits minus TEST debits count; invalid money fails c
   for(const amount of [0,-1,1.001,Infinity,999999999])assert.throws(()=>orderCents({amount,currency:'RUB'}));
   assert.throws(()=>orderCents({amount:10,currency:'USD'}));assert.equal(orderCents({amount:19.99,currency:'RUB'}),1999);
 });
+
+test('canceling test orders or expiring test gifts cannot credit a real ClubAccount',async()=>{
+  const {ClubAccountRuntime}=require('../src/modules/club_account/ClubAccountRuntime');
+  const runtime=new ClubAccountRuntime({clubAccountRepository:{findByCustomerId:async()=>{throw Error('Real wallet must not be read or created');}}});
+  for(const order of [{paymentMethod:'test_club_account'},{machineId:'TEST-MACHINE-001'},{payment:{provider:'TEST_CLUB_ACCOUNT'}},{payment:{metadata:{test:true}}}]) {
+    await assert.rejects(runtime.creditOrderReturn('buyer',{amount:70,...order}),{code:'TEST_ORDER_REAL_CREDIT_FORBIDDEN'});
+  }
+});
