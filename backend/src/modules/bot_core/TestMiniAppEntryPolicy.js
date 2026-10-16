@@ -10,7 +10,7 @@ function createTestMiniAppEntryPolicy({ token, env = process.env, readConfig = r
     try { previous = new URL(action.url); } catch { return action; }
     if (previous.protocol !== 'https:' || !['app.utimoshi.ru', 'miniapp.utimoshi.ru'].includes(previous.hostname)) return action;
     // Route the TEST buyer to the shared server-backed account, preserving context.
-    const url = new URL('https://miniapp.utimoshi.ru/preorder-test.html');
+    const url = new URL('https://bot-test.utimoshi.ru/miniapp/');
     url.search = previous.search;
     return { ...action, url: url.href };
   };

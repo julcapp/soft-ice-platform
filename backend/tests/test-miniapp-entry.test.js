@@ -13,7 +13,7 @@ const policy = (overrides = {}) => createTestMiniAppEntryPolicy({ token, env: { 
 test('only an allowlisted buyer of the configured TEST bot gets the shared entry', () => {
   const view = { actions: [action, { type: 'open_url', label: 'Документ', url: action.url }] };
   const rendered = new TelegramRenderer({ miniAppEntryPolicy: policy() }).renderView(view, context);
-  assert.equal(rendered.reply_markup.inline_keyboard[0][0].web_app.url, 'https://miniapp.utimoshi.ru/preorder-test.html?machine_id=TEST-MACHINE-001');
+  assert.equal(rendered.reply_markup.inline_keyboard[0][0].web_app.url, 'https://bot-test.utimoshi.ru/miniapp/?machine_id=TEST-MACHINE-001');
   assert.equal(rendered.reply_markup.inline_keyboard[1][0].url, action.url);
   assert.equal(view.actions[0], action);
   assert.equal(new MaxRenderer().renderView(view).attachments[0].payload.buttons[0][0].url, action.url);
