@@ -16,6 +16,10 @@ function fixture() {
     updateMany: async (args) => (calls.push([name, 'updateMany', args]), { count: 1 }),
   });
   const prisma = {
+    $queryRawUnsafe:async()=>[],
+    order:delegate('order'),
+    saleFlow:{findFirst:async()=>({currentState:'PAID'})},
+    machineDispenseAttempt:{findFirst:async()=>null},
     giftTransfer: delegate('giftTransfer'),
     giftInvitation: delegate('giftInvitation'),
     giftRecipientClaim: delegate('giftRecipientClaim'),
@@ -37,6 +41,7 @@ test('Prisma gift repository creates transfer aggregate in one transaction contr
   await repository.createGiftBundle({ transfer, invitation, referral });
 
   assert.deepEqual(calls.map(([name, operation]) => [name, operation]), [
+    ['order', 'updateMany'],
     ['giftTransfer', 'create'],
     ['giftInvitation', 'create'],
     ['giftReferralLink', 'create'],
@@ -86,4 +91,16 @@ test('invitation SENT transition is conditional on a still-deliverable gift', as
   assert.equal(update.where.giftTransfer.is.status, 'AVAILABLE');
   assert.equal(update.where.expiresAt.gt, now);
   assert.equal(update.where.giftTransfer.is.expiresAt.gt, now);
+});
+
+test('gift transfer rejects an order already entering machine dispense before storing gift',async()=>{
+ const {repository,calls}=fixture();
+ repository.prisma.machineDispenseAttempt.findFirst=async()=>({status:'AUTHORIZED'});
+ await assert.rejects(repository.createGiftBundle({transfer:{originalOrderId:'order'}}),{code:'GIFT_ORDER_UNAVAILABLE'});
+ assert.equal(calls.length,0);
+});
+test('gift reservation is conditional and aggregate is never inserted when it loses the race',async()=>{
+ const {repository,calls}=fixture();repository.prisma.order.updateMany=async()=>({count:0});
+ await assert.rejects(repository.createGiftBundle({transfer:{originalOrderId:'order',senderCustomerId:'sender'}}),{code:'GIFT_ORDER_UNAVAILABLE'});
+ assert.equal(calls.length,0);
 });

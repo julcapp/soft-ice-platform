@@ -54,3 +54,12 @@ test('historical preview keeps anonymous orders without querying a null bonus cu
  assert.equal(result.examined,1);assert.equal(result.applied,0);assert.equal(result.totalBonus,0);
  assert.equal(result.entries[0].customerId,null);assert.equal(result.entries[0].reason,'ORDER_NOT_COMPLETED');assert.equal(saved.entries.length,1);
 });
+
+test('custom draft rules preserve editable metadata but cannot enable an absent engine',()=>{
+ const custom={key:'custom_summer',label:'Лето',unit:'%',value:10,mode:'draft',condition:'После подтверждённой выдачи'};
+ assert.equal(validateRules([...INITIAL_RULES,custom]).at(-1).label,'Лето');
+ assert.throws(()=>validateRules([...INITIAL_RULES,{...custom,mode:'live'}]),{code:'BENEFIT_NOT_READY'});
+ assert.throws(()=>validateRules([...INITIAL_RULES.slice(1),custom]));
+ assert.throws(()=>validateRules([...INITIAL_RULES,custom,custom]));
+ assert.throws(()=>validateRules([...INITIAL_RULES,{...custom,unit:'код'}]));
+});

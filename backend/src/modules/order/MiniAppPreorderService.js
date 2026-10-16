@@ -39,10 +39,9 @@ class MiniAppPreorderService {
     let clubOffer = null;
     if (this.prisma.$queryRawUnsafe) {
       const policies = await this.prisma.$queryRawUnsafe('SELECT "rules","status" FROM "CustomerBenefitPolicyVersion" ORDER BY "version" DESC LIMIT 1');
-      const referrals = await this.prisma.$queryRawUnsafe('SELECT "id" FROM "Referral" WHERE "referredCustomerId"=$1 AND "status"<>\'rejected\' LIMIT 1', customer.id);
       const initial = require('../customer_benefits/BenefitRules').INITIAL_RULES.find(row=>row.key==='club_initial_topup');
       const rule = policies[0]?.rules?.find(row=>row.key==='club_initial_topup') || initial;
-      clubOffer = { initialTopupRub:rule.value, waivedByReferral:referrals.length>0, checkoutEnabled:false };
+      clubOffer = { initialTopupRub:rule.value, waivedByReferral:false, checkoutEnabled:false };
     }
     return { clubOffer, bonusNotice:'Бонусы начисляются по действующим правилам после подтверждённой выдачи. Тестовые покупки и предоплата в текущем контуре бонусов не дают. Пополнение клубного счёта — ваши деньги, а не бонусы.', customer: { id: customer.id, name: customer.name, email: customer.email },
       clubBalance: club ? Number(club.availableBalanceRub) : null,

@@ -21,7 +21,7 @@ function orderReason(order,{gift=false,flow=null}={}){
 class CustomerBenefitService{
  constructor({prisma}){this.prisma=prisma;}
  async versions(tx=this.prisma){return tx.$queryRawUnsafe('SELECT * FROM "CustomerBenefitPolicyVersion" ORDER BY "version" DESC LIMIT 30');}
- async read(){const versions=await this.versions();return {current:versions[0]||{version:0,status:'DRAFT',rules:INITIAL_RULES},versions,active:await this.policy(),reasons:REASONS,engine:'future_completed_orders',historicalPostingEnabled:false};}
+ async read(){const versions=await this.versions();return {current:versions[0]?{...versions[0],rules:[...versions[0].rules,...INITIAL_RULES.filter(def=>!versions[0].rules.some(row=>row.key===def.key))]}:{version:0,status:'DRAFT',rules:INITIAL_RULES},versions,active:await this.policy(),reasons:REASONS,engine:'future_completed_orders',historicalPostingEnabled:false};}
  async initialize(actorId='system'){return this.prisma.$transaction(async tx=>{await tx.$queryRawUnsafe("SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext('customer-benefit-policy'))");const rows=await this.versions(tx);if(rows.length)return rows[0];return (await tx.$queryRawUnsafe('INSERT INTO "CustomerBenefitPolicyVersion" ("rules","status","actorId","reason") VALUES ($1::jsonb,\'DRAFT\',$2,$3) RETURNING *',JSON.stringify(INITIAL_RULES),actorId,'Первичная версия из аудита 15.10.2026; demo не включено'))[0];});}
  async save({baseVersion,rules,reason,actorId}){
   const checked=validateRules(rules);if(!String(reason||'').trim())throw problem('BENEFIT_REASON_REQUIRED','Укажите причину изменения.');

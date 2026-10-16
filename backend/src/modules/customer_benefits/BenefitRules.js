@@ -10,15 +10,22 @@ const DEFINITIONS = [
   ['birthday_bonus','День рождения','бонусов',null,'draft','Размер, окно и периодичность ещё не утверждены.','BONUS_DOMAIN.md'],
   ['photo_bonus','Фото с Тимошей','бонусов',null,'draft','После подтверждения публикации; отдельный PhotoReward engine.','BonusRewardEngine.js'],
   ['club_discount','Клубная скидка','%',null,'draft','Ставка и совмещение требуют уточнения.','Аудит 15.10.2026'],
+  ['club_initial_topup','Первоначальное пополнение клубного счёта','₽',150,'draft','Деньги зачисляются на клубный денежный счёт. Пополнение предусмотрено для всех участников, включая приглашённых по реферальной ссылке. Оплата только через Mini App. Платёжный сценарий ещё не включён.','Решение владельца 16.10.2026'],
 ];
 const INITIAL_RULES = DEFINITIONS.map(([key,label,unit,value,mode,condition,source]) => ({key,label,unit,value,mode,condition,source}));
 const ENGINE_KEYS = new Set(['purchase_percent','referral_invitee','referral_inviter','milestone_count','milestone_bonus']);
 function problem(code, message, statusCode=400) { return Object.assign(new Error(message), {code,statusCode}); }
 function validateRules(input) {
-  if (!Array.isArray(input) || input.length !== INITIAL_RULES.length) throw problem('BENEFIT_RULES_INVALID','Требуется полный набор условий.');
+  if (!Array.isArray(input) || input.length < INITIAL_RULES.length || input.length > 100) throw problem('BENEFIT_RULES_INVALID','Требуется полный набор условий.');
   const seen = new Set();
   const normalized = input.map(row => {
-    const def = INITIAL_RULES.find(x => x.key === row.key);
+    if (!row || typeof row !== 'object') throw problem('BENEFIT_RULE_UNKNOWN','Некорректное правило.');
+    let def = INITIAL_RULES.find(x => x.key === row.key);
+    if (!def && /^custom_[a-z0-9_]{1,64}$/.test(row.key || '')) {
+      if (!['draft','off'].includes(row.mode)) throw problem('BENEFIT_NOT_READY','Новому правилу требуется серверный обработчик; пока доступны черновик и выключено.');
+      if (typeof row.label !== 'string' || !row.label.trim() || row.label.length > 160 || typeof row.condition !== 'string' || !row.condition.trim() || row.condition.length > 2000 || !['₽','%','бонусов','покупок','друзей','дней','раз'].includes(row.unit)) throw problem('BENEFIT_RULE_INVALID','Заполните название, единицу и условия нового правила.');
+      def = {key:row.key,label:row.label.trim(),condition:row.condition.trim(),unit:row.unit,source:'Правило администратора; серверный обработчик не подключён'};
+    }
     if (!def || seen.has(row.key)) throw problem('BENEFIT_RULE_UNKNOWN','Неизвестное или повторное правило.');
     seen.add(row.key);
     if (!['demo','draft','live','existing','off'].includes(row.mode)) throw problem('BENEFIT_MODE_INVALID','Неизвестный режим.');
@@ -29,6 +36,7 @@ function validateRules(input) {
     if (row.key === 'fiftieth_count' && (value !== 50 || row.mode !== 'existing')) throw problem('BENEFIT_EXISTING_READ_ONLY','Счётчик подарка управляется действующим механизмом; изменение требует его интеграции.');
     return {...def,value,mode:row.mode};
   });
+  if (INITIAL_RULES.some(row=>!seen.has(row.key))) throw problem('BENEFIT_RULES_INVALID','Требуется полный набор системных условий.');
   const byKey = Object.fromEntries(normalized.map(row => [row.key,row]));
   const referralLive = ['referral_invitee','referral_inviter'].map(key => byKey[key].mode === 'live');
   if (referralLive[0] !== referralLive[1]) throw problem('BENEFIT_REFERRAL_PAIR','Для боевой реферальной программы включите обе стороны.');

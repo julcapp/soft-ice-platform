@@ -28,7 +28,7 @@
       shell(`<h1>Ваши балансы</h1><p>Денежный и бонусный балансы учитываются отдельно.</p>
         <section class="shared-card"><small>Денежный баланс</small><h2>${data.clubBalance === null ? 'Нет данных' : esc(money(data.clubBalance))}</h2></section>
         <section class="shared-card"><small>Бонусный баланс</small><h2>${data.bonusBalance === null ? 'Счёт пока не открыт' : esc(data.bonusBalance)}</h2><p>${esc(catalog.account.bonusNotice || '')}</p></section>
-        ${data.clubOffer ? `<section class="shared-card"><h2>Вступление в клуб</h2>${data.clubOffer.waivedByReferral ? '<p>Вы пришли по приглашению: первоначальное пополнение не требуется.</p>' : `<p>Первоначальное пополнение: ${esc(money(data.clubOffer.initialTopupRub))}. Вся сумма зачисляется на ваш денежный клубный счёт для будущих покупок.</p><p>Оплата пополнения пока не подключена.</p>`}</section>` : ''}`, 'club');
+        ${data.clubOffer ? `<section class="shared-card"><h2>Пополнение клубного счёта</h2><p>Первоначальное пополнение: ${esc(money(data.clubOffer.initialTopupRub))}. Вся сумма зачисляется на ваш денежный клубный счёт для будущих покупок.</p><p>Пополнение для всех участников, в том числе по приглашению. Оплата только через Mini App; платёжный сценарий пока не подключён.</p></section>` : ''}`, 'club');
       app.scrollIntoView({ block: 'start' });
     } catch (error) { if (request === accountRequest) notice(error.message); }
   }
@@ -41,7 +41,7 @@
       if (request !== accountRequest) return;
       state.catalog = catalog; state.quote = null;
       const data = catalog.account;
-      const labels = { CREATED: 'Создан', PAYMENT_PENDING: 'Ожидает оплаты', PAID: 'Ожидает получения', COMPLETED: 'Получен', CANCELLED: 'Отменён', REFUNDED: 'Платёж возвращён', SUCCEEDED: 'Оплата подтверждена' };
+      const labels = { CREATED: 'Создан', PAYMENT_PENDING: 'Ожидает оплаты', PAID: 'Ожидает получения', GIFT_TRANSFERRED: 'Передан в подарок', COMPLETED: 'Получен', CANCELLED: 'Отменён', REFUNDED: 'Платёж возвращён', SUCCEEDED: 'Оплата подтверждена' };
       const status = order => order.paymentStatus === 'REFUNDED' ? labels.REFUNDED : order.status === 'PAID' && order.paymentStatus !== 'SUCCEEDED' ? 'Требует проверки оплаты' : labels[order.status] || order.status;
       shell(`<h1>Ваши заказы</h1><p>${esc(data.customer.name || 'Клуб Тимоши')}</p>
         <p>Клубный счёт: ${data.clubBalance === null ? 'нет данных' : esc(money(data.clubBalance))} · Бонусы: ${data.bonusBalance === null ? 'нет данных' : esc(data.bonusBalance)}</p>
@@ -120,12 +120,14 @@
   async function checkStatus() {
     try {
       const result = await api(`orders/${state.orderId}/status`);
+      if (result.status === 'GIFT_TRANSFERRED') return notice('Этот заказ передан в подарок. Прежний код получения больше не действует.');
       if (result.pickupExpired) return notice('Срок получения заказа истёк. Обратитесь в поддержку для решения по оплате.');
       if (result.waitingPickup) {
         shell(`<h1>Заказ оплачен</h1><p>${esc(money(result.amount, result.currency))}</p><p>Аппарат: ${esc(result.machineId)}</p>
           <p>Получить до ${esc(new Date(result.expiresAt).toLocaleString('ru-RU'))}.</p><p>Заказ ожидает получения.</p>
-          <button id="pickup-code">Я у аппарата — получить код</button>`, 'account');
+          <button id="pickup-code">Я у аппарата — получить код</button><button id="make-gift">🎁 Сделать подарок</button>`, 'account');
         document.getElementById('pickup-code').onclick = activatePickupCode;
+        document.getElementById('make-gift').onclick = giftForm;
       } else {
         notice(['FAILED', 'CANCELED', 'REFUNDED'].includes(result.paymentStatus) ? 'Заказ не оплачен или платёж возвращён.' : 'Оплата пока не подтверждена.');
         if (['NOT_STARTED', 'CREATED', 'PENDING', 'AUTHORIZED'].includes(result.paymentStatus)) {
@@ -152,6 +154,25 @@
       state.sprinkleId = state.catalog.sprinkles.find(x => x.systemItem && x.available)?.id;
       await calculate();
     } catch (error) { notice(error.message); }
+  }
+  function giftForm() {
+    shell(`<h1>Сделать подарок</h1><p>Укажите телефон получателя. После подтверждения право получения передаётся ему, ваш прежний код перестанет действовать. Срок заказа сохраняется.</p>
+      <p>Получатель сможет принять подарок в боте. Выдача подарков на аппарате пока проходит интеграцию; для немедленного получения передавать заказ не следует.</p>
+      <label>Телефон получателя<input id="gift-phone" type="tel" autocomplete="tel" maxlength="24" placeholder="+7 999 123-45-67"></label>
+      <label><input id="gift-confirm" type="checkbox"> Подтверждаю передачу заказа этому получателю</label>
+      <button id="gift-submit">Передать подарок</button><button id="gift-back">Назад к заказу</button><p id="gift-error" role="alert"></p>`, 'account');
+    document.getElementById('gift-back').onclick = checkStatus;
+    document.getElementById('gift-submit').onclick = async () => {
+      const button = document.getElementById('gift-submit'), errorBox = document.getElementById('gift-error');
+      if (!document.getElementById('gift-confirm').checked) { errorBox.textContent = 'Подтвердите передачу заказа.'; return; }
+      button.disabled = true;
+      try {
+        const result = await api(`orders/${state.orderId}/gift`, { recipientPhone:document.getElementById('gift-phone').value });
+        localStorage.removeItem('softice_shared_preorder'); state.orderId = null;
+        shell(`<h1>Подарок создан</h1><p>Номер: ${esc(result.giftId)}</p><p>Получить до ${esc(new Date(result.expiresAt).toLocaleString('ru-RU'))}.</p><p>${result.status === 'WAITING_FOR_REGISTRATION' ? 'Ожидается регистрация получателя с указанным телефоном.' : 'Подарок доступен получателю для принятия в боте.'}</p><p>${result.deliveryQueued ? 'Уведомление поставлено в очередь; доставка ещё не подтверждена.' : 'Доставка уведомления не подтверждена.'}</p><button id="gift-done">Мои заказы</button>`, 'account');
+        document.getElementById('gift-done').onclick = account;
+      } catch (error) { errorBox.textContent = error.message + ' Если запрос прервался, проверьте статус заказа перед повтором.'; button.disabled = false; }
+    };
   }
   async function activatePickupCode() {
     try {

@@ -5,9 +5,9 @@ from urllib.request import Request, urlopen
 
 
 def request_preorder(path, payload):
-    if not re.fullmatch(r"(?:catalog|quote|orders|orders/recent|orders/[0-9a-f-]{36}/(?:payment|status|pickup-code))", path):
+    if not re.fullmatch(r"(?:catalog|quote|orders|orders/recent|orders/[0-9a-f-]{36}/(?:payment|status|pickup-code|gift))", path):
         raise ValueError("Действие с заказом не поддерживается")
-    fields = {"init_data", "productId", "toppingId", "sprinkleId", "quoteId", "idempotencyKey", "accountFilter", "accountPage"}
+    fields = {"init_data", "productId", "toppingId", "sprinkleId", "quoteId", "idempotencyKey", "accountFilter", "accountPage", "recipientPhone"}
     body = json.dumps({k: v for k, v in payload.items() if k in fields}).encode()
     request = Request("http://127.0.0.1:8800/api/v1/miniapp-test-preorders/" + path,
                       data=body, headers={"Content-Type": "application/json"}, method="POST")

@@ -90,6 +90,17 @@ function createMiniAppTestPreorderRouter(dependencies) {
   router.post('/orders/:id/status', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().status(req.preorderCustomer, req.params.id));
   }));
+  router.post('/orders/:id/gift', asyncHandler(async (req, res) => {
+    const { order } = await getService().own(req.preorderCustomer, req.params.id);
+    if (order.machineId !== 'TEST-MACHINE-001') throw fail('PREORDER_TEST_MACHINE_REQUIRED', 'Доступен только тестовый аппарат.', 403);
+    if (!dependencies.giftTransferRuntime) throw fail('GIFT_UNAVAILABLE', 'Сервис подарков недоступен.', 503);
+    const payment = await dependencies.prisma.payment.findFirst({ where: { orderId: order.id, status: 'SUCCEEDED' } });
+    if (!payment || !order.expiresAt || new Date(order.expiresAt) <= new Date()) throw fail('GIFT_ORDER_UNAVAILABLE', 'Проверьте оплату и срок получения заказа.');
+    const result = await dependencies.giftTransferRuntime.createGift(req.preorderCustomer.id, order.id,
+      { recipientPhone: req.body.recipientPhone }, { actorId:req.preorderCustomer.id, actorType:'customer', sourceChannel:'miniapp_test', correlationId:req.requestId });
+    sendData(res, req, { giftId:result.giftTransfer.id, status:result.giftTransfer.status, expiresAt:result.giftTransfer.expiresAt,
+      deliveryQueued:result.deliveryQueued, invitationStatus:result.invitation.status }, 201);
+  }));
   router.post('/orders/:id/pickup-code', asyncHandler(async (req, res) => {
     if (!dependencies.prepaidPickupService) throw fail('PICKUP_SERVICE_UNAVAILABLE', 'Сервис получения заказа недоступен.', 503);
     const result = await dependencies.prepaidPickupService.issueCode(req.preorderCustomer.id, req.params.id);
