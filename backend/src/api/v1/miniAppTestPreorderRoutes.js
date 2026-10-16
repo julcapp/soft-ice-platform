@@ -92,6 +92,11 @@ function createMiniAppTestPreorderRouter(dependencies) {
   router.post('/orders/:id/payment', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().pay(req.preorderCustomer, req.params.id), 201);
   }));
+  router.post('/orders/:id/club-payment', asyncHandler(async (req, res) => {
+    getService(); // Keep the same enabled TEST checkout boundary as card payments.
+    const { MiniAppTestClubPurchaseService } = require('../../modules/club_account/MiniAppTestClubPurchaseService');
+    sendData(res, req, await new MiniAppTestClubPurchaseService({ prisma: dependencies.prisma }).pay(req.preorderCustomer, req.params.id));
+  }));
   router.post('/orders/:id/status', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().status(req.preorderCustomer, req.params.id));
   }));

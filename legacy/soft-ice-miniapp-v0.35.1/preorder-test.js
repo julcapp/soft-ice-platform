@@ -88,10 +88,13 @@
       <p><label>Посыпка <select id="sprinkle">${options(c.sprinkles, state.sprinkleId)}</select></label></p>
       <p id="price">${state.quote ? `Итого: ${esc(money(state.quote.finalAmount, state.quote.currency))}` : 'Рассчитываем цену…'}</p>
       <p>После подтверждения оплаты заказ будет ждать получения на этом аппарате.</p>
+      <p>Тестовый клубный остаток: ${esc(money(c.account?.testClubBalanceRub || 0))}</p>
+      <button id="club-pay" ${!state.quote || state.busy || Number(c.account?.testClubBalanceRub || 0) < Number(state.quote?.finalAmount || Infinity) ? 'disabled' : ''}>Оплатить клубным остатком · тест</button>
       <button id="pay" ${!state.quote || state.busy ? 'disabled' : ''}>Оплатить тестовой картой</button><p id="error" role="alert"></p>`);
     document.getElementById('topping').onchange = event => { state.toppingId = event.target.value; state.orderId = null; state.quote = null; calculate(); };
     document.getElementById('sprinkle').onchange = event => { state.sprinkleId = event.target.value; state.orderId = null; state.quote = null; calculate(); };
-    document.getElementById('pay').onclick = pay;
+    document.getElementById('pay').onclick = () => pay();
+    document.getElementById('club-pay').onclick = () => pay('club');
   }
   let calculation = 0;
   async function calculate() {
@@ -103,7 +106,7 @@
       state.quote = quote; render();
     } catch (error) { if (version === calculation) document.getElementById('error').textContent = error.message; }
   }
-  async function pay() {
+  async function pay(method = 'card') {
     if (state.busy || (!state.quote && !state.orderId)) return;
     if (!state.orderId && new Date(state.quote.lockedUntil) <= new Date()) return calculate();
     state.busy = true; if (state.catalog) render();
@@ -113,6 +116,12 @@
         const order = await api('orders', { quoteId: state.quote.id, idempotencyKey: key });
         state.orderId = order.id;
         localStorage.setItem('softice_shared_preorder', order.id);
+      }
+      if (method === 'club') {
+        const result = await api(`orders/${state.orderId}/club-payment`);
+        if (state.catalog?.account) state.catalog.account.testClubBalanceRub = result.balanceRub;
+        state.busy = false;
+        return checkStatus();
       }
       const payment = await api(`orders/${state.orderId}/payment`);
       const url = new URL(payment.confirmationUrl);
@@ -135,6 +144,10 @@
         document.getElementById('make-gift').onclick = giftForm;
       } else {
         notice(['FAILED', 'CANCELED', 'REFUNDED'].includes(result.paymentStatus) ? 'Заказ не оплачен или платёж возвращён.' : 'Оплата пока не подтверждена.');
+        if (result.paymentStatus === 'NOT_STARTED' && result.status === 'PAYMENT_PENDING') {
+          const button = document.createElement('button'); button.textContent = 'Оплатить клубным остатком · тест';
+          button.onclick = () => { state.busy = false; pay('club'); }; document.getElementById('shared-content').append(button);
+        }
         if (['NOT_STARTED', 'CREATED', 'PENDING', 'AUTHORIZED'].includes(result.paymentStatus)) {
           const button = document.createElement('button'); button.textContent = 'Открыть оплату этого заказа'; button.onclick = () => { state.busy = false; pay(); }; document.getElementById('shared-content').append(button);
         } else {

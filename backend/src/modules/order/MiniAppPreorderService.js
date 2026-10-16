@@ -43,8 +43,8 @@ class MiniAppPreorderService {
       const rule = policies[0]?.rules?.find(row=>row.key==='club_initial_topup') || initial;
       clubOffer = { initialTopupRub:rule.value, waivedByReferral:false, checkoutEnabled:rule.mode==='live' };
     }
-    const testTopups=await this.prisma.$queryRawUnsafe?.('SELECT COALESCE(SUM("amountCents"),0)::int AS cents FROM "MiniAppClubTopupCheckout" WHERE "customerId"=$1 AND status=\'SUCCEEDED\'',customer.id);
-    return { testClubBalanceRub:(testTopups?.[0]?.cents||0)/100, clubOffer, bonusNotice:'Бонусы начисляются по действующим правилам после подтверждённой выдачи. Тестовые покупки и предоплата в текущем контуре бонусов не дают. Пополнение клубного счёта — ваши деньги, а не бонусы.', customer: { id: customer.id, name: customer.name, email: customer.email },
+    const testCents = this.prisma.$queryRawUnsafe ? await require('../club_account/MiniAppTestClubPurchaseService').testBalanceCents(this.prisma, customer.id) : 0;
+    return { testClubBalanceRub:testCents/100, clubOffer, bonusNotice:'Бонусы начисляются по действующим правилам после подтверждённой выдачи. Тестовые покупки и предоплата в текущем контуре бонусов не дают. Пополнение клубного счёта — ваши деньги, а не бонусы.', customer: { id: customer.id, name: customer.name, email: customer.email },
       clubBalance: club ? Number(club.availableBalanceRub) : null,
       bonusBalance: bonus ? bonus.balanceBonus : null,
       page, pageSize, hasMore: orders.length > pageSize, filter,

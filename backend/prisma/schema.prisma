@@ -78,6 +78,7 @@ enum DispenseRequestState {
 }
 
 model Customer {
+  testClubDebits MiniAppTestClubDebit[]
   miniAppClubTopups MiniAppClubTopupCheckout[]
   eventBenefitPostings CustomerBenefitEventPosting[]
   botReferralInvite BotReferralInvite?
@@ -1619,6 +1620,7 @@ model MaintenanceAuditEntryV1 {
 }
 
 model Order {
+  testClubDebit MiniAppTestClubDebit?
   benefitPostings CustomerBenefitPosting[]
   id         String      @id @default(uuid())
   customerId String
@@ -2046,6 +2048,7 @@ enum PaymentReconciliationStatus {
 }
 
 model Payment {
+  testClubDebit MiniAppTestClubDebit?
   id                  String                  @id @default(uuid())
   organizationId      String
   orderId             String                  @unique
@@ -3177,4 +3180,18 @@ model MiniAppClubTopupCheckout {
  providerPaymentId String? @unique
  createdAt DateTime @default(now()) @db.Timestamptz()
  confirmedAt DateTime? @db.Timestamptz()
+}
+
+model MiniAppTestClubDebit {
+ id String @id
+ customerId String
+ orderId String @unique
+ paymentId String @unique
+ amountCents Int
+ test Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz()
+ customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ order Order @relation(fields:[orderId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ payment Payment @relation(fields:[paymentId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ @@index([customerId],map:"MiniAppTestClubDebit_customer")
 }

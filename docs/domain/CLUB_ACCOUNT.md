@@ -1591,3 +1591,7 @@ Recommended future tasks:
 This document is documentation-only.
 
 It does not introduce application code, frontend code, backend code, Telegram bot code, runtime configuration, database migrations, payment provider integration, saved card storage, generated build output or final legal/commercial terms.
+
+### TEST Mini App purchase ledger (16.10.2026)
+
+`MiniAppClubTopupCheckout(SUCCEEDED,test=true)` supplies test credits; `MiniAppTestClubDebit(test=true)` supplies debits. The difference is exposed as `testClubBalanceRub`, separately from real `clubBalance`. Authenticated allowlisted TEST buyers can POST `orders/:id/club-payment` only for their common pickup preorder on TEST-MACHINE-001. No client amount is accepted. Payment provider TEST_CLUB_ACCOUNT, metadata.test=true, no providerPaymentId. A single transaction owns debit, internal payment, PAID Order/SaleFlow, 72h expiry, audit and customer timeline. No reservation/dispense occurs before pickup. Replays never debit again; an existing card payment blocks a change of method. Real wallet release and automatic restoration/refunds require a separate increment; no refunds or historical postings are performed here.
