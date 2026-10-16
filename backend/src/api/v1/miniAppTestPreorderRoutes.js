@@ -71,7 +71,7 @@ function createMiniAppTestPreorderRouter(dependencies) {
   router.post('/catalog', asyncHandler(async (req, res) => {
     const service = getService();
     const [catalog, account] = await Promise.all([
-      dependencies.catalogService.getMachineCatalog('TEST-MACHINE-001'), service.account(req.preorderCustomer, { filter: req.body.accountFilter || 'all', page: req.body.accountPage ?? 0 }),
+      dependencies.catalogService.getMachineCatalog('TEST-MACHINE-001'), service.account(req.preorderCustomer, { filter: req.body.accountFilter || 'active', page: req.body.accountPage ?? 0 }),
     ]);
     sendData(res, req, { ...catalog, account });
   }));

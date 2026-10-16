@@ -22,11 +22,11 @@ class MiniAppPreorderService {
     return this.pricingService.createQuote({ customerId: customer.id, machineId, channel: 'MINI_APP', items });
   }
 
-  async account(customer, { filter = 'all', page = 0 } = {}) {
+  async account(customer, { filter = 'active', page = 0 } = {}) {
     assertCustomerAccess(customer, this.clock());
     if (!['all', 'active', 'completed', 'refunded'].includes(filter) || !Number.isInteger(page) || page < 0 || page > 10000) throw fail('PREORDER_HISTORY_FILTER_INVALID', 'Обновите список заказов.', 400);
     const where = { customerId: customer.id };
-    if (filter === 'active') Object.assign(where, { status: { in: ['CREATED', 'PAYMENT_PENDING', 'PAID'] }, NOT: { payment: { is: { status: 'REFUNDED' } } } });
+    if (filter === 'active') Object.assign(where, { status: 'PAID', payment: { is: { status: 'SUCCEEDED' } }, expiresAt: { gt: this.clock() } });
     if (filter === 'completed') Object.assign(where, { status: 'COMPLETED', NOT: { payment: { is: { status: 'REFUNDED' } } } });
     if (filter === 'refunded') where.payment = { is: { status: 'REFUNDED' } };
     const pageSize = 10;
@@ -36,7 +36,15 @@ class MiniAppPreorderService {
       this.prisma.clubAccount.findUnique({ where: { customerId: customer.id } }),
       this.prisma.bonusAccount.findUnique({ where: { customerId: customer.id } }),
     ]);
-    return { customer: { id: customer.id, name: customer.name, email: customer.email },
+    let clubOffer = null;
+    if (this.prisma.$queryRawUnsafe) {
+      const policies = await this.prisma.$queryRawUnsafe('SELECT "rules","status" FROM "CustomerBenefitPolicyVersion" ORDER BY "version" DESC LIMIT 1');
+      const referrals = await this.prisma.$queryRawUnsafe('SELECT "id" FROM "Referral" WHERE "referredCustomerId"=$1 AND "status"<>\'rejected\' LIMIT 1', customer.id);
+      const initial = require('../customer_benefits/BenefitRules').INITIAL_RULES.find(row=>row.key==='club_initial_topup');
+      const rule = policies[0]?.rules?.find(row=>row.key==='club_initial_topup') || initial;
+      clubOffer = { initialTopupRub:rule.value, waivedByReferral:referrals.length>0, checkoutEnabled:false };
+    }
+    return { clubOffer, bonusNotice:'Бонусы начисляются по действующим правилам после подтверждённой выдачи. Тестовые покупки и предоплата в текущем контуре бонусов не дают. Пополнение клубного счёта — ваши деньги, а не бонусы.', customer: { id: customer.id, name: customer.name, email: customer.email },
       clubBalance: club ? Number(club.availableBalanceRub) : null,
       bonusBalance: bonus ? bonus.balanceBonus : null,
       page, pageSize, hasMore: orders.length > pageSize, filter,

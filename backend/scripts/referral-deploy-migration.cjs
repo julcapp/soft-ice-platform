@@ -1,0 +1,13 @@
+const fs=require('fs'),crypto=require('crypto');const {PrismaClient}=require('/home/julcapp/soft-ice-worktrees/display-product-v1/backend/node_modules/@prisma/client');
+const line=fs.readFileSync('/etc/softice/display-backend.env','utf8').split(/\r?\n/).find(x=>x.startsWith('DATABASE_URL='));process.env.DATABASE_URL=line.slice(13).trim().replace(/^['"]|['"]$/g,'');
+const sql="CREATE TABLE \"BotReferralInvite\" (\n \"code\" TEXT PRIMARY KEY,\n \"customerId\" TEXT UNIQUE NOT NULL REFERENCES \"Customer\"(\"id\") ON DELETE RESTRICT,\n \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\nCREATE TABLE \"BotReferralIntent\" (\n \"scope\" TEXT NOT NULL,\n \"subjectHash\" TEXT NOT NULL,\n \"code\" TEXT NOT NULL REFERENCES \"BotReferralInvite\"(\"code\") ON DELETE RESTRICT,\n \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n \"appliedAt\" TIMESTAMP(3),\n PRIMARY KEY (\"scope\", \"subjectHash\")\n);\n", name='20261016091000_bot_referral_attribution', checksum=crypto.createHash('sha256').update(sql).digest('hex');
+(async()=>{const db=new PrismaClient();try{
+const before=await db.$queryRawUnsafe('SELECT (SELECT count(*)::int FROM "Referral") AS referrals,(SELECT count(*)::int FROM "Order") AS orders,(SELECT count(*)::int FROM "Payment") AS payments,(SELECT count(*)::int FROM "BonusTransaction") AS bonuses');
+await db.$transaction(async tx=>{await tx.$queryRawUnsafe('SELECT 1 FROM pg_advisory_xact_lock(hashtext($1))',name);const m=await tx.$queryRawUnsafe('SELECT "checksum","finished_at" FROM "_prisma_migrations" WHERE "migration_name"=$1 AND "rolled_back_at" IS NULL',name);if(m.length){if(m[0].checksum!==checksum||!m[0].finished_at)throw Error('MIGRATION_DRIFT');return;}
+const exists=await tx.$queryRawUnsafe('SELECT to_regclass(\'public."BotReferralInvite"\')::text AS name');if(exists[0].name)throw Error('UNRECORDED_TABLE');
+for(const part of sql.split(';').filter(x=>x.trim()))await tx.$executeRawUnsafe(part);
+await tx.$executeRawUnsafe('INSERT INTO "_prisma_migrations" ("id","checksum","finished_at","migration_name","started_at","applied_steps_count") VALUES ($1,$2,CURRENT_TIMESTAMP,$3,CURRENT_TIMESTAMP,1)',crypto.randomUUID(),checksum,name);
+},{timeout:30000});
+const after=await db.$queryRawUnsafe('SELECT (SELECT count(*)::int FROM "Referral") AS referrals,(SELECT count(*)::int FROM "Order") AS orders,(SELECT count(*)::int FROM "Payment") AS payments,(SELECT count(*)::int FROM "BonusTransaction") AS bonuses');
+console.log('MIGRATION_APPLIED',name,'BUSINESS_COUNTS',JSON.stringify({before,after}));
+}finally{await db.$disconnect();}})().catch(e=>{console.error('MIGRATION_FAILED',e.code||e.message);process.exitCode=1;});

@@ -78,6 +78,7 @@ enum DispenseRequestState {
 }
 
 model Customer {
+  botReferralInvite BotReferralInvite?
   benefitPostings CustomerBenefitPosting[]
   id                      String    @id @default(uuid())
   phone                   String?   @unique
@@ -3124,4 +3125,23 @@ model CustomerBenefitPreview {
   result Json
   createdAt DateTime @default(now()) @db.Timestamptz()
   policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+}
+
+
+// Additive Bot Core attribution tables; services use raw SQL to avoid runtime client regeneration.
+model BotReferralInvite {
+  code String @id
+  customerId String @unique
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  intents BotReferralIntent[]
+  createdAt DateTime @default(now())
+}
+model BotReferralIntent {
+  scope String
+  subjectHash String
+  code String
+  invite BotReferralInvite @relation(fields: [code], references: [code], onDelete: Restrict, onUpdate: NoAction)
+  createdAt DateTime @default(now())
+  appliedAt DateTime?
+  @@id([scope, subjectHash])
 }

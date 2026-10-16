@@ -1,13 +1,14 @@
 const { parseStartPayload } = require('./DeepLinkParser');
 
 class BotRuntime {
-  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, recipientBindingService = null, sender, logger = console } = {}) {
+  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, recipientBindingService = null, referralAttributionService = null, sender, logger = console } = {}) {
     this.adapters = adapters;
     this.renderers = renderers;
     this.actionRouter = actionRouter;
     this.onboardingService = onboardingService;
     this.customerResolver = customerResolver;
     this.recipientBindingService = recipientBindingService;
+    this.referralAttributionService = referralAttributionService;
     this.sender = sender;
     this.logger = logger;
   }
@@ -56,9 +57,13 @@ class BotRuntime {
       });
     }
 
-    if (!identity.customerId && isStartUpdate(channel, rawUpdate)) {
+    if (!identity.customerId && (isStartUpdate(channel, rawUpdate) || inbound.contact)) {
       identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
     }
+    if (this.referralAttributionService) await this.referralAttributionService.observe({
+      channel, inbound, identity,
+      startCode: isStartUpdate(channel, rawUpdate) ? parseStartPayload(inbound.payload).referralCode : null,
+    });
     await this.observeRecipientBinding({ channel, inbound, identity });
 
     const rendered = renderer.renderView(view, { chatType: inbound.metadata?.chatType, externalUserId: inbound.externalUserId });
@@ -99,7 +104,7 @@ function extractCallback(channel, update = {}) {
 function isStartUpdate(channel, update = {}) {
   if (channel === 'telegram') return /^\/start(?:\s|$)/.test(update.message?.text || '');
   const text = update.message?.body?.text || update.message?.text || update.text || '';
-  return /^\/start(?:\s|$)/.test(String(text)) || Boolean(update.start_payload);
+  return update.update_type === 'bot_started' || update.type === 'bot_started' || /^\/start(?:\s|$)/.test(String(text)) || Boolean(update.start_payload);
 }
 
 function resolveDestination(channel, inbound, update = {}) {

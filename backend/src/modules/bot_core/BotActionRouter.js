@@ -24,6 +24,10 @@ class BotActionRouter {
         return this.customerExperienceService.buildClubView({ customerId, channel, context });
       case 'referral':
         return this.customerExperienceService.buildReferralView({ customerId, channel, context });
+      case 'referral_link': {
+        const referral = await this.customerExperienceService.buildReferralView({ customerId, channel, context });
+        return {title:'Ваша ссылка приглашения',text:referral.inviteUrl || 'Ссылка пока не настроена.',actions:[{type:'action',label:'← Назад',action:'referral'}]};
+      }
       case 'gifts':
         if (!this.giftActionService) return featureUnavailableView();
         return this.giftActionService.listGifts({ customerId, channel, context });

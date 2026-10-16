@@ -27,11 +27,12 @@
       const data = catalog.account;
       shell(`<h1>Ваши балансы</h1><p>Денежный и бонусный балансы учитываются отдельно.</p>
         <section class="shared-card"><small>Денежный баланс</small><h2>${data.clubBalance === null ? 'Нет данных' : esc(money(data.clubBalance))}</h2></section>
-        <section class="shared-card"><small>Бонусный баланс</small><h2>${data.bonusBalance === null ? 'Нет данных' : esc(data.bonusBalance)}</h2></section>`, 'club');
+        <section class="shared-card"><small>Бонусный баланс</small><h2>${data.bonusBalance === null ? 'Счёт пока не открыт' : esc(data.bonusBalance)}</h2><p>${esc(catalog.account.bonusNotice || '')}</p></section>
+        ${data.clubOffer ? `<section class="shared-card"><h2>Вступление в клуб</h2>${data.clubOffer.waivedByReferral ? '<p>Вы пришли по приглашению: первоначальное пополнение не требуется.</p>' : `<p>Первоначальное пополнение: ${esc(money(data.clubOffer.initialTopupRub))}. Вся сумма зачисляется на ваш денежный клубный счёт для будущих покупок.</p><p>Оплата пополнения пока не подключена.</p>`}</section>` : ''}`, 'club');
       app.scrollIntoView({ block: 'start' });
     } catch (error) { if (request === accountRequest) notice(error.message); }
   }
-  let accountFilter = 'all', accountPage = 0, accountRequest = 0;
+  let accountFilter = 'active', accountPage = 0, accountRequest = 0;
   async function account() {
     ++calculation;
     const request = ++accountRequest;
@@ -44,12 +45,12 @@
       const status = order => order.paymentStatus === 'REFUNDED' ? labels.REFUNDED : order.status === 'PAID' && order.paymentStatus !== 'SUCCEEDED' ? 'Требует проверки оплаты' : labels[order.status] || order.status;
       shell(`<h1>Ваши заказы</h1><p>${esc(data.customer.name || 'Клуб Тимоши')}</p>
         <p>Клубный счёт: ${data.clubBalance === null ? 'нет данных' : esc(money(data.clubBalance))} · Бонусы: ${data.bonusBalance === null ? 'нет данных' : esc(data.bonusBalance)}</p>
-        <label>Показать <select id="history-filter">${[['all','Все заказы'],['active','Активные'],['completed','Полученные'],['refunded','Возвраты']].map(([value,label]) => `<option value="${value}" ${value === accountFilter ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+        <label>Показать <select id="history-filter">${[['all','Все заказы'],['active','Оплачены · ждут получения'],['completed','Полученные'],['refunded','Возвраты']].map(([value,label]) => `<option value="${value}" ${value === accountFilter ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
         <div style="margin:16px 0">${data.orders.length ? data.orders.map(order => `<details style="background:white;padding:12px;border-radius:14px;margin:8px 0">
           <summary style="cursor:pointer"><strong>${esc(status(order))} · ${esc(money(order.amount, order.currency))}</strong><br><small>${esc(new Date(order.createdAt).toLocaleString('ru-RU'))}</small></summary>
           <p>Заказ № ${esc(order.id)}</p><p>${esc(order.composition.join(' · ') || 'Состав не сохранён')}</p>
           <p>${esc(labels[order.paymentStatus] || 'Статус оплаты не подтверждён')}</p>
-          <p>Аппарат: ${esc(order.machineId)}</p>${order.status === 'PAID' && order.paymentStatus === 'SUCCEEDED' ? `<button data-order-id="${esc(order.id)}">Получить заказ</button>` : order.status === 'PAYMENT_PENDING' ? `<button data-order-id="${esc(order.id)}">Проверить оплату</button>` : ''}</details>`).join('') : '<p>Заказов в этом разделе пока нет.</p>'}</div>
+          <p>Аппарат: ${esc(order.machineId)}</p>${order.expiresAt ? `<p>Получить до: ${esc(new Date(order.expiresAt).toLocaleString('ru-RU'))}</p>` : ''}${order.status === 'PAID' && order.paymentStatus === 'SUCCEEDED' ? `<button data-order-id="${esc(order.id)}">Получить заказ</button>` : order.status === 'PAYMENT_PENDING' ? `<button data-order-id="${esc(order.id)}">Проверить оплату</button>` : ''}</details>`).join('') : '<p>Заказов в этом разделе пока нет.</p>'}</div>
         <nav style="display:flex;align-items:center;justify-content:space-between;gap:8px"><button id="history-prev" ${accountPage === 0 ? 'disabled' : ''}>Назад</button><span>Страница ${accountPage + 1}</span><button id="history-next" ${!data.hasMore ? 'disabled' : ''}>Далее</button></nav>`, 'account');
       document.querySelectorAll('[data-order-id]').forEach(button => { button.onclick = () => { ++accountRequest; state.orderId = button.dataset.orderId; localStorage.setItem('softice_shared_preorder', state.orderId); checkStatus(); }; });
       document.getElementById('history-filter').onchange = event => { accountFilter = event.target.value; accountPage = 0; account(); };

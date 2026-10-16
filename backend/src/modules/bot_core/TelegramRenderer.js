@@ -48,6 +48,7 @@ function toTelegramButton(action, features = {}, { chatType = null } = {}) {
   if (['open_url', 'open_mini_app', 'share', 'qr'].includes(action.type) && action.url) {
     return { text: action.label, url: action.url };
   }
+  if (action.type === 'referral_copy' && action.value) return { text: action.label, copy_text: { text: action.value } };
   if (action.type === 'copy' && action.value) {
     return { text: action.label, callback_data: `copy:${action.value}`.slice(0, 64) };
   }

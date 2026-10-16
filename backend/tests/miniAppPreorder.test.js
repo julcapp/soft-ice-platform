@@ -81,7 +81,7 @@ test('account reads only owned server orders and does not invent paid amounts or
     ]; } },
     clubAccount: { findUnique: async () => null }, bonusAccount: { findUnique: async () => null },
   } });
-  const account = await service.account({ id: 'buyer' });
+  const account = await service.account({ id: 'buyer' }, {filter:'all'});
   assert.equal(account.clubBalance, null); assert.equal(account.bonusBalance, null);
   assert.deepEqual(account.orders.map(order => order.paidAmount), [null, 7, null]);
 });
@@ -99,7 +99,7 @@ test('history paginates on the server and keeps refund filtering scoped to its o
   await assert.rejects(service.account({ id: 'buyer' }, { page: -1 }), { code: 'PREORDER_HISTORY_FILTER_INVALID' });
 });
 
-test('confirmed advance payment leaves no dispense command and starts 48 hours at payment', async () => {
+test('confirmed advance payment leaves no dispense command and starts 72 hours at payment', async () => {
   const calls = [];
   const paidAt = new Date('2026-10-13T10:00:00Z');
   const flow = { flowId: 'flow', organizationId: 'org', currentState: 'AWAITING_PAYMENT',
@@ -109,7 +109,7 @@ test('confirmed advance payment leaves no dispense command and starts 48 hours a
   const service = new PaymentService({ machineDispense: { createAuthorizedFromPaidFlow: async () => calls.push(['dispense']) } });
   await service.applySuccess(tx, { orderId: 'order', saleFlowId: 'flow', organizationId: 'org', amount: 5 }, paidAt);
   assert.equal(calls.some(x => x[0] === 'dispense'), false);
-  assert.equal(calls.find(x => x[0] === 'order')[1].data.expiresAt.toISOString(), '2026-10-15T10:00:00.000Z');
+  assert.equal(calls.find(x => x[0] === 'order')[1].data.expiresAt.toISOString(), '2026-10-16T10:00:00.000Z');
   assert.equal(calls.at(-1)[1].data.recoveryStatus, 'NONE');
 });
 
@@ -121,4 +121,12 @@ test('terminal purchase still authorizes dispense after payment', async () => {
   const service = new PaymentService({ machineDispense: { createAuthorizedFromPaidFlow: async () => { dispensed = true; } } });
   await service.applySuccess(tx, { orderId: 'order', saleFlowId: 'flow', amount: 5 }, new Date());
   assert.equal(dispensed, true);
+});
+
+
+test('default account selects only paid unreceived orders with bank confirmation and future pickup deadline',async()=>{
+ const now=new Date('2026-10-16T10:00:00Z');let query;
+ const service=new MiniAppPreorderService({clock:()=>now,prisma:{order:{findMany:async q=>{query=q;return [];}},clubAccount:{findUnique:async()=>null},bonusAccount:{findUnique:async()=>null}}});
+ const result=await service.account({id:'buyer'});
+ assert.equal(result.filter,'active');assert.deepEqual(query.where,{customerId:'buyer',status:'PAID',payment:{is:{status:'SUCCEEDED'}},expiresAt:{gt:now}});
 });

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {INITIAL_RULES,validateRules,calculatePurchase}=require('../src/modules/customer_benefits/BenefitRules');
 const {CustomerBenefitService,orderReason}=require('../src/modules/customer_benefits/CustomerBenefitService');
 const valid=()=>({id:'order',customerId:'customer',machineId:'machine',currency:'RUB',status:'COMPLETED',amount:100,payment:{amount:100,currency:'RUB',status:'SUCCEEDED',refunds:[],metadata:{test:false}},machineDispenseAttempts:[{status:'DISPENSED',completedAt:new Date()}],customer:{phoneVerifiedAt:new Date(),status:'active'},paymentAttempts:[]});
-test('initial values are demo or draft; no automatic live rules',()=>{assert.equal(validateRules(INITIAL_RULES).length,10);assert.equal(INITIAL_RULES.some(r=>r.mode==='live'),false);assert.equal(INITIAL_RULES.find(r=>r.key==='purchase_percent').value,5);});
+test('initial values are demo or draft; no automatic live rules',()=>{assert.equal(validateRules(INITIAL_RULES).length,11);assert.equal(INITIAL_RULES.some(r=>r.mode==='live'),false);assert.equal(INITIAL_RULES.find(r=>r.key==='purchase_percent').value,5);});
 test('whole bonus rounding uses paid amount; tiny test purchases yield zero',()=>{assert.equal(calculatePurchase(7,5),0);assert.equal(calculatePurchase(199.99,5),9);assert.equal(calculatePurchase(200,5),10);assert.equal(calculatePurchase(100,7),7);});
 test('reject unknown, duplicate, negative, excessive and unsupported live rules',()=>{
  for(const patch of [{key:'unknown'},{value:-1},{value:101},{value:1.001}]){const rules=structuredClone(INITIAL_RULES);Object.assign(rules[0],patch);assert.throws(()=>validateRules(rules));}
