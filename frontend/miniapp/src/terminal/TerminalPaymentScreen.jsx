@@ -136,7 +136,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
   const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success'
-    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
+    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Ваше мороженое готово'
       : state.payment.fulfillmentState === 'PREPARING' ? 'Ваше мороженое готовится'
         : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
           : 'Проверяем готовность аппарата'
@@ -177,14 +177,14 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     </> : result ? <><div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
       <span aria-hidden="true">{state.phase === 'success' ? '✓' : '!'}</span>
       <strong>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите заказ из окна выдачи'
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника'
             : state.payment.fulfillmentState === 'PREPARING' ? 'Аппарат уже готовит ваш заказ'
               : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Ничего нажимать не нужно'
                 : 'Ничего нажимать не нужно'
         : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
       <p>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Ваш заказ готов. Заберите мороженое. Приятного аппетита!'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Приятного аппетита!'
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Повторно не оплачивайте. Обратитесь к сотруднику и назовите номер заказа.'
             : state.payment.fulfillmentState === 'PREPARING' ? 'Подождите немного — мороженое готовится автоматически.'
               : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Мы сами передаём заказ аппарату.'
@@ -207,8 +207,8 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       {state.phase === 'pending' && <div className="display-waiting" role="status"><span aria-hidden="true" />{state.error || 'Ожидаем оплату'}</div>}
       <p className="display-payment-note">{state.phase === 'unknown' ? 'Если деньги уже списаны, повторно платить не нужно. Проверьте этот же заказ.' : 'Приготовление начнётся после подтверждения оплаты.'}</p>
     </>}
-    {state.phase === 'success' && state.payment?.fulfillmentState === 'COMPLETED' && <CompletionCountdown key={state.payment.paymentId} onComplete={onComplete}/> }
     <div className="display-payment-actions">
+      {state.phase === 'success' && state.payment?.fulfillmentState === 'COMPLETED' && <CompletionCountdown key={state.payment.paymentId} onComplete={onComplete}/> }
       {state.phase === 'success' && state.payment.fulfillmentState === 'COMPLETED' && <button className="display-primary" type="button" onClick={onComplete}>Завершить</button>}
       {state.phase === 'unavailable' && <button className="display-primary" type="button" onClick={() => onSelectMethod?.(null)}>Выбрать способ оплаты</button>}
       {state.phase === 'unknown' && <button className="display-primary" type="button" onClick={() => setRetry((value) => value + 1)}>Проверить оплату</button>}

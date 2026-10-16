@@ -11,7 +11,7 @@ test('POST contract is anonymous and strips non-display fields', async () => {
       assert.equal(options.headers.Authorization, undefined);
       return { ok: true, json: async () => ({ data: { attributes: { state: 'RETURNING', name: 'secret', balance: 100, customer_id: 'secret' } } }) };
     };
-    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'RETURNING', verification: null });
+    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'RETURNING', bonusBalance:null, purchaseToken:null, verification: null });
   } finally { globalThis.fetch = originalFetch; }
 });
 test('network, HTTP, malformed and unexpected states fail closed without raw errors', async () => {
@@ -24,7 +24,15 @@ test('network, HTTP, malformed and unexpected states fail closed without raw err
 });
 test('NEW retains only server-bound attempts and fails closed for unknown provider status', async () => {
   try {
-    globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: { attributes: { state: 'NEW', verification: { status: 'UNSAFE', code: '123456', remaining_attempts: 99 } } } }) });
-    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'NEW', verification: { status: 'UNAVAILABLE', maxAttempts: null, remainingAttempts: null } });
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: { attributes: { state: 'NEW', bonusBalance:null, purchaseToken:null, verification: { status: 'UNSAFE', code: '123456', remaining_attempts: 99 } } } }) });
+    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'NEW', bonusBalance:null, purchaseToken:null, verification: { status: 'UNAVAILABLE', maxAttempts: null, remainingAttempts: null } });
   } finally { globalThis.fetch = originalFetch; }
+});
+test('server purchase token and numeric bonus balance are allowlisted without exposing customer identity',async()=>{
+ try{
+  globalThis.fetch=async()=>({ok:true,json:async()=>({data:{attributes:{state:'RETURNING',purchase_token:'fixture-server-token',bonus_balance:30,customer_id:'private-id'}}})});
+  const result=await recognizeDisplayPhone('test','+79990000001');assert.equal(result.purchaseToken,'fixture-server-token');assert.equal(result.bonusBalance,30);assert.equal(result.customer_id,undefined);
+  globalThis.fetch=async()=>({ok:true,json:async()=>({data:{attributes:{state:'RETURNING',purchase_token:'x'.repeat(4097)}}})});
+  assert.equal((await recognizeDisplayPhone('test','+79990000001')).purchaseToken,null);
+ }finally{globalThis.fetch=originalFetch;}
 });
