@@ -60,11 +60,18 @@
   }
   async function api(path, data = {}) {
     if (!tg?.initData) throw new Error('Откройте эту страницу кнопкой в тестовом Telegram-боте.');
-    const response = await fetch(`/api/tma/shared-preorder/${path}`, { method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, init_data: tg.initData }) });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error?.message || payload.error || 'Сервис временно недоступен.');
-    return payload.data;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(`/api/tma/shared-preorder/${path}`, { method: 'POST', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, init_data: tg.initData }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || payload.error || 'Сервис временно недоступен.');
+      return payload.data;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('Сервер отвечает дольше обычного. Повторите проверку. Если вы уже оплатили заказ, повторно платить не нужно.');
+      throw error;
+    } finally { clearTimeout(timer); }
   }
   function notice(text) { shell(`<h1>У Тимоши</h1><p role="status">${esc(text)}</p><button id="retry">Повторить</button>`, 'account'); document.getElementById('retry').onclick = load; }
   function render() {

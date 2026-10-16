@@ -36,6 +36,7 @@ TELEGRAM_AUTH_MAX_AGE = 24 * 60 * 60
 MAX_AUTH_MAX_AGE = 60 * 60
 
 PUBLIC_GET_ROUTES = {
+    "/telegram-web-app-59.js",
     "/preorder-test.html",
     "/preorder-test.js",
     "/tma.html",
