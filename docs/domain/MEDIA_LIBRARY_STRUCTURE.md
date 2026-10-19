@@ -121,3 +121,7 @@ club_timofey_welcome.webp
 - `docs/domain/PRODUCT_CATALOG.md`
 - `docs/domain/SYRUP_CATALOG.md`
 - `docs/domain/TOPPING_CATALOG.md`
+
+## Реклама после получения — 19.10.2026
+
+`public/images/marketing/pickup/`: три одобренных владельцем изображения от19.10.2026 (`vanilla_cup`, `strawberry_swirl`, `strawberry_cup`), WebP до900px с сохранением пропорций. Это рекламные материалы, не изображение состава заказа. Реестр и подпись: `src/domain/media/pickupPromotion.js`; экран не выбирает рекламные фото по ингредиентам.

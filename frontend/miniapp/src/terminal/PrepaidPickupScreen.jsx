@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CompletionCountdown } from './CompletionCountdown.jsx';
+import { PickupPromotionCarousel } from './PickupPromotionCarousel.jsx';
 import { redeemPrepaidOrder, getPrepaidPickupStatus } from './PrepaidPickupApi.js';
 import { PickupCameraReader } from './PickupCameraReader.jsx';
 import { isPickupQr } from './PickupQrDetector.js';
@@ -67,10 +68,11 @@ export function PrepaidPickupScreen({ machineId, onBack }) {
     }
   };
   const terminal = status === 'DISPENSED' || FAILED.has(status);
-  if (attempt) return <section className="display-prepaid pickup-screen pickup-result" aria-live="polite">
+  if (attempt) return <section className={`display-prepaid pickup-screen pickup-result${status === 'DISPENSED' ? ' pickup-result-success' : ''}`} aria-live="polite">
     <p className="display-kicker">Оплаченный заказ</p>
     <h1>{status === 'DISPENSED' ? 'Ваше мороженое готово!' : FAILED.has(status) ? 'Нужна помощь с получением' : ['ACCEPTED', 'DISPENSING'].includes(status) ? 'Готовим ваше мороженое' : 'Передаём заказ аппарату'}</h1>
     <p>{status === 'DISPENSED' ? 'Заберите заказ из окна выдачи. Приятного аппетита!' : FAILED.has(status) ? 'Не удалось подтвердить выдачу. Обратитесь в поддержку. Повторная оплата не требуется.' : 'Оплата подтверждена. Дождитесь завершения приготовления.'}</p>
+    {status === 'DISPENSED' && <PickupPromotionCarousel />}
     {error && <p role="status">{error}</p>}
     {terminal && <div className="pickup-result-actions"><CompletionCountdown onComplete={() => back.current()} /><button className="display-primary" onClick={() => back.current()}>Завершить</button></div>}
   </section>;
