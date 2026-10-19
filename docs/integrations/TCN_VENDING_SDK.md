@@ -2,7 +2,7 @@
 
 **Project:** Soft ICE Platform / «У Тимоши»  
 **Supplier SDK:** TCN vending SDK  
-**Status:** PARTIALLY VERIFIED — production hardware adapter remains blocked until conflicting supplier answers are resolved  
+**Status:** PARTIALLY VERIFIED — production hardware adapter remains blocked until remaining supplier answers are resolved  
 **Updated:** 2026-10-19
 
 ## Purpose
@@ -76,7 +76,7 @@ This matches the existing backend `MachineDispenseService` model with `RECONCILI
 
 ## Ingredient selectors
 
-Supplier replies indicate that `zhuliao`, `dingliao` and `guojiang` select base / topping / sauce channels.
+Supplier replies indicate that `zhuliao`, `dingliao` and `guojiang` are SDK selector parameters.
 
 For sauce selection, supplier material recorded the following selector combinations:
 
@@ -91,6 +91,25 @@ For sauce selection, supplier material recorded the following selector combinati
 However, the quantity semantics for a mixed selector are still **not verified**. Example: for `guojiang = 4, guoQ = 20`, it is not yet confirmed whether 20 means total quantity or 20 per selected channel.
 
 The equivalent combination rules for `dingliao` must also be explicitly confirmed before production use.
+
+## Confirmed zhuliao rule for our supplied machine
+
+The supplier has now explicitly confirmed:
+
+```text
+zhuliao = 0
+```
+
+is the **only valid value** for our supplied machine configuration.
+
+Production rule:
+
+- every `reqShip(...)` command for this machine must use `zhuliao = 0`;
+- any internal configuration or adapter input with `zhuliao != 0` must be rejected before the SDK call;
+- `zhuliao` is not customer-configurable and must not be exposed as a recipe option;
+- previous supplier examples containing `zhuliao = 1` are not applicable to our supplied machine.
+
+This item is no longer a production blocker.
 
 ## Quantity fields — BLOCKED BY CONTRADICTORY SUPPLIER REPLIES
 
@@ -114,23 +133,12 @@ Until the supplier resolves it:
 - do not use any assumed safe operating range;
 - keep hardware recipe conversion behind a blocked/configurable adapter.
 
-## zhuliao — BLOCKED BY CONTRADICTORY SUPPLIER REPLIES
-
-One supplier reply states that for our supplied machine `zhuliao` should be `0`.
-
-A separate supplier example used `zhuliao = 1`.
-
-Therefore the allowed values and exact mapping for our machine are not yet production-safe.
-
-Do not hard-code `zhuliao = 0` or `zhuliao = 1` until the supplier confirms the mapping for the exact supplied machine / firmware.
-
 ## Physical ingredient mapping — NOT YET VERIFIED
 
 The logical selector numbers are not sufficient. We still require the physical map for our machine:
 
 - sauce selector -> physical container position -> board connector;
-- topping selector -> physical container position -> board connector;
-- base selector -> physical channel / cylinder, if applicable.
+- topping selector -> physical container position -> board connector.
 
 Application recipes must store logical ingredient IDs. Mapping from logical ingredient IDs to physical selector numbers must be machine configuration, not business-logic hard-code.
 
@@ -235,15 +243,16 @@ The current safe platform sequence is:
 4. Query machine state
 5. Require READY
 6. Persist dispense attempt / unique tradeNo
-7. Send reqShip(...)
-8. Record command transport result
-9. Wait for supplier-confirmed accepted / started facts
-10. Wait for supplier-confirmed terminal physical result
-11. Only then emit DISPENSED
-12. Re-query readiness before accepting the next physical vend
+7. Build reqShip(...) with zhuliao = 0
+8. Send reqShip(...)
+9. Record command transport result
+10. Wait for supplier-confirmed accepted / started facts
+11. Wait for supplier-confirmed terminal physical result
+12. Only then emit DISPENSED
+13. Re-query readiness before accepting the next physical vend
 ```
 
-If communication is lost after step 7 and before step 10, do **not** automatically resend. Move to reconciliation.
+If communication is lost after step 8 and before step 11, do **not** automatically resend. Move to reconciliation.
 
 ## Existing Soft ICE backend assessment
 
@@ -257,9 +266,11 @@ The current backend already enforces the important safety rules:
 - timeout is not treated as proof of failure;
 - reconciliation is preferred over repeating a physical side effect.
 
-Therefore no backend source-code change is required from the current supplier answers.
+Therefore no backend source-code change is required from the current supplier answer about `zhuliao`.
 
-The production `MachineProviderAdapter` must remain blocked until the hardware-specific items in this document are resolved and implemented in the Android/controller adapter.
+The production hardware adapter must enforce `zhuliao = 0` when it is implemented.
+
+The production `MachineProviderAdapter` must remain blocked until the remaining hardware-specific items in this document are resolved and implemented in the Android/controller adapter.
 
 ## Supplier clarification blockers
 
@@ -267,10 +278,10 @@ Production integration remains blocked pending written confirmation of:
 
 1. Exact unit of `zhuQ`, `dingQ`, `guoQ`: grams, deciseconds, motor ticks, or another controller unit.
 2. Mixed quantity rule for `guojiang = 4/5/6/7` and the equivalent `dingliao` combinations.
-3. Exact valid `zhuliao` values for our machine and why previous replies used both 0 and 1.
-4. One verified recipe with all 9 `reqShip` arguments and measured physical output.
-5. Normal/minimum/maximum safe values and expected dosing tolerance.
-6. Physical container mapping and board connector mapping.
+3. One verified recipe with all 9 `reqShip` arguments and measured physical output, using `zhuliao = 0`.
+4. Normal/minimum/maximum safe values and expected dosing tolerance.
+5. Physical container mapping and board connector mapping.
+6. Exact `slotNo` and `shipMethod` semantics for our machine.
 7. Exact serial settings and reconnect procedure.
 8. Exact final success callback/state for our firmware.
 9. Exact behavior of a second `reqShip` while the first vend is active.
@@ -284,7 +295,7 @@ Do not enable real customer production commands until all blocker items above ar
 ```text
 Payment SUCCEEDED
 -> machine READY
--> reqShip
+-> reqShip(..., zhuliao = 0, ...)
 -> accepted
 -> physical dispensing
 -> terminal success callback
