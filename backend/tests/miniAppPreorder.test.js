@@ -104,7 +104,7 @@ test('confirmed advance payment leaves no dispense command and starts 72 hours a
   const paidAt = new Date('2026-10-13T10:00:00Z');
   const flow = { flowId: 'flow', organizationId: 'org', currentState: 'AWAITING_PAYMENT',
     metadata: { sourceChannel: 'MINIAPP', fulfillmentMode: 'PICKUP' } };
-  const tx = { order: { updateMany: async () => ({ count: 1 }), update: async args => calls.push(['order', args]) },
+  const tx = { order: { updateMany: async args => { calls.push(['order', args]); return { count: 1 }; } },
     saleFlow: { findFirst: async () => flow, update: async args => { calls.push(['flow', args]); return flow; } } };
   const service = new PaymentService({ machineDispense: { createAuthorizedFromPaidFlow: async () => calls.push(['dispense']) } });
   await service.applySuccess(tx, { orderId: 'order', saleFlowId: 'flow', organizationId: 'org', amount: 5 }, paidAt);

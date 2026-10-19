@@ -1,3 +1,4 @@
+import { TestClubAccount } from './TestClubAccount';
 import { useBeforeNavigation, useNavigation, NavigationSaveProvider } from './NavigationSave';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getCRMCustomer, getCRMCustomers, queueCRMNotification, manageCRMAccount } from './api/crmClient';
@@ -77,6 +78,7 @@ function UserCard({ customerId, clients }) {
     <a className="back-link" href="#users">← Назад к списку пользователей</a>
     <section className="card customer-identity"><div><p>Карточка пользователя 360°</p><h2>{profile.identification?.name || card.name || 'Имя не указано'}</h2><span>{profile.identification?.phone || card.phone || 'Телефон не указан'} · {profile.identification?.email || card.email || 'Email не указан'}</span><small style={{ display: 'block', marginTop: 6 }}>Customer ID: {customerId}</small></div><StatusBadge status={String(profile.identification?.status || card.status).toUpperCase()} /></section>
     <section className="statistics" aria-label="Сводка пользователя"><StatisticCard label="Денег на клубном счёте" value={money(card.loyalty?.clubAccount?.availableBalanceRub)} detail={`Резерв: ${money(card.loyalty?.clubAccount?.reservedBalanceRub)}`} /><StatisticCard label="Бонусов" value={card.loyalty?.bonusAccount?.balanceBonus || 0} /><StatisticCard label="Покупок" value={profile.purchaseSummary?.count || card.purchases?.length || 0} detail={`Потрачено: ${money(profile.purchaseSummary?.spentRub)}`} /><StatisticCard label="Рефералов" value={invited.filter((item) => item.referredCustomerId).length} detail={`Активных: ${invited.filter((item) => item.firstPurchaseAt).length}`} /><StatisticCard label="Клуб" value={card.loyalty?.clubAccount?.clubActive ? 'Участник' : 'Не активен'} detail={`С ${date(card.loyalty?.clubAccount?.activatedAt)}`} /><StatisticCard label="Активные каналы" value={active.length} detail={active.map(channelLabel).join(' · ') || 'Нет'} /></section>
+    <TestClubAccount account={profile.loyalty?.testClubAccount} />
     <AccountControls card={card} clients={clients} onSaved={(updated) => setState((previous) => ({ ...previous, card: updated, profile: { ...previous.profile, identification: { ...previous.profile.identification, name: updated.name, status: updated.status } } }))} />
     <UserCommunicationEvidence card={card} />
     <section className="crm-grid">

@@ -36,7 +36,7 @@ export function UserPaymentProfile({ customerId, client = getCustomerPaymentProf
       const key = `${row.sourceType}:${row.sourceId}`;
       refundedBySource.set(key, (refundedBySource.get(key) || 0) + Number(row.amountRub || 0));
     }
-    return (state.data.paymentHistory || []).filter((row) => ['PAID', 'CONFIRMED', 'SUCCEEDED'].includes(String(row.status).toUpperCase())).map((row) => ({
+    return (state.data.paymentHistory || []).filter((row) => row.refundAllowed !== false && row.test !== true && ['PAID', 'CONFIRMED', 'SUCCEEDED'].includes(String(row.status).toUpperCase())).map((row) => ({
       ...row,
       remainingRefundRub: Math.max(0, Number(row.amountRub || 0) - Number(refundedBySource.get(`${row.source}:${row.paymentId}`) || 0)),
     })).filter((row) => row.remainingRefundRub > 0);
@@ -88,7 +88,8 @@ export function UserPaymentProfile({ customerId, client = getCustomerPaymentProf
     ]} emptyTitle="Согласий на рекуррентные платежи нет" />
 
     <DataTable title="История платежей" rows={data.paymentHistory || []} columns={[
-      { key: 'occurredAt', label: 'Дата', render: dateTime }, { key: 'source', label: 'Источник', render: (value, row) => row.channelType ? `${value} · ${channelLabel(row.channelType)}` : value }, { key: 'kind', label: 'Вид платежа', render: (value) => ({ ONE_TIME: 'Разовый', INITIAL: 'Первичный', RENEWAL: 'Продление' }[value] || value) }, { key: 'paymentMethodType', label: 'Способ оплаты', render: methodLabel }, { key: 'linkedEntity', label: 'Связь', render: entityLabel }, { key: 'provider', label: 'Провайдер' }, { key: 'providerPaymentRef', label: 'Payment reference' }, { key: 'amountRub', label: 'Сумма', render: money }, { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={String(value || '').toUpperCase()} /> },
+      { key: 'test', label: 'Режим', render: value => value === true ? 'ТЕСТ' : 'Не указан' },
+      { key: 'occurredAt', label: 'Дата', render: dateTime }, { key: 'source', label: 'Источник', render: (value, row) => row.channelType ? `${value} · ${channelLabel(row.channelType)}` : value === 'TEST_CLUB_TOPUP' ? 'Тестовое пополнение' : value }, { key: 'kind', label: 'Вид платежа', render: (value) => ({ CLUB_INITIAL_TOPUP: 'Пополнение клуба', ONE_TIME: 'Разовый', INITIAL: 'Первичный', RENEWAL: 'Продление' }[value] || value) }, { key: 'paymentMethodType', label: 'Способ оплаты', render: methodLabel }, { key: 'linkedEntity', label: 'Связь', render: entityLabel }, { key: 'provider', label: 'Провайдер' }, { key: 'providerPaymentRef', label: 'Payment reference' }, { key: 'amountRub', label: 'Сумма', render: money }, { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={String(value || '').toUpperCase()} /> },
     ]} emptyTitle="Платежей пока нет" />
 
     <DataTable title="Экономика платежей" rows={economicsRows} columns={[

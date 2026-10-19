@@ -24,7 +24,9 @@ class Customer360Service {
   async getProfile(customerId) {
     const customer = await this.repository.findCustomer(customerId);
     if (!customer) throw new ApiError({ statusCode: 404, code: 'CUSTOMER_360_NOT_FOUND', message: 'Профиль клиента не найден.' });
-    return projectProfile(customer);
+    const profile = projectProfile(customer);
+    if (this.repository.prisma) profile.loyalty.testClubAccount = await require('../club_account/TestClubAdminProjection').readTestClubAccount(this.repository.prisma, customerId);
+    return profile;
   }
 
   async getTimeline(customerId, { category, limit = 100 } = {}) {

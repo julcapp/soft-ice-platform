@@ -108,6 +108,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/catalog', createAdminCatalogRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
   router.use('/admin/payments', adminpaymentrouter(runtimeDependencies));
+  router.use('/admin/test-club-topups', require('./testClubAdminRoutes').createTestClubAdminRouter(runtimeDependencies));
   router.use('/webhooks/payments', paymentwebhookrouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseService) router.use('/webhooks/machines', createMachineCallbackRouter(runtimeDependencies));

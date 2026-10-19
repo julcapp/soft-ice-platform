@@ -37,6 +37,7 @@ class MiniAppClubTopupService{
    if(['SUCCEEDED','CANCELED'].includes(current.status))return current;
    const [updated]=await tx.$queryRawUnsafe('UPDATE "MiniAppClubTopupCheckout" SET "providerPaymentId"=$2,status=$3,"confirmedAt"=CASE WHEN $3=\'SUCCEEDED\' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=$1 RETURNING *',row.id,payment.id,status);
    if(status==='SUCCEEDED')await tx.customerTimelineEvent.create({data:{customerId:row.customerId,occurredAt:this.clock(),eventType:'CLUB_TEST_TOPUP_CONFIRMED',category:'PAYMENT',title:'Подтверждено тестовое пополнение',description:`${row.amountCents/100} ₽. Тестовые средства учитываются отдельно от реальных денег.`,sourceDomain:'club_account',sourceEntityType:'MiniAppClubTopupCheckout',sourceEntityId:row.id,correlationId:row.id}});
+   if(status==='SUCCEEDED')await require('./TestClubTopupMessage').recordTestClubTopupMessage(tx,updated,this.clock());
    return updated;
   });
  }

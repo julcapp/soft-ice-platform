@@ -83,7 +83,9 @@ class CustomerPaymentProfileService {
       if (item.paymentMethod) methodsByFingerprint.set(item.paymentMethod.fingerprint, item.paymentMethod);
     }
 
+    const testClubTopups = await require('../club_account/TestClubAdminProjection').readTestClubTopups(this.prisma, customerId);
     const history = [
+      ...testClubTopups,
       ...payments.map((row) => ({
         id: `payment:${row.id}`,
         source: 'PAYMENT',

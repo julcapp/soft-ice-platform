@@ -4,7 +4,7 @@ import { EmptyState, Skeleton } from './components';
 import './message-center.css';
 export const messageStatuses = { QUEUED:'В очереди',SENDING:'Отправляется',SENT:'Отправлено',DELIVERED:'Доставлено',READ:'Прочитано',FAILED:'Ошибка',UNAVAILABLE:'Канал недоступен',BLOCKED:'Заблокировано',ACCEPTED:'Принято сервисом',AVAILABLE:'Доступно в личном кабинете',UNKNOWN:'Статус не подтверждён' };
 const types = { CUSTOMER:'Покупатель',TEAM:'Сотрудник проекта',ADMIN:'Администратор',CHANNEL:'Аудитория канала',PARTICIPANT:'Участник проекта' };
-const sources = { CRM:'CRM / служебные сообщения',BOT:'Ответ бота',GIFT:'Подарки',SECURITY:'Безопасность',PROMOTION:'Акции',INBOX:'Личный кабинет' };
+const sources = { CLUB_TEST_TOPUP:'Тестовое пополнение клуба', CRM:'CRM / служебные сообщения',BOT:'Ответ бота',GIFT:'Подарки',SECURITY:'Безопасность',PROMOTION:'Акции',INBOX:'Личный кабинет' };
 const roles = { SERVICE_SPECIALIST:'Техник',MACHINE_RESPONSIBLE:'Мастер',OWNER:'Владелец организации',ADMINISTRATOR:'Администратор организации' };
 const time = value => value ? new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'medium',timeZone:'Asia/Tomsk'}).format(new Date(value)) : '—';
 function Status({ value }) { return <span className={`message-status message-status-${value?.toLowerCase()}`}>{messageStatuses[value] || 'Статус не подтверждён'}</span>; }
