@@ -90,11 +90,13 @@
       <p>После подтверждения оплаты заказ будет ждать получения на этом аппарате.</p>
       <p>Тестовый клубный остаток: ${esc(money(c.account?.testClubBalanceRub || 0))}</p>
       <button id="club-pay" ${!state.quote || state.busy || Number(c.account?.testClubBalanceRub || 0) < Number(state.quote?.finalAmount || Infinity) ? 'disabled' : ''}>Оплатить клубным остатком · тест</button>
+      <button id="sber-pay" ${!state.quote || state.busy || !c.paymentMethods?.some(x => x.id === 'sber_sbp' && x.available === true) ? 'disabled' : ''}>СБП от Сбербанка</button><p class="shared-payment-hint">${c.paymentMethods?.some(x => x.id === 'sber_sbp' && x.available === true) ? 'Выберите свой банк на странице СБП после перехода к оплате.' : 'Подключается · скоро будет доступно'}</p>
       <button id="pay" ${!state.quote || state.busy ? 'disabled' : ''}>Оплатить тестовой картой</button><p id="error" role="alert"></p>`);
     document.getElementById('topping').onchange = event => { state.toppingId = event.target.value; state.orderId = null; state.quote = null; calculate(); };
     document.getElementById('sprinkle').onchange = event => { state.sprinkleId = event.target.value; state.orderId = null; state.quote = null; calculate(); };
     document.getElementById('pay').onclick = () => pay();
     document.getElementById('club-pay').onclick = () => pay('club');
+    document.getElementById('sber-pay').onclick = () => pay('sber');
   }
   let calculation = 0;
   async function calculate() {
@@ -123,9 +125,10 @@
         state.busy = false;
         return checkStatus();
       }
-      const payment = await api(`orders/${state.orderId}/payment`);
+      const payment = await api(`orders/${state.orderId}/${method === 'sber' ? 'sber-payment' : 'payment'}`);
       const url = new URL(payment.confirmationUrl);
-      if (url.protocol !== 'https:' || !['yoomoney.ru', 'yookassa.ru'].includes(url.hostname)) throw new Error('Ссылка оплаты не подтверждена.');
+      const allowed = method === 'sber' ? url.hostname === 'qr.nspk.ru' && url.searchParams.get('type') === '02' : ['yoomoney.ru', 'yookassa.ru'].includes(url.hostname);
+      if (url.protocol !== 'https:' || url.username || url.password || url.port || !allowed) throw new Error('Ссылка оплаты не подтверждена.');
       if (tg.openLink) tg.openLink(url.href); else window.location.href = url.href;
       shell('<h1>Ожидаем оплату</h1><p>Вернитесь сюда после оплаты. Повторно оплачивать не нужно.</p><button id="status">Проверить оплату</button>', 'account');
       document.getElementById('status').onclick = checkStatus;

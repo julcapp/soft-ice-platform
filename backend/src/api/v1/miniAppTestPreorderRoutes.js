@@ -78,7 +78,8 @@ function createMiniAppTestPreorderRouter(dependencies) {
     const [catalog, account] = await Promise.all([
       dependencies.catalogService.getMachineCatalog('TEST-MACHINE-001'), service.account(req.preorderCustomer, { filter: req.body.accountFilter || 'active', page: req.body.accountPage ?? 0 }),
     ]);
-    sendData(res, req, { ...catalog, account });
+    const sber = dependencies.sberQrPaymentAdapter;
+    sendData(res, req, { ...catalog, account, paymentMethods: [sber?.capability('TEST-MACHINE-001') || { id:'sber_sbp', available:false }] });
   }));
   router.post('/quote', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().quote(req.preorderCustomer, { ...req.body, machineId: 'TEST-MACHINE-001' }));
@@ -91,6 +92,15 @@ function createMiniAppTestPreorderRouter(dependencies) {
   }));
   router.post('/orders/:id/payment', asyncHandler(async (req, res) => {
     sendData(res, req, await getService().pay(req.preorderCustomer, req.params.id), 201);
+  }));
+  router.post('/orders/:id/sber-payment', asyncHandler(async (req, res) => {
+    const adapter=dependencies.sberQrPaymentAdapter;
+    if(!adapter)throw fail('SBER_QR_NOT_CONFIGURED','СБП от Сбербанка пока подключается.',503);
+    adapter.assertReady('TEST-MACHINE-001');
+    const {order,flow}=await getService().own(req.preorderCustomer,req.params.id);
+    if(order.status!=='PAYMENT_PENDING')throw fail('PREORDER_NOT_AWAITING_PAYMENT','Заказ уже не ожидает оплаты.',409);
+    const result=await dependencies.paymentCheckoutService.initiate({organizationId:flow.organizationId,orderId:order.id,saleFlowId:flow.flowId,provider:'SBER_SBP',channel:'MINIAPP',method:'sbp',idempotencyKey:`miniapp-sber:${order.id}`,description:'Предзаказ «У Тимоши»',metadata:{fulfillmentMode:'PICKUP'},returnUrl:'https://miniapp.utimoshi.ru/preorder-return.html'});
+    sendData(res,req,{orderId:order.id,paymentId:result.payment.id,confirmationUrl:result.confirmationUrl,status:result.status});
   }));
   router.post('/orders/:id/club-payment', asyncHandler(async (req, res) => {
     getService(); // Keep the same enabled TEST checkout boundary as card payments.

@@ -62,6 +62,7 @@ const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: pay
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
+  router.use('/payments/sber-sbp', require('./sberQrRoutes').installSberQrGateway(dependencies));
   const prisma = getPrismaClient();
   const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
   const privateChannelPaymentAdapter = dependencies.privateChannelPaymentAdapter || new YooKassaPrivateChannelPaymentAdapter();

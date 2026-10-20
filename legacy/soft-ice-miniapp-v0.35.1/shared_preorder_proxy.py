@@ -5,7 +5,7 @@ from urllib.request import Request, urlopen
 
 
 def request_preorder(path, payload):
-    if not re.fullmatch(r"(?:catalog|quote|orders|club/topup|club/topup/[0-9a-f-]{36}/status|orders/recent|orders/[0-9a-f-]{36}/(?:payment|club-payment|status|pickup-code|gift))", path):
+    if not re.fullmatch(r"(?:catalog|quote|orders|club/topup|club/topup/[0-9a-f-]{36}/status|orders/recent|orders/[0-9a-f-]{36}/(?:payment|sber-payment|club-payment|status|pickup-code|gift))", path):
         raise ValueError("Действие с заказом не поддерживается")
     fields = {"init_data", "productId", "toppingId", "sprinkleId", "quoteId", "idempotencyKey", "accountFilter", "accountPage", "recipientPhone"}
     body = json.dumps({k: v for k, v in payload.items() if k in fields}).encode()

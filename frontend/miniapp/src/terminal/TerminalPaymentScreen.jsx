@@ -93,7 +93,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         setState({ phase: phaseFor(payment), payment, error: null });
       }).catch((error) => {
         if (controller.signal.aborted) return;
-        const safe = SAFE_CREATION_ERRORS.has(error.code);
+        const safe = SAFE_CREATION_ERRORS.has(error.code) || String(error.code || '').startsWith('SBER_QR_');
         if (!safe) setConnectionState('offline');
         setState({ phase: safe ? 'unavailable' : 'unknown', payment: null,
           error: safe ? terminalPaymentErrorMessage(error) : 'Связь прервалась. Автоматически восстанавливаем соединение и проверяем этот же платёж.' });
@@ -152,6 +152,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       <div className="display-payment-methods" aria-label="Способы оплаты">
         {[
           { id: 'sbp', title: 'СБП', subtitle: 'По QR-коду со смартфона', icon: 'qr' },
+          { id: 'sber_sbp', title: 'СБП от Сбербанка', subtitle: 'Оплата через приложение вашего банка', icon: 'qr' },
           { id: 'pos', title: 'Банковская карта', subtitle: 'Через POS-терминал аппарата', icon: 'card' },
           ...(availableMethods.some((item) => item.id === 'test_card')
             ? [{ id: 'test_card', title: 'Тестовая карта ЮKassa', subtitle: 'Только для проверки тестового магазина', icon: 'card' }]
@@ -159,7 +160,8 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         ].map((item) => {
           const availability = availableMethods.find((methodItem) => methodItem.id === item.id);
           const disabled = availability ? !availability.available : item.id !== 'test_card';
-          const subtitle = availability?.reasonCode === 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
+          const subtitle = item.id === 'sber_sbp' && disabled ? 'Подключается · скоро будет доступно'
+            : availability?.reasonCode === 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
             ? 'Недоступно в тестовом магазине ЮKassa'
             : availability?.reasonCode === 'TERMINAL_POS_NOT_CONFIGURED'
               ? 'Будет доступно после подключения POS по MDB'
