@@ -10,12 +10,12 @@ class SberQrPaymentAdapter {
   constructor({ prisma, env=process.env, transport, clock=()=>new Date() }={}) { Object.assign(this,{prisma,env,clock});this.transport=transport||new SberQrTransport({env});this.provider='SBER_SBP'; }
   isConfigured() { return this.env.SBER_QR_ENABLED==='true' && this.env.SBER_QR_CONTRACT_VERIFIED==='true' && ['SBER_QR_MEMBER_ID','SBER_QR_MERCHANT_ID','SBER_QR_TID','SBER_QR_ID_QR','SBER_QR_ALLOWED_MACHINE_IDS'].every(k=>Boolean(this.env[k])) && this.transport.isConfigured() && Boolean(this.prisma); }
   assertReady(machineId) {
-    if(!this.isConfigured()||!String(this.env.SBER_QR_ALLOWED_MACHINE_IDS).split(',').map(s=>s.trim()).includes(machineId))throw fail('SBER_QR_NOT_CONFIGURED','СБП от Сбербанка пока подключается.');
+    if(!this.isConfigured()||!String(this.env.SBER_QR_ALLOWED_MACHINE_IDS).split(',').map(s=>s.trim()).includes(machineId))throw fail('SBER_QR_NOT_CONFIGURED','Оплата по СБП пока подключается.');
   }
-  capability(machineId) { let available=true;try{this.assertReady(machineId);}catch{available=false;}return {id:'sber_sbp',provider:'SBER_SBP',title:'СБП от Сбербанка',available,reasonCode:available?null:'SBER_QR_NOT_CONFIGURED',bankSelection:'NSPK_LINK'}; }
+  capability(machineId) { let available=true;try{this.assertReady(machineId);}catch{available=false;}return {id:'sber_sbp',provider:'SBER_SBP',title:'Оплата по СБП',available,reasonCode:available?null:'SBER_QR_NOT_CONFIGURED',bankSelection:'NSPK_LINK'}; }
   stamp() { return {rq_uid:randomUUID().replaceAll('-',''),rq_tm:this.clock().toISOString().replace(/\.\d{3}Z$/,'Z')}; }
   async createPayment(request) {
-    if(!this.isConfigured())throw fail('SBER_QR_NOT_CONFIGURED','СБП от Сбербанка пока подключается.');
+    if(!this.isConfigured())throw fail('SBER_QR_NOT_CONFIGURED','Оплата по СБП пока подключается.');
     const order=await this.prisma.order.findUnique({where:{id:request.orderId}});
     if(!order)throw fail('SBER_QR_ORDER_MISSING','Заказ не найден.');this.assertReady(order.machineId);
     const cents=Math.round(Number(order.amount)*100);
@@ -31,7 +31,7 @@ class SberQrPaymentAdapter {
     return {providerPaymentId:reply.order_id,status:'PENDING',paid:false,amount:Number(order.amount).toFixed(2),currency:'RUB',confirmationUrl,rawStatus:reply.order_state,metadata:{...request.metadata,order_id:order.id,payment_id:request.paymentId}};
   }
   async getPaymentStatus(providerPaymentId) {
-    if(!this.isConfigured())throw fail('SBER_QR_NOT_CONFIGURED','СБП от Сбербанка пока подключается.');
+    if(!this.isConfigured())throw fail('SBER_QR_NOT_CONFIGURED','Оплата по СБП пока подключается.');
     const p=await this.prisma.payment.findFirst({where:{provider:'SBER_SBP',providerPaymentId},include:{order:true}});
     if(!p||!p.order)throw fail('SBER_QR_PAYMENT_MISSING','Платёж не найден.');this.assertReady(p.order.machineId);
     const r=await this.transport.request('status',{...this.stamp(),order_id:providerPaymentId,tid:this.env.SBER_QR_TID,partner_order_number:p.orderId});

@@ -25,3 +25,7 @@ Mini App вызывает orders/:id/sber-payment только после сущ
 Приложенные владельцем инструкции2021: обзор13стр, спецификацияv8.1(35стр), портал22стр. Актуальные страницы: https://developers.sber.ru/docs/ru/sber-api/scenarios/transfers/qr-payment/opisanie-servisov и /podkluchenie; спецификации /specifications/qr/plati-qr/order-create и /status-request. В актуальной таблице notify для СБП не заявлен; используем status. Старые PDF endpoints8443/tokenv2 не переносятся. У примеров PDF есть некорректные rq_uid/коды: не копировать их как успешные фикстуры.
 
 `node --test backend/tests/sberQrGateway.test.js backend/tests/miniAppPreorder.test.js frontend/miniapp/src/terminal/SberPaymentMethods.test.js`; npm run build в frontend/miniapp. Серверный smoke: capabilities200/availablefalse без секретов, unauth Mini App401, прямая попытка terminal sber_sbp503 до создания заказа. Реальных запросов к банку при установке нет.
+
+### Название способа оплаты
+
+По решению владельца20.10 клиентское название — «Оплата по СБП». SBER_SBP остаётся внутренним идентификатором провайдера. Логотип: официальный SVG https://sbp.nspk.ru/storage/settings/common/logo/3637fed0-97e8-491b-8eff-9cb99e9b556a.svg, локально public/images/payments/sbp.svg. Оформление не означает включение банковского приёма.

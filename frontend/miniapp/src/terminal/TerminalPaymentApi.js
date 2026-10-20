@@ -86,7 +86,7 @@ export async function getTerminalOrderPaymentStatus({ machineId, orderId, signal
 
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
-  if (code.startsWith('SBER_QR_')) return 'СБП от Сбербанка пока недоступна. Выберите другой способ оплаты.';
+  if (code.startsWith('SBER_QR_')) return 'Оплата по СБП пока недоступна. Выберите другой способ оплаты.';
   if (code === 'TERMINAL_POS_NOT_CONFIGURED') return 'POS-терминал пока не подключён.';
   if (code === 'RESOURCE_NOT_FOUND' || code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';

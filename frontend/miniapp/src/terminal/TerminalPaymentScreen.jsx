@@ -1,3 +1,4 @@
+import { SBP_LOGO } from '../domain/media/paymentMedia.js';
 import {CompletionCountdown} from './CompletionCountdown.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, pingTerminalBackend, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
@@ -152,7 +153,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       <div className="display-payment-methods" aria-label="Способы оплаты">
         {[
           { id: 'sbp', title: 'СБП', subtitle: 'По QR-коду со смартфона', icon: 'qr' },
-          { id: 'sber_sbp', title: 'СБП от Сбербанка', subtitle: 'Оплата через приложение вашего банка', icon: 'qr' },
+          { id: 'sber_sbp', title: 'Оплата по СБП', subtitle: 'Оплата через приложение вашего банка', icon: 'sbp' },
           { id: 'pos', title: 'Банковская карта', subtitle: 'Через POS-терминал аппарата', icon: 'card' },
           ...(availableMethods.some((item) => item.id === 'test_card')
             ? [{ id: 'test_card', title: 'Тестовая карта ЮKassa', subtitle: 'Только для проверки тестового магазина', icon: 'card' }]
@@ -229,6 +230,7 @@ function money(value, currency = 'RUB') {
 }
 
 function PaymentMethodIcon({ type }) {
+  if (type === 'sbp') return <img src={SBP_LOGO} alt="" aria-hidden="true" width="124" height="60" style={{width:124,height:60,objectFit:'contain'}} />;
   return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
     {type === 'card' ? <><rect x="6" y="13" width="52" height="38" rx="7" /><path d="M6 25h52M15 41h13M42 37c4-4 4-8 0-12" /></> : <><rect x="8" y="8" width="17" height="17" rx="2" /><rect x="39" y="8" width="17" height="17" rx="2" /><rect x="8" y="39" width="17" height="17" rx="2" /><path d="M39 39h8v8h9M39 48v8M48 56h8M32 8v17M8 32h17M32 32h7M32 47v9" /></>}
   </svg>;
