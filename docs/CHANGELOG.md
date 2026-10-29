@@ -1,3 +1,12 @@
+## 2026-10-29 — Live customer bonuses and identity release
+
+- CRM user list/card uses the persisted BonusAccount.balanceBonus value as the authoritative bonus balance.
+- Added audited manual bonus adjustments through POST /api/v1/admin/crm/customers/:customerId/bonus-adjustments; adjustments create immutable BonusTransaction rows instead of rewriting history.
+- Added POST /api/v1/admin/crm/customers/:customerId/erase-and-release for profile removal and identifier release. It revokes sessions, removes active identity/channel bindings, clears phone/email/Telegram/VK profile fields, resets bonus balance and marks the retained technical customer shell as deleted_released.
+- Financial, order, fiscal and audit history is intentionally retained against the anonymized technical customer id; released phone/email/channel identifiers can be used for a new registration.
+- Added authenticated terminal lookup POST /api/v1/terminal/customers/by-phone protected by TERMINAL_API_TOKEN. The response exposes only the returning-customer projection required by the vending UI, including the live bonus_balance value.
+- Added terminal frontend lookup client. The deployed display.utimoshi.ru screen still requires deployment wiring once server access is restored.
+
 ## 2026-10-29 — Admin Console LIVE mode
 
 - Админ-панель переведена из общей маркировки READ_ONLY/DEMO в рабочий режим LIVE.
