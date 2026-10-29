@@ -45,6 +45,84 @@ class CRMRepository {
     });
   }
 
+  async adjustBonus(customerId, { amountBonus, reason, actorId }) {
+    return this.prisma.$transaction(async (tx) => {
+      const account = await tx.bonusAccount.findUnique({ where: { customerId } });
+      if (!account) throw Object.assign(new Error('Бонусный счёт клиента не найден.'), { statusCode: 404, code: 'BONUS_ACCOUNT_NOT_FOUND' });
+      const delta = Number(amountBonus);
+      const next = account.balanceBonus + delta;
+      if (!Number.isInteger(delta) || delta === 0) throw Object.assign(new Error('Изменение бонусов должно быть целым ненулевым числом.'), { statusCode: 422, code: 'BONUS_ADJUSTMENT_INVALID' });
+      if (next < 0) throw Object.assign(new Error('Недостаточно бонусов для списания.'), { statusCode: 422, code: 'BONUS_BALANCE_INSUFFICIENT' });
+      const updated = await tx.bonusAccount.update({ where: { customerId }, data: { balanceBonus: next } });
+      const transaction = await tx.bonusTransaction.create({
+        data: {
+          customerId,
+          type: 'ADMIN_ADJUSTMENT',
+          direction: delta > 0 ? 'credit' : 'debit',
+          amountBonus: Math.abs(delta),
+          source: 'ADMIN_CRM',
+          reason: reason || 'Ручная корректировка администратором',
+          balanceAfterBonus: next,
+          comment: actorId ? 'Администратор: ' + actorId : null,
+        },
+      });
+      return { account: updated, transaction };
+    });
+  }
+
+  async eraseAndReleaseCustomer(customerId, { actorId, reason }) {
+    return this.prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: customerId } });
+      if (!customer) return null;
+
+      await tx.authSession.deleteMany({ where: { customerId } });
+      await tx.customerIdentity.deleteMany({ where: { customerId } });
+      await tx.customerChannelSubscription.deleteMany({ where: { customerId } });
+      await tx.customerExternalProfile.deleteMany({ where: { customerId } });
+      await tx.customerPreference.deleteMany({ where: { customerId } });
+      await tx.customerSegment.deleteMany({ where: { customerId } });
+      await tx.crmCustomerProfile.deleteMany({ where: { customerId } });
+      await tx.customerAiProfile.deleteMany({ where: { customerId } });
+
+      const bonusAccount = await tx.bonusAccount.findUnique({ where: { customerId } });
+      if (bonusAccount && bonusAccount.balanceBonus !== 0) {
+        await tx.bonusTransaction.create({
+          data: {
+            customerId,
+            type: 'ACCOUNT_CLOSURE',
+            direction: 'debit',
+            amountBonus: Math.max(0, bonusAccount.balanceBonus),
+            source: 'ADMIN_CRM',
+            reason: reason || 'Удаление пользователя и освобождение идентификаторов',
+            balanceAfterBonus: 0,
+            comment: actorId ? 'Администратор: ' + actorId : null,
+          },
+        });
+        await tx.bonusAccount.update({ where: { customerId }, data: { balanceBonus: 0 } });
+      }
+
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          phone: null,
+          phoneVerifiedAt: null,
+          primaryIdentityProvider: null,
+          name: null,
+          telegramId: null,
+          telegramUsername: null,
+          email: null,
+          birthday: null,
+          vkProfile: null,
+          trustedStatus: false,
+          trustedStatusAt: null,
+          status: 'deleted_released',
+        },
+      });
+
+      return { customerId, released: true };
+    });
+  }
+
   upsertProfile(customerId, data) {
     return this.prisma.crmCustomerProfile.upsert({
       where: { customerId },
