@@ -1,7 +1,7 @@
 async function request(path, options = {}) {
   const response = await fetch(`/api/v1/admin/inventory${path}`, {
     signal: options.signal,
-    headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN', 'X-Organization-Id': import.meta.env.VITE_DEMO_ORGANIZATION_ID || 'org_demo' },
+    headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_ROLE || import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN', 'X-Organization-Id': import.meta.env.VITE_ORGANIZATION_ID || import.meta.env.VITE_DEMO_ORGANIZATION_ID || 'org_demo' },
   });
   if (!response.ok) { const error = new Error('Inventory read model is unavailable.'); error.status = response.status; throw error; }
   return (await response.json()).data;
