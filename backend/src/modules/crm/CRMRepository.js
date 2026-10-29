@@ -5,12 +5,13 @@ class CRMRepository {
 
   async listCustomers({ query = '', limit = 50 } = {}) {
     const where = query ? {
+      status: { not: 'deleted_released' },
       OR: [
         { name: { contains: query, mode: 'insensitive' } },
         { phone: { contains: query } },
         { email: { contains: query, mode: 'insensitive' } },
       ],
-    } : {};
+    } : { status: { not: 'deleted_released' } };
     return this.prisma.customer.findMany({
       where,
       take: Math.min(Number(limit) || 50, 100),
