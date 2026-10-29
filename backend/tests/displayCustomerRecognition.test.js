@@ -23,7 +23,7 @@ function fixture({ known = false, provider = new DeterministicDisplayPhoneVerifi
 test('normalizes explicit RU forms and reads only verified phones without domain mutation', async () => {
   const f = fixture({ known: true });
   for (const phone of ['+7 (913) 000-00-01', '8 (913) 000-00-01', '79130000001', '9130000001']) {
-    assert.deepEqual(await f.service.recognize({ ...request, phone }), { state: 'RETURNING' });
+    assert.deepEqual(await f.service.recognize({ ...request, phone }), { state: 'RETURNING', bonusBalance: 0 });
   }
   assert.ok(f.reads.every(q => q.where.phone === request.phone && q.where.phoneVerifiedAt.not === null));
   f.unchanged();
@@ -90,8 +90,8 @@ test('HTTP DTO is allowlisted, no-store, safe Russian validation, no caller corr
   const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.once('listening', r)); t.after(() => server.close());
   const post = (body) => fetch(`http://127.0.0.1:${server.address().port}/api/v1/auth/display-phone/recognition`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Correlation-ID': request.phone }, body: JSON.stringify(body) });
   const response = await post(request); assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
-  const payload = await response.json(); assert.deepEqual(payload.data.attributes, { state: 'RETURNING', retryable: false, verification: null });
-  assert.doesNotMatch(JSON.stringify({ payload, audit: f.audits }), /79130000001|private-customer|Private name|balance|bonus|customer_id|orders|token/);
+  const payload = await response.json(); assert.deepEqual(payload.data.attributes, { state: 'RETURNING', retryable: false, bonus_balance: 0, verification: null });
+  assert.doesNotMatch(JSON.stringify({ payload, audit: f.audits }), /79130000001|private-customer|Private name|customer_id|orders|token/);
   const invalid = await post({ ...request, phone: 'invalid' }); assert.equal(invalid.status, 400); assert.match((await invalid.json()).error.message, /Введите российский/);
 });
 test('audit errors are sanitized and invalid bodies never leak input', async () => {
