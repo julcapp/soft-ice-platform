@@ -40,6 +40,29 @@ class CustomerService {
     return { customer: created.customer, created: true };
   }
 
+  async lookupTerminalCustomerByVerifiedPhone(request) {
+    const phone = normalizePhone(request && request.phone);
+    if (!phone) {
+      throw new ApiError({
+        statusCode: 400,
+        code: 'VALIDATION_FAILED',
+        message: 'Valid E.164 phone is required.',
+        details: [{ field: 'phone', issue: 'must be a valid E.164 phone number' }],
+      });
+    }
+    const customer = await this.customerRepository.findTerminalCustomerByVerifiedPhone(phone);
+    if (!customer) return { found: false, customer: null };
+    return {
+      found: true,
+      customer: {
+        customerId: customer.id,
+        displayName: customer.name || null,
+        bonusBalance: Number(customer.bonusAccount?.balanceBonus || 0),
+        status: customer.status,
+      },
+    };
+  }
+
   async getOwnProfile(customerId) {
     const customer = await this.customerRepository.findById(customerId);
     if (!customer) {
