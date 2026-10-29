@@ -9,9 +9,9 @@ test('POST contract is anonymous and strips non-display fields', async () => {
       assert.equal(options.credentials, 'omit'); assert.equal(options.cache, 'no-store');
       assert.deepEqual(JSON.parse(options.body), { machine_id: 'test', phone: '+79130000001' });
       assert.equal(options.headers.Authorization, undefined);
-      return { ok: true, json: async () => ({ data: { attributes: { state: 'RETURNING', name: 'secret', balance: 100, customer_id: 'secret' } } }) };
+      return { ok: true, json: async () => ({ data: { attributes: { state: 'RETURNING', bonus_balance: 125, name: 'secret', balance: 100, customer_id: 'secret' } } }) };
     };
-    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'RETURNING', verification: null });
+    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'RETURNING', bonusBalance: 125, verification: null });
   } finally { globalThis.fetch = originalFetch; }
 });
 test('network, HTTP, malformed and unexpected states fail closed without raw errors', async () => {
@@ -25,6 +25,6 @@ test('network, HTTP, malformed and unexpected states fail closed without raw err
 test('NEW retains only server-bound attempts and fails closed for unknown provider status', async () => {
   try {
     globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: { attributes: { state: 'NEW', verification: { status: 'UNSAFE', code: '123456', remaining_attempts: 99 } } } }) });
-    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'NEW', verification: { status: 'UNAVAILABLE', maxAttempts: null, remainingAttempts: null } });
+    assert.deepEqual(await recognizeDisplayPhone('test', '+79130000001'), { state: 'NEW', bonusBalance: null, verification: { status: 'UNAVAILABLE', maxAttempts: null, remainingAttempts: null } });
   } finally { globalThis.fetch = originalFetch; }
 });
