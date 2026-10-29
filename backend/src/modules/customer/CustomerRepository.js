@@ -13,10 +13,23 @@ class CustomerRepository {
 
   async findByVerifiedPhone(phone) {
     const customer = await this.prisma.customer.findFirst({
-      where: { phone, phoneVerifiedAt: { not: null } },
+      where: { phone, phoneVerifiedAt: { not: null }, status: { not: 'deleted_released' } },
       include: { identities: true, clubAccount: true },
     });
     return customer ? toCustomerIdentityState(customer) : null;
+  }
+
+  async findTerminalCustomerByVerifiedPhone(phone) {
+    return this.prisma.customer.findFirst({
+      where: { phone, phoneVerifiedAt: { not: null }, status: { not: 'deleted_released' } },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        phoneVerifiedAt: true,
+        bonusAccount: { select: { balanceBonus: true } },
+      },
+    });
   }
 
   async findByIdentity(provider, externalSubjectHash) {
