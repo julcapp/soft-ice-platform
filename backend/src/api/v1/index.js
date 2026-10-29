@@ -30,6 +30,7 @@ const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createSchedulerRouter } = require('./schedulerRoutes');
+const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -53,6 +54,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   });
 
   router.use('/auth', createAuthRouter(dependencies));
+  router.use('/terminal', createTerminalCustomerRouter(dependencies));
   router.use('/customers', createCustomerRouter(dependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
   router.use('/club-account', createClubAccountRouter(dependencies));
