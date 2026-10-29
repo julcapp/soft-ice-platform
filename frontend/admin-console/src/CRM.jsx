@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getCRMCustomer, getCRMCustomers, getCRMDashboard } from './api/crmClient';
+import { adjustCRMCustomerBonus, eraseAndReleaseCRMCustomer, getCRMCustomer, getCRMCustomers, getCRMDashboard } from './api/crmClient';
 import { DataTable, ErrorState, Skeleton, StatisticCard, StatusBadge } from './components';
 
 const money = (value) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value || 0);
@@ -46,6 +46,28 @@ export function CRMOverview({ dashboard, customers }) {
 }
 
 export function CustomerCard({ card }) {
+  const [bonusDelta, setBonusDelta] = useState('');
+  const [bonusReason, setBonusReason] = useState('');
+  const [actionState, setActionState] = useState('');
+  const adjustBonus = async () => {
+    const amountBonus = Number(bonusDelta);
+    if (!Number.isInteger(amountBonus) || amountBonus === 0) return setActionState('Введите целое ненулевое изменение бонусов.');
+    setActionState('Сохраняем…');
+    try {
+      await adjustCRMCustomerBonus(card.id, { amountBonus, reason: bonusReason || 'Ручная корректировка в админ-панели' }, { idempotencyKey: crypto.randomUUID() });
+      window.location.reload();
+    } catch (error) { setActionState(error.message || 'Не удалось изменить бонусы.'); }
+  };
+  const eraseCustomer = async () => {
+    if (!window.confirm('Удалить профиль пользователя, обнулить бонусы, отозвать сессии и освободить телефон/email/ID мессенджеров для новой регистрации? Платёжные и аудиторские записи будут сохранены обезличенными.')) return;
+    const reason = window.prompt('Причина удаления пользователя:', 'Удаление администратором') || 'Удаление администратором';
+    setActionState('Удаляем профиль и освобождаем идентификаторы…');
+    try {
+      await eraseAndReleaseCRMCustomer(card.id, { reason }, { idempotencyKey: crypto.randomUUID() });
+      window.location.hash = '#crm';
+      window.location.reload();
+    } catch (error) { setActionState(error.message || 'Не удалось удалить пользователя.'); }
+  };
   return <div className="crm-workspace customer-card">
     <a className="back-link" href="#crm">← Все клиенты</a>
     <a className="text-button" href={`#customer-360/${card.id}`}>Открыть единый профиль Customer 360</a>
@@ -55,6 +77,18 @@ export function CustomerCard({ card }) {
       <StatisticCard label="Бонусный счёт" value={card.loyalty.bonusAccount?.balanceBonus || 0} detail="Бонусов доступно" />
       <StatisticCard label="Покупки" value={card.purchases.length} detail="Последние 50 операций" />
       <StatisticCard label="Рекомендации" value={card.referrals.invited.length} detail="Приглашённых клиентов" />
+    </section>
+    <section className="card crm-actions">
+      <div className="card-heading"><h2>Управление пользователем</h2><StatusBadge status="LIVE" /></div>
+      <div className="crm-action-grid">
+        <label>Фактический бонусный баланс<strong>{card.loyalty.bonusAccount?.balanceBonus || 0} бонусов</strong></label>
+        <label>Корректировка бонусов<input type="number" step="1" value={bonusDelta} onChange={(event)=>setBonusDelta(event.target.value)} placeholder="-10 или 25" /></label>
+        <label>Причина<input value={bonusReason} onChange={(event)=>setBonusReason(event.target.value)} placeholder="Причина корректировки" /></label>
+        <button type="button" className="text-button" onClick={adjustBonus}>Применить корректировку</button>
+        <button type="button" className="danger-button" onClick={eraseCustomer}>Удалить пользователя и освободить ID</button>
+      </div>
+      {actionState && <p className="action-state">{actionState}</p>}
+      <small>Корректировка бонусов создаёт новую операцию в журнале и не удаляет историю. При удалении профиля телефон, email и привязки каналов освобождаются; платежи, чеки и аудит сохраняются обезличенными.</small>
     </section>
     <section className="crm-grid">
       <DataTable title="История покупок" rows={card.purchases} columns={[
