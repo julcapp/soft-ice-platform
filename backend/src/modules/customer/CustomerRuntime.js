@@ -6,6 +6,7 @@ class CustomerRuntime {
   }
 
   resolveOrCreateTelegramCustomer(identity, context) { return this.customerService.resolveOrCreateTelegramCustomer(identity, context); }
+  lookupTerminalCustomerByVerifiedPhone(request) { return this.customerService.lookupTerminalCustomerByVerifiedPhone(request); }
   getOwnProfile(customerId) { return this.customerService.getOwnProfile(customerId); }
   verifyOwnPhone(customerId, request, context) { return this.customerService.verifyOwnPhone(customerId, request, context); }
   linkVerifiedExternalIdentity(customerId, provider, request, context) { return this.customerService.linkVerifiedExternalIdentity(customerId, provider, request, context); }
