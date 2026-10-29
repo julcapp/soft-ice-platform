@@ -57,6 +57,38 @@ class CRMService {
     return result;
   }
 
+  async adjustBonus(customerId, request, context) {
+    const result = await this.repository.adjustBonus(customerId, {
+      amountBonus: request.amountBonus,
+      reason: request.reason,
+      actorId: context.actorId,
+    });
+    await this.audit('CRM.BonusAdjusted', customerId, context, {
+      amount_bonus: Number(request.amountBonus),
+      balance_after_bonus: result.account.balanceBonus,
+      transaction_id: result.transaction.id,
+    });
+    return {
+      customerId,
+      bonusBalance: result.account.balanceBonus,
+      transaction: result.transaction,
+    };
+  }
+
+  async eraseAndReleaseCustomer(customerId, request, context) {
+    const existing = await this.repository.findCustomer(customerId);
+    if (!existing) throw notFound('Клиент не найден.');
+    const result = await this.repository.eraseAndReleaseCustomer(customerId, {
+      actorId: context.actorId,
+      reason: request.reason,
+    });
+    await this.audit('CRM.CustomerDeletedAndIdentitiesReleased', customerId, context, {
+      released: true,
+      reason: request.reason || null,
+    });
+    return result;
+  }
+
   async assignSegment(customerId, segmentId, request, context) {
     return this.segmentationRuntime.assignCustomer(customerId, segmentId, {
       source: 'CRM',
