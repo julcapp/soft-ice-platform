@@ -113,6 +113,7 @@ async function presentWithEconomics(prisma, value) {
     machineId: saleContext?.machineId || null,
     locationId: saleContext?.locationId || null,
     paymentMethodType: value.paymentMethodType || null,
+    paymentMethodSaved: value.metadata?.providerPaymentMethodSaved === true,
     providerStatus: value.providerStatus || null,
     providerReference: value.providerPaymentId,
     confirmationUrl: value.confirmationUrl || null,

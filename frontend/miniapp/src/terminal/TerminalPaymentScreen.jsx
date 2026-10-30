@@ -14,6 +14,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
   const [availableMethods, setAvailableMethods] = useState([]);
   const [connectionState, setConnectionState] = useState('checking');
   const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const [showClubTeaser, setShowClubTeaser] = useState(false);
 
   useEffect(() => {
     if (method) return undefined;
@@ -129,6 +130,18 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     return () => window.clearTimeout(timer);
   }, [state.phase, state.payment?.fulfillmentState, onComplete]);
 
+  useEffect(() => {
+    if (state.phase !== 'success'
+      || !state.payment?.paymentId
+      || !['WAITING', 'TRANSMITTING', 'PREPARING'].includes(state.payment?.fulfillmentState)) {
+      setShowClubTeaser(false);
+      return undefined;
+    }
+    setShowClubTeaser(true);
+    const timer = window.setTimeout(() => setShowClubTeaser(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [state.phase, state.payment?.paymentId]);
+
   const qrDataUrl = useMemo(() => {
     const url = state.payment?.confirmationUrl;
     if (!url || typeof window.qrcode !== 'function') return null;
@@ -139,6 +152,19 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       return code.createDataURL(8, 4 * 8);
     } catch { return null; }
   }, [state.payment?.confirmationUrl]);
+
+  if (showClubTeaser && state.phase === 'success' && state.payment?.fulfillmentState !== 'COMPLETED') {
+    return <section className="display-payment display-payment-success" aria-labelledby="terminal-payment-club-title">
+      <p className="display-kicker">Спасибо за покупку</p>
+      <h1 id="terminal-payment-club-title">Загляните в свой кабинет</h1>
+      <div className="display-payment-result is-success" role="status">
+        <span aria-hidden="true">★</span>
+        <strong>Там будут ваши бонусы и подарки</strong>
+        <p>После завершения покупки бонусы появятся в вашем кабинете. А мы уже готовим ваше мороженое.</p>
+      </div>
+      <div className="display-waiting" role="status"><span aria-hidden="true" />Переходим к приготовлению заказа…</div>
+    </section>;
+  }
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
   const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success'

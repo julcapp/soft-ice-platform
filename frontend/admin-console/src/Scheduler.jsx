@@ -3,7 +3,7 @@ import{EmptyState,ErrorState,Skeleton}from'./components';
 import{getSchedulerTask,listSchedulerTasks}from'./api/schedulerClient';
 
 const fmt=value=>value?new Date(value).toLocaleString('ru-RU',{timeZone:'Asia/Tomsk'}):'—';
-const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',PARTIAL_FAILURE:'Частично с ошибками',RUNNING:'Выполняется',ACTIVE:'Активен',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
+const statusLabel=value=>({SUCCESS:'Успешно',FAILED:'Ошибка',PARTIAL_FAILURE:'Частично с ошибками',RUNNING:'Выполняется',ACTIVE:'Активен',WARNING:'Требует внимания',NOT_RUN:'Ещё не запускалась'}[value]||value||'—');
 
 export function SchedulerPage(){
   const[state,setState]=useState({status:'loading',items:[],total:0});
@@ -45,7 +45,7 @@ export function SchedulerPage(){
           <p><strong>Часовой пояс:</strong> {selected.timezone}</p>
           <p><strong>Расписание:</strong> {selected.scheduleHuman}</p>
           <p><strong>Техническое расписание:</strong> <code>{selected.scheduleTechnical}</code></p>
-          <p><strong>Последний запуск:</strong> {fmt(selected.lastRunAt)}</p>
+          <p><strong>Последняя активность / запуск:</strong> {fmt(selected.lastRunAt)}</p>
           <p><strong>Следующий запуск:</strong> {fmt(selected.nextRunAt)}</p>
           <p><strong>Хранение:</strong> {selected.retention}</p>
           <p><strong>Режим:</strong> {selected.readOnly?'Только просмотр':'Управляемый'}</p>
@@ -82,7 +82,7 @@ export function SchedulerPage(){
     </section>
 
     {state.items.length?<div className="table-scroll card"><table>
-      <thead><tr><th>Операция</th><th>Тип</th><th>Периодичность</th><th>Последний запуск</th><th>Результат</th><th>Следующий запуск</th><th>Источник</th><th></th></tr></thead>
+      <thead><tr><th>Операция</th><th>Тип</th><th>Периодичность</th><th>Последняя активность / запуск</th><th>Результат</th><th>Следующий запуск</th><th>Источник</th><th></th></tr></thead>
       <tbody>{state.items.map(row=><tr key={row.id}>
         <td><strong>{row.name}</strong><br/><small>{row.description}</small></td>
         <td>{row.category}</td>

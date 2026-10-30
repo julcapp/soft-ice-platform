@@ -36,6 +36,7 @@ TELEGRAM_AUTH_MAX_AGE = 24 * 60 * 60
 MAX_AUTH_MAX_AGE = 60 * 60
 CORE_BACKEND_URL = os.environ.get("SOFT_ICE_CORE_BACKEND_URL", "http://127.0.0.1:8800").strip().rstrip("/")
 IDENTITY_BRIDGE_PURPOSE = "softice.legacy-tma-identity-bridge.v1"
+AUTO_TOPUP_OFFER_VERSION = os.environ.get("AUTO_TOPUP_OFFER_VERSION", "AUTO_TOPUP_OFFER_V1").strip() or "AUTO_TOPUP_OFFER_V1"
 
 PUBLIC_GET_ROUTES = {
     "/preorder-test.html",
@@ -62,6 +63,9 @@ PUBLIC_POST_ROUTES = {
     "/api/tma/preorder/status",
     "/api/tma/account",
     "/api/tma/referral",
+    "/api/tma/auto-topup",
+    "/api/tma/auto-topup/setup",
+    "/api/tma/auto-topup/disable",
     "/api/tma/preorder/activate-pickup",
     "/api/tma/preorder/transfer/create",
     "/api/tma/preorder/transfer/preview",
@@ -628,6 +632,72 @@ def bridge_core_identity(profile: dict) -> dict:
     }
 
 
+def core_bridge_request(path: str, profile: dict, extra: dict | None = None) -> object:
+    if str(profile.get("auth_mode") or "") == "demo":
+        raise ValueError("Автопополнение недоступно в демо-режиме")
+
+    provider = str(profile.get("provider") or "").strip().lower()
+    if provider not in {"telegram", "max"}:
+        raise ValueError("Не удалось определить подтверждённый канал пользователя")
+
+    body_obj = {
+        "provider": provider,
+        "subject": str(profile.get("id") or ""),
+        "username": str(profile.get("username") or ""),
+        "displayName": " ".join(
+            part for part in [
+                str(profile.get("first_name") or "").strip(),
+                str(profile.get("last_name") or "").strip(),
+            ] if part
+        )[:160],
+    }
+    if isinstance(extra, dict):
+        body_obj.update(extra)
+
+    raw = json.dumps(body_obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        identity_bridge_key(),
+        timestamp.encode("utf-8") + b"\n" + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    request = Request(
+        CORE_BACKEND_URL + "/internal/v1/legacy-tma/" + str(path).lstrip("/"),
+        data=raw,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "X-TMA-Bridge-Timestamp": timestamp,
+            "X-TMA-Bridge-Signature": signature,
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        try:
+            payload = json.loads(error.read().decode("utf-8"))
+            message = str((payload.get("error") or {}).get("message") or "")
+        except Exception:
+            message = ""
+        raise ValueError(message or "Операция автопополнения временно недоступна") from error
+    except (URLError, TimeoutError, OSError) as error:
+        raise ValueError("Основной платёжный сервис временно недоступен") from error
+
+    if not isinstance(payload, dict) or "data" not in payload:
+        raise ValueError("Основной платёжный сервис вернул некорректный ответ")
+    return payload.get("data")
+
+
+def ensure_core_identity(profile: dict) -> None:
+    bridge = bridge_core_identity(profile)
+    if bridge.get("status") != "linked" or not bridge.get("customer_id"):
+        if bridge.get("status") == "conflict":
+            raise ValueError("Профиль требует ручной проверки перед финансовыми операциями")
+        raise ValueError("Основной профиль временно недоступен")
+
+
 def authenticate_webapp(payload: dict) -> dict:
     user, auth_mode = webapp_identity(payload.get("platform"), payload.get("init_data"))
     profile = upsert_webapp_profile(user, auth_mode)
@@ -748,6 +818,12 @@ class Handler(SimpleHTTPRequestHandler):
                 result = self.tma_account(payload)
             elif route == "/api/tma/referral":
                 result = self.tma_referral(payload)
+            elif route == "/api/tma/auto-topup":
+                result = self.tma_auto_topup(payload)
+            elif route == "/api/tma/auto-topup/setup":
+                result = self.tma_auto_topup_setup(payload)
+            elif route == "/api/tma/auto-topup/disable":
+                result = self.tma_auto_topup_disable(payload)
             elif route == "/api/tma/preorder/activate-pickup":
                 result = self.activate_tma_pickup(payload)
             elif route == "/api/tma/preorder/transfer/create":
@@ -790,6 +866,38 @@ class Handler(SimpleHTTPRequestHandler):
         profile = authenticate_webapp(payload)
         bridge = bridge_core_identity(profile)
         return {"authenticated": True, "mode": profile["auth_mode"], "provider": profile["provider"], "identity_bridge": bridge, "user": profile}
+
+    @staticmethod
+    def tma_auto_topup(payload: dict) -> object:
+        profile = authenticate_webapp(payload)
+        ensure_core_identity(profile)
+        return core_bridge_request("auto-topup/get", profile)
+
+    @staticmethod
+    def tma_auto_topup_setup(payload: dict) -> object:
+        profile = authenticate_webapp(payload)
+        ensure_core_identity(profile)
+        try:
+            amount_rub = round(float(payload.get("amount_rub") or payload.get("amountRub") or 0), 2)
+            billing_day = int(payload.get("billing_day") or payload.get("billingDay") or 1)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Укажите корректную сумму и день автопополнения") from error
+        if amount_rub <= 0:
+            raise ValueError("Сумма автопополнения должна быть больше нуля")
+        if billing_day < 1 or billing_day > 28:
+            raise ValueError("День автопополнения должен быть от 1 до 28")
+        return core_bridge_request("auto-topup/setup", profile, {
+            "amountRub": amount_rub,
+            "billingDay": billing_day,
+            "offerVersion": AUTO_TOPUP_OFFER_VERSION,
+            "requestId": "legacy-tma:" + secrets.token_hex(16),
+        })
+
+    @staticmethod
+    def tma_auto_topup_disable(payload: dict) -> object:
+        profile = authenticate_webapp(payload)
+        ensure_core_identity(profile)
+        return core_bridge_request("auto-topup/disable", profile)
 
     def referral_landing(self, raw_path: str) -> None:
         parts = [part for part in str(raw_path or "").split("/") if part]

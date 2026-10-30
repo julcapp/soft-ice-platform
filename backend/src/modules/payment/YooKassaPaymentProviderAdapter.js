@@ -48,6 +48,7 @@ class YooKassaPaymentProviderAdapter extends PaymentProviderAdapter {
       description: description || `Оплата заказа ${orderId}`,
       metadata: { payment_id: paymentId, order_id: orderId },
       payment_method_data: { type: normalizedMethod },
+      save_payment_method: false,
       ...(receipt ? { receipt } : {}),
     };
 
@@ -220,6 +221,7 @@ function normalizePayment(object = {}) {
     currency: object.amount?.currency || 'RUB',
     confirmationUrl: object.confirmation?.confirmation_url || null,
     paymentMethodType: object.payment_method?.type || null,
+    paymentMethodSaved: object.payment_method?.saved === true,
     incomeAmount: object.income_amount?.value || null,
     capturedAt: object.captured_at || null,
     createdAt: object.created_at || null,

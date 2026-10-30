@@ -6,7 +6,7 @@ const { ApiError } = require('../platform/errors/ApiError');
 const PURPOSE = 'softice.legacy-tma-identity-bridge.v1';
 const MAX_SKEW_SECONDS = 60;
 
-function createLegacyTmaIdentityBridgeRouter({ legacyTmaIdentityBridgeService }, { logger } = {}) {
+function createLegacyTmaIdentityBridgeRouter({ legacyTmaIdentityBridgeService, customerAutoTopupService }, { logger } = {}) {
   const router = express.Router();
 
   router.use((req, _res, next) => {
@@ -25,6 +25,33 @@ function createLegacyTmaIdentityBridgeRouter({ legacyTmaIdentityBridgeService },
       correlationId: req.correlationId,
     });
     sendData(res, req, result);
+  }));
+
+  router.post('/auto-topup/get', asyncHandler(async (req, res) => {
+    const identity = await legacyTmaIdentityBridgeService.resolve(req.body || {}, { correlationId: req.correlationId });
+    sendData(res, req, await customerAutoTopupService.get(identity.customerId));
+  }));
+
+  router.post('/auto-topup/setup', asyncHandler(async (req, res) => {
+    const identity = await legacyTmaIdentityBridgeService.resolve(req.body || {}, { correlationId: req.correlationId });
+    const result = await customerAutoTopupService.setup(
+      identity.customerId,
+      {
+        amountRub: req.body?.amountRub,
+        billingDay: req.body?.billingDay,
+        offerVersion: req.body?.offerVersion,
+      },
+      {
+        idempotencyKey: req.body?.requestId || null,
+        correlationId: req.correlationId,
+      },
+    );
+    sendData(res, req, result, result.setupPayment ? 201 : 200);
+  }));
+
+  router.post('/auto-topup/disable', asyncHandler(async (req, res) => {
+    const identity = await legacyTmaIdentityBridgeService.resolve(req.body || {}, { correlationId: req.correlationId });
+    sendData(res, req, await customerAutoTopupService.disable(identity.customerId));
   }));
 
   return router;

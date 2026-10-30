@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 SERVICE=softice-display-backend-8800.service
@@ -135,7 +135,7 @@ fi
 curl -fsS http://127.0.0.1:8800/api/v1/ >/tmp/softice-runtime-health.json
 
 echo "== VERIFY SUDOERS =="
-runuser -u julcapp -- sudo -n "$SYSTEMCTL" status "$SERVICE" --no-pager >/dev/null
+runuser -u julcapp -- sudo -n "$SYSTEMCTL" status "$SERVICE" >/dev/null
 
 trap - ERR
 echo "SOFTICE_RUNTIME_MIGRATION_OK"

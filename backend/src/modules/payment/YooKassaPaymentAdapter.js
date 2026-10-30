@@ -37,6 +37,7 @@ class YooKassaPaymentAdapter {
       description: description || `Заказ ${orderId}`,
       metadata: { order_id: orderId },
       payment_method_data: { type: normalizedMethod },
+      save_payment_method: false,
     };
 
     return this._request('/payments', {
