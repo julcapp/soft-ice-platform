@@ -12,7 +12,7 @@ async function manageCustomerAccount({repository, audit, customerId, request, co
  try { plan=planCustomerAction(customer,request,clock()); }
  catch (e) { throw error(e.message,e.message); }
  if (plan.action==='delete') throw error('Retention review is required before deletion','CUSTOMER_DELETE_REVIEW_REQUIRED',409);
- if (plan.requiresScheduler && typeof repository.hasExpiryScheduler==='function' && !(await repository.hasExpiryScheduler())) throw error('Expiry scheduler is not enabled','CUSTOMER_EXPIRY_SCHEDULER_REQUIRED',409);
+ if (plan.requiresScheduler && (typeof repository.hasExpiryScheduler !== 'function' || !(await repository.hasExpiryScheduler()))) throw error('Expiry scheduler is not enabled','CUSTOMER_EXPIRY_SCHEDULER_REQUIRED',409);
  // The repository must commit the mutation and durable audit atomically.
  const updated=await repository.applyAccountAction({customerId,plan,actorId:context.actorId,correlationId:context.correlationId,audit});
  return updated;

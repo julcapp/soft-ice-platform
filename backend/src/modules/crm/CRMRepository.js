@@ -3,6 +3,46 @@ class CRMRepository {
     this.prisma = prisma;
   }
 
+  // All account mutations and security audit entries commit in the same transaction.
+  // Block metadata columns must exist before enabling block/unblock actions.
+  async applyAccountAction({ customerId, plan, actorId, correlationId }) {
+    if (!actorId) throw new Error('ADMIN_IDENTITY_REQUIRED');
+    if (!['edit', 'block', 'unblock'].includes(plan.action)) throw new Error('UNSUPPORTED_ACCOUNT_ACTION');
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.customer.findUnique({ where: { id: customerId }, select: { id: true, status: true } });
+      if (!current || current.status === 'deleted_released') throw new Error('CUSTOMER_NOT_AVAILABLE');
+      let affected = 0;
+      if (plan.action === 'edit') {
+        affected = (await tx.customer.updateMany({ where: { id: customerId, status: { not: 'deleted_released' } }, data: { name: plan.name } })).count;
+      } else if (plan.action === 'block') {
+        affected = await tx.$executeRaw`
+          UPDATE "Customer" SET "status"='blocked', "blockReason"=${plan.reason},
+          "blockedAt"=NOW(), "blockedUntil"=${plan.until ? new Date(plan.until) : null},
+          "updatedAt"=NOW() WHERE "id"=${customerId} AND "status"='active'
+        `;
+      } else {
+        affected = await tx.$executeRaw`
+          UPDATE "Customer" SET "status"='active', "blockReason"=NULL,
+          "blockedAt"=NULL, "blockedUntil"=NULL, "updatedAt"=NOW()
+          WHERE "id"=${customerId} AND "status"='blocked'
+        `;
+      }
+      if (affected !== 1) throw new Error('CUSTOMER_ACTION_CONFLICT');
+      await tx.auditEvent.create({ data: {
+        eventType: 'CRM.CustomerAccountAction', subjectType: 'administrator', subjectId: actorId,
+        targetType: 'Customer', targetId: customerId, action: plan.action, decision: 'success',
+        sourceChannel: 'crm', correlationId: correlationId || null,
+        metadata: { reason: plan.reason || null, until: plan.until || null, nameChanged: plan.action === 'edit' },
+      } });
+    });
+    return this.findCustomer(customerId);
+  }
+
+  async hasExpiryScheduler() {
+    // Fail closed until the dedicated expiry worker is deployed and health-checked.
+    return false;
+  }
+
   async listCustomers({ query = '', limit = 50 } = {}) {
     const where = query ? {
       status: { not: 'deleted_released' },

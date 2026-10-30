@@ -44,6 +44,18 @@ class CRMService {
     return this.getCustomerCard(customerId);
   }
 
+  async manageAccount(customerId, request, context) {
+    const { manageCustomerAccount } = require('./manageCustomerAccount');
+    const result = await manageCustomerAccount({
+      repository: this.repository,
+      audit: async () => {
+        // applyAccountAction creates the durable audit event inside its DB transaction.
+      },
+      customerId, request, context, clock: this.clock,
+    });
+    return toCustomerCard(result);
+  }
+
   async topUp(customerId, request, context) {
     const result = await this.clubAccountRuntime.topUpOwnAccount(customerId, request, {
       correlationId: context.correlationId,
