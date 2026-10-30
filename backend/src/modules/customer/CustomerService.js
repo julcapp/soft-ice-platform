@@ -1,3 +1,4 @@
+const { assertCustomerAccess } = require('./CustomerAccessPolicy');
 const { ApiError } = require('../../platform/errors/ApiError');
 const { sha256 } = require('../../platform/security/hash');
 const {
@@ -22,6 +23,7 @@ class CustomerService {
     );
 
     if (existing) {
+      assertCustomerAccess(existing.customer, this.clock());
       const updated = await this.customerRepository.updateExternalIdentitySeen(existing.identity.id, {
         displayName,
         username: telegramIdentity.user.username,
@@ -68,7 +70,29 @@ class CustomerService {
     if (!customer) {
       throw new ApiError({ statusCode: 404, code: 'RESOURCE_NOT_FOUND', message: 'Customer was not found.', source: 'runtime' });
     }
+    assertCustomerAccess(customer, this.clock());
     return customer;
+  }
+
+  async verifyTelegramBotPhone(customerId, request, context) {
+    const rawPhone = String(request.phone || '');
+    const phone = normalizePhone(rawPhone.startsWith('+') ? rawPhone : '+' + rawPhone);
+    const identity = await this.customerRepository.findByIdentity('telegram', sha256(String(request.externalUserId)));
+    if (!phone || !request.externalUserId || String(request.contactUserId) !== String(request.externalUserId)
+      || identity?.customer?.id !== customerId || context.authMethod !== 'telegram_bot') {
+      throw new ApiError({ statusCode: 401, code: 'PHONE_VERIFICATION_FAILED', message: 'Own Telegram contact is required.' });
+    }
+    const customer = identity.customer;
+    if (customer.phoneVerifiedAt && customer.phone) {
+      if (customer.phone === phone) return customer;
+      throw new ApiError({ statusCode: 409, code: 'IDENTITY_CONFLICT', message: 'Verified phone cannot be replaced through bot onboarding.' });
+    }
+    const updated = await this.customerRepository.setVerifiedPhone(customerId, { phone, verifiedAt: this.clock() });
+    await this.auditRepository.record({ eventType: 'Customers.PhoneVerified', subjectType: 'user', subjectId: customerId,
+      targetType: 'Customer', targetId: customerId, action: 'verify_phone', decision: 'success',
+      reasonCode: 'own_telegram_contact_verified', authMethod: 'telegram_bot', sourceChannel: 'telegram',
+      correlationId: context.correlationId, metadata: { verification_method: 'telegram_own_contact' } });
+    return updated;
   }
 
   async verifyOwnPhone(customerId, request, context) {

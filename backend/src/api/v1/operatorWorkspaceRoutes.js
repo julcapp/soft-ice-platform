@@ -1,9 +1,11 @@
 const express = require('express');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
+const { ApiError } = require('../../platform/errors/ApiError');
 
 function createOperatorWorkspaceRouter({ operatorWorkspaceRuntime }) {
   const router = express.Router();
   router.use((req, res, next) => {
+    if (process.env.NODE_ENV === 'production') return next(new ApiError({ statusCode: 503, code: 'OPERATOR_DEMO_UNAVAILABLE', message: 'Откройте рабочий кабинет в служебной панели.' }));
     req.operatorWorkspaceContext = {
       actorId: req.get('X-Operator-ID') || null,
       roles: (req.get('X-Operator-Role') || '').split(',').map((role) => role.trim().toUpperCase()).filter(Boolean),

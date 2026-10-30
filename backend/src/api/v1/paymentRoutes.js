@@ -1,5 +1,15 @@
 const express = require('express');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
+const { getPrismaClient } = require('../../common/database');
+const { PaymentAttemptRepository, PaymentOrchestrator, YooKassaPaymentAdapter } = require('../../modules/payment');
+const { FiftiethPurchaseGiftResolver } = require('../../modules/promotion_engine');
+function resolvePaymentOrchestrator(dependencies = {}) {
+  if (dependencies.paymentOrchestrator) return dependencies.paymentOrchestrator;
+  if (!dependencies.orderRuntime) { const error = new Error('Order runtime is not configured for payments.'); error.code = 'PAYMENT_ORDER_RUNTIME_UNAVAILABLE'; error.statusCode = 503; error.source = 'payment'; throw error; }
+  const prisma = dependencies.prisma || getPrismaClient();
+  const giftResolver = dependencies.giftRewardResolver || new FiftiethPurchaseGiftResolver({ prisma });
+  return new PaymentOrchestrator({ repository: new PaymentAttemptRepository(prisma), adapter: dependencies.yooKassaPaymentAdapter || new YooKassaPaymentAdapter(), orderRuntime: dependencies.orderRuntime, fiftiethPurchaseGiftResolver: giftResolver });
+}
 function createPaymentWebhookRouter({ paymentService }) {
   const router = express.Router();
   router.post('/:provider', async (req, res, next) => { try {
@@ -17,4 +27,4 @@ function createPaymentRouter({ paymentRepository, adminAuth = {} }) {
 }
 function present(value) { return { id: value.id, orderId: value.orderId, organizationId: value.organizationId, provider: value.provider, status: value.status, amount: String(value.amount), currency: value.currency, createdAt: value.createdAt, updatedAt: value.updatedAt, providerReference: value.providerPaymentId, reconciliationStatus: value.reconciliationItems?.some(x => ['OPEN','MANUAL_REVIEW'].includes(x.status)) ? 'ТРЕБУЕТ ПРОВЕРКИ' : 'РАСХОЖДЕНИЙ НЕТ', refunds: value.refunds || [] }; }
 function forbidden(){return Object.assign(new Error('Tenant scope обязателен.'),{code:'PAYMENT_TENANT_SCOPE_REQUIRED',statusCode:403});}
-module.exports = { createPaymentRouter, createPaymentWebhookRouter };
+module.exports = { createPaymentRouter, createPaymentWebhookRouter, resolvePaymentOrchestrator };

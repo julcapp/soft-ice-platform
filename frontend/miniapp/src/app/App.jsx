@@ -8,24 +8,50 @@ import { OperatorWorkspacePage } from '../operator/OperatorWorkspacePage.jsx';
 import { SalesTerminalPage } from '../terminal/SalesTerminalPage.jsx';
 import { MyGifts } from '../gift-transfer/GiftTransferScreens.jsx';
 import { GiftTransferApi } from '../gift-transfer/GiftTransferApi.js';
+import { PhotoPublicationHistory } from '../photo-verification/PhotoPublicationHistory.jsx';
+import { PhotoCameraScreen } from '../photo-verification/PhotoCameraScreen.jsx';
+import { ProfileCenter } from '../profile/ProfileCenter.jsx';
+import { ReferralCenter } from '../profile/ReferralCenter.jsx';
+import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
+import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
+import { PaymentResultScreen } from '../payment/PaymentResultScreen.jsx';
 
 export function App() {
-  const appMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), []);
+  const appMode = useMemo(() => {
+    const requestedMode = new URLSearchParams(window.location.search).get('mode');
+    if (requestedMode) return requestedMode;
+    if (window.location.hostname === 'display.utimoshi.ru') return 'terminal';
+    return null;
+  }, []);
   const source = useMemo(() => getInitialSource(), []);
   const [settings, setSettings] = useState(() => readUserSettings());
   const [screen, setScreen] = useState('home');
 
-  useEffect(() => {
-    trackEvent('MiniAppOpened', { source, settings_version: settings?.version || null });
-  }, [source, settings]);
+  useEffect(() => { trackEvent('MiniAppOpened', { source, settings_version: settings?.version || null }); }, [source, settings]);
 
   if (appMode === 'operator') return <OperatorWorkspacePage />;
   if (appMode === 'terminal') return <SalesTerminalPage />;
   if (appMode === 'gifts') return <MyGifts gifts={[]} api={GiftTransferApi} />;
-
-  if (screen === 'product') {
-    return <ProductScreen onBack={() => setScreen('home')} />;
+  if (appMode === 'photos') return <PhotoPublicationHistory onCamera={() => { window.location.search = '?mode=camera'; }} />;
+  if (appMode === 'camera') return <PhotoCameraScreen onBack={() => { window.location.search = '?mode=photos'; }} onSubmitted={() => { window.location.search = '?mode=photos'; }} />;
+  if (appMode === 'verify-email') return <VerifyEmailScreen />;
+  if (appMode === 'private-channel') return <PrivateChannelScreen onBack={() => { window.location.href = '/'; }} />;
+  if (appMode === 'payment-return') {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('orderId');
+    const paymentSource = params.get('source');
+    const machineId = params.get('machineId');
+    const goHome = () => { window.location.href = paymentSource === 'terminal' && machineId ? `/?machineId=${encodeURIComponent(machineId)}` : '/'; };
+    const retry = () => { window.location.href = paymentSource === 'terminal' && machineId ? `/?machineId=${encodeURIComponent(machineId)}` : '/'; };
+    return <PaymentResultScreen orderId={orderId} source={paymentSource} machineId={machineId} onDone={goHome} onRetry={retry} />;
   }
 
-  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} />;
+  if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
+  if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
+  if (screen === 'camera') return <PhotoCameraScreen onBack={() => setScreen('home')} onSubmitted={() => setScreen('photos')} />;
+  if (screen === 'profile') return <ProfileCenter onBack={() => setScreen('home')} />;
+  if (screen === 'referral') return <ReferralCenter onBack={() => setScreen('home')} />;
+  if (screen === 'private-channel') return <PrivateChannelScreen onBack={() => setScreen('home')} />;
+
+  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} onProfile={() => setScreen('profile')} onReferral={() => setScreen('referral')} onPrivateChannel={() => setScreen('private-channel')} />;
 }

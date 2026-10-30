@@ -4,6 +4,7 @@ class CRMRuntime {
   listCustomers(options) { return this.service.listCustomers(options); }
   getCustomerCard(customerId) { return this.service.getCustomerCard(customerId); }
   updateCustomerCard(customerId, request, context) { return this.service.updateCustomerCard(customerId, request, context); }
+  manageAccount(customerId, request, context) { return this.service.manageAccount(customerId, request, context); }
   topUp(customerId, request, context) { return this.service.topUp(customerId, request, context); }
   adjustBonus(customerId, request, context) { return this.service.adjustBonus(customerId, request, context); }
   eraseAndReleaseCustomer(customerId, request, context) { return this.service.eraseAndReleaseCustomer(customerId, request, context); }

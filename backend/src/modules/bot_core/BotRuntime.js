@@ -1,0 +1,155 @@
+const { parseStartPayload } = require('./DeepLinkParser');
+
+class BotRuntime {
+  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, terminalChannelChallengeService = null, recipientBindingService = null, referralAttributionService = null, sender, logger = console } = {}) {
+    this.adapters = adapters;
+    this.renderers = renderers;
+    this.actionRouter = actionRouter;
+    this.onboardingService = onboardingService;
+    this.customerResolver = customerResolver;
+    this.terminalChannelChallengeService = terminalChannelChallengeService;
+    this.recipientBindingService = recipientBindingService;
+    this.referralAttributionService = referralAttributionService;
+    this.sender = sender;
+    this.logger = logger;
+  }
+
+  async handle(channel, rawUpdate) {
+    const adapter = this.adapters[channel];
+    const renderer = this.renderers[channel];
+    if (!adapter || !renderer) throw new Error(`Unsupported bot channel: ${channel}`);
+
+    const inbound = adapter.normalizeInbound(rawUpdate);
+    const callback = extractCallback(channel, rawUpdate);
+    let identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
+
+    let view;
+    const startContext = parseStartPayload(inbound.payload);
+
+    if (channel === 'telegram' && inbound.contact && this.onboardingService?.verifyTelegramContact) {
+      view = await this.onboardingService.verifyTelegramContact({ channel, externalUserId: inbound.externalUserId, contact: inbound.contact, profile: inbound.profile, metadata: inbound.metadata });
+    } else if (inbound.contact && this.terminalChannelChallengeService) {
+      const verification = await this.terminalChannelChallengeService.verifyContact({
+        channel,
+        externalUserId: inbound.externalUserId,
+        phone: inbound.contact.phone,
+        contactVerified: inbound.contact.verified === true,
+      });
+      identity = { customerId: verification.customer.id, customer: verification.customer };
+      view = {
+        title: 'Номер подтверждён',
+        text: 'Номер телефона успешно подтверждён. Теперь необходимо подтвердить согласия.',
+        actions: [],
+      };
+    } else if (isStartUpdate(channel, rawUpdate)
+      && startContext.verificationChallengeToken
+      && this.terminalChannelChallengeService) {
+      await this.terminalChannelChallengeService.start({
+        channel,
+        token: startContext.verificationChallengeToken,
+        externalUserId: inbound.externalUserId,
+      });
+      view = {
+        title: 'Подтвердите номер телефона',
+        text: 'Чтобы продолжить регистрацию в Клубе Тимоши, поделитесь номером телефона через MAX.',
+        actions: [
+          { type: 'request_contact', label: 'Поделиться номером и подтвердить' },
+        ],
+      };
+    } else if (callback?.kind === 'action') {
+      view = await this.actionRouter.route({
+        action: callback.value,
+        customerId: identity.customerId,
+        channel,
+        context: { inbound, rawUpdate },
+      });
+    } else if (callback?.kind === 'copy') {
+      view = {
+        title: 'Ссылка для приглашения',
+        text: callback.value,
+        actions: [{ type: 'action', label: '← Назад', action: 'referral' }],
+      };
+    } else if (isStartUpdate(channel, rawUpdate) && this.onboardingService) {
+      const context = parseStartPayload(inbound.payload);
+      view = await this.onboardingService.start({
+        channel,
+        externalUserId: inbound.externalUserId,
+        profile: inbound.profile,
+        payload: inbound.payload,
+        context,
+        metadata: inbound.metadata,
+      });
+    } else {
+      view = await this.actionRouter.route({
+        action: 'menu',
+        customerId: identity.customerId,
+        channel,
+        context: { inbound, rawUpdate },
+      });
+    }
+
+    if (!identity.customerId && (isStartUpdate(channel, rawUpdate) || inbound.contact)) {
+      identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
+    }
+    if (this.referralAttributionService) await this.referralAttributionService.observe({
+      channel, inbound, identity,
+      startCode: isStartUpdate(channel, rawUpdate) ? parseStartPayload(inbound.payload).referralCode : null,
+    });
+    await this.observeRecipientBinding({ channel, inbound, identity });
+
+    const rendered = renderer.renderView(view, { chatType: inbound.metadata?.chatType, externalUserId: inbound.externalUserId });
+    const destination = resolveDestination(channel, inbound, rawUpdate);
+    const result = await this.sender.send({ channel, destination, rendered, rawUpdate });
+    return { inbound, identity, callback, view, rendered, destination, result };
+  }
+
+  async observeRecipientBinding({ channel, inbound, identity }) {
+    if (!this.recipientBindingService || !identity?.customerId) return;
+    try {
+      await this.recipientBindingService.observeInbound({
+        customerId: identity.customerId,
+        channel,
+        externalUserId: inbound.externalUserId,
+        metadata: inbound.metadata,
+      });
+    } catch (error) {
+      this.logger?.warn?.('bot.recipient_binding.rejected', {
+        channel,
+        customerId: identity.customerId,
+        code: error.code || 'BOT_RECIPIENT_BINDING_FAILED',
+      });
+    }
+  }
+}
+
+function extractCallback(channel, update = {}) {
+  const raw = channel === 'telegram'
+    ? update.callback_query?.data
+    : update.callback?.payload || update.message?.body?.attachments?.find?.((a) => a.type === 'callback')?.payload?.payload || update.payload;
+  if (!raw || typeof raw !== 'string') return null;
+  if (raw.startsWith('action:')) return { kind: 'action', value: raw.slice(7) };
+  if (raw.startsWith('copy:')) return { kind: 'copy', value: raw.slice(5) };
+  return null;
+}
+
+function isStartUpdate(channel, update = {}) {
+  if (channel === 'telegram') return /^\/start(?:\s|$)/.test(update.message?.text || '');
+  const text = update.message?.body?.text || update.message?.text || update.text || '';
+  return update.update_type === 'bot_started'
+    || update.type === 'bot_started'
+    || /^\/start(?:\s|$)/.test(String(text))
+    || Boolean(update.start_payload);
+}
+
+function resolveDestination(channel, inbound, update = {}) {
+  if (channel === 'telegram') {
+    return {
+      chatId: inbound.metadata?.chatId,
+      userId: inbound.externalUserId,
+      callbackQueryId: update.callback_query?.id || null,
+    };
+  }
+  return { chatId: inbound.metadata?.chatId || update.chat_id || null, userId: inbound.externalUserId };
+}
+
+module.exports = { BotRuntime, extractCallback, isStartUpdate, resolveDestination };

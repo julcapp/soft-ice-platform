@@ -8,7 +8,7 @@ const {
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 
-function createClubAccountRouter({ authCoreService, clubAccountRuntime }) {
+function createClubAccountRouter({ authCoreService, clubAccountRuntime, customerAutoTopupService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -83,6 +83,39 @@ function createClubAccountRouter({ authCoreService, clubAccountRuntime }) {
       );
 
       sendData(res, req, toClubAccountTopUpDto(result), result.created ? 201 : 200);
+    }),
+  );
+
+  router.get(
+    '/me/auto-topup',
+    authenticateCustomer,
+    asyncHandler(async (req, res) => {
+      sendData(res, req, await customerAutoTopupService.get(req.securityContext.subject_id));
+    }),
+  );
+
+  router.post(
+    '/me/auto-topup',
+    authenticateCustomer,
+    asyncHandler(async (req, res) => {
+      const result = await customerAutoTopupService.setup(
+        req.securityContext.subject_id,
+        {
+          amountRub: req.body?.amountRub ?? req.body?.amount,
+          billingDay: req.body?.billingDay ?? 1,
+          offerVersion: req.body?.offerVersion,
+        },
+        { idempotencyKey: req.get('Idempotency-Key') || null, correlationId: req.correlationId },
+      );
+      sendData(res, req, result, result.setupPayment ? 201 : 200);
+    }),
+  );
+
+  router.post(
+    '/me/auto-topup/disable',
+    authenticateCustomer,
+    asyncHandler(async (req, res) => {
+      sendData(res, req, await customerAutoTopupService.disable(req.securityContext.subject_id));
     }),
   );
 

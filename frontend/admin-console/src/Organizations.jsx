@@ -10,9 +10,9 @@ const tabs = [['overview','Обзор'],['structure','Структура'],['mem
 export function OrganizationsPage({ route, clients = api }) {
   const [, organizationId, requestedTab = 'overview'] = route.split('/');
   const [state,setState]=useState({status:'loading'});
-  useEffect(()=>{const controller=new AbortController(); const load=organizationId ? Promise.all([
+  useEffect(()=>{const controller=new AbortController(); const load=Promise.resolve().then(()=>organizationId ? Promise.all([
     clients.getOrganization(organizationId,{signal:controller.signal}), clients.getOrganizationUnits(organizationId,{signal:controller.signal}), clients.getOrganizationMembers(organizationId,{signal:controller.signal}), clients.getOrganizationLocations(organizationId,{signal:controller.signal}), clients.getOrganizationMachines(organizationId,{signal:controller.signal}), clients.getOrganizationResponsibilities(organizationId,{signal:controller.signal}), clients.getOrganizationEvents(organizationId,{signal:controller.signal}), clients.getOrganizationMetrics(organizationId,{signal:controller.signal}),
-  ]).then(([organization,units,members,locations,machines,responsibilities,events,metrics])=>({organization,units,members,locations,machines,responsibilities,events:events.items||events,metrics})) : clients.getOrganizations({signal:controller.signal});
+  ]).then(([organization,units,members,locations,machines,responsibilities,events,metrics])=>({organization,units,members,locations,machines,responsibilities,events:events.items||events,metrics})) : clients.getOrganizations({signal:controller.signal}));
   load.then(data=>setState({status:'ready',data})).catch(error=>{if(error.name!=='AbortError')setState({status:error.status===403?'denied':'error'});}); return()=>controller.abort();},[organizationId,clients]);
   if(state.status==='loading')return <Skeleton/>; if(state.status==='denied')return <ErrorState kind="denied"/>; if(state.status==='error')return <ErrorState/>;
   if(!organizationId)return <OrganizationList organizations={state.data}/>;
