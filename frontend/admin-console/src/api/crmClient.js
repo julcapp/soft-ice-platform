@@ -1,4 +1,4 @@
-import { adminAuthHeaders } from './adminAuth';
+﻿import { adminAuthHeaders } from './adminAuth';
 const headers = adminAuthHeaders();
 
 async function request(path, options = {}) {
@@ -23,3 +23,6 @@ export const createCRMCampaign = (payload, { signal, idempotencyKey } = {}) => r
 
 export const adjustCRMCustomerBonus = (customerId, payload, { signal, idempotencyKey } = {}) => request(`/customers/${customerId}/bonus-adjustments`, { method: 'POST', signal, headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined, body: JSON.stringify(payload) });
 export const eraseAndReleaseCRMCustomer = (customerId, payload = {}, { signal, idempotencyKey } = {}) => request(`/customers/${customerId}/erase-and-release`, { method: 'POST', signal, headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined, body: JSON.stringify(payload) });
+
+export const manageCRMAccount = (customerId, payload, { signal, idempotencyKey } = {}) => request('/customers/' + encodeURIComponent(customerId) + '/account-actions', { method: 'POST', signal, headers: { 'Content-Type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, body: JSON.stringify(payload) });
+
