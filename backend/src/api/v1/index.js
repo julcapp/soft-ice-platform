@@ -29,6 +29,8 @@ const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
+const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
+const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -65,6 +67,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(dependencies));
   }
   router.use('/telegram', createTelegramRouter(dependencies));
+  router.use('/admin', createAdminRouteBoundary(dependencies.adminAuth || {}));
+  if (dependencies.adminAuth?.sessionService) router.use('/admin/security', createAdministratorSecurityRouter(dependencies));
   router.use('/admin/dashboard', createAdminDashboardRouter(dependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(dependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(dependencies));

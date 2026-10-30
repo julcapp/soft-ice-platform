@@ -1,7 +1,7 @@
 export async function getDashboard({ signal } = {}) {
   const response = await fetch('/api/v1/admin/dashboard', {
     signal,
-    headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN' },
+    headers: adminAuthHeaders(),
   });
   if (!response.ok) {
     const error = new Error('Dashboard data is unavailable.');
@@ -10,3 +10,4 @@ export async function getDashboard({ signal } = {}) {
   }
   return response.json();
 }
+import { adminAuthHeaders } from './adminAuth';

@@ -1,4 +1,5 @@
-const headers = { 'X-Admin-Role': 'ADMIN', 'X-Admin-Subject': 'customer-360-workspace' };
+import { adminAuthHeaders } from './adminAuth';
+const headers = adminAuthHeaders();
 async function request(path, options = {}) {
   const response = await fetch(`/api/v1/admin/customer-360${path}`, { ...options, headers: { ...headers, ...options.headers } });
   if (!response.ok) throw new Error('Не удалось загрузить единый профиль клиента.');

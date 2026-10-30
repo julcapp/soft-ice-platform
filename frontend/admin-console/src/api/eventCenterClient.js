@@ -1,4 +1,5 @@
-const headers = { 'X-Admin-Role': 'PLATFORM_OWNER', 'X-Admin-Subject': 'event-center-console' };
+import { adminAuthHeaders } from './adminAuth';
+const headers = adminAuthHeaders();
 async function request(path, options = {}) {
   const response = await fetch(`/api/v1/admin${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...headers, ...options.headers } });
   if (!response.ok) { const error = new Error('Не удалось выполнить запрос Центра событий.'); error.status = response.status; throw error; }

@@ -1,4 +1,5 @@
-const headers = { 'X-Admin-Role': 'PLATFORM_OWNER', 'X-Admin-Subject': 'organization-360-console' };
+import { adminAuthHeaders } from './adminAuth';
+const headers = adminAuthHeaders();
 async function request(path, { signal } = {}) {
   const response = await fetch(`/api/v1/organizations${path}`, { signal, headers });
   if (!response.ok) { const error = new Error(response.status === 403 ? 'Нет доступа к этой организации.' : 'Не удалось загрузить данные организации.'); error.status = response.status; throw error; }
