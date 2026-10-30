@@ -1,0 +1,17 @@
+﻿/* Compact Customer 360 layout: empty blocks stay small; rows expand naturally. */
+.user-detail-compact { gap: 12px; }
+.user-detail-compact .crm-grid { gap: 12px; align-items: start; }
+.user-detail-compact .crm-grid > * { align-self: start; min-height: 0; }
+.user-detail-compact .card { padding: 16px 18px; }
+.user-detail-compact .table-card { min-height: 0; height: auto; }
+.user-detail-compact .table-card .card-heading { margin-bottom: 8px; }
+.user-detail-compact .table-card .card-heading h2 { font-size: 15px; }
+.user-detail-compact .table-card .empty-state { min-height: 0; padding: 12px 8px; gap: 4px; }
+.user-detail-compact .table-card .empty-state > span { width: 30px; height: 30px; font-size: 14px; margin: 0 auto 4px; }
+.user-detail-compact .table-card .empty-state h2 { margin: 0; font-size: 14px; line-height: 1.35; }
+.user-detail-compact .table-card .empty-state p { margin: 4px 0 0; font-size: 12px; }
+.user-detail-compact .table-scroll { overflow-x: auto; }
+.user-detail-compact .table-scroll th, .user-detail-compact .table-scroll td { padding: 9px 10px; }
+.user-detail-compact .statistics { gap: 12px; }
+@media (max-width: 850px) { .user-detail-compact .crm-grid { grid-template-columns: 1fr; } }
+

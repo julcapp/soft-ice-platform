@@ -1,3 +1,4 @@
+﻿import './user-detail-compact.css';
 import { useBeforeNavigation, useNavigation, NavigationSaveProvider } from './NavigationSave';
 import { TestClubAccount } from './TestClubAccount';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -73,7 +74,7 @@ function UserCard({ customerId, clients }) {
     catch (error) { setNotice(error.code === 'CRM_CHANNEL_NOT_ACTIVE' ? 'Канал уже не активен. Обновите карточку пользователя.' : 'Не удалось поставить сообщение в очередь.'); }
     finally { setSending(false); }
   }
-  return <div className="crm-workspace">
+  return <div className="crm-workspace user-detail-compact">
     <a className="back-link" href="#users">← Назад к списку пользователей</a>
     <section className="card customer-identity"><div><p>Карточка пользователя 360°</p><h2>{profile.identification?.name || card.name || 'Имя не указано'}</h2><span>{profile.identification?.phone || card.phone || 'Телефон не указан'} · {profile.identification?.email || card.email || 'Email не указан'}</span><small style={{ display: 'block', marginTop: 6 }}>Customer ID: {customerId}</small></div><StatusBadge status={String(profile.identification?.status || card.status).toUpperCase()} /></section>
     <section className="statistics" aria-label="Сводка пользователя"><StatisticCard label="Денег на клубном счёте" value={money(card.loyalty?.clubAccount?.availableBalanceRub)} detail={`Резерв: ${money(card.loyalty?.clubAccount?.reservedBalanceRub)}`} /><StatisticCard label="Бонусов" value={card.loyalty?.bonusAccount?.balanceBonus || 0} /><StatisticCard label="Покупок" value={profile.purchaseSummary?.count || card.purchases?.length || 0} detail={`Потрачено: ${money(profile.purchaseSummary?.spentRub)}`} /><StatisticCard label="Рефералов" value={invited.filter((item) => item.referredCustomerId).length} detail={`Активных: ${invited.filter((item) => item.firstPurchaseAt).length}`} /><StatisticCard label="Клуб" value={card.loyalty?.clubAccount?.clubActive ? 'Участник' : 'Не активен'} detail={`С ${date(card.loyalty?.clubAccount?.activatedAt)}`} /><StatisticCard label="Активные каналы" value={active.length} detail={active.map(channelLabel).join(' · ') || 'Нет'} /></section>
@@ -140,3 +141,4 @@ function AccountControls({ card, clients, onSaved }) {
     {notice && <p role="status">{notice}</p>}
   </section>;
 }
+

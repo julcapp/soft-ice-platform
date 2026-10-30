@@ -11,6 +11,7 @@ enum OrderStatus {
   CREATED
   PAYMENT_PENDING
   PAID
+  GIFT_TRANSFERRED
   DISPENSING
   COMPLETED
   FAILED
@@ -2544,4 +2545,26 @@ model EventDeletionAudit {
   metadata        Json?
 
   @@index([eventId, deletedAt])
+}
+
+model BotRecipientBinding {
+  id                  String   @id @default(uuid())
+  customerId          String
+  channel             String
+  externalSubjectHash String
+  recipientCiphertext String
+  recipientType       String
+  keyVersion          Int      @default(1)
+  status              String   @default("ACTIVE")
+  source              String
+  verifiedAt          DateTime
+  lastSeenAt          DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, channel])
+  @@unique([channel, externalSubjectHash])
+  @@index([status, lastSeenAt])
 }
