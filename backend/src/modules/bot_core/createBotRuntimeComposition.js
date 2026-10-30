@@ -1,3 +1,4 @@
+const { assertCustomerAccess } = require('../customer/CustomerAccessPolicy');
 const { getPrismaClient } = require('../../common/database');
 const { sha256 } = require('../../platform/security/hash');
 const { CustomerRepository } = require('../customer/CustomerRepository');
@@ -7,6 +8,7 @@ const { WelcomeBonusRepository } = require('../welcome_bonus');
 const { TelegramAdapter } = require('./TelegramAdapter');
 const { MaxAdapter } = require('./MaxAdapter');
 const { TelegramRenderer } = require('./TelegramRenderer');
+const { createTestMiniAppEntryPolicy } = require('./TestMiniAppEntryPolicy');
 const { MaxRenderer } = require('./MaxRenderer');
 const { BotTransportSender } = require('./BotTransportSender');
 const { BotRuntime } = require('./BotRuntime');
@@ -15,6 +17,9 @@ const { BotOnboardingService } = require('./BotOnboardingService');
 const { BotUserFlowService } = require('./BotUserFlowService');
 const { BotGiftActionService } = require('./BotGiftActionService');
 const { buildMainMenu } = require('./OnboardingPolicy');
+const { BotReferralAttributionService } = require('./BotReferralAttributionService');
+const { createBotReferralLinks } = require('./BotReferralLinks');
+const { PrepaidOrderReminderWorker } = require('./PrepaidOrderReminderWorker');
 
 function createBotRuntimeComposition({ dependencies, env = process.env, clients = {}, logger = console } = {}) {
   if (!dependencies?.customerRuntime) throw new Error('customerRuntime dependency is required.');
@@ -27,11 +32,15 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
   const bonusRepository = { findByCustomerId: (customerId) => prisma.bonusAccount.findUnique({ where: { customerId } }) };
 
   const miniAppUrl = env.BOT_MINI_APP_URL || env.MINI_APP_URL || 'https://app.utimoshi.ru';
-  const inviteBaseUrl = env.BOT_SMART_LINK_URL || 'https://go.utimoshi.ru/start';
+  const referralAttributionService = new BotReferralAttributionService({prisma, scopes: {telegram:clients.telegram?.token,max:clients.max?.token}});
+  const buildInviteLink = createBotReferralLinks({
+    telegramUsername: env.TELEGRAM_BOT_USERNAME || (clients.telegram?.token?.startsWith('572898079:') ? 'Exgorod_bot' : null),
+    maxUsername: env.MAX_BOT_USERNAME || 'id7017438363_bot',
+  });
   const userFlow = new BotUserFlowService({
     customerRepository, clubAccountRepository, bonusRepository, welcomeBonusRepository,
-    referralRepository, referralService, miniAppUrl,
-    inviteLinkBuilder: (payload, channel) => `${inviteBaseUrl}?start=${encodeURIComponent(payload)}&channel=${encodeURIComponent(channel)}`,
+    referralRepository, referralService: referralAttributionService, miniAppUrl,
+    inviteLinkBuilder: buildInviteLink,
   });
 
   const customerExperienceService = {
@@ -53,6 +62,7 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
     async resolve({ channel, inbound }) {
       if (!inbound.externalUserId) return { customerId: null, customer: null };
       const found = await customerRepository.findByIdentity(channel, sha256(String(inbound.externalUserId)));
+      assertCustomerAccess(found?.customer);
       return { customerId: found?.customer?.id || null, customer: found?.customer || null };
     },
   };
@@ -64,20 +74,33 @@ function createBotRuntimeComposition({ dependencies, env = process.env, clients 
     maxChannelUrl: env.BOT_MAX_CHANNEL_URL || null,
   });
 
-  return new BotRuntime({
+  const runtime = new BotRuntime({
     adapters: { telegram: new TelegramAdapter(clients.telegram), max: new MaxAdapter(clients.max) },
     renderers: {
-      telegram: new TelegramRenderer({ features: clients.telegram?.features }),
+      telegram: new TelegramRenderer({ features: clients.telegram?.features, miniAppEntryPolicy: createTestMiniAppEntryPolicy({ token: clients.telegram?.token, env }) }),
       max: new MaxRenderer(),
     },
     actionRouter: new BotActionRouter({ customerExperienceService, giftActionService }),
     onboardingService,
     customerResolver,
+    referralAttributionService,
     terminalChannelChallengeService: dependencies.terminalChannelChallengeService || null,
     recipientBindingService: dependencies.botRecipientBindingService || null,
     sender: new BotTransportSender({ clients, logger }),
     logger,
   });
+  if (clients.telegram?.token?.startsWith('572898079:') && env.MESSAGE_CENTER_ENABLED === 'true' && dependencies.botRecipientBindingService) {
+    const fs = require('node:fs');
+    const config = fs.readFileSync('/etc/softice/miniapp-test-auth.env','utf8');
+    const allowedTelegramIds = (config.match(/^TELEGRAM_TEST_ALLOWED_USER_IDS=(.*)$/m)?.[1] || '').trim().replace(/^['"]|['"]$/g,'').split(',').map(x=>x.trim()).filter(Boolean);
+    const worker = new PrepaidOrderReminderWorker({prisma,bindingService:dependencies.botRecipientBindingService,telegramClient:clients.telegram,journal:require('../message_center/MessageJournal').defaultMessageJournal(),allowedTelegramIds,miniAppUrl:'https://bot-test.utimoshi.ru/miniapp/'});
+    const run = () => worker.runOnce().catch(error=>logger.error('prepaid.reminder.failed',{code:error.code || 'REMINDER_FAILED'}));
+    const first = setTimeout(run,60000);first.unref();
+    const timer = setInterval(run,60000);timer.unref();
+    runtime.stopPrepaidReminders = () => {clearTimeout(first);clearInterval(timer);};
+  }
+  return runtime;
+
 }
 
 module.exports = { createBotRuntimeComposition };

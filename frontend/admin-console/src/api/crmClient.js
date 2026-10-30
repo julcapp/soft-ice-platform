@@ -20,3 +20,5 @@ export const queueCRMNotification = (customerId, { channel, body, subject = null
   headers: { 'Content-Type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
   body: JSON.stringify({ channel, body, subject }),
 });
+
+export const manageCRMAccount = (customerId, action) => request(`/customers/${encodeURIComponent(customerId)}/account-actions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action) });

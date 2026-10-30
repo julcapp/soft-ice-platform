@@ -33,6 +33,39 @@ class YooKassaPrivateChannelPaymentAdapter {
     return { providerPaymentId: payment.id, status: payment.status, confirmationUrl: payment.confirmation?.confirmation_url || null, idempotencyKey, raw: payment };
   }
 
+  async createAutoTopupInitialPayment({ schedule, idempotencyKey = randomUUID() }) {
+    this.#assertConfigured();
+    const returnUrl = process.env.AUTO_TOPUP_PAYMENT_RETURN_URL || `${String(process.env.PUBLIC_APP_BASE_URL || 'https://app.utimoshi.ru').replace(/\/$/, '')}/?mode=auto-topup`;
+    const payment = await this.#request('/payments', {
+      method: 'POST', idempotencyKey,
+      body: {
+        amount: { value: Number(schedule.amountRub).toFixed(2), currency: 'RUB' },
+        capture: true,
+        confirmation: { type: 'redirect', return_url: returnUrl },
+        save_payment_method: true,
+        description: 'Пополнение лицевого счёта «У Тимоши»',
+        metadata: { auto_topup_schedule_id: schedule.id, customer_id: schedule.customerId, payment_kind: 'AUTO_TOPUP_SETUP' },
+      },
+    });
+    return { providerPaymentId: payment.id, status: payment.status, confirmationUrl: payment.confirmation?.confirmation_url || null, idempotencyKey, raw: payment };
+  }
+
+  async createAutoTopupRecurringPayment({ schedule, idempotencyKey = randomUUID() }) {
+    this.#assertConfigured();
+    if (!schedule.providerPaymentMethodRef) throw validation('AUTO_TOPUP_PAYMENT_METHOD_NOT_SAVED', 'Сохранённый способ оплаты отсутствует.');
+    const payment = await this.#request('/payments', {
+      method: 'POST', idempotencyKey,
+      body: {
+        amount: { value: Number(schedule.amountRub).toFixed(2), currency: 'RUB' },
+        capture: true,
+        payment_method_id: schedule.providerPaymentMethodRef,
+        description: 'Ежемесячное автопополнение лицевого счёта «У Тимоши»',
+        metadata: { auto_topup_schedule_id: schedule.id, customer_id: schedule.customerId, payment_kind: 'AUTO_TOPUP_MONTHLY' },
+      },
+    });
+    return { providerPaymentId: payment.id, status: payment.status, idempotencyKey, raw: payment };
+  }
+
   async createRecurringPayment({ subscription, plan, idempotencyKey = randomUUID() }) {
     this.#assertConfigured();
     if (!subscription.providerPaymentMethodRef) throw validation('PRIVATE_CHANNEL_PAYMENT_METHOD_NOT_SAVED', 'Сохранённый способ оплаты отсутствует.');

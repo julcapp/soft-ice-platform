@@ -12,12 +12,16 @@ function createCustomer360Router({ customer360Runtime, authCoreService }) {
   return router;
 }
 
-function createAdminCustomer360Router({ customer360Runtime, customerPaymentProfileService, paymentOperationsService, adminAuth = {} }) {
+function createAdminCustomer360Router({ customer360Runtime, customerPaymentProfileService, paymentOperationsService, privateChannelBillingService, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
   router.get('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getProfile(req.params.customerId))));
   router.get('/customers/:customerId/timeline', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getTimeline(req.params.customerId, req.query))));
   router.get('/customers/:customerId/payment-profile', asyncHandler(async (req, res) => sendData(res, req, await customerPaymentProfileService.get(req.params.customerId))));
+  router.post('/customers/:customerId/subscriptions/:subscriptionId/disable-recurring', asyncHandler(async (req, res) => {
+    const result = await privateChannelBillingService.cancel(req.params.customerId, req.params.subscriptionId, { atPeriodEnd: true });
+    sendData(res, req, result);
+  }));
   router.post('/customers/:customerId/refunds', asyncHandler(async (req, res) => sendData(res, req, await paymentOperationsService.createRefund({
     customerId: req.params.customerId,
     sourceType: req.body?.sourceType,

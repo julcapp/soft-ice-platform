@@ -16,6 +16,7 @@ const { MachineRepository } = require('./modules/machine/MachineRepository');
 const { MachineRuntime } = require('./modules/machine/MachineRuntime');
 const { MachineService } = require('./modules/machine/MachineService');
 const { MachineOperationsRepository, MachineOperationsRuntime, MachineOperationsService } = require('./modules/machine_operations');
+const { AdminMachineSettingsService } = require('./modules/machine_operations/AdminMachineSettingsService');
 const { MachineGatewayRuntime, MachineSession, XmlCommandBuilder, XmlResponseParser, MachineErrorMapper, TelemetryStore } = require('./modules/machine_gateway');
 const { OrderRepository } = require('./modules/order/OrderRepository');
 const { OrderRuntime } = require('./modules/order/OrderRuntime');
@@ -53,6 +54,12 @@ const { CatalogRepository, CatalogService } = require('./modules/catalog');
 const { PricingRepository } = require('./modules/promotion_engine');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 const { TestMachineProviderAdapter } = require('./modules/machine_dispense/TestMachineProviderAdapter');
+const { PrepaidPickupService } = require('./modules/order/PrepaidPickupService');
+const { PrivateChannelBillingService } = require('./modules/private_channel/PrivateChannelBillingService');
+const { YooKassaPrivateChannelPaymentAdapter } = require('./modules/private_channel/YooKassaPrivateChannelPaymentAdapter');
+const { PrivateChannelRenewalService } = require('./modules/private_channel/PrivateChannelRenewalService');
+const { CustomerAutoTopupService } = require('./modules/auto_topup/CustomerAutoTopupService');
+const { LegacyTmaIdentityBridgeService } = require('./modules/identity_bridge/LegacyTmaIdentityBridgeService');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -72,6 +79,14 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
     })
     : new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
+  const privateChannelBillingService = new PrivateChannelBillingService({ prisma });
+  const privateChannelPaymentAdapter = new YooKassaPrivateChannelPaymentAdapter({
+    shopId: config?.payments?.yooKassa?.shopId,
+    secretKey: config?.payments?.yooKassa?.secretKey,
+    baseUrl: config?.payments?.yooKassa?.apiBaseUrl,
+    receiptVatCode: config?.payments?.yooKassa?.receiptVatCode,
+  });
+  const privateChannelRenewalService = new PrivateChannelRenewalService({ prisma, paymentAdapter: privateChannelPaymentAdapter });
   const paymentService = new PaymentService({ repository: paymentRepository, providers: { YOOKASSA: paymentProvider }, inventory: inventoryReservationService });
   const machineDispenseRepository = new MachineDispenseRepository(prisma);
   const machineProvider = config?.features?.terminalTestMachineSimulatorEnabled
@@ -215,6 +230,17 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     clubAccountRepository,
     auditRepository,
   });
+  const customerAutoTopupService = new CustomerAutoTopupService({
+    prisma,
+    paymentAdapter: privateChannelPaymentAdapter,
+    clubAccountRuntime,
+  });
+  const legacyTmaIdentityBridgeService = new LegacyTmaIdentityBridgeService({
+    prisma,
+    customerRepository,
+    clubAccountRuntime,
+    auditRepository,
+  });
 
   const machineService = new MachineService({
     machineRepository,
@@ -228,6 +254,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineOperationsRuntime = new MachineOperationsRuntime({
     service: new MachineOperationsService({ repository: machineOperationsRepository, auditRepository }),
   });
+  const adminMachineSettingsService = new AdminMachineSettingsService({ prisma, auditRepository });
 
   const orderService = new OrderService({
     orderRepository,
@@ -249,6 +276,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const machineAdapter = new BlockedExternalMachineAdapter();
   const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
   const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
+  const prepaidPickupService = new PrepaidPickupService({ prisma, machineDispenseService, catalogService: new CatalogService({ repository: new CatalogRepository(prisma) }), inventory: inventoryReservationService });
   machineProvider.attachMachineDispenseService?.(machineDispenseService);
   paymentService.machineDispense = machineDispenseService;
   const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
@@ -426,6 +454,9 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     transactionalOutboxRepository,
     outboxAdminService,
     paymentRepository,
+    privateChannelBillingService,
+    privateChannelPaymentAdapter,
+    privateChannelRenewalService,
     paymentService,
     paymentCheckoutService,
     terminalCheckoutService,
@@ -433,6 +464,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     paymentInboxWorker,
     machineDispenseRepository,
     machineDispenseService,
+    prepaidPickupService,
     machineCommandWorker,
     machineRecoveryWorker,
     machineProvider,
@@ -461,7 +493,10 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     terminalChannelChallengeService,
     consentRuntime,
     clubAccountRuntime,
+    customerAutoTopupService,
+    legacyTmaIdentityBridgeService,
     machineRuntime,
+    adminMachineSettingsService,
     orderRuntime,
     giftTransferRuntime,
     giftNotificationOutboxWorker,

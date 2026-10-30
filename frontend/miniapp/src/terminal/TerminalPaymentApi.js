@@ -86,6 +86,7 @@ export async function getTerminalOrderPaymentStatus({ machineId, orderId, signal
 
 export function terminalPaymentErrorMessage(error) {
   const code = String(error?.code || '');
+  if (code.startsWith('SBER_QR_')) return 'Оплата по СБП пока недоступна. Выберите другой способ оплаты.';
   if (code === 'TERMINAL_POS_NOT_CONFIGURED') return 'POS-терминал пока не подключён.';
   if (code === 'RESOURCE_NOT_FOUND' || code === 'PAYMENT_CHECKOUT_NOT_AVAILABLE' || code === 'PAYMENT_CHECKOUT_DISABLED' || code === 'TERMINAL_CHECKOUT_DISABLED' || code === 'YOOKASSA_NOT_CONFIGURED' || code === 'PAYMENT_PROVIDER_BLOCKED_EXTERNAL') return 'Оплата пока не подключена.';
   if (code.includes('QUOTE_EXPIRED')) return 'Время фиксации цены истекло. Вернитесь к заказу и обновите цену.';
@@ -115,7 +116,13 @@ export async function getTerminalPaymentMethods({ machineId, signal } = {}) {
   const payload = await response.json();
   const methods = payload?.data?.attributes?.methods;
   if (!Array.isArray(methods)) throw new Error('Некорректный список способов оплаты.');
-  return ['sbp', 'pos', 'test_card'].map((id) => {
+  let sber = { id:'sber_sbp', available:false, reason_code:'SBER_QR_NOT_CONFIGURED' };
+  try {
+    const response = await fetch(`/api/v1/payments/sber-sbp/capabilities?${query}`, { credentials:'omit', cache:'no-store', signal, headers:{Accept:'application/json'} });
+    if(response.ok){const body=await response.json();sber={id:'sber_sbp',available:body.data?.available===true,reason_code:body.data?.reasonCode};}
+  } catch (error) { if(signal?.aborted) throw error; }
+  methods.push(sber);
+  return ['sbp', 'sber_sbp', 'pos', 'test_card'].map((id) => {
     const method = methods.find((value) => value.id === id);
     return { id, available: method?.available === true, reasonCode: method?.reason_code || null };
   });

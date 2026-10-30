@@ -1,5 +1,7 @@
+import { useBeforeNavigation, useNavigation, NavigationSaveProvider } from './NavigationSave';
+import { TestClubAccount } from './TestClubAccount';
 import React, { useEffect, useMemo, useState } from 'react';
-import { getCRMCustomer, getCRMCustomers, queueCRMNotification } from './api/crmClient';
+import { getCRMCustomer, getCRMCustomers, queueCRMNotification, manageCRMAccount } from './api/crmClient';
 import { getCustomer360, getCustomerTimeline, getExternalChannels } from './api/customer360Client';
 import { DataTable, ErrorState, Skeleton, StatisticCard, StatusBadge } from './components';
 import { EventFeed } from './EventCenter';
@@ -10,9 +12,11 @@ const date = (value) => value ? new Date(value).toLocaleDateString('ru-RU') : '�
 const dateTime = (value) => value ? new Date(value).toLocaleString('ru-RU') : '—';
 const channelLabel = (value) => ({ TELEGRAM: 'Telegram', VK: 'VK', MAX: 'MAX' }[value] || value);
 
-export function UsersPage({ route, clients = { getCRMCustomers, getCRMCustomer, getCustomer360, getCustomerTimeline, getExternalChannels, queueCRMNotification } }) {
+export function UsersPage({ route, clients = { getCRMCustomers, getCRMCustomer, getCustomer360, getCustomerTimeline, getExternalChannels, queueCRMNotification, manageCRMAccount } }) {
   const customerId = route.split('/')[1];
-  return customerId ? <UserCard customerId={customerId} clients={clients} /> : <UsersDirectory clients={clients} />;
+  const navigation = useNavigation();
+  const page = customerId ? <UserCard customerId={customerId} clients={clients} /> : <UsersDirectory clients={clients} />;
+  return navigation ? page : <NavigationSaveProvider>{page}</NavigationSaveProvider>;
 }
 
 function UsersDirectory({ clients }) {
@@ -39,6 +43,7 @@ function UsersDirectory({ clients }) {
     <DataTable title="Таблица пользователей" rows={filtered} columns={[
       { key: 'name', label: 'Пользователь', render: (value, row) => <div><a href={`#users/${row.id}`}><strong>{value}</strong></a><small style={{ display: 'block' }}>{row.id}</small></div> },
       { key: 'phone', label: 'Контакт', render: (value, row) => <div>{value || '—'}<small style={{ display: 'block' }}>{row.email || '—'}</small></div> },
+      { key: 'status', label: 'Учётная запись', render: (value, row) => <div>{({ active: 'Активна', blocked: 'Заблокирована', deleted: 'Удалена' }[value] || value)}{row.status === 'blocked' && <small style={{ display: 'block' }}>{row.blockedUntil ? `До ${dateTime(row.blockedUntil)}` : 'Бессрочно'} · {row.blockReason}</small>}</div> },
       { key: 'clubActive', label: 'Клуб', render: (value) => <StatusBadge status={value ? 'ACTIVE' : 'INACTIVE'} /> },
       { key: 'clubBalanceRub', label: 'Деньги', render: money }, { key: 'bonusBalance', label: 'Бонусы' }, { key: 'purchasesCount', label: 'Покупки' }, { key: 'referralsCount', label: 'Рефералы' },
       { key: 'activeChannels', label: 'Активные каналы', render: (value = []) => value.length ? value.map(channelLabel).join(' · ') : '—' }, { key: 'lastPurchaseAt', label: 'Последняя покупка', render: date },
@@ -69,9 +74,11 @@ function UserCard({ customerId, clients }) {
     finally { setSending(false); }
   }
   return <div className="crm-workspace">
-    <a className="back-link" href="#users">← Все пользователи</a>
+    <a className="back-link" href="#users">← Назад к списку пользователей</a>
     <section className="card customer-identity"><div><p>Карточка пользователя 360°</p><h2>{profile.identification?.name || card.name || 'Имя не указано'}</h2><span>{profile.identification?.phone || card.phone || 'Телефон не указан'} · {profile.identification?.email || card.email || 'Email не указан'}</span><small style={{ display: 'block', marginTop: 6 }}>Customer ID: {customerId}</small></div><StatusBadge status={String(profile.identification?.status || card.status).toUpperCase()} /></section>
     <section className="statistics" aria-label="Сводка пользователя"><StatisticCard label="Денег на клубном счёте" value={money(card.loyalty?.clubAccount?.availableBalanceRub)} detail={`Резерв: ${money(card.loyalty?.clubAccount?.reservedBalanceRub)}`} /><StatisticCard label="Бонусов" value={card.loyalty?.bonusAccount?.balanceBonus || 0} /><StatisticCard label="Покупок" value={profile.purchaseSummary?.count || card.purchases?.length || 0} detail={`Потрачено: ${money(profile.purchaseSummary?.spentRub)}`} /><StatisticCard label="Рефералов" value={invited.filter((item) => item.referredCustomerId).length} detail={`Активных: ${invited.filter((item) => item.firstPurchaseAt).length}`} /><StatisticCard label="Клуб" value={card.loyalty?.clubAccount?.clubActive ? 'Участник' : 'Не активен'} detail={`С ${date(card.loyalty?.clubAccount?.activatedAt)}`} /><StatisticCard label="Активные каналы" value={active.length} detail={active.map(channelLabel).join(' · ') || 'Нет'} /></section>
+    <TestClubAccount account={profile.loyalty?.testClubAccount} />
+    <AccountControls card={card} clients={clients} onSaved={(updated) => setState((previous) => ({ ...previous, card: updated, profile: { ...previous.profile, identification: { ...previous.profile.identification, name: updated.name, status: updated.status } } }))} />
     <UserCommunicationEvidence card={card} />
     <section className="crm-grid">
       <DataTable title="Идентификация и ID" rows={identityRows(card, identities, externalProfiles)} columns={[{ key: 'type', label: 'Система' }, { key: 'idValue', label: 'ID / логин' }, { key: 'status', label: 'Статус', render: (value) => <StatusBadge status={value} /> }, { key: 'verifiedAt', label: 'Подтверждено', render: dateTime }]} emptyTitle="Дополнительные идентификаторы не зафиксированы" />
@@ -94,4 +101,42 @@ function identityRows(card, identities, externalProfiles) {
   for (const item of identities || []) rows.push({ id: `identity:${item.id}`, type: item.provider, idValue: item.externalUsername || item.externalSubjectHash, status: item.status === 'active' ? 'ACTIVE' : 'INACTIVE', verifiedAt: item.verifiedAt });
   for (const item of externalProfiles || []) rows.push({ id: `profile:${item.id}`, type: item.channelType, idValue: item.externalUserId || item.username || item.profileUrl || '—', status: item.isVerified ? 'VERIFIED' : 'UNKNOWN', verifiedAt: item.verifiedAt });
   return rows;
+}
+
+function AccountControls({ card, clients, onSaved }) {
+  const [action, setAction] = useState('');
+  const [name, setName] = useState(card.name || '');
+  const [reason, setReason] = useState('');
+  const [until, setUntil] = useState('');
+  const [temporary, setTemporary] = useState(true);
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  useBeforeNavigation(() => ({ block: busy ? 'Дождитесь сохранения.' : '', dirty: Boolean(action), save: action ? () => save() : null, discard: () => { setAction(''); setReason(''); setConfirmation(''); } }));
+  async function save(event) {
+    event?.preventDefault(); setBusy(true); setNotice('');
+    try {
+      const updated = await clients.manageCRMAccount(card.id, { action, name, reason, until: action === 'block' && temporary ? new Date(until).toISOString() : null, confirmCustomerId: confirmation });
+      onSaved(updated); setAction(''); setReason(''); setConfirmation(''); setNotice('Изменения сохранены.'); return true;
+    } catch (error) { setNotice(error.message || 'Не удалось сохранить изменения.'); return false; }
+    finally { setBusy(false); }
+  }
+  return <section className="card" aria-label="Управление учётной записью">
+    <h2>Управление учётной записью</h2>
+    <p>Статус: {({ active: 'Активна', blocked: 'Заблокирована', deleted: 'Удалена' }[card.status] || card.status)}{card.status === 'blocked' && ` · ${card.blockedUntil ? `до ${dateTime(card.blockedUntil)}` : 'бессрочно'}`}</p>
+    {card.blockReason && <p>Причина: {card.blockReason}</p>}
+    {!action && card.status !== 'deleted' && <div className="crm-toolbar">
+      <button onClick={() => { setName(card.name || ''); setAction('edit'); }}>Редактировать</button>
+      <button onClick={() => setAction('block')}>Заблокировать</button>
+      {card.status === 'blocked' && <button onClick={() => setAction('unblock')}>Разблокировать</button>}
+      <button onClick={() => setAction('delete')}>Удалить учётную запись</button>
+    </div>}
+    {action && <form onSubmit={save}>
+      {action === 'edit' ? <label>Имя пользователя<input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} /></label> : <label>Причина<textarea required maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} /></label>}
+      {action === 'block' && <><label>Вид блокировки<select value={temporary ? 'temporary' : 'permanent'} onChange={(e) => setTemporary(e.target.value === 'temporary')}><option value="temporary">Временная</option><option value="permanent">Бессрочная</option></select></label>{temporary && <label>Дата и время окончания<input type="datetime-local" required value={until} onChange={(e) => setUntil(e.target.value)} /></label>}</>}
+      {action === 'delete' && <><p>Доступ будет закрыт. История платежей и заказов сохранится. Для подтверждения введите ID: {card.id}</p><input aria-label="Подтверждение удаления" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></>}
+      <div className="crm-toolbar"><button type="submit" disabled={busy || (action === 'delete' && confirmation !== card.id)}>{busy ? 'Сохраняем…' : 'Подтвердить и сохранить'}</button><button type="button" disabled={busy} onClick={() => { setAction(''); setNotice(''); }}>Отмена</button></div>
+    </form>}
+    {notice && <p role="status">{notice}</p>}
+  </section>;
 }

@@ -9,11 +9,13 @@ class AdminOperationsDispatchService {
     this.clock = clock;
   }
 
-  async list({ adminSubject = 'admin', category = 'ALL', severity = 'ALL', status = 'ALL', limit = 200 } = {}) {
+  async list({ adminSubject = 'admin', category = 'ALL', severity = 'ALL', status = 'ALL', limit = 200, readOnly = false } = {}) {
     const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 300);
+    if (!readOnly) {
     const center = await this.notificationCenter.list({ adminSubject, limit: 300 });
     await this.#syncSnapshots(center.items || []);
     await this.#syncSlaBreaches();
+    }
     const rows = await this.prisma.$queryRawUnsafe(
       `SELECT "id","notificationKey","source","sourceReferenceId","category","severity","title","message","deepLink","sourceActive","lastSourceSeenAt","status","assigneeSubject","assigneeDisplayName","assignmentMode","assignmentReason","acknowledgedAt","resolvedAt","slaPolicyCode","ackDueAt","resolveDueAt","ackBreachedAt","resolveBreachedAt","escalationLevel","escalatedAt","createdAt","updatedAt"
        FROM "AdminOperationsWorkItem"

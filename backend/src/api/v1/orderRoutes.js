@@ -7,7 +7,7 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createCustomerAuthenticator } = require('../../platform/security/authenticateCustomer');
 const { resolvePricingService } = require('./pricingRoutes');
 
-function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...dependencies }) {
+function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, prepaidPickupService, ...dependencies }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -24,6 +24,18 @@ function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...d
       pricingEngineService: resolvePricingService({ authCoreService, machineRuntime, orderRuntime, ...dependencies }),
     });
   };
+
+  router.post('/pickup/redeem', asyncHandler(async (req, res) => {
+    if (!prepaidPickupService) throw Object.assign(new Error('Сервис получения заказа недоступен.'), { code: 'PICKUP_SERVICE_UNAVAILABLE', statusCode: 503 });
+    const result = await prepaidPickupService.redeem({ machineId: req.body?.machineId || req.body?.machine_id, code: req.body?.code, qrPayload: req.body?.qrPayload || req.body?.qr_payload }, { correlationId: req.correlationId, rateKey: req.ip || req.socket?.remoteAddress || 'unknown' });
+    sendData(res, req, { type: 'prepaid_pickup', id: result.dispenseAttemptId, attributes: { order_id: result.orderId, machine_id: result.machineId, amount: result.amount, currency: result.currency, dispense_attempt_id: result.dispenseAttemptId, dispense_status: result.dispenseStatus, duplicate: result.duplicate } });
+  }));
+
+  router.get('/pickup/:dispenseAttemptId/status', asyncHandler(async (req, res) => {
+    if (!prepaidPickupService) throw Object.assign(new Error('Сервис получения заказа недоступен.'), { code: 'PICKUP_SERVICE_UNAVAILABLE', statusCode: 503 });
+    const result = await prepaidPickupService.status({ machineId: req.query?.machineId || req.query?.machine_id, dispenseAttemptId: req.params.dispenseAttemptId });
+    sendData(res, req, { type: 'prepaid_pickup_status', id: result.dispenseAttemptId, attributes: { status: result.status, failure_code: result.failureCode, finished_at: result.finishedAt } });
+  }));
 
   router.post(
     '/',
@@ -62,6 +74,12 @@ function createOrderRouter({ authCoreService, machineRuntime, orderRuntime, ...d
       sendData(res, req, dto, 201);
     }),
   );
+
+  router.post('/:id/pickup-code', authenticateCustomer, asyncHandler(async (req, res) => {
+    if (!prepaidPickupService) throw Object.assign(new Error('Сервис получения заказа недоступен.'), { code: 'PICKUP_SERVICE_UNAVAILABLE', statusCode: 503 });
+    const result = await prepaidPickupService.issueCode(req.securityContext.subject_id, req.params.id);
+    sendData(res, req, { type: 'prepaid_pickup_code', id: result.orderId, attributes: { order_id: result.orderId, machine_id: result.machineId, code: result.code, qr_payload: result.qrPayload, qr_data_url: result.qrDataUrl, expires_at: result.expiresAt, amount: result.amount, currency: result.currency } });
+  }));
 
   router.get(
     '/:id',

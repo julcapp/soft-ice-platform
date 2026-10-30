@@ -32,7 +32,12 @@ function attachPhotoVerificationRuntime(dependencies, { prisma, logger } = {}) {
   const visionProvider = dependencies.photoVisionProvider || (process.env.OPENAI_API_KEY && process.env.PHOTO_VISION_MODEL ? new OpenAIVisionProvider({ mediaLoader: async (storageKey) => ({ buffer: await storage.get(storageKey), mimeType: mimeTypeFromStorageKey(storageKey) }) }) : null);
   const publishingOrchestrator = dependencies.photoPublishingOrchestrator || new PhotoPublishingOrchestrator({ publishers, repository, targets });
   const rewardPolicy = dependencies.photoRewardPolicy || new PhotoRewardPolicy({ repository });
-  const rewardEngine = dependencies.photoRewardEngine || new BonusRewardEngine({ prisma: db, resolveBonusUnits: (context) => rewardPolicy.resolveBonusUnits(context) });
+  const rewardEngine = dependencies.photoRewardEngine || new BonusRewardEngine({ prisma: db, resolveBonusUnits: async ({customerId}) => {
+    const policy = await new (require('./modules/customer_benefits/CustomerBenefitService').CustomerBenefitService)({prisma:db}).policy();
+    const rule = policy?.rules.find(row=>row.key==='photo_bonus');
+    const customer = await db.customer.findUnique({where:{id:customerId}});
+    return rule?.mode==='live' && customer?.phoneVerifiedAt && customer.status==='active' ? rule.value : null;
+  } });
 
   Object.assign(dependencies, {
     photoVerificationRepository: repository, photoSubmissionRepository: submissionRepository, photoStorage: storage,

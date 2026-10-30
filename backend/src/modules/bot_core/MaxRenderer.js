@@ -23,6 +23,7 @@ function toMaxButton(action) {
   if (action.type === 'request_contact') {
     return { type: 'request_contact', text: action.label };
   }
+  if (action.type === 'referral_copy' && action.value) return {type:'callback',text:'Показать ссылку для копирования',payload:'action:referral_link'};
   if (action.type === 'copy' && action.value) {
     return { type: 'callback', text: action.label, payload: `copy:${action.value}`.slice(0, 128) };
   }

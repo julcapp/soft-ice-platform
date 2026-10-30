@@ -8,6 +8,7 @@ class TestMachineProviderAdapter {
     this.completeDelayMs = completeDelayMs;
     this.machineDispenseService = null;
     this.timers = new Set();
+    this.commandFacts = new Map();
   }
 
   attachMachineDispenseService(service) {
@@ -18,6 +19,7 @@ class TestMachineProviderAdapter {
     if (!this.allowedMachineIds.has(machineId)) throw blocked();
     if (!this.machineDispenseService) throw blocked('TEST_MACHINE_SIMULATOR_NOT_ATTACHED');
 
+    this.commandFacts.set(commandId, 'SENT');
     this.schedule(commandId, machineId, 'ACCEPTED', this.acceptDelayMs, 'test-machine-accepted');
     this.schedule(commandId, machineId, 'DISPENSING', this.dispensingDelayMs, 'test-machine-dispensing');
     this.schedule(commandId, machineId, 'DISPENSED', this.completeDelayMs, 'test-machine-dispensed');
@@ -35,6 +37,14 @@ class TestMachineProviderAdapter {
     if (!attempt) return { status: 'NOT_DISPENSED' };
     if (attempt.status === 'DISPENSED') return { status: 'DISPENSED', providerEventId: `test-reconcile-${commandId}` };
     if (attempt.status === 'FAILED') return { status: 'FAILED', failureCode: attempt.failureCode || 'TEST_MACHINE_FAILED' };
+    const fact = this.commandFacts.get(commandId);
+    if (fact) return { status: fact, providerEventId: `test-fact-${commandId}-${fact}` };
+    const proof = await this.machineDispenseService.repository.prisma.machineReconciliation.findFirst({ where: {
+      organizationId: attempt.organizationId, dispenseAttemptId: attempt.id,
+      category: 'LOCAL_DISPENSED_PROVIDER_UNKNOWN',
+      detailsSafe: { path: ['persistenceFailure'], equals: 'INVENTORY_RESERVATION_EXPIRED' },
+    } });
+    if (proof) return { status: 'DISPENSED', providerEventId: `test-recovered-expiry-${commandId}` };
     return { status: 'UNKNOWN' };
   }
 
@@ -48,6 +58,7 @@ class TestMachineProviderAdapter {
       try {
         const attempt = await this.machineDispenseService.repository.getByCommand('HUAXIN', commandId);
         if (!attempt || attempt.machineId !== machineId) return;
+        this.commandFacts.set(commandId, status);
         await this.machineDispenseService.applyPhysicalResult(attempt, status, { providerEventId: `${prefix}-${commandId}`, physicalConsumptionUnknown: false });
       } catch {
         // The authoritative state machine remains the source of truth; failed test callbacks are intentionally not retried here.

@@ -11,11 +11,16 @@ class TelegramAdapter extends BotAdapter {
     const from = update.message?.from || update.callback_query?.from || {};
     const text = update.message?.text || '';
     const startMatch = text.match(/^\/start(?:\s+(.+))?$/);
+    const contact = update.message?.contact;
 
     return {
       channel: this.channel,
       externalUserId: from.id ? String(from.id) : null,
       payload: startMatch?.[1] || null,
+      contact: contact ? { phone: contact.phone_number,
+        ownerUserId: contact.user_id == null ? null : String(contact.user_id),
+        verified: message.chat?.type === 'private' && from.id != null && contact.user_id != null && String(contact.user_id) === String(from.id),
+      } : null,
       profile: {
         username: from.username || null,
         firstName: from.first_name || null,

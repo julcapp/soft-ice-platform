@@ -1,6 +1,7 @@
-function buildReferralSection({ referralCode, inviteUrl = null, stats = {} } = {}) {
+function buildReferralSection({ referralCode, inviteUrl = null, inviteUrls = null, stats = {} } = {}) {
   return {
     title: 'Пригласить друга',
+    text: inviteUrl ? 'Отправьте приглашение другу. Пригласивший закрепляется после подтверждения профиля друга; бонусы зависят от действующих правил.' : 'Ссылки приглашения для этого канала пока не настроены.',
     referralCode,
     inviteUrl,
     stats: {
@@ -12,10 +13,10 @@ function buildReferralSection({ referralCode, inviteUrl = null, stats = {} } = {
       rewarded: stats.rewarded || 0,
     },
     actions: [
-      inviteUrl ? { type: 'share', channel: 'telegram', label: 'Отправить в Telegram', url: inviteUrl } : null,
-      inviteUrl ? { type: 'share', channel: 'max', label: 'Поделиться в MAX', url: inviteUrl } : null,
-      inviteUrl ? { type: 'copy', label: 'Скопировать ссылку', value: inviteUrl } : null,
-      inviteUrl ? { type: 'qr', label: 'Показать QR-код', value: inviteUrl } : null,
+      (inviteUrls?.telegram || (!inviteUrls && inviteUrl)) ? { type: 'open_url', label: 'Отправить в Telegram', url: 'https://t.me/share/url?'+new URLSearchParams({url:inviteUrls?.telegram || inviteUrl,text:'Приглашаю в Клуб «У Тимоши» 🍦'}) } : null,
+      (inviteUrls?.max || (!inviteUrls && inviteUrl)) ? { type: 'open_url', label: 'Поделиться в MAX', url: 'https://max.ru/:share?'+new URLSearchParams({text:'Приглашаю в Клуб «У Тимоши» 🍦 '+(inviteUrls?.max || inviteUrl)}) } : null,
+      inviteUrl ? { type: 'referral_copy', label: 'Скопировать ссылку', value: inviteUrl } : null,
+      {type:'action',label:'← Главное меню',action:'menu'},
     ].filter(Boolean),
   };
 }

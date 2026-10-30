@@ -1,3 +1,4 @@
+import { PlatformTestTopups } from './PlatformTestTopups';
 import React, { useEffect, useState } from 'react';
 import { getDashboard } from './api/dashboardClient';
 import { AlertPanel, AppShell, ChartCard, DataTable, DistributionChart, EmptyState, ErrorState, FreshnessIndicator, PageHeader, PermissionGate, Skeleton, StatisticCard, StatusBadge } from './components';
@@ -21,6 +22,7 @@ import { PhotoVerificationMetricsPage } from './PhotoVerificationMetrics';
 import { PhotoVerificationReadinessPage } from './PhotoVerificationReadiness';
 import { BusinessDashboardPage } from './BusinessDashboard';
 import { PrivateChannelRecoveryPage } from './PrivateChannelRecovery';
+import { CustomerBenefitsPage } from './CustomerBenefits';
 import { PromotionEnginePage } from './PromotionEngine';
 import { PaymentsPage } from './Payments';
 import { MachineDispensesPage } from './MachineDispenses';
@@ -88,11 +90,12 @@ export function App({ client = getDashboard }) {
   const catalogRoute = route === 'catalog-prices';
   if (catalogRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Каталог и цены" copy="Единый каталог, базовые цены и доступность по автоматам. Все изменения аудируются." editable /><CatalogPricesPage /></AppShell>;
   if (machineDispensesRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Автоматы" title="Выдачи аппаратов" copy="Физические операции, callback и сверка. Только чтение; опасного повтора выдачи нет." /><MachineDispensesPage /></AppShell>;
-  if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PaymentsPage /></AppShell>;
+  if (paymentsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Финансы" title="Платежи" copy="Денежный lifecycle, возвраты и расхождения сверки. Только чтение." /><PlatformTestTopups /><PaymentsPage /></AppShell>;
+  if (route === 'customer-benefits') return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Акции и условия" copy="Версии правил, demo и боевые начисления, сухой расчёт истории." editable /><CustomerBenefitsPage /></AppShell>;
   if (promotionRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Коммерция" title="Promotion Engine" copy="Управление акциями, безопасностью, согласованием, каналами и аналитикой." editable /><PromotionEnginePage /></AppShell>;
   if (businessAnalyticsRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Бизнес" title="Бизнес-статистика" copy="Пользователи, Клуб Тимоши, рефералы, подписки, продажи, пополнения и предоплаченные заказы." /><BusinessDashboardPage /></AppShell>;
   if (privateChannelRecoveryRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Подписки" title="Recovery приватных каналов" copy="Автопродления Telegram / MAX, grace period, повторные попытки и состояние доступа." editable /><PrivateChannelRecoveryPage /></AppShell>;
-  if (usersRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title={route.includes('/') ? 'Карточка пользователя' : 'Пользователи'} copy="Единый реестр пользователей: идентификация, клуб, деньги, бонусы, покупки, рефералы, каналы и история." editable={route.includes('/')} /><UsersPage route={route} /></AppShell>;
+  if (usersRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title={route.includes('/') ? 'Карточка пользователя' : 'Пользователи'} copy="Единый реестр пользователей: идентификация, клуб, деньги, бонусы, покупки, рефералы, каналы и история." editable /><UsersPage route={route} /></AppShell>;
   if (photoReadinessRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Production readiness" copy="Обязательная конфигурация Photo Verification Agent и причины READY / DEGRADED / BLOCKED." /><PhotoVerificationReadinessPage /></AppShell>;
   if (photoVerificationRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Контент и UGC" title="Проверка фотографий" copy="Очередь ручной модерации, AI-сигналы, антидубли, публикации и настройки." editable /><section className="card"><a className="text-button" href="#photo-verification-readiness">Production readiness →</a></section><PhotoVerificationMetricsPage /><PhotoModerationQueuePage /><PhotoVerificationSettingsPage /></AppShell>;
   if (outboxRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title="Transactional Outbox" copy="Надёжная очередь событий Sale Flow, повторы и dead-letter диагностика." /><TransactionalOutboxPage /></AppShell>;

@@ -9,6 +9,7 @@ class PrismaGiftTransferRepository {
     if (!prisma) throw new Error('prisma is required.');
     this.prisma = prisma;
     this.persistenceMode = 'POSTGRESQL';
+    this.atomicOrderReservation = true;
     this.implementationKind = 'PRODUCTION';
   }
 
@@ -62,6 +63,13 @@ class PrismaGiftTransferRepository {
 
   async createGiftBundle({ transfer, invitation, referral, outboxEvent = null }) {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe('SELECT "id" FROM "Order" WHERE "id"=$1 FOR UPDATE', transfer.originalOrderId);
+      const now = new Date();
+      const flow = await tx.saleFlow.findFirst({where:{orderId:transfer.originalOrderId,currentState:'PAID'}});
+      const attempt = await tx.machineDispenseAttempt.findFirst({where:{orderId:transfer.originalOrderId}});
+      if (!flow || attempt) throw Object.assign(new Error('Заказ уже передан в процесс выдачи.'),{code:'GIFT_ORDER_UNAVAILABLE',statusCode:409});
+      const reserved = await tx.order.updateMany({where:{id:transfer.originalOrderId,customerId:transfer.senderCustomerId,status:'PAID',paymentStatus:'paid',cancelledToBalanceAt:null,expiresAt:{gt:now},payment:{is:{status:'SUCCEEDED'}}},data:{status:'GIFT_TRANSFERRED',activePickupCodeHash:null,bonusEarned:0}});
+      if (reserved.count !== 1) throw Object.assign(new Error('Заказ уже недоступен для передачи.'),{code:'GIFT_ORDER_UNAVAILABLE',statusCode:409});
       const createdTransfer = await tx.giftTransfer.create({ data: transferData(transfer) });
       const createdInvitation = await tx.giftInvitation.create({ data: invitationData(invitation) });
       const createdReferral = await tx.giftReferralLink.create({ data: referralData(referral) });

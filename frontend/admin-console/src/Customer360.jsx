@@ -1,3 +1,4 @@
+import { TestClubAccount } from './TestClubAccount';
 import React, { useEffect, useState } from 'react';
 import { getCustomer360, getCustomerTimeline, getExternalChannels, getCustomerEngagement } from './api/customer360Client';
 import { DataTable, ErrorState, Skeleton, StatisticCard, StatusBadge } from './components';
@@ -29,6 +30,7 @@ export function Customer360Page({ customerId, clients = { getCustomer360, getCus
       <StatisticCard label="Предпочтения" value={profile.preferences.length} />
       <StatisticCard label="Коммуникации" value={profile.communications.length} />
     </section>
+    <TestClubAccount account={profile.loyalty?.testClubAccount} />
     <ExternalChannels channels={channels} />
     <Engagement summary={engagement} />
     <section className="crm-grid"><DataTable title="Предпочтения" rows={profile.preferences} columns={[{ key: 'category', label: 'Категория' }, { key: 'key', label: 'Параметр' }, { key: 'source', label: 'Источник' }]} emptyTitle="Предпочтения ещё не зафиксированы" /></section>

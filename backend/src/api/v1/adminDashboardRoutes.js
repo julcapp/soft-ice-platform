@@ -41,10 +41,10 @@ function createAdminDashboardRouter({ adminDashboardService, businessDashboardSe
   if (adminOperationsDispatchService) {
     router.get('/operations-dispatch', authenticate, asyncHandler(async (req, res) => {
       const data = await adminOperationsDispatchService.list({
-        adminSubject: adminSubject(req), category: req.query.category || 'ALL', severity: req.query.severity || 'ALL', status: req.query.status || 'ALL', limit: req.query.limit,
+        adminSubject: adminSubject(req), readOnly: req.securityContext?.readOnly === true, category: req.query.category || 'ALL', severity: req.query.severity || 'ALL', status: req.query.status || 'ALL', limit: req.query.limit,
       });
       if (adminOperationsEscalationService) {
-        await adminOperationsEscalationService.sync();
+        if (!req.securityContext?.readOnly) await adminOperationsEscalationService.sync();
         const escalations = await adminOperationsEscalationService.listActive({ limit: req.query.limit || 100 });
         data.escalations = escalations;
         data.summary.activeEscalations = escalations.length;

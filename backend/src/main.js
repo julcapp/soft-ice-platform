@@ -3,6 +3,8 @@ const { ServiceMobileSession } = require('./modules/operator_workspace/ServiceMo
 const { createMobileServiceRouter } = require('./api/v1/mobileServiceRoutes');
 const { EquipmentIntegrationService } = require('./modules/equipment_integration/EquipmentIntegrationService');
 const { createEquipmentV1Router, createEquipmentAdminRouter } = require('./api/equipmentV1Routes');
+const { createMachineEdgeRouter } = require('./api/machineEdgeRoutes');
+const { createLegacyTmaIdentityBridgeRouter } = require('./api/legacyTmaIdentityBridgeRoutes');
 const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
@@ -25,6 +27,7 @@ const { getPrismaClient, disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
 const { moduleManifests } = require('./modules');
 const { createRuntimeDependencies } = require('./runtimeDependencies');
+const { CustomerBenefitEventService } = require('./modules/customer_benefits/CustomerBenefitEventService');
 const { attachPhotoVerificationRuntime } = require('./photoVerificationRuntime');
 const { attachCorrelationId, sendError } = require('./platform/http/apiResponse');
 const { StructuredLogger, requestContext } = require('./platform/observability/Logger');
@@ -37,7 +40,10 @@ function createApp(options = {}) {
   const metrics = options.metrics || new MetricsRegistry();
   const botClients = options.botClients ?? createBotClientsFromEnv(process.env, { logger });
   const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
-  if (!options.dependencies) attachPhotoVerificationRuntime(dependencies, { logger });
+  if (!options.dependencies) {
+    attachPhotoVerificationRuntime(dependencies, { logger });
+    dependencies.stopBenefitEvents = new CustomerBenefitEventService({prisma:require('./common/database').getPrismaClient()}).start(logger);
+  }
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
   const adminAuthService = options.adminAuthService || dependencies.adminAuthService || (!options.dependencies && new AdminAuthService({
@@ -67,6 +73,8 @@ function createApp(options = {}) {
   });
 
   app.use('/health', createHealthRouter(options.health));
+  app.use('/api/supplier-demo', require('./supplier_demo/router').createSupplierDemoRouter());
+  app.use('/api/supplier-review', require('./supplier-review/router').createSupplierReviewRouter());
 
   const botWebhooksEnabled = options.botWebhooksEnabled ?? process.env.BOT_WEBHOOKS_ENABLED === 'true';
   if (botWebhooksEnabled) {
@@ -94,11 +102,6 @@ function createApp(options = {}) {
   if (adminAuthService) {
     app.use('/api/v1/admin/auth', createAdminAuthRouter({ adminAuthService }));
     app.use('/api/v1', createAdminBearerContextMiddleware(adminAuthService));
-    if (process.env.MESSAGE_CENTER_ENABLED === 'true') {
-      const { MessageCenterService } = require('./modules/message_center/MessageCenterService');
-      const { createMessageCenterRouter } = require('./api/v1/messageCenterRoutes');
-      app.use('/api/v1/admin/messages', createMessageCenterRouter({ service: new MessageCenterService({ prisma: getPrismaClient() }) }));
-    }
     const serviceVisitService = dependencies.serviceVisitService || (!options.dependencies && new ServiceVisitService({
       prisma: getPrismaClient(),
       storage: new LocalPhotoStorageAdapter({ rootDir: process.env.SERVICE_REPORT_UPLOAD_DIR || '/var/lib/soft-ice/media/service-reports' }),
@@ -122,6 +125,8 @@ function createApp(options = {}) {
     app.use('/equipment/v1', createEquipmentV1Router(dependencies, { config, logger }));
     app.use('/api/v1/admin/equipment', createEquipmentAdminRouter(dependencies));
   }
+  if (dependencies.adminMachineSettingsService) app.use('/api/v1/machine-edge', createMachineEdgeRouter(dependencies, { config, logger }));
+  if (dependencies.legacyTmaIdentityBridgeService) app.use('/internal/v1/legacy-tma', createLegacyTmaIdentityBridgeRouter(dependencies, { logger }));
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {
@@ -140,6 +145,8 @@ let server;
 let paymentInboxTimer;
 let machineCommandTimer;
 let machineRecoveryTimer;
+let privateChannelRenewalTimer;
+let customerAutoTopupTimer;
 
 function startServer() {
   if (server) {
@@ -163,6 +170,16 @@ function startServer() {
     machineRecoveryTimer = setInterval(() => machineRecoveryWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.recovery.worker.failed', { code: error.code || 'MACHINE_RECOVERY_WORKER_FAILED' })), 15000);
     machineRecoveryTimer.unref();
   }
+  const privateChannelRenewalService = getApp().locals.platform.dependencies.privateChannelRenewalService;
+  if (privateChannelRenewalService && !privateChannelRenewalTimer) {
+    privateChannelRenewalTimer = setInterval(() => privateChannelRenewalService.processDue({ limit: 100 }).catch((error) => getApp().locals.platform.logger.error('private.channel.renewal.worker.failed', { code: error.code || 'PRIVATE_CHANNEL_RENEWAL_WORKER_FAILED' })), 60 * 60 * 1000);
+    privateChannelRenewalTimer.unref();
+  }
+  const customerAutoTopupService = getApp().locals.platform.dependencies.customerAutoTopupService;
+  if (customerAutoTopupService && !customerAutoTopupTimer) {
+    customerAutoTopupTimer = setInterval(() => customerAutoTopupService.processDue({ limit: 100 }).catch((error) => getApp().locals.platform.logger.error('customer.auto.topup.worker.failed', { code: error.code || 'CUSTOMER_AUTO_TOPUP_WORKER_FAILED' })), 60 * 60 * 1000);
+    customerAutoTopupTimer.unref();
+  }
 
   return server;
 }
@@ -185,6 +202,8 @@ async function shutdown(signal, options = {}) {
   if (paymentInboxTimer) { clearInterval(paymentInboxTimer); paymentInboxTimer = undefined; }
   if (machineCommandTimer) { clearInterval(machineCommandTimer); machineCommandTimer = undefined; }
   if (machineRecoveryTimer) { clearInterval(machineRecoveryTimer); machineRecoveryTimer = undefined; }
+  if (privateChannelRenewalTimer) { clearInterval(privateChannelRenewalTimer); privateChannelRenewalTimer = undefined; }
+  if (customerAutoTopupTimer) { clearInterval(customerAutoTopupTimer); customerAutoTopupTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();

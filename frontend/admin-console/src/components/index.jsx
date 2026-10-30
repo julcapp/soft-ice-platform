@@ -77,6 +77,7 @@ export function Sidebar({ open, onClose }) {
     { label: 'Бизнес-статистика', href: '#business-analytics', managed: true },
     { label: 'Пользователи', href: '#users', managed: true },
     { label: 'Организации', href: '#organizations' },
+    { label: 'Акции и условия', href: '#customer-benefits', managed: true },
     { label: 'Promotion Engine', href: '#promotions', managed: true },
     { label: 'Парк автоматов', href: '#machines' },
     { label: 'Цифровой двойник автомата', href: '#machine-twins' },

@@ -11,9 +11,9 @@ class CustomerPaymentProfileService {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
     if (!customer) throw new ApiError({ statusCode: 404, code: 'CUSTOMER_NOT_FOUND', message: 'Customer was not found.', source: 'payment_profile' });
 
-    const [payments, privatePayments, subscriptions, receipts, refunds, providerCosts] = await Promise.all([
+    const [payments, privatePayments, subscriptions, receipts, refunds, providerCosts, autoTopupRows] = await Promise.all([
       this.prisma.$queryRawUnsafe(
-        `SELECT "id","clubTopupId","amountRub","currency","provider","providerPaymentId","providerStatus","status","description","metadata","createdAt","confirmedAt","canceledAt"
+        `SELECT "id","clubTopupId","orderId","amount","currency","provider","providerPaymentId","providerStatus","status","paymentMethodType","channel","description","metadata","createdAt","succeededAt","canceledAt"
          FROM "Payment" WHERE "customerId"=$1 ORDER BY "createdAt" DESC LIMIT 100`,
         customerId,
       ),
@@ -51,9 +51,18 @@ class CustomerPaymentProfileService {
          FROM "PaymentProviderCost" WHERE "customerId"=$1 ORDER BY "occurredAt" DESC LIMIT 100`,
         customerId,
       ),
+      this.prisma.$queryRawUnsafe(
+        `SELECT * FROM "CustomerAutoTopupSchedule" WHERE "customerId"=$1 LIMIT 1`,
+        customerId,
+      ),
     ]);
 
     const costMap = new Map(providerCosts.map((row) => [`${String(row.paymentSourceType).toUpperCase()}:${row.paymentSourceId}`, paymentEconomics(row)]));
+
+    const latestMethodBySubscription = new Map();
+    for (const payment of privatePayments) {
+      if (!latestMethodBySubscription.has(payment.subscriptionId) && payment.paymentMethodType) latestMethodBySubscription.set(payment.subscriptionId, normalizePaymentMethodType(payment.paymentMethodType));
+    }
 
     const recurringSubscriptions = subscriptions.map((row) => ({
       id: row.id,
@@ -65,6 +74,10 @@ class CustomerPaymentProfileService {
       billingPeriodDays: Number(row.billingPeriodDays || 0),
       currentPeriodStart: row.currentPeriodStart,
       currentPeriodEnd: row.currentPeriodEnd,
+      nextRenewalAt: row.currentPeriodEnd,
+      scheduleHuman: Number(row.billingPeriodDays || 0) === 30 ? 'Ежемесячно' : `Каждые ${Number(row.billingPeriodDays || 0)} дней`,
+      paymentMethodType: latestMethodBySubscription.get(row.id) || 'UNKNOWN',
+      recurringEligible: Boolean(row.recurringConsentAt && row.recurringConsentVersion && row.providerPaymentMethodRef),
       recurringEnabled: Boolean(row.recurringEnabled),
       cancelAtPeriodEnd: Boolean(row.cancelAtPeriodEnd),
       cancelledAt: row.cancelledAt,
@@ -83,7 +96,9 @@ class CustomerPaymentProfileService {
       if (item.paymentMethod) methodsByFingerprint.set(item.paymentMethod.fingerprint, item.paymentMethod);
     }
 
+    const testClubTopups = await require('../club_account/TestClubAdminProjection').readTestClubTopups(this.prisma, customerId);
     const history = [
+      ...testClubTopups,
       ...payments.map((row) => ({
         id: `payment:${row.id}`,
         source: 'PAYMENT',
@@ -92,13 +107,13 @@ class CustomerPaymentProfileService {
         provider: String(row.provider || 'UNKNOWN').toUpperCase(),
         providerPaymentRef: maskReference(row.providerPaymentId),
         kind: 'ONE_TIME',
-        paymentMethodType: normalizePaymentMethodType(row.metadata?.payment_method?.type || row.metadata?.paymentMethodType || null),
-        amountRub: Number(row.amountRub || 0),
+        paymentMethodType: normalizePaymentMethodType(row.paymentMethodType || row.metadata?.payment_method?.type || row.metadata?.paymentMethodType || null),
+        amountRub: Number(row.amount || 0),
         currency: row.currency || 'RUB',
         status: String(row.status || row.providerStatus || 'UNKNOWN').toUpperCase(),
         description: row.description || null,
         economics: costMap.get(`PAYMENT:${row.id}`) || null,
-        occurredAt: row.confirmedAt || row.canceledAt || row.createdAt,
+        occurredAt: row.succeededAt || row.canceledAt || row.createdAt,
       })),
       ...privatePayments.map((row) => ({
         id: `private:${row.id}`,
@@ -159,8 +174,27 @@ class CustomerPaymentProfileService {
       createdAt: row.createdAt,
     }));
 
+    const autoTopupRow = autoTopupRows?.[0] || null;
+    const autoTopup = autoTopupRow ? {
+      id: autoTopupRow.id,
+      status: autoTopupRow.status,
+      amountRub: Number(autoTopupRow.amountRub || 0),
+      currency: autoTopupRow.currency || 'RUB',
+      frequency: autoTopupRow.frequency,
+      billingDay: Number(autoTopupRow.billingDay || 1),
+      provider: autoTopupRow.provider,
+      paymentMethodSaved: Boolean(autoTopupRow.providerPaymentMethodRef),
+      paymentMethodType: normalizePaymentMethodType(autoTopupRow.paymentMethodType),
+      offerVersion: autoTopupRow.offerVersion,
+      offerAcceptedAt: autoTopupRow.offerAcceptedAt,
+      nextChargeAt: autoTopupRow.nextChargeAt,
+      lastSucceededAt: autoTopupRow.lastSucceededAt,
+      disabledAt: autoTopupRow.disabledAt,
+    } : null;
+
     return {
       customerId,
+      autoTopup,
       paymentMethods: [...methodsByFingerprint.values()],
       recurringSubscriptions,
       paymentHistory: history,
@@ -190,7 +224,7 @@ function paymentEconomics(row) {
 }
 function resolvePlatformPaymentLink(row) {
   const metadata = row.metadata || {};
-  if (metadata.orderId || metadata.order_id) return { type: 'ORDER', id: metadata.orderId || metadata.order_id };
+  if (row.orderId || metadata.orderId || metadata.order_id) return { type: 'ORDER', id: row.orderId || metadata.orderId || metadata.order_id };
   if (row.clubTopupId) return { type: 'CLUB_TOPUP', id: row.clubTopupId };
   return null;
 }

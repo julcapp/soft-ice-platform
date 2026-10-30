@@ -78,6 +78,8 @@ enum DispenseRequestState {
 }
 
 model Customer {
+  testClubDebits MiniAppTestClubDebit[]
+  benefitPostings CustomerBenefitPosting[]
   id                      String    @id @default(uuid())
   phone                   String?   @unique
   phoneVerifiedAt         DateTime?
@@ -89,6 +91,9 @@ model Customer {
   birthday                DateTime?
   vkProfile               String?
   status                  String    @default("active")
+  blockedUntil            DateTime?
+  blockReason             String?
+  deletedAt               DateTime?
   trustedStatus           Boolean   @default(false)
   trustedStatusAt         DateTime?
   createdAt               DateTime  @default(now())
@@ -531,8 +536,6 @@ model BotRecipientBinding {
   @@index([status, lastSeenAt])
 }
 
-
-
 model TerminalChannelChallenge {
   id                 String   @id @default(uuid())
   tokenHash          String   @unique
@@ -740,6 +743,7 @@ model BonusAccount {
 }
 
 model BonusTransaction {
+  benefitPosting CustomerBenefitPosting?
   id                  String   @id @default(uuid())
   customerId          String
   orderId             String?
@@ -1655,6 +1659,8 @@ model MaintenanceAuditEntryV1 {
 }
 
 model Order {
+  testClubDebit MiniAppTestClubDebit?
+  benefitPostings CustomerBenefitPosting[]
   id         String      @id @default(uuid())
   customerId String?
   status     OrderStatus @default(CREATED)
@@ -1697,8 +1703,6 @@ model Order {
   @@index([customerId, createdAt])
   @@index([status, createdAt])
 }
-
-
 
 model UnverifiedPurchaseContact {
   id                 String    @id @default(uuid())
@@ -2138,6 +2142,7 @@ enum PaymentReconciliationStatus {
 }
 
 model Payment {
+  testClubDebit MiniAppTestClubDebit?
   id                  String                  @id @default(uuid())
   organizationId      String
   orderId             String                  @unique
@@ -3138,4 +3143,55 @@ enum MachineReconciliationStatus {
   OPEN
   MANUAL_REVIEW
   RESOLVED
+}
+
+model CustomerBenefitPolicyVersion {
+  version Int @id @default(autoincrement())
+  rules Json
+  status String
+  actorId String
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  postings CustomerBenefitPosting[]
+  previews CustomerBenefitPreview[]
+}
+
+model CustomerBenefitPosting {
+  id String @id
+  operationKey String @unique
+  policyVersion Int
+  customerId String
+  orderId String
+  ruleKey String
+  amountBonus Int
+  bonusTransactionId String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+  customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  order Order @relation(fields:[orderId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  bonusTransaction BonusTransaction @relation(fields:[bonusTransactionId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  @@index([orderId],map:"CustomerBenefitPosting_order_idx")
+}
+
+model CustomerBenefitPreview {
+  id String @id
+  policyVersion Int
+  actorId String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  policy CustomerBenefitPolicyVersion @relation(fields:[policyVersion],references:[version],onDelete:NoAction,onUpdate:NoAction)
+}
+
+model MiniAppTestClubDebit {
+ id String @id
+ customerId String
+ orderId String @unique
+ paymentId String @unique
+ amountCents Int
+ test Boolean @default(true)
+ createdAt DateTime @default(now()) @db.Timestamptz()
+ customer Customer @relation(fields:[customerId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ order Order @relation(fields:[orderId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ payment Payment @relation(fields:[paymentId],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ @@index([customerId],map:"MiniAppTestClubDebit_customer")
 }

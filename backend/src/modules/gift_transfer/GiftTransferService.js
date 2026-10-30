@@ -54,7 +54,7 @@ class GiftTransferService {
       const token = this.tokenFactory();
       const id = `gift_${crypto.randomUUID()}`;
       const referralId = `gift_referral_${crypto.randomUUID()}`;
-      const reservedOrder = this.orderRepository.reserveForGift ? await this.orderRepository.reserveForGift(orderId) : order;
+      const reservedOrder = !this.repository.atomicOrderReservation && this.orderRepository.reserveForGift ? await this.orderRepository.reserveForGift(orderId) : order;
       if (!reservedOrder) throw conflict('ORDER_NOT_PREPAID', 'Заказ уже недоступен для передачи.');
 
       const transfer = {

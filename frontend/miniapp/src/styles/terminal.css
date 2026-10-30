@@ -1281,3 +1281,54 @@
 @keyframes display-pos-tap{50%{transform:translate(-48px,12px)}}
 @media(max-width:600px){.display-payment-pos{grid-template-columns:1fr;gap:8px;padding:16px}.display-payment-pos svg{max-height:220px}.display-payment-pos p{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.display-pos-card.is-active{animation:none}}
+
+.display-completion-countdown{
+  font-size:clamp(18px,2vw,28px);
+  font-weight:700;
+  color:#008d7c;
+  text-align:center;
+  margin:12px 0;
+  line-height:1.4;
+  animation:displayCountdownPulse 2.2s ease-in-out infinite;
+}
+.display-completion-seconds{
+  display:inline-flex;
+  min-width:2.15em;
+  height:2.15em;
+  margin:0 .18em;
+  padding:0 .42em;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:rgba(0,141,124,.10);
+  font-size:1.04em;
+  font-weight:900;
+  color:#008d7c;
+  box-shadow:0 0 0 0 rgba(0,141,124,.18);
+  animation:displayCountdownTick .48s ease-out;
+}
+.display-completion-countdown.is-urgent{
+  color:#e91e57;
+  animation:displayCountdownUrgent .9s ease-in-out infinite;
+}
+.display-completion-countdown.is-urgent .display-completion-seconds{
+  background:rgba(233,30,87,.12);
+  color:#e91e57;
+  box-shadow:0 0 0 8px rgba(233,30,87,.05);
+}
+@keyframes displayCountdownPulse{
+  0%,100%{transform:scale(1);opacity:.88}
+  50%{transform:scale(1.025);opacity:1}
+}
+@keyframes displayCountdownTick{
+  0%{transform:scale(.78);opacity:.45}
+  65%{transform:scale(1.12);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+@keyframes displayCountdownUrgent{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.055)}
+}
+@media (prefers-reduced-motion:reduce){
+  .display-completion-countdown,.display-completion-seconds{animation:none}
+}

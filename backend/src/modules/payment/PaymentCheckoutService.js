@@ -49,6 +49,10 @@ class PaymentCheckoutService {
       confirmationUrl: remote.confirmationUrl || null,
       paymentMethodType: remote.paymentMethodType || request.method || null,
       incomeAmount: remote.incomeAmount == null ? null : money(remote.incomeAmount),
+      metadata: {
+        ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+        providerPaymentMethodSaved: remote.paymentMethodSaved === true,
+      },
       channel: normalizeChannel(request.channel),
       failureCode: remote.failureCode || null,
     });
@@ -75,6 +79,10 @@ class PaymentCheckoutService {
       confirmationUrl: remote.confirmationUrl || payment.confirmationUrl,
       paymentMethodType: remote.paymentMethodType || payment.paymentMethodType,
       incomeAmount: remote.incomeAmount == null ? payment.incomeAmount : money(remote.incomeAmount),
+      metadata: {
+        ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+        providerPaymentMethodSaved: remote.paymentMethodSaved === true,
+      },
       failureCode: remote.failureCode || null,
     });
 
@@ -193,8 +201,10 @@ class PaymentCheckoutService {
     }
 
     if (inbox.status === 'PROCESSED') {
+      const currentRefund = await this.repository.getRefund(refund.organizationId, refund.id);
+      if (remote.status === 'SUCCEEDED') await this.recordRefundActivity(currentRefund, context);
       return {
-        refund: await this.repository.getRefund(refund.organizationId, refund.id),
+        refund: currentRefund,
         provider: remote,
         verified: true,
         duplicate: true,
@@ -202,7 +212,84 @@ class PaymentCheckoutService {
     }
 
     const processed = await this.paymentService.processInbox(inbox, context);
-    return { ...processed, provider: remote, verified: true };
+    const currentRefund = await this.repository.getRefund(refund.organizationId, refund.id);
+    if (remote.status === 'SUCCEEDED') await this.recordRefundActivity(currentRefund, context);
+    return { ...processed, refund: currentRefund, provider: remote, verified: true };
+  }
+
+  async recordRefundActivity(refund, context = {}) {
+    if (!refund?.payment?.customerId || refund.status !== 'SUCCEEDED') return;
+    const prisma = this.repository.prisma;
+    if (!prisma) return;
+
+    const aggregates = await prisma.paymentRefund.aggregate({
+      where: { organizationId: refund.organizationId, paymentId: refund.paymentId, status: 'SUCCEEDED' },
+      _sum: { amount: true },
+    });
+    const totalRefunded = Number(aggregates?._sum?.amount || 0);
+    const paymentAmount = Number(refund.payment.amount || 0);
+    const isFull = totalRefunded >= paymentAmount - 0.0001;
+    const eventType = isFull ? 'PaymentRefund.FullSucceeded' : 'PaymentRefund.PartialSucceeded';
+    const title = isFull ? 'Полный возврат по покупке' : 'Частичный возврат по покупке';
+    const remaining = Math.max(0, paymentAmount - totalRefunded);
+    const occurredAt = refund.succeededAt || this.clock();
+    const correlationId = context.correlationId || ('refund:' + refund.id);
+
+    await prisma.customerTimelineEvent.upsert({
+      where: {
+        customerId_sourceDomain_sourceEntityType_sourceEntityId_eventType: {
+          customerId: refund.payment.customerId,
+          sourceDomain: 'PAYMENTS',
+          sourceEntityType: 'PaymentRefund',
+          sourceEntityId: refund.id,
+          eventType,
+        },
+      },
+      create: {
+        customerId: refund.payment.customerId,
+        eventType,
+        category: 'PAYMENT',
+        title,
+        description: `Возврат ${money(refund.amount)} ${refund.currency}. Остаток к возможному возврату: ${remaining.toFixed(2)} ${refund.currency}.`,
+        sourceDomain: 'PAYMENTS',
+        sourceEntityType: 'PaymentRefund',
+        sourceEntityId: refund.id,
+        correlationId,
+        metadata: {
+          paymentId: refund.paymentId,
+          orderId: refund.payment.orderId,
+          refundId: refund.id,
+          providerRefundId: refund.providerRefundId,
+          refundType: isFull ? 'FULL' : 'PARTIAL',
+          refundAmount: Number(refund.amount),
+          paymentAmount,
+          totalRefunded,
+          remainingRefundable: remaining,
+          reason: refund.reason,
+          provider: refund.payment.provider,
+        },
+        occurredAt,
+      },
+      update: {},
+    });
+
+    const sourceId = refund.id;
+    const messageId = 'refund:' + refund.id;
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "ProjectMessage"
+        ("id","source","sourceId","recipientType","recipientId","subject","body","sender","correlationId","redacted","createdAt")
+      VALUES ($1,'PAYMENT_REFUND',$2,'CUSTOMER',$3,$4,$5,'Система Soft ICE',$6,FALSE,$7)
+      ON CONFLICT ("source","sourceId") DO NOTHING
+    `, messageId, sourceId, refund.payment.customerId, title,
+      `Заказ ${refund.payment.orderId}. Возврат ${money(refund.amount)} ${refund.currency}. Статус: выполнен.`,
+      correlationId, occurredAt);
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "ProjectMessageDelivery"
+        ("id","messageId","channel","status","createdAt","updatedAt")
+      VALUES ($1,$2,'SYSTEM','AVAILABLE',$3,$3)
+      ON CONFLICT ("id") DO NOTHING
+    `, 'refund-delivery:' + refund.id, messageId, occurredAt);
   }
 
   async applyRemotePaymentState(payment, remote, context, source) {

@@ -1,0 +1,9 @@
+import React,{useEffect,useState} from 'react';
+import {DataTable,StatusBadge} from './components';
+const money=value=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(Number(value||0));
+export function PlatformTestTopups(){
+ const [state,setState]=useState({status:'loading'});
+ useEffect(()=>{const abort=new AbortController();fetch('/api/v1/admin/test-club-topups?limit=100',{signal:abort.signal,headers:{Accept:'application/json'}}).then(async response=>{if(response.status===403)return setState({status:'hidden'});if(!response.ok)throw Error('load');const data=await response.json();setState({status:'ready',items:data.data});}).catch(error=>{if(error.name!=='AbortError')setState({status:'error'});});return()=>abort.abort();},[]);
+ if(state.status==='hidden')return null;
+ return <section className="card" aria-label="Тестовые пополнения клиентов"><h2>Пополнения клубного счёта · ТЕСТ</h2><p>Отдельный журнал тестовых средств клиентов. Эти операции не увеличивают реальные деньги и бонусы; к отдельной организации не привязаны. Последние 100 записей.</p>{state.status==='loading'?<p role="status">Загружаем пополнения…</p>:state.status==='error'?<p role="alert">Не удалось загрузить тестовые пополнения. Обновите страницу.</p>:<DataTable title="Журнал тестовых пополнений" rows={state.items} columns={[{key:'id',label:'ID пополнения'},{key:'customerId',label:'Клиент',render:value=><a href={`#users/${value}`}>Карточка клиента</a>},{key:'status',label:'Статус',render:value=><StatusBadge status={value}/>},{key:'amount',label:'Сумма',render:money},{key:'createdAt',label:'Создано',render:value=>new Date(value).toLocaleString('ru-RU')},{key:'updatedAt',label:'Подтверждено / обновлено',render:value=>new Date(value).toLocaleString('ru-RU')},{key:'providerPaymentId',label:'Идентификатор провайдера'}]} emptyTitle="Тестовых пополнений пока нет"/>}</section>;
+}

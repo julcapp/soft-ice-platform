@@ -1,10 +1,11 @@
+import { SBP_LOGO } from '../domain/media/paymentMedia.js';
+import {CompletionCountdown} from './CompletionCountdown.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, pingTerminalBackend, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';
 
 const POLL_MS = 2500;
 const HEARTBEAT_MS = 5000;
 const RECOVERY_RETRY_MS = [3000, 5000, 10000, 15000];
-const AUTO_RETURN_AFTER_COMPLETED_MS = 7000;
 const SAFE_CREATION_ERRORS = new Set(['RESOURCE_NOT_FOUND', 'PAYMENT_CHECKOUT_NOT_AVAILABLE', 'TERMINAL_QUOTE_NOT_FOUND', 'TERMINAL_QUOTE_EXPIRED', 'TERMINAL_QUOTE_SCOPE_MISMATCH', 'TERMINAL_INVENTORY_UNAVAILABLE', 'CATALOG_RECIPE_MISSING', 'TERMINAL_MACHINE_CONTEXT_UNRESOLVED', 'TERMINAL_CONTACT_INVALID', 'TERMINAL_CUSTOMER_NOT_FOUND', 'TERMINAL_PAYMENT_METHOD_INVALID', 'TERMINAL_POS_NOT_CONFIGURED']);
 
 export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseToken, method = null, onSelectMethod, onBack, onComplete }) {
@@ -93,7 +94,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         setState({ phase: phaseFor(payment), payment, error: null });
       }).catch((error) => {
         if (controller.signal.aborted) return;
-        const safe = SAFE_CREATION_ERRORS.has(error.code);
+        const safe = SAFE_CREATION_ERRORS.has(error.code) || String(error.code || '').startsWith('SBER_QR_');
         if (!safe) setConnectionState('offline');
         setState({ phase: safe ? 'unavailable' : 'unknown', payment: null,
           error: safe ? terminalPaymentErrorMessage(error) : 'Связь прервалась. Автоматически восстанавливаем соединение и проверяем этот же платёж.' });
@@ -123,12 +124,6 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [machineId, state.payment?.paymentId, state.phase]);
 
-  useEffect(() => {
-    if (state.phase !== 'success' || state.payment?.fulfillmentState !== 'COMPLETED' || typeof onComplete !== 'function') return undefined;
-    const timer = window.setTimeout(() => onComplete(), AUTO_RETURN_AFTER_COMPLETED_MS);
-    return () => window.clearTimeout(timer);
-  }, [state.phase, state.payment?.fulfillmentState, onComplete]);
-
   const qrDataUrl = useMemo(() => {
     const url = state.payment?.confirmationUrl;
     if (!url || typeof window.qrcode !== 'function') return null;
@@ -142,7 +137,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
 
   const result = state.phase === 'success' || state.phase === 'error' || state.phase === 'unavailable';
   const title = state.phase === 'choosing' ? 'Выберите способ оплаты' : state.phase === 'success'
-    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Готово! Заберите мороженое'
+    ? state.payment.fulfillmentState === 'COMPLETED' ? 'Ваше мороженое готово'
       : state.payment.fulfillmentState === 'PREPARING' ? 'Ваше мороженое готовится'
         : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Передаём заказ аппарату'
           : 'Проверяем готовность аппарата'
@@ -158,6 +153,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       <div className="display-payment-methods" aria-label="Способы оплаты">
         {[
           { id: 'sbp', title: 'СБП', subtitle: 'По QR-коду со смартфона', icon: 'qr' },
+          { id: 'sber_sbp', title: 'Оплата по СБП', subtitle: 'Оплата через приложение вашего банка', icon: 'sbp' },
           { id: 'pos', title: 'Банковская карта', subtitle: 'Через POS-терминал аппарата', icon: 'card' },
           ...(availableMethods.some((item) => item.id === 'test_card')
             ? [{ id: 'test_card', title: 'Тестовая карта ЮKassa', subtitle: 'Только для проверки тестового магазина', icon: 'card' }]
@@ -165,7 +161,8 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
         ].map((item) => {
           const availability = availableMethods.find((methodItem) => methodItem.id === item.id);
           const disabled = availability ? !availability.available : item.id !== 'test_card';
-          const subtitle = availability?.reasonCode === 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
+          const subtitle = item.id === 'sber_sbp' && disabled ? 'Подключается · скоро будет доступно'
+            : availability?.reasonCode === 'YOOKASSA_TEST_STORE_SBP_UNAVAILABLE'
             ? 'Недоступно в тестовом магазине ЮKassa'
             : availability?.reasonCode === 'TERMINAL_POS_NOT_CONFIGURED'
               ? 'Будет доступно после подключения POS по MDB'
@@ -183,14 +180,14 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
     </> : result ? <><div className={`display-payment-result ${state.phase === 'success' ? 'is-success' : 'is-error'}`} role="status">
       <span aria-hidden="true">{state.phase === 'success' ? '✓' : '!'}</span>
       <strong>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите мороженое из окна выдачи'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Заберите заказ из окна выдачи'
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Требуется помощь сотрудника'
             : state.payment.fulfillmentState === 'PREPARING' ? 'Аппарат уже готовит ваш заказ'
               : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Ничего нажимать не нужно'
                 : 'Ничего нажимать не нужно'
         : state.phase === 'error' ? 'Банк не подтвердил платёж' : state.error}</strong>
       <p>{state.phase === 'success'
-        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Ваш заказ готов. Заберите мороженое. Приятного аппетита!'
+        ? state.payment.fulfillmentState === 'COMPLETED' ? 'Приятного аппетита!'
           : state.payment.fulfillmentState === 'ATTENTION_REQUIRED' ? 'Оплата получена, но выдача требует проверки. Повторно не оплачивайте. Обратитесь к сотруднику и назовите номер заказа.'
             : state.payment.fulfillmentState === 'PREPARING' ? 'Подождите немного — мороженое готовится автоматически.'
               : state.payment.fulfillmentState === 'TRANSMITTING' ? 'Оплата подтверждена. Мы сами передаём заказ аппарату.'
@@ -214,6 +211,7 @@ export function TerminalPaymentScreen({ machineId, quote, items = [], purchaseTo
       <p className="display-payment-note">{state.phase === 'unknown' ? 'Если деньги уже списаны, повторно платить не нужно. Проверьте этот же заказ.' : 'Приготовление начнётся после подтверждения оплаты.'}</p>
     </>}
     <div className="display-payment-actions">
+      {state.phase === 'success' && state.payment?.fulfillmentState === 'COMPLETED' && <CompletionCountdown key={state.payment.paymentId} onComplete={onComplete}/> }
       {state.phase === 'success' && state.payment.fulfillmentState === 'COMPLETED' && <button className="display-primary" type="button" onClick={onComplete}>Завершить</button>}
       {state.phase === 'unavailable' && <button className="display-primary" type="button" onClick={() => onSelectMethod?.(null)}>Выбрать способ оплаты</button>}
       {state.phase === 'unknown' && <button className="display-primary" type="button" onClick={() => setRetry((value) => value + 1)}>Проверить оплату</button>}
@@ -232,6 +230,7 @@ function money(value, currency = 'RUB') {
 }
 
 function PaymentMethodIcon({ type }) {
+  if (type === 'sbp') return <img src={SBP_LOGO} alt="" aria-hidden="true" width="124" height="60" style={{width:124,height:60,objectFit:'contain'}} />;
   return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
     {type === 'card' ? <><rect x="6" y="13" width="52" height="38" rx="7" /><path d="M6 25h52M15 41h13M42 37c4-4 4-8 0-12" /></> : <><rect x="8" y="8" width="17" height="17" rx="2" /><rect x="39" y="8" width="17" height="17" rx="2" /><rect x="8" y="39" width="17" height="17" rx="2" /><path d="M39 39h8v8h9M39 48v8M48 56h8M32 8v17M8 32h17M32 32h7M32 47v9" /></>}
   </svg>;
@@ -257,3 +256,4 @@ function PosPaymentGuide({ active }) {
     </div>
   </div>;
 }
+

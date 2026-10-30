@@ -44,6 +44,7 @@ const { createCRMRouter } = require('./crmRoutes');
 const { createCustomer360Router, createAdminCustomer360Router } = require('./customer360Routes');
 const { createExternalChannelRouter } = require('./externalChannelRoutes');
 const { createMachineConnectivityRouter } = require('./machineConnectivityRoutes');
+const { createAdminMachineSettingsRouter } = require('./adminMachineSettingsRoutes');
 const { createVideoSurveillanceRouter } = require('./videoSurveillanceRoutes');
 const { createEventCenterRouter } = require('./eventCenterRoutes');
 const { createGiftTransferRouter, createAdminGiftTransferRouter } = require('./giftTransferRoutes');
@@ -59,9 +60,14 @@ const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRout
 const { createPaymentRouter } = require('./paymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createPaymentRouter: adminpaymentrouter, createPaymentWebhookRouter: paymentwebhookrouter } = require('./paymentlifecycleroutes');
+const { createMessageCenterRouter } = require('./messageCenterRoutes');
+const { MessageCenterService } = require('../../modules/message_center/MessageCenterService');
+const { createSchedulerRouter } = require('./schedulerRoutes');
+const { SchedulerService } = require('../../modules/scheduler/SchedulerService');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
+  router.use('/payments/sber-sbp', require('./sberQrRoutes').installSberQrGateway(dependencies));
   const prisma = getPrismaClient();
   const privateChannelBillingService = dependencies.privateChannelBillingService || new PrivateChannelBillingService({ prisma });
   const privateChannelPaymentAdapter = dependencies.privateChannelPaymentAdapter || new YooKassaPrivateChannelPaymentAdapter();
@@ -84,13 +90,16 @@ function createApiV1Router(dependencies, { logger } = {}) {
   const customerRoleContextService = dependencies.customerRoleContextService || new CustomerRoleContextService({ prisma });
   const serviceSpecialistWorkspaceService = dependencies.serviceSpecialistWorkspaceService || new ServiceSpecialistWorkspaceService({ prisma, specialistDirectory: serviceSpecialistDirectoryService });
   const businessDashboardService = dependencies.businessDashboardService || new BusinessDashboardService({ prisma, privateChannelBillingService, paymentOperationsService, paymentEconomicsService, yooKassaDailyReconciliationService });
-  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService };
+  const messageCenterService = dependencies.messageCenterService || new MessageCenterService({ prisma });
+  const schedulerService = dependencies.schedulerService || new SchedulerService({ prisma });
+  const runtimeDependencies = { ...dependencies, referralEngagementService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, customerPaymentProfileService, paymentOperationsService, paymentEconomicsService, financialReadinessService, yooKassaDailyReconciliationService, adminNotificationCenterService, adminOperationsDispatchService, adminOperationsEscalationService, serviceSpecialistDirectoryService, customerRoleContextService, serviceSpecialistWorkspaceService, messageCenterService, schedulerService };
 
   router.use(attachCorrelationId);
   router.get('/', (req, res) => {
     res.json({ data: { type: 'api_version', id: 'v1', attributes: { status: 'online' } }, meta: { api_version: 'v1', correlation_id: req.correlationId } });
   });
 
+  router.use('/miniapp-test-preorders', require('./miniAppTestPreorderRoutes').createMiniAppTestPreorderRouter(runtimeDependencies));
   router.use('/auth', createAuthRouter(runtimeDependencies));
   router.use('/customers', createCustomerRouter(runtimeDependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(runtimeDependencies));
@@ -108,6 +117,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/catalog', createAdminCatalogRouter(runtimeDependencies));
   router.use('/payments', createPaymentRouter(runtimeDependencies));
   router.use('/admin/payments', adminpaymentrouter(runtimeDependencies));
+  router.use('/admin/test-club-topups', require('./testClubAdminRoutes').createTestClubAdminRouter(runtimeDependencies));
+  router.use('/admin/message-center', createMessageCenterRouter({ service: messageCenterService, adminAuth: runtimeDependencies.adminAuth || {} }));
+  router.use('/admin/scheduler', createSchedulerRouter({ service: schedulerService, adminAuth: runtimeDependencies.adminAuth || {} }));
   router.use('/webhooks/payments', paymentwebhookrouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(runtimeDependencies));
   if (runtimeDependencies.machineDispenseService) router.use('/webhooks/machines', createMachineCallbackRouter(runtimeDependencies));
@@ -116,7 +128,8 @@ function createApiV1Router(dependencies, { logger } = {}) {
     router.use('/admin/gift-transfers', createAdminGiftTransferRouter(runtimeDependencies));
   }
   router.use('/telegram', createTelegramRouter(runtimeDependencies));
-  router.use('/admin/dashboard', createAdminDashboardRouter({ ...dependencies, businessDashboardService }));
+  router.use('/admin/dashboard', createAdminDashboardRouter({ ...runtimeDependencies, businessDashboardService }));
+  router.use('/admin/customer-benefits', require('./customerBenefitRoutes').createCustomerBenefitRouter(runtimeDependencies));
   router.use('/admin/promotions', createPromotionAdminRouter(runtimeDependencies));
   router.use('/admin/machine-twins', createMachineTwinRouter(runtimeDependencies));
   router.use('/admin/machine-runtime', createMachineRuntimeRouter(runtimeDependencies));
@@ -131,6 +144,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/admin/customer-360', createAdminCustomer360Router(runtimeDependencies));
   router.use('/admin/customers', createExternalChannelRouter(runtimeDependencies));
   router.use('/admin/machines', createMachineConnectivityRouter(runtimeDependencies));
+  router.use('/admin/machines', createAdminMachineSettingsRouter(runtimeDependencies));
   router.use('/admin', createVideoSurveillanceRouter(runtimeDependencies));
   if (runtimeDependencies.photoPublicationReadModel) router.use('/photo-verification', createPhotoVerificationRouter(runtimeDependencies));
   if (runtimeDependencies.photoVerificationAdminService) router.use('/admin/photo-verification', createAdminPhotoVerificationRouter(runtimeDependencies));

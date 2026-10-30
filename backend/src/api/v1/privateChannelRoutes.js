@@ -8,7 +8,7 @@ const CHANNELS = {
   MAX: { planCode: 'PRIVATE_MAX_MONTHLY', provider: 'MAX_BOT_API' },
 };
 
-function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, paymentOperationsService, paymentEconomicsService }) {
+function createPrivateChannelRouter({ authCoreService, privateChannelBillingService, privateChannelPaymentAdapter, privateChannelAccessService, privateChannelRenewalService, privateChannelRecoveryService, customerProfileCommunicationService, paymentOperationsService, paymentEconomicsService, customerAutoTopupService }) {
   const router = express.Router();
   const authenticateCustomer = createCustomerAuthenticator(authCoreService);
 
@@ -67,6 +67,14 @@ function createPrivateChannelRouter({ authCoreService, privateChannelBillingServ
     const paymentId = incoming.object?.id;
     if (!paymentId) return res.sendStatus(200);
     const payment = await privateChannelPaymentAdapter.getPayment(paymentId);
+    if (payment.metadata?.auto_topup_schedule_id) {
+      if (payment.status === 'succeeded' && payment.paid === true) {
+        await customerAutoTopupService?.handleSucceeded?.(payment);
+      } else if (payment.status === 'canceled') {
+        await customerAutoTopupService?.handleFailed?.(payment);
+      }
+      return res.sendStatus(200);
+    }
     if (payment.status !== 'succeeded' || payment.paid !== true) return res.sendStatus(200);
     const subscriptionId = payment.metadata?.private_channel_subscription_id;
     if (!subscriptionId) return res.sendStatus(200);

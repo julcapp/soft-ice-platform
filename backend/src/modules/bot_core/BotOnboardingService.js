@@ -39,6 +39,15 @@ class BotOnboardingService {
         : [],
     };
 
+    response.title = welcome.title;
+    response.text = welcome.text;
+    if (!phoneVerified && session.channel === 'telegram') response.text += '\n\nДля регистрации поделитесь своим номером телефона кнопкой ниже. Подтверждение ваших согласий — следующий шаг.';
+    response.actions = phoneVerified
+      ? response.menu
+      : buildMainMenu({ miniAppUrl: this.miniAppUrl, machineId: session.context?.machineId || null })
+        .filter((action) => action.type === 'open_mini_app');
+    if (!phoneVerified && session.channel === 'telegram') response.actions.unshift({ type: 'request_contact', label: 'Поделиться моим номером' });
+
     await this.publishEvent('BOT_ONBOARDING_STARTED', {
       channel: session.channel,
       customerId: customer?.id || null,
@@ -48,6 +57,20 @@ class BotOnboardingService {
     });
 
     return response;
+  }
+
+  async verifyTelegramContact(session) {
+    if (!session.contact?.verified || session.contact.ownerUserId !== session.externalUserId) {
+      return { title: 'Нужен ваш номер телефона', text: 'Нажмите «Поделиться моим номером». Контакт другого человека не подтверждает ваш номер.', actions: [{ type: 'request_contact', label: 'Поделиться моим номером' }] };
+    }
+    const result = await this.resolveCustomer(session);
+    try {
+      await this.customerService.verifyTelegramBotPhone(result.customer.id, { externalUserId: session.externalUserId, contactUserId: session.contact.ownerUserId, phone: session.contact.phone }, this.toCustomerContext(session));
+    } catch (error) {
+      if (!['IDENTITY_CONFLICT', 'PHONE_VERIFICATION_FAILED'].includes(error.code)) throw error;
+      return { title: 'Номер не привязан', text: 'Не удалось подтвердить номер для этого профиля. Обратитесь в поддержку; другой аккаунт автоматически не объединяется.', actions: [] };
+    }
+    return { title: 'Номер телефона подтверждён', text: 'Откройте «У Тимоши» и подтвердите согласия, чтобы продолжить регистрацию.', actions: buildMainMenu({ miniAppUrl: this.miniAppUrl }).filter((action) => action.type === 'open_mini_app') };
   }
 
   async resolveCustomer(session) {
@@ -79,7 +102,9 @@ class BotOnboardingService {
     return {
       sourceChannel: session.channel,
       authMethod: `${session.channel}_bot`,
-      correlationId: session.metadata?.correlationId || session.metadata?.updateId || null,
+      correlationId: session.metadata?.correlationId != null
+        ? String(session.metadata.correlationId)
+        : session.metadata?.updateId != null ? String(session.metadata.updateId) : null,
     };
   }
 

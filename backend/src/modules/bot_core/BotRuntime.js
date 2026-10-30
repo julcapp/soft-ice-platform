@@ -1,7 +1,7 @@
 const { parseStartPayload } = require('./DeepLinkParser');
 
 class BotRuntime {
-  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, terminalChannelChallengeService = null, recipientBindingService = null, sender, logger = console } = {}) {
+  constructor({ adapters = {}, renderers = {}, actionRouter, onboardingService = null, customerResolver, terminalChannelChallengeService = null, recipientBindingService = null, referralAttributionService = null, sender, logger = console } = {}) {
     this.adapters = adapters;
     this.renderers = renderers;
     this.actionRouter = actionRouter;
@@ -9,6 +9,7 @@ class BotRuntime {
     this.customerResolver = customerResolver;
     this.terminalChannelChallengeService = terminalChannelChallengeService;
     this.recipientBindingService = recipientBindingService;
+    this.referralAttributionService = referralAttributionService;
     this.sender = sender;
     this.logger = logger;
   }
@@ -25,7 +26,9 @@ class BotRuntime {
     let view;
     const startContext = parseStartPayload(inbound.payload);
 
-    if (inbound.contact && this.terminalChannelChallengeService) {
+    if (channel === 'telegram' && inbound.contact && this.onboardingService?.verifyTelegramContact) {
+      view = await this.onboardingService.verifyTelegramContact({ channel, externalUserId: inbound.externalUserId, contact: inbound.contact, profile: inbound.profile, metadata: inbound.metadata });
+    } else if (inbound.contact && this.terminalChannelChallengeService) {
       const verification = await this.terminalChannelChallengeService.verifyContact({
         channel,
         externalUserId: inbound.externalUserId,
@@ -85,12 +88,16 @@ class BotRuntime {
       });
     }
 
-    if (!identity.customerId && isStartUpdate(channel, rawUpdate)) {
+    if (!identity.customerId && (isStartUpdate(channel, rawUpdate) || inbound.contact)) {
       identity = await this.customerResolver.resolve({ channel, inbound, rawUpdate });
     }
+    if (this.referralAttributionService) await this.referralAttributionService.observe({
+      channel, inbound, identity,
+      startCode: isStartUpdate(channel, rawUpdate) ? parseStartPayload(inbound.payload).referralCode : null,
+    });
     await this.observeRecipientBinding({ channel, inbound, identity });
 
-    const rendered = renderer.renderView(view);
+    const rendered = renderer.renderView(view, { chatType: inbound.metadata?.chatType, externalUserId: inbound.externalUserId });
     const destination = resolveDestination(channel, inbound, rawUpdate);
     const result = await this.sender.send({ channel, destination, rendered, rawUpdate });
     return { inbound, identity, callback, view, rendered, destination, result };

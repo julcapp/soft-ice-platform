@@ -25,6 +25,8 @@ class TerminalCheckoutService {
   }
 
   async initiate({ machineId, quoteId, purchaseToken = null, method = 'sbp', idempotencyKey }, context = {}) {
+    // SBER_QR_TERMINAL_HOOK_V1
+    if (method === 'sber_sbp') new (require('./sber/SberQrPaymentAdapter').SberQrPaymentAdapter)({prisma:require('../../common/database').getPrismaClient()}).assertReady(machineId);
     required({ machineId, quoteId, idempotencyKey }, ['machineId', 'quoteId', 'idempotencyKey']);
     const requestedMethod = String(method).toLowerCase();
     if (requestedMethod === 'pos') throw problem('TERMINAL_POS_NOT_CONFIGURED', 'POS-терминал пока не подключён.', 503);
@@ -34,7 +36,7 @@ class TerminalCheckoutService {
     if (requestedMethod === 'test_card' && !this.testCardEnabled) {
       throw problem('TERMINAL_TEST_CARD_DISABLED', 'Тестовая оплата картой отключена.', 503);
     }
-    if (!['sbp', 'test_card'].includes(requestedMethod)) {
+    if (!['sbp', 'test_card', 'sber_sbp'].includes(requestedMethod)) {
       throw problem('TERMINAL_PAYMENT_METHOD_INVALID', 'Этот способ оплаты на аппарате недоступен.', 400);
     }
     const providerMethod = requestedMethod === 'test_card' ? 'bank_card' : 'sbp';
@@ -236,7 +238,7 @@ class TerminalCheckoutService {
       organizationId: flow.organizationId,
       orderId,
       saleFlowId: flow.flowId,
-      provider: 'YOOKASSA',
+      provider: method === 'sber_sbp' ? 'SBER_SBP' : 'YOOKASSA',
       idempotencyKey: `terminal-checkout:${orderId}:${idempotencyKey}`,
       method,
       returnUrl: `${this.returnOrigin}/?mode=payment-return&source=terminal&machineId=${encodeURIComponent(machineId)}&orderId=${encodeURIComponent(orderId)}`,
@@ -312,6 +314,7 @@ class TerminalCheckoutService {
   }
 
   async present(result, machineId) {
+    const { classifyTerminalAttempt } = require('./TerminalFulfillmentState');
     const payment = result.payment;
     let flow = await this.prisma.saleFlow.findUnique({ where: { orderId: payment.orderId } });
     if (payment.status === 'SUCCEEDED' && ['PAID', 'FULFILLMENT_AUTHORIZED'].includes(flow?.currentState) && this.paymentService?.machineDispense && this.prisma.machineDispenseAttempt) {
@@ -348,11 +351,11 @@ class TerminalCheckoutService {
             organizationId: flow.organizationId, orderId: payment.orderId,
             saleFlowId: flow.flowId, machineId, operationType: 'CUSTOMER_SALE',
           }, select: { status: true, acceptedAt: true, startedAt: true } }) : null;
-        if (attempt && ['ACCEPTED', 'DISPENSING'].includes(attempt.status) && (attempt.acceptedAt || attempt.startedAt)) fulfillmentState = 'PREPARING';
-        else if (attempt && ['AUTHORIZED', 'QUEUED', 'DISPATCHING', 'SENT'].includes(attempt.status)) fulfillmentState = 'TRANSMITTING';
-        else if (flow.recoveryStatus === 'NEEDS_RECONCILIATION') fulfillmentState = 'ATTENTION_REQUIRED';
+        fulfillmentState = classifyTerminalAttempt(attempt);
+        if (fulfillmentState === 'WAITING' && flow.recoveryStatus === 'NEEDS_RECONCILIATION') fulfillmentState = 'ATTENTION_REQUIRED';
       }
     }
+    if (payment.status === 'REFUNDED') fulfillmentState = 'ATTENTION_REQUIRED';
     return {
       paymentId: payment.id,
       orderId: payment.orderId,

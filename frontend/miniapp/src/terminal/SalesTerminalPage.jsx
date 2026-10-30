@@ -1,3 +1,6 @@
+import {BonusReminder,needsBonusReminder} from './BonusReminder.jsx';
+import './terminal-checkout.css';
+import { PrepaidPickupScreen } from './PrepaidPickupScreen.jsx';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { trackEvent } from '../analytics/trackEvent.js';
 import { PromotionPricePanel } from '../promotion/PromotionPricePanel.jsx';
@@ -10,7 +13,7 @@ import { TerminalPaymentScreen } from './TerminalPaymentScreen.jsx';
 import { readTerminalPaymentSession, saveTerminalPaymentSession, clearTerminalPaymentSession } from './TerminalPaymentSession.js';
 
 const IDLE_TIMEOUT_MS = 120_000;
-const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', SPRINKLE: 'sprinkle', TOPPING: 'topping', SUMMARY: 'summary', PAYMENT: 'payment' });
+const STEPS = Object.freeze({ IDLE: 'idle', HOME: 'home', CLUB: 'club', PREPAID: 'prepaid', SPRINKLE: 'sprinkle', TOPPING: 'topping', SUMMARY: 'summary', BONUS: 'bonus', PAYMENT: 'payment' });
 const ProductMediaContext = createContext(null);
 const DEFAULT_PRODUCT_MEDIA = '/media/ice/UT-ICE-Hero-001-transparent.png';
 const OWNER_PORTRAIT = '/media/brand/owner.jpg';
@@ -132,7 +135,7 @@ function IdleScreen({ onStart, heroPath, catalog, machineId }) {
 
 function PhoneKeypad({ value, onChange, onContinue, onSkip }) {
   const keys = ['1','2','3','4','5','6','7','8','9','0'];
-  return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Введите номер телефона</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без скидки</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
+  return <section className="display-phone"><p className="display-kicker">Клуб Тимоши</p><h1>Введите номер телефона</h1><p>Введите российский номер телефона или продолжите покупку без клуба.</p><output aria-label="Номер телефона">{phoneText(value)}</output><div className="display-keys">{keys.map((key) => <button key={key} type="button" onClick={() => onChange(digits(value + key))}>{key}</button>)}<button type="button" aria-label="Удалить цифру" onClick={() => onChange(value.slice(0, -1))}>⌫</button></div><div className="display-phone-actions"><button type="button" className="display-secondary" onClick={onSkip}>Продолжить без номера</button><button type="button" className="display-primary" disabled={value.length !== 10} onClick={onContinue}>Продолжить</button></div></section>;
 }
 
 function PrepaidBoundary({ onBack }) {
@@ -189,6 +192,8 @@ export function SalesTerminalPage() {
   const [phone, setPhone] = useState('');
   const [recognition, setRecognition] = useState(null);
   const [buyerToken, setBuyerToken] = useState(null);
+  const [bonusReminderSeen,setBonusReminderSeen]=useState(false);
+  const [clubReturnStep,setClubReturnStep]=useState(STEPS.SPRINKLE);
   const recognitionRequest = useRef(null);
   const clearRecognition = () => {
     recognitionRequest.current?.abort();
@@ -214,20 +219,21 @@ export function SalesTerminalPage() {
     const token = buyerToken;
     clearRecognition();
     setBuyerToken(token);
-    setStep(STEPS.SPRINKLE);
+    if(clubReturnStep===STEPS.SUMMARY)setQuoteRefreshKey(value=>value+1);
+    setStep(clubReturnStep);
   };
   const [sprinkleSku, setSprinkleSku] = useState(null);
   const [toppingSku, setToppingSku] = useState(null);
   const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
   useEffect(() => { const controller = new AbortController(); getMachineCatalog(machineId, { signal: controller.signal }).then((catalog) => { setCatalogState({ status: 'ready', catalog, error: null }); setSprinkleSku(checkoutSession?.items.find((item) => catalog.sprinkles.some((entry) => entry.sku === item.sku))?.sku || catalog.sprinkles[0]?.sku || null); setToppingSku(checkoutSession?.items.find((item) => catalog.toppings.some((entry) => entry.sku === item.sku))?.sku || catalog.toppings[0]?.sku || null); }).catch((error) => { if (error.name !== 'AbortError') setCatalogState({ status: 'error', catalog: null, error }); }); return () => controller.abort(); }, [machineId]);
-  useEffect(() => { if (step === STEPS.IDLE || step === STEPS.PAYMENT) return undefined; const reset = () => { clearRecognition(); setStep(STEPS.IDLE); }; let timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); const activity = () => { window.clearTimeout(timer); timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); }; window.addEventListener('pointerdown', activity); window.addEventListener('keydown', activity); return () => { window.clearTimeout(timer); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); }; }, [step]);
+  useEffect(() => { if (step === STEPS.IDLE || step === STEPS.PAYMENT || step === STEPS.PREPAID) return undefined; const reset = () => { clearRecognition(); setStep(STEPS.IDLE); }; let timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); const activity = () => { window.clearTimeout(timer); timer = window.setTimeout(reset, IDLE_TIMEOUT_MS); }; window.addEventListener('pointerdown', activity); window.addEventListener('keydown', activity); return () => { window.clearTimeout(timer); window.removeEventListener('pointerdown', activity); window.removeEventListener('keydown', activity); }; }, [step]);
   const catalog = catalogState.catalog;
   const selectedSprinkle = useMemo(() => catalog?.sprinkles.find((item) => item.sku === sprinkleSku) || null, [catalog, sprinkleSku]);
   const selectedTopping = useMemo(() => catalog?.toppings.find((item) => item.sku === toppingSku) || null, [catalog, toppingSku]);
   const selectedItems = useMemo(() => catalog ? [catalog.currentFlavor, selectedSprinkle, selectedTopping].filter(Boolean) : [], [catalog, selectedSprinkle, selectedTopping]);
   const pricing = usePricingQuote({ machineId, channel: 'TERMINAL', items: step === STEPS.IDLE || step === STEPS.PAYMENT ? [] : selectedItems, refreshKey: quoteRefreshKey });
   const canContinue = pricing.status === 'ready' && !pricing.lockExpired;
-  const startCheckout = () => {
+  const commitCheckout = () => {
     if (!canContinue) return;
     const session = { method: null, quote: pricing.quote, items: selectedItems.map(({ sku, nameRu }) => ({ sku, nameRu })) };
     try { saveTerminalPaymentSession(machineId, session); } catch {
@@ -237,6 +243,11 @@ export function SalesTerminalPage() {
     setCheckoutStorageError(null);
     setCheckoutSession(session);
     setStep(STEPS.PAYMENT);
+  };
+  const startCheckout = () => {
+    if(!canContinue)return;
+    if(needsBonusReminder({buyerToken,reminderSeen:bonusReminderSeen})){setStep(STEPS.BONUS);return;}
+    commitCheckout();
   };
   const selectPaymentMethod = (method) => {
     const session = { ...checkoutSession, method };
@@ -258,15 +269,16 @@ export function SalesTerminalPage() {
     setToppingSku(catalog?.toppings[0]?.sku || null);
     setStep(STEPS.IDLE);
   };
-  const begin = () => { setStep(STEPS.HOME); trackEvent('TerminalSessionStarted', { machine_id: machineId }); };
+  const begin = () => { setBonusReminderSeen(false);setClubReturnStep(STEPS.SPRINKLE);setStep(STEPS.HOME); trackEvent('TerminalSessionStarted', { machine_id: machineId }); };
   if (step === STEPS.IDLE) return <IdleScreen onStart={begin} heroPath={catalog?.currentFlavor?.mediaPath} catalog={catalog} machineId={machineId} />;
-  if (step === STEPS.PAYMENT && checkoutSession) return <main className="display-shell" data-testid="display-screen-payment"><Header catalog={catalog} /><TerminalPaymentScreen machineId={machineId} quote={checkoutSession.quote} items={checkoutSession.items} method={checkoutSession.method} onSelectMethod={selectPaymentMethod} purchaseToken={buyerToken} onBack={returnFromPayment} onComplete={completePurchase} /></main>;
+  if (step === STEPS.PAYMENT && checkoutSession) return <main className="display-shell display-checkout-shell" data-testid="display-screen-payment"><Header catalog={catalog} /><TerminalPaymentScreen machineId={machineId} quote={checkoutSession.quote} items={checkoutSession.items} method={checkoutSession.method} onSelectMethod={selectPaymentMethod} purchaseToken={buyerToken} onBack={returnFromPayment} onComplete={completePurchase} /></main>;
   if (catalogState.status === 'loading') return <main className="display-state" data-testid="display-loading"><div className="display-spinner" /><h1>Загружаем меню…</h1></main>;
   if (catalogState.status === 'error') return <main className="display-state is-error" data-testid="display-error"><h1>Покупка временно недоступна</h1><p>{catalogState.error?.message || 'Не удалось проверить каталог и цену.'}</p><button type="button" onClick={() => window.location.reload()}>Повторить</button></main>;
-  return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className="display-shell" data-testid={`display-screen-${step}`}><Header catalog={catalog} />
+  return <ProductMediaContext.Provider value={catalog.currentFlavor.mediaPath}><main className={`display-shell${step === STEPS.PREPAID ? ' display-pickup-shell' : ''}`} data-testid={`display-screen-${step}`}><Header catalog={catalog} />
     {step === STEPS.HOME && <section className="display-home"><ProductHero alt={catalog.currentFlavor.nameRu} /><div className="display-home-copy"><p className="display-kicker">Сегодня в аппарате</p><h1>{catalog.currentFlavor.nameRu}</h1><p>Собери свой вкус: выберите посыпку и топпинг.</p><div className="display-home-price">от {money(catalog.currentFlavor.basePrice, catalog.currency)}</div><div className="display-home-actions"><button className="display-primary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Собрать мороженое</button><button className="display-secondary" data-testid="display-prepaid-entry" type="button" onClick={() => setStep(STEPS.PREPAID)}>Получить оплаченный заказ</button></div><button className="display-club" type="button" onClick={() => setStep(STEPS.CLUB)}><span>♡</span><div><strong>Клуб Тимоши</strong><small>Каждая 50-я покупка — в подарок</small></div><b>Получить свою скидку</b></button><div className="display-values"><span>Натуральные ингредиенты</span><span>Улыбка с каждым стаканчиком</span><span>Подари свою улыбку!</span></div></div></section>}
+    {step === STEPS.BONUS && <BonusReminder disabled={!canContinue} onRefresh={()=>setQuoteRefreshKey(value=>value+1)} onPhone={()=>{setBonusReminderSeen(true);setClubReturnStep(STEPS.SUMMARY);clearRecognition();setStep(STEPS.CLUB);}} onSkip={()=>{setBonusReminderSeen(true);commitCheckout();}}/>}
     {step === STEPS.CLUB && (recognition ? <RecognitionState result={recognition} onSkip={continueAnonymous} onReset={clearRecognition} /> : <PhoneKeypad value={phone} onChange={setPhone} onSkip={continueAnonymous} onContinue={recognize} />)}
-    {step === STEPS.PREPAID && <PrepaidBoundary onBack={() => setStep(STEPS.HOME)} />}
+    {step === STEPS.PREPAID && <PrepaidPickupScreen machineId={machineId} onBack={() => setStep(STEPS.HOME)} />}
     {step === STEPS.SPRINKLE && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 1 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите посыпку</h1><p className="display-choice-subtitle">Можно продолжить без посыпки</p><div className="display-option-grid">{catalog.sprinkles.map((item) => <OptionCard key={item.id} item={item} selected={sprinkleSku === item.sku} onClick={() => setSprinkleSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.HOME)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.TOPPING)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Далее: топпинг'}</button></div></div></section>}
     {step === STEPS.TOPPING && <section className="display-choice display-choice-step"><div className="display-choice-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /><div><p className="display-kicker">Шаг 2 из 2</p><h2>{catalog.currentFlavor.nameRu}</h2></div></div><div className="display-choice-content"><p className="display-kicker">Соберите своё мороженое</p><h1>Выберите топпинг</h1><p className="display-choice-subtitle">Можно продолжить без топпинга</p><div className="display-option-grid">{catalog.toppings.map((item) => <OptionCard key={item.id} item={item} selected={toppingSku === item.sku} onClick={() => setToppingSku(item.sku)} />)}</div><PromotionPricePanel pricing={pricing} onRefresh={() => setQuoteRefreshKey((value) => value + 1)} /><div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад к посыпке</button><button className="display-primary" type="button" disabled={!canContinue} onClick={() => setStep(STEPS.SUMMARY)}>{pricing.status === 'loading' ? 'Проверяем цену…' : 'Продолжить'}</button></div></div></section>}
     {step === STEPS.SUMMARY && <section className="display-summary display-summary-review"><div className="display-summary-hero"><ProductHero alt={catalog.currentFlavor.nameRu} /></div><div className="display-summary-content"><p className="display-kicker">Проверьте ваш заказ</p><h1>Вы собрали своё мороженое</h1><p className="display-summary-subtitle">Проверьте состав и при необходимости измените выбор.</p><div className="display-summary-cards"><article className="display-summary-card"><span className="display-summary-card-label">Мороженое</span><div className="display-summary-card-art"><img src={DEFAULT_PRODUCT_MEDIA} alt="" /></div><strong>{catalog.currentFlavor.nameRu}</strong><small>{money(catalog.currentFlavor.basePrice, catalog.currentFlavor.currency)}</small></article><article className="display-summary-card"><span className="display-summary-card-label">Топпинг</span><div className="display-summary-card-art">{selectedTopping && optionMedia(selectedTopping) ? <img src={optionMedia(selectedTopping)} alt="" /> : <span>—</span>}</div><strong>{selectedTopping?.nameRu || 'Не выбран'}</strong><small>{selectedTopping ? (selectedTopping.basePrice === 0 ? 'Без доплаты' : money(selectedTopping.basePrice, selectedTopping.currency)) : '—'}</small><button type="button" onClick={() => setStep(STEPS.TOPPING)}>Изменить</button></article><article className="display-summary-card"><span className="display-summary-card-label">Посыпка</span><div className="display-summary-card-art">{selectedSprinkle && optionMedia(selectedSprinkle) ? <img src={optionMedia(selectedSprinkle)} alt="" /> : <span>—</span>}</div><strong>{selectedSprinkle?.nameRu || 'Не выбрана'}</strong><small>{selectedSprinkle ? (selectedSprinkle.basePrice === 0 ? 'Без доплаты' : money(selectedSprinkle.basePrice, selectedSprinkle.currency)) : '—'}</small><button type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Изменить</button></article><aside className="display-summary-total"><span>Итого к оплате</span><strong>{money(pricing.quote?.finalAmount, pricing.quote?.currency)}</strong><div><p><span>Мороженое</span><b>{money(catalog.currentFlavor.basePrice, catalog.currentFlavor.currency)}</b></p><p><span>Топпинг</span><b>{selectedTopping ? (selectedTopping.basePrice === 0 ? 'Без доплаты' : money(selectedTopping.basePrice, selectedTopping.currency)) : '—'}</b></p><p><span>Посыпка</span><b>{selectedSprinkle ? (selectedSprinkle.basePrice === 0 ? 'Без доплаты' : money(selectedSprinkle.basePrice, selectedSprinkle.currency)) : '—'}</b></p></div></aside></div>{checkoutStorageError && <p role="alert">{checkoutStorageError}</p>}<div className="display-nav"><button className="display-secondary" type="button" onClick={() => setStep(STEPS.SPRINKLE)}>Назад</button><button className="display-primary" type="button" disabled={!canContinue} onClick={startCheckout}>Перейти к оплате</button></div></div></section>}

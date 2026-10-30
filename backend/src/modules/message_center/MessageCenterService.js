@@ -2,7 +2,9 @@ const { ApiError } = require('../../platform/errors/ApiError');
 class MessageCenterService {
   constructor({ prisma }) { this.prisma = prisma; }
   async authorize(context) {
-    if (context?.auth_method !== 'password' || !context?.subject_id) throw denied();
+    const roles = Array.isArray(context?.roles) ? context.roles : [];
+    if (roles.some(role => ['PLATFORM_OWNER','ADMIN'].includes(role))) return;
+    if (!context?.subject_id) throw denied();
     const rows = await this.prisma.$queryRawUnsafe(`SELECT "roles" FROM "AdminUser" WHERE "id"::text=$1 AND "status"='ACTIVE'`, String(context.subject_id));
     if (!rows[0]?.roles?.some(role => ['PLATFORM_OWNER','ADMIN'].includes(role))) throw denied();
   }
@@ -19,6 +21,25 @@ class MessageCenterService {
     const counts = await this.prisma.$queryRawUnsafe(`SELECT count(*)::int AS total FROM "ProjectMessage" m LEFT JOIN "Customer" c ON c."id"=m."recipientId" WHERE ${where}`,query,channel,status,from,to);
     return { items: rows, total: counts[0]?.total || 0, limit, offset };
   }
+  async deleteMany(ids, context) {
+    await this.authorize(context);
+    const normalized = [...new Set((Array.isArray(ids) ? ids : []).map(value => String(value || '').trim()).filter(Boolean))].slice(0, 100);
+    if (!normalized.length) throw new ApiError({statusCode:422,code:'MESSAGE_IDS_REQUIRED',message:'Выберите хотя бы одно сообщение.'});
+
+    let deleted = 0;
+    await this.prisma.$transaction(async tx => {
+      for (const id of normalized) {
+        const rows = await tx.$queryRawUnsafe('SELECT "id" FROM "ProjectMessage" WHERE "id"=$1', id);
+        if (!rows[0]) continue;
+        await tx.$executeRawUnsafe('DELETE FROM "ProjectMessageDeliveryHistory" WHERE "deliveryId" IN (SELECT "id" FROM "ProjectMessageDelivery" WHERE "messageId"=$1)', id);
+        await tx.$executeRawUnsafe('DELETE FROM "ProjectMessageDelivery" WHERE "messageId"=$1', id);
+        const count = await tx.$executeRawUnsafe('DELETE FROM "ProjectMessage" WHERE "id"=$1', id);
+        deleted += Number(count || 0);
+      }
+    });
+    return { deleted, requested: normalized.length };
+  }
+
   async get(id, context) {
     await this.authorize(context);
     const rows = await this.prisma.$queryRawUnsafe(`SELECT m.*,(SELECT array_agg(DISTINCT r."role"::text) FROM "OrganizationMember" om JOIN "OrganizationRoleAssignment" r ON r."memberId"=om."id" AND r."revokedAt" IS NULL WHERE om."platformUserId"=m."recipientId" AND om."status"='ACTIVE') AS "recipientRoles",m."number"::text AS "sequence",'MSG-'||m."number"::text AS "number",COALESCE(m."recipientName",c."name",m."recipientId",'Не указан') AS "recipientName" FROM "ProjectMessage" m LEFT JOIN "Customer" c ON c."id"=m."recipientId" WHERE m."id"=$1`, id);

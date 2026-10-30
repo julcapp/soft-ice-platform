@@ -34,12 +34,17 @@ class BotUserFlowService {
 
   async getReferral(customerId, channel = 'telegram') {
     if (!this.referralService) throw new Error('referralService is required.');
-    const profile = this.referralService.getInviteProfile(customerId);
+    let profile;
+    try { profile = await this.referralService.getInviteProfile(customerId); }
+    catch (error) {
+      if (error.code !== 'REFERRAL_PROFILE_REQUIRED') throw error;
+      return {title:'Пригласить друга',text:error.message,inviteUrl:null,actions:[{type:'action',label:'← Главное меню',action:'menu'}]};
+    }
     const stats = this.referralRepository?.getStatsForReferrer
       ? await this.referralRepository.getStatsForReferrer(customerId)
       : {};
     const inviteUrl = this.inviteLinkBuilder(profile.startPayload, channel);
-    return buildReferralSection({ referralCode: profile.referralCode, inviteUrl, stats });
+    return buildReferralSection({ referralCode: profile.referralCode, inviteUrl, inviteUrls: { telegram: this.inviteLinkBuilder(profile.startPayload, 'telegram'), max: this.inviteLinkBuilder(profile.startPayload, 'max') }, stats });
   }
 }
 
