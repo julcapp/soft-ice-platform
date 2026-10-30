@@ -2,6 +2,10 @@ const express = require('express');
 
 const { createApiCompatibilityRouter } = require('./api/compatibilityRoutes');
 const { createApiV1Router } = require('./api/v1');
+const { createBotWebhookHandlers } = require('./api/botWebhookHandlers');
+const { createBotWebhookVerifier } = require('./api/botWebhookSecurity');
+const { createBotRuntimeComposition } = require('./modules/bot_core/createBotRuntimeComposition');
+const { createBotClientsFromEnv, hasConfiguredBotClients } = require('./modules/bot_core/createBotClientsFromEnv');
 const { createHealthRouter } = require('./common/http/healthRouter');
 const { disconnectDatabase } = require('./common/database');
 const { backendConfig } = require('./config');
@@ -16,7 +20,8 @@ function createApp(options = {}) {
   const config = options.config || backendConfig;
   const logger = options.logger || new StructuredLogger({ level: config.logging.level });
   const metrics = options.metrics || new MetricsRegistry();
-  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config });
+  const botClients = options.botClients ?? createBotClientsFromEnv(process.env, { logger });
+  const dependencies = options.dependencies || createRuntimeDependencies({ logger, metrics, config, botClients });
   dependencies.featureFlags = dependencies.featureFlags || config.features;
 
   app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
@@ -39,6 +44,30 @@ function createApp(options = {}) {
   });
 
   app.use('/health', createHealthRouter(options.health));
+
+  const botWebhooksEnabled = options.botWebhooksEnabled ?? process.env.BOT_WEBHOOKS_ENABLED === 'true';
+  if (botWebhooksEnabled) {
+    const botRuntime = options.botRuntime || createBotRuntimeComposition({ dependencies, env: process.env, clients: botClients, logger });
+    const handlers = createBotWebhookHandlers({
+      botRuntime,
+      logger,
+      verifyWebhook: createBotWebhookVerifier({
+        telegramSecret: process.env.TELEGRAM_WEBHOOK_SECRET || null,
+        maxSecret: process.env.MAX_WEBHOOK_SECRET || null,
+      }),
+    });
+    app.post('/webhooks/telegram', handlers.handleTelegram);
+    app.post('/webhooks/max', handlers.handleMax);
+    app.post('/api/webhooks/max', handlers.handleMax);
+    app.locals.botRuntime = botRuntime;
+    app.locals.botClients = botClients;
+    logger.info('bot.webhooks.enabled', {
+      telegram: '/webhooks/telegram',
+      max: '/webhooks/max',
+      previewMode: !hasConfiguredBotClients(botClients),
+    });
+  }
+
   app.use('/api/v1', createApiV1Router(dependencies, { logger }));
   app.use('/api', createApiCompatibilityRouter(dependencies, { logger }));
   app.use((error, req, res, next) => {
