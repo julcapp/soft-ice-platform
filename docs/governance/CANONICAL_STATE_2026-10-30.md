@@ -75,3 +75,9 @@ Production servers are deployment targets, not development sources. Home-Boss an
 - [ ] Preserve remaining Home-Boss-only dirty worktrees after the workstation is reachable.
 - [ ] Promote tested consolidated canonical state to main.
 - [ ] Re-sync both PCs from canonical main and deploy immutable production commit/tag.
+
+
+## Canonical reconciliation pull requests
+
+- PR #28 — `snapshot/production-server-20261030` → `canonical/soft-ice-20261030`. Draft, intentionally not directly mergeable.
+- PR #29 — `feature/administrator-security-v1-20261030` → `canonical/soft-ice-20261030`. Draft, six known content conflicts from initial local reconciliation attempt.
