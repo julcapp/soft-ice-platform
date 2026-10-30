@@ -22,6 +22,7 @@ const { IdempotencyRepository } = require('./platform/idempotency/IdempotencyRep
 const { IdempotencyService } = require('./platform/idempotency/IdempotencyService');
 const { AuthCoreService } = require('./platform/security/AuthCoreService');
 const { AuthSessionRepository } = require('./platform/security/AuthSessionRepository');
+const { AdministratorSecurityService } = require('./platform/security/AdministratorSecurity');
 const { verifyTelegramInitData } = require('./platform/security/telegramMiniAppVerifier');
 const { AdminDashboardService, DemoAdminDashboardProvider } = require('./modules/admin_dashboard');
 const { MachineTwinProjectionService, MachineTwinRepository, createDemoMachineTwinSources } = require('./modules/machine_digital_twin');
@@ -48,6 +49,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
   const auditRepository = new AuditRepository(prisma);
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
+  const administratorSecurityService = new AdministratorSecurityService({ prisma, sessionTtlSeconds: config?.auth?.adminSessionTtlSeconds || 3600 });
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
   const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
@@ -297,6 +299,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineCommandWorker,
     machineRecoveryWorker,
     machineProvider,
+    adminAuth: { environment: config?.environment, sessionService: administratorSecurityService },
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,

@@ -1,4 +1,5 @@
-const headers = { 'X-Admin-Role': 'PROJECT_ADMIN', 'X-Admin-Subject': 'crm-workspace', 'Content-Type': 'application/json' };
+import { adminAuthHeaders } from './adminAuth';
+const headers = adminAuthHeaders();
 
 async function request(path, options = {}) {
   const response = await fetch(`/api/v1/admin/crm${path}`, { ...options, headers: { ...headers, ...options.headers } });

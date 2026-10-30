@@ -10,6 +10,7 @@ function createCRMRouter({ crmRuntime, adminAuth = {} }) {
     authMethod: req.securityContext.auth_method,
     correlationId: req.correlationId,
     idempotencyKey: req.get('Idempotency-Key') || null,
+    organizationId: req.organizationScope?.organizationId || null,
   });
 
   router.get('/dashboard', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.getDashboard())));

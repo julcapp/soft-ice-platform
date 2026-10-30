@@ -44,6 +44,7 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       telegramBotToken: secretProvider.get('TELEGRAM_BOT_TOKEN'),
       telegramInitDataMaxAgeSeconds: parseInteger(environment.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS, 86400, 'TELEGRAM_INIT_DATA_MAX_AGE_SECONDS'),
       accessTokenTtlSeconds: parseInteger(environment.AUTH_ACCESS_TOKEN_TTL_SECONDS, 900, 'AUTH_ACCESS_TOKEN_TTL_SECONDS'),
+      adminSessionTtlSeconds: parseInteger(environment.ADMIN_SESSION_TTL_SECONDS, 3600, 'ADMIN_SESSION_TTL_SECONDS'),
     },
     logging: { level: environment.LOG_LEVEL || (profile === 'production' ? 'info' : 'debug') },
     machineGateway: {

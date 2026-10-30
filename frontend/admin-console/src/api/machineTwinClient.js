@@ -1,6 +1,6 @@
 async function request(path, { signal } = {}) {
   const response = await fetch(`/api/v1/admin/machine-twins${path}`, {
-    signal, headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN' },
+    signal, headers: adminAuthHeaders(),
   });
   if (!response.ok) {
     const error = new Error('Machine Twin data is unavailable.');
@@ -12,7 +12,8 @@ async function request(path, { signal } = {}) {
 export const listMachineTwins = (options) => request('', options);
 export const getMachineTwin = (machineId, options) => request(`/${encodeURIComponent(machineId)}`, options);
 export async function getMachineConnectivity(machineId, { signal } = {}) {
-  const response = await fetch(`/api/v1/admin/machines/${encodeURIComponent(machineId)}/connectivity`, { signal, headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN' } });
+  const response = await fetch(`/api/v1/admin/machines/${encodeURIComponent(machineId)}/connectivity`, { signal, headers: adminAuthHeaders() });
   if (!response.ok) { const error = new Error('Данные связи автомата недоступны.'); error.status = response.status; throw error; }
   return (await response.json()).data;
 }
+import { adminAuthHeaders } from './adminAuth';

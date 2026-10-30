@@ -1,5 +1,6 @@
+import { adminAuthHeaders } from './adminAuth';
 async function request(base, path = '', options = {}) {
-  const response = await fetch(`/api/v1/admin/${base}${path}`, { signal: options.signal, headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_ROLE || import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN' } });
+  const response = await fetch(`/api/v1/admin/${base}${path}`, { signal: options.signal, headers: adminAuthHeaders() });
   if (!response.ok) { const error = new Error('Admin read model is unavailable.'); error.status = response.status; throw error; }
   return (await response.json()).data;
 }

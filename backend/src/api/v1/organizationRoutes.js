@@ -9,7 +9,7 @@ const ORGANIZATION_ROLES = new Set(['ORGANIZATION_ADMIN', 'ORGANIZATION_MANAGER'
 function createOrganizationRouter({ organizationRuntime, adminAuth = {} }) {
   const router = express.Router();
   const environment = adminAuth.environment || process.env.NODE_ENV || 'development';
-  router.use(createAdminAuthenticator(adminAuth));
+  router.use(createAdminAuthenticator({ ...adminAuth, requiredPermission: 'admin:organization:read' }));
   router.use((req, res, next) => {
     const roles = req.securityContext.roles || [];
     const global = roles.some((role) => GLOBAL_ROLES.has(role));

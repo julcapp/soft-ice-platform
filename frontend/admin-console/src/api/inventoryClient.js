@@ -1,9 +1,10 @@
+import { adminAuthHeaders } from './adminAuth';
 async function request(path, options = {}) {
   const response = await fetch(`/api/v1/admin/inventory${path}`, {
     signal: options.signal,
     method: options.method || 'GET',
     body: options.body,
-    headers: { 'X-Admin-Role': import.meta.env.VITE_ADMIN_ROLE || import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN', 'X-Organization-Id': import.meta.env.VITE_ORGANIZATION_ID || import.meta.env.VITE_DEMO_ORGANIZATION_ID || 'org_demo', 'Content-Type': 'application/json', ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}) },
+    headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json', ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}) },
   });
   if (!response.ok) { const error = new Error('Inventory read model is unavailable.'); error.status = response.status; throw error; }
   return (await response.json()).data;

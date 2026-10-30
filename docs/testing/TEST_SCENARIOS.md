@@ -489,3 +489,20 @@ Service restart остаётся непроверяемым до durable reposit
 - Повтор reconciliation одного snapshot создаёт ровно один manual-review record, audit и outbox event; state/amount mismatch не исправляется автоматически.
 - Failure injection Payment, Order, Sale Flow, Inventory и Outbox подтверждает `NO PARTIAL STATE`.
 - Legacy migration: clean DB, полная chain, пустая legacy Payment, explicit valid mapping и unmapped row. Последняя останавливается до DDL, сохраняя строку и исходную схему.
+# Administrator Security v1
+
+- Production отклоняет development admin headers и запрос без durable Bearer session.
+- Session token хранится только как hash; expiry/revocation, disabled administrator и inactive membership закрывают доступ.
+- Tenant scope выводится из session/member; подмена organization id и чужая session отклоняются.
+- Required permission проверяется deny-by-default; explicit deny не расширяет доступ.
+- Session create/revoke создают безопасный audit и существующий Outbox атомарно; failure injection не оставляет partial state.
+- PostgreSQL migration chain проверяет composite tenant FK, unique identity/token/idempotency, approval separation-of-duties и expiry/revocation constraints.
+# Administrator Security adversarial regression
+
+- Cross-tenant session revocation is rejected inside the transaction without audit/outbox side effects.
+- Security-sensitive revoke revalidates the actor session, membership, status and permission in a serializable transaction.
+- Admin route mutations require `admin:<domain>:manage`; read permission cannot authorize POST/PATCH/PUT/DELETE.
+- Production ignores client-supplied admin permission headers and derives tenant from the Bearer session.
+- Legacy Admin BFF resources without an authoritative tenant ownership predicate fail closed for organization administrators.
+- Authentication metadata recursively removes sensitive keys from nested objects and arrays.
+- PostgreSQL rejects update/delete of administrator security audit rows and inconsistent approval decision states.

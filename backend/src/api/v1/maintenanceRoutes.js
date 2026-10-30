@@ -4,9 +4,10 @@ const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 function createMaintenanceRouter({ maintenanceRuntime }) {
   const router = express.Router();
   router.use((req, res, next) => {
-    const roles = (req.get('X-Operator-Role') || req.get('X-Admin-Role') || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
+    const roles = req.securityContext?.roles || (req.get('X-Operator-Role') || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
     req.maintenanceContext = {
-      actorId: req.get('X-Operator-ID') || req.get('X-Admin-Subject') || null, roles,
+      actorId: req.securityContext?.subject_id || req.get('X-Operator-ID') || null, roles,
+      organizationId: req.organizationScope?.organizationId || null,
       correlationId: req.correlationId, idempotencyKey: req.get('Idempotency-Key') || null,
       sourceChannel: 'API_V1',
     }; next();

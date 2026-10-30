@@ -1,4 +1,5 @@
-const headers = { 'X-Admin-Role': import.meta.env.VITE_ADMIN_DEMO_ROLE || 'ADMIN', 'X-Admin-Subject': 'admin-console-video' };
+import { adminAuthHeaders } from './adminAuth';
+const headers = adminAuthHeaders();
 async function request(path, options = {}) { const response = await fetch(`/api/v1/admin${path}`, { ...options, headers: { ...headers, ...options.headers } }); if (!response.ok) { const error = new Error('Данные видеонаблюдения недоступны.'); error.status = response.status; throw error; } return (await response.json()).data; }
 export const listCameras = (machineId, options) => request(`/machines/${encodeURIComponent(machineId)}/cameras`, options);
 export const listVideoFragments = (machineId, options) => request(`/machines/${encodeURIComponent(machineId)}/video-fragments`, options);

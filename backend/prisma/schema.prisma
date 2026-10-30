@@ -545,9 +545,13 @@ model AuditEvent {
   correlationId String?
   metadata      Json?
   occurredAt    DateTime @default(now())
+  organizationId String?
+  sessionId      String?
+  idempotencyKey String?
 
   @@index([subjectType, subjectId])
   @@index([correlationId])
+  @@index([organizationId, occurredAt])
 }
 
 model DocumentVersion {
@@ -755,6 +759,12 @@ model Organization {
   machineAssignments OrganizationMachineAssignment[]
   responsibilities   OrganizationResponsibility[]
   roleAssignments    OrganizationRoleAssignment[]
+  administrators     Administrator[]
+  adminSessions      AdministratorSession[]
+  adminRoleBindings  AdministratorRoleBinding[]
+  adminPermissionBindings AdministratorPermissionBinding[]
+  adminApprovals      AdministratorApproval[]
+  breakGlassGrants    AdministratorBreakGlassGrant[]
   ownedMachines      OrganizationMachineAssignment[] @relation("OrganizationMachineOwner")
   operatedMachines   OrganizationMachineAssignment[] @relation("OrganizationMachineOperator")
 
@@ -812,11 +822,139 @@ model OrganizationMember {
   responsibleLocations OrganizationLocation[]          @relation("OrganizationLocationResponsible")
   machineAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineResponsible")
   serviceAssignments   OrganizationMachineAssignment[] @relation("OrganizationMachineService")
+  administrator        Administrator?
 
   @@unique([organizationId, platformUserId])
   @@unique([id, organizationId])
   @@index([organizationId, unitId, status])
   @@index([platformUserId])
+}
+
+enum AdministratorStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+}
+
+enum AdministratorSessionStatus {
+  ACTIVE
+  REVOKED
+}
+
+model Administrator {
+  id             String              @id @default(uuid())
+  organizationId String
+  memberId       String              @unique
+  status         AdministratorStatus @default(ACTIVE)
+  disabledAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization       Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member             OrganizationMember               @relation(fields: [memberId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  sessions           AdministratorSession[]
+  roleBindings       AdministratorRoleBinding[]
+  permissionBindings AdministratorPermissionBinding[]
+  approvalsRequested AdministratorApproval[]           @relation("AdministratorApprovalRequester")
+  approvalsDecided   AdministratorApproval[]           @relation("AdministratorApprovalApprover")
+  breakGlassGrants   AdministratorBreakGlassGrant[]
+
+  @@unique([id, organizationId])
+  @@unique([memberId, organizationId])
+  @@index([organizationId, status])
+}
+
+model AdministratorSession {
+  id                    String                     @id @default(uuid())
+  administratorId       String
+  organizationId        String
+  accessTokenHash       String                     @unique
+  status                AdministratorSessionStatus @default(ACTIVE)
+  authenticationMethod  String
+  authenticationMetadata Json?
+  createdAt             DateTime                   @default(now())
+  expiresAt             DateTime
+  lastSeenAt            DateTime                   @default(now())
+  revokedAt             DateTime?
+
+  administrator Administrator @relation(fields: [administratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([administratorId, status, expiresAt])
+  @@index([organizationId, status, expiresAt])
+}
+
+model AdministratorRoleBinding {
+  id              String   @id @default(uuid())
+  administratorId String
+  organizationId  String
+  role             String
+  grantedBy        String
+  grantedAt        DateTime @default(now())
+  revokedAt        DateTime?
+
+  administrator Administrator @relation(fields: [administratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([administratorId, revokedAt])
+  @@unique([administratorId, organizationId, role, revokedAt])
+}
+
+model AdministratorPermissionBinding {
+  id              String   @id @default(uuid())
+  administratorId String
+  organizationId  String
+  permission      String
+  effect          String   @default("ALLOW")
+  grantedBy       String
+  grantedAt       DateTime @default(now())
+  revokedAt       DateTime?
+
+  administrator Administrator @relation(fields: [administratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([administratorId, revokedAt])
+  @@unique([administratorId, organizationId, permission, effect, revokedAt])
+}
+
+model AdministratorApproval {
+  id                       String   @id @default(uuid())
+  organizationId           String
+  requesterAdministratorId String
+  approverAdministratorId  String?
+  action                   String
+  targetType               String
+  targetId                 String
+  requestFingerprint       String
+  status                   String   @default("PENDING")
+  reason                   String
+  requestedAt              DateTime @default(now())
+  decidedAt                DateTime?
+  expiresAt                DateTime
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  requester    Administrator @relation("AdministratorApprovalRequester", fields: [requesterAdministratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  approver     Administrator? @relation("AdministratorApprovalApprover", fields: [approverAdministratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, requestFingerprint])
+  @@index([organizationId, status, expiresAt])
+}
+
+model AdministratorBreakGlassGrant {
+  id              String   @id @default(uuid())
+  organizationId  String
+  administratorId String
+  reason           String
+  permissions      Json
+  activatedAt      DateTime @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  administrator Administrator @relation(fields: [administratorId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([administratorId, expiresAt, revokedAt])
 }
 
 model OrganizationRoleAssignment {

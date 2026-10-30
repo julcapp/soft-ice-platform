@@ -31,6 +31,8 @@ const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRo
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createSchedulerRouter } = require('./schedulerRoutes');
 const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
+const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
+const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
