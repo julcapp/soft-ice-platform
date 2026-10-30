@@ -92,6 +92,7 @@ let server;
 let paymentInboxTimer;
 let machineCommandTimer;
 let machineRecoveryTimer;
+let customerNotificationTimer;
 
 function startServer() {
   if (server) {
@@ -115,6 +116,11 @@ function startServer() {
     machineRecoveryTimer = setInterval(() => machineRecoveryWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('machine.recovery.worker.failed', { code: error.code || 'MACHINE_RECOVERY_WORKER_FAILED' })), 15000);
     machineRecoveryTimer.unref();
   }
+  const customerNotificationWorker = getApp().locals.platform.dependencies.customerNotificationWorker;
+  if (customerNotificationWorker && !customerNotificationTimer) {
+    customerNotificationTimer = setInterval(() => customerNotificationWorker.runOnce().catch((error) => getApp().locals.platform.logger.error('customer.notification.worker.failed', { code: error.code || 'CUSTOMER_NOTIFICATION_WORKER_FAILED' })), 5000);
+    customerNotificationTimer.unref();
+  }
 
   return server;
 }
@@ -137,6 +143,7 @@ async function shutdown(signal, options = {}) {
   if (paymentInboxTimer) { clearInterval(paymentInboxTimer); paymentInboxTimer = undefined; }
   if (machineCommandTimer) { clearInterval(machineCommandTimer); machineCommandTimer = undefined; }
   if (machineRecoveryTimer) { clearInterval(machineRecoveryTimer); machineRecoveryTimer = undefined; }
+  if (customerNotificationTimer) { clearInterval(customerNotificationTimer); customerNotificationTimer = undefined; }
   for (const release of options.releaseResources || []) await release();
   await disconnectDatabase();
   await logger.flush();

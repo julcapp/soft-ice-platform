@@ -45,6 +45,7 @@ const { BotRecipientBindingService } = require('./modules/bot_core/BotRecipientB
 const { AesGcmValueCodec } = require('./platform/security/AesGcmValueCodec');
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
+const { CustomerNotificationService, CustomerNotificationPublisher, CUSTOMER_NOTIFICATION_EVENT_TYPE } = require('./modules/customer_notifications');
 
 function createRuntimeDependencies({ logger, metrics, config, botClients = {} } = {}) {
   const prisma = getPrismaClient();
@@ -52,6 +53,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
   const auditRepository = new AuditRepository(prisma);
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
+  const customerNotificationService = new CustomerNotificationService({ outboxRepository: transactionalOutboxRepository });
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
   const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
@@ -151,6 +153,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     // TEST-MACHINE-001 is explicitly enabled for the current terminal pilot.
     // All other machines continue to fail closed until the shared abuse guard is integrated.
     abuseGuard: new AllowDisplayRecognitionAbuseGuard({ allowedMachineIds: ['TEST-MACHINE-001'] }),
+    notificationService: customerNotificationService,
   });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
@@ -191,7 +194,7 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
   const organizationContext = new PostgresOrganizationContext({ organizationRepository, prisma });
   const paymentAdapter = new BlockedExternalPaymentAdapter();
   const machineAdapter = new BlockedExternalMachineAdapter();
-  const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter });
+  const orderDomain = new PostgresOrderDomain({ orderRuntime, paymentAdapter, customerNotificationService });
   const machineDispenseService = new MachineDispenseService({ repository: machineDispenseRepository, inventory: inventoryReservationService, orderDomain, provider: machineProvider });
   paymentService.machineDispense = machineDispenseService;
   const machineCommandWorker = new MachineCommandWorker({ repository: transactionalOutboxRepository, machineDispenseService, workerId: `machine-command-${process.pid}` });
@@ -226,6 +229,25 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
       logger,
     })
     : null;
+  const customerNotificationPublisher = new CustomerNotificationPublisher({
+    prisma,
+    bindingService: botRecipientBindingService,
+    telegramClient: botClients.telegram || null,
+    maxClient: botClients.max || null,
+    smsClient: botClients.sms || null,
+    miniAppUrl: config?.botNotifications?.miniAppUrl || 'https://app.utimoshi.ru',
+    notificationService: customerNotificationService,
+    logger,
+  });
+  const customerNotificationWorker = new OutboxWorker({
+    repository: transactionalOutboxRepository,
+    publisher: customerNotificationPublisher,
+    workerId: `customer-notification-${process.pid}`,
+    eventType: CUSTOMER_NOTIFICATION_EVENT_TYPE,
+    batchSize: 25,
+    leaseMs: 60000,
+    retryPolicy: new RetryPolicy({ baseDelayMs: 5000, maxDelayMs: 300000 }),
+  });
   const notificationOrchestrator = new NotificationOrchestrator({
     repository: giftTransferRepository,
     adapters: [
@@ -389,6 +411,8 @@ function createRuntimeDependencies({ logger, metrics, config, botClients = {} } 
     orderRuntime,
     giftTransferRuntime,
     giftNotificationOutboxWorker,
+    customerNotificationService,
+    customerNotificationWorker,
     botRecipientBindingService,
     domainEventPublisher,
   };

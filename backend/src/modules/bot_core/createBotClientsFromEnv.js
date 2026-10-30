@@ -1,5 +1,6 @@
 const { TelegramBotApiClient } = require('./TelegramBotApiClient');
 const { MaxBotApiClient } = require('./MaxBotApiClient');
+const { ExolveSmsClient } = require('./ExolveSmsClient');
 
 function createBotClientsFromEnv(env = process.env, options = {}) {
   const clients = {};
@@ -29,6 +30,18 @@ function createBotClientsFromEnv(env = process.env, options = {}) {
     clients.max = new MaxBotApiClient({
       token: maxToken,
       apiBaseUrl: env.MAX_API_BASE_URL || 'https://platform-api2.max.ru',
+      fetchImpl: options.fetchImpl || globalThis.fetch,
+      requestTimeoutMs,
+    });
+  }
+
+  const exolveApiKey = env.EXOLVE_API_KEY || env.SMS_API_KEY;
+  const exolveSender = env.EXOLVE_SMS_SENDER || env.SMS_SENDER;
+  if (exolveApiKey && exolveSender) {
+    clients.sms = new ExolveSmsClient({
+      apiKey: exolveApiKey,
+      sender: exolveSender,
+      apiBaseUrl: env.EXOLVE_API_BASE_URL || 'https://api.exolve.ru',
       fetchImpl: options.fetchImpl || globalThis.fetch,
       requestTimeoutMs,
     });

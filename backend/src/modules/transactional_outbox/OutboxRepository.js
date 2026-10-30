@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 const CLAIMABLE = ['PENDING', 'RETRY'];
-const PLATFORM_EVENT_TYPES = new Set(['GIFT_INVITATION_DELIVERY_REQUESTED']);
+const PLATFORM_EVENT_TYPES = new Set(['GIFT_INVITATION_DELIVERY_REQUESTED', 'CUSTOMER_NOTIFICATION_DELIVERY_REQUESTED']);
 const SECRET_FIELDS = new Set([
   'password', 'passwd', 'token', 'accesstoken', 'refreshtoken', 'secret',
   'clientsecret', 'apikey', 'apitoken', 'authorization', 'cookie', 'credential',

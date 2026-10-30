@@ -23,12 +23,13 @@ class DisplayCustomerRecognitionService {
     verificationProvider = new UnavailableDisplayPhoneVerificationProvider(),
     challengeRepository = new InMemoryDisplayPhoneChallengeRepository(),
     abuseGuard = new UnavailableDisplayRecognitionAbuseGuard(),
+    notificationService = null,
     clock = () => new Date(),
     codeFactory = secureCode,
   }) {
     Object.assign(this, {
       customerRepository, auditRepository, verificationProvider, challengeRepository,
-      abuseGuard, clock, codeFactory,
+      abuseGuard, notificationService, clock, codeFactory,
     });
   }
 
@@ -54,6 +55,11 @@ class DisplayCustomerRecognitionService {
     }
     if (customer) {
       await this.audit(RECOGNITION_STATE.RETURNING, machineId, context, 'VERIFIED_PHONE_MATCH');
+      try {
+        await this.notificationService?.recognitionWelcome?.(customer.id, { machineId, correlationId: context.correlationId || null });
+      } catch {
+        // Messaging must never block the purchase flow.
+      }
       return { state: RECOGNITION_STATE.RETURNING };
     }
 

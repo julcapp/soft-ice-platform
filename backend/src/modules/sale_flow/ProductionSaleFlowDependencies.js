@@ -13,7 +13,7 @@ class PostgresOrganizationContext {
 }
 
 class PostgresOrderDomain {
-  constructor({ orderRuntime, paymentAdapter }) { this.orderRuntime = orderRuntime; this.paymentAdapter = paymentAdapter; this.implementationKind = 'PRODUCTION'; }
+  constructor({ orderRuntime, paymentAdapter, customerNotificationService = null }) { this.orderRuntime = orderRuntime; this.paymentAdapter = paymentAdapter; this.customerNotificationService = customerNotificationService; this.implementationKind = 'PRODUCTION'; }
   async create(input, context = {}) {
     const result = await this.forTransaction(context.transactionClient).createOrder(input.customerId, { amount: input.totalAmount, currency: input.currency, machineId: input.machineId }, context);
     return { ...result.order, orderId: result.order.id };
@@ -27,9 +27,17 @@ class PostgresOrderDomain {
   rejectPayment(orderId, context) { return this.orderRuntime.cancelOrder(orderId, context); }
   requireRefund(orderId, request) { return this.paymentAdapter.refund({ orderId, ...request }); }
   getFulfillmentDetails() { return {}; }
-  complete(orderId, context = {}) {
+  async complete(orderId, context = {}) {
     const prisma = context.transactionClient || this.orderRuntime.orderService.orderRepository.prisma;
-    return prisma.order.update({ where: { id: orderId }, data: { status: 'COMPLETED' } });
+    const order = await prisma.order.update({ where: { id: orderId }, data: { status: 'COMPLETED' } });
+    if (this.customerNotificationService) {
+      await this.customerNotificationService.purchaseCompleted(order.id, order.customerId, {
+        machineId: order.machineId || null,
+        correlationId: context.correlationId || null,
+        transactionClient: context.transactionClient || null,
+      });
+    }
+    return order;
   }
   forTransaction(prisma) {
     if (!prisma) return this.orderRuntime;
