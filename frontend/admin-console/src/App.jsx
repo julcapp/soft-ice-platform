@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { getDashboard } from './api/dashboardClient';
 import { AlertPanel, AppShell, ChartCard, DataTable, DistributionChart, EmptyState, ErrorState, FreshnessIndicator, PageHeader, PermissionGate, Skeleton, StatisticCard, StatusBadge } from './components';
 import { MachineTwinsPage } from './MachineTwins';
@@ -7,6 +7,7 @@ import { EventStreamPage } from './EventStream';
 import { InventoryPage } from './Inventory';
 import { MaintenancePage } from './Maintenance';
 import { CRMPage } from './CRM';
+import { UsersPage } from './Users';
 import { Customer360Page } from './Customer360';
 import { EventCenterPage } from './EventCenter';
 import { GiftTransfersPage } from './GiftTransfers';
@@ -77,6 +78,7 @@ export function App({ client = getDashboard }) {
   const inventoryRoute = route === 'inventory';
   const maintenanceRoute = route === 'maintenance';
   const crmRoute = route === 'crm' || route.startsWith('crm/');
+  const usersRoute = route === 'users' || route.startsWith('users/');
   const customer360Route = route.startsWith('customer-360/');
   const eventCenterRoute = route === 'event-center' || route.startsWith('event-center/');
   const giftTransferRoute = route === 'gift-transfers';
@@ -95,8 +97,10 @@ export function App({ client = getDashboard }) {
   if (giftTransferRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Подарки и приглашения" copy="Передачи оплаченных заказов, приглашения, получение и реферальная конверсия." /><GiftTransfersPage client={getGiftTransfers} /></AppShell>;
   if (eventCenterRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Платформа" title={route.includes('/') ? 'Событие' : 'Центр событий'} copy="Единая нормализованная история событий платформы." /><EventCenterPage route={route} /></AppShell>;
   if (customer360Route) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="Customer 360" copy="Единый цифровой профиль и хронологический журнал всех событий клиента." /><Customer360Page customerId={route.split('/')[1]} /></AppShell>;
+  if (usersRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><UsersPage route={route} /></AppShell>;
   if (crmRoute) return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}><ReadHeader group="Клиенты" title="CRM Soft ICE" copy="Боевая CRM: клиенты, программа лояльности, сегменты, акции и уведомления." /><CRMPage route={route} /></AppShell>;
   const page = twinRoute ? <><ReadHeader group="Автоматы" title="Цифровой двойник автомата" copy="Боевые проекции автоматов по фактическим данным и диагностике." /><MachineTwinsPage route={route} /></> : runtimeRoute ? <><ReadHeader group="Автоматы" title={route.includes('/') ? 'Состояние автомата' : 'Контур управления автоматами'} copy="Основное состояние выполнения операций в боевом контуре. Опасные дистанционные команды ограничены политикой безопасности." /><RuntimeMonitorPage route={route} /></> : eventRoute ? <><ReadHeader group="Платформа" title={route === 'dead-letter' ? 'Хранилище событий' : 'Журнал событий'} copy="Неизменяемые нормализованные факты и диагностика доставки." /><EventStreamPage route={route} /></> : inventoryRoute ? <><ReadHeader group="Операционная работа" title="Складской учёт" copy="Боевой складской учёт: остатки, резервы и неизменяемый журнал движений." /><InventoryPage /></> : maintenanceRoute ? <><ReadHeader group="Операционная работа" title="Техническое обслуживание" copy="Боевое плановое и корректирующее обслуживание, согласования, подтверждения и показатели." /><MaintenancePage /></> : <><PageHeader />{state.status === 'loading' && <Skeleton />}{state.status === 'unavailable' && <ErrorState />}{state.status === 'denied' && <PermissionGate allowed={false} />}{state.status === 'ready' && <PermissionGate allowed={state.data.permissionScope?.access !== 'DENIED'}><Dashboard data={state.data} /></PermissionGate>}</>;
   return <AppShell navOpen={navOpen} setNavOpen={setNavOpen}>{page}</AppShell>;
 }
 function ReadHeader({ group, title, copy }) { return <div className="page-header"><div><p>{group}</p><h1>{title}</h1><span>{copy}</span></div><StatusBadge status="LIVE" /></div>; }
+
