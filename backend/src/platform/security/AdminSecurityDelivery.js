@@ -19,7 +19,7 @@ class AdminSecurityDelivery {
   }
 
   async sendMax(userId, code) {
-    const token = this.env.ADMIN_SECURITY_MAX_BOT_TOKEN || this.env.MAX_BOT_TOKEN || this.env.MAX_TEST_BOT_TOKEN;
+    const token = this.env.ADMIN_SECURITY_MAX_BOT_TOKEN || (this.env.NODE_ENV === 'test' ? this.env.MAX_TEST_BOT_TOKEN : null);
     const baseUrl = String(this.env.MAX_API_BASE_URL || 'https://platform-api2.max.ru').replace(/\/$/, '');
     if (!token || !userId) throw new Error('MAX security channel is not configured.');
     if (!this.fetch) throw new Error('Fetch is unavailable for MAX security delivery.');
