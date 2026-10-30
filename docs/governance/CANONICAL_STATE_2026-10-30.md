@@ -15,14 +15,17 @@ Production servers are deployment targets, not development sources. Home-Boss an
 ### Preserved BOSS-2 work
 - `feature/administrator-security-v1-20261030`
 - preserved commit: `55e6b71`
+- branch is published in GitHub
 - contains administrator identity/session/authorization/security/audit work, migrations, tests and admin client changes.
 - temporary PostgreSQL files under `.tmp/` are intentionally excluded.
 
 ### Production server snapshot
-- planned branch: `snapshot/production-server-20261030`
+- branch: `snapshot/production-server-20261030`
+- snapshot commit: `96567bb12eb485b78d486f4b7c2035247b93cdaa`
+- parent server hotfix: `ee99622f1d8877b0f027f2fbb26d2dfec8dcef1c`
 - source runtime worktree: `/home/julcapp/soft-ice-worktrees/display-product-v1`
-- the snapshot must include the tracked production modifications and reviewed untracked source/assets, excluding secrets/runtime-only files.
-- server-only commits must be imported into GitHub before any server reset/pull/rebase.
+- snapshot preserved 177 files from the live server state after secret scanning; reviewed untracked production source/assets were included.
+- the complete Git history was exported as a verified bundle and imported into GitHub, so the former server-only history now exists in the cloud.
 
 ## Known synchronization risks
 
@@ -59,3 +62,16 @@ Production servers are deployment targets, not development sources. Home-Boss an
 - Never blindly repeat an ambiguous machine dispense command.
 - Keep financial, fiscal and audit history immutable.
 - Never commit production secrets, credentials, private keys or runtime environment files.
+
+
+## Consolidation progress
+
+- [x] Cloud canonical branch created.
+- [x] BOSS-2 Administrator Security preserved and pushed.
+- [x] Live production server state preserved as a clean snapshot commit.
+- [x] Production server snapshot imported and pushed to GitHub with complete history.
+- [ ] Reconcile Administrator Security onto current canonical baseline. Initial cherry-pick shows six content conflicts: backend API index plus five admin API clients; all other files merge automatically.
+- [ ] Reconcile production snapshot tree with current cloud main/canonical.
+- [ ] Preserve remaining Home-Boss-only dirty worktrees after the workstation is reachable.
+- [ ] Promote tested consolidated canonical state to main.
+- [ ] Re-sync both PCs from canonical main and deploy immutable production commit/tag.
