@@ -83,6 +83,10 @@ model Customer {
   birthday                DateTime?
   vkProfile               String?
   status                  String    @default("active")
+  blockedUntil            DateTime? @db.Timestamp(3)
+  blockReason             String?
+  blockedAt               DateTime? @db.Timestamp(3)
+  deletedAt               DateTime? @db.Timestamp(3)
   trustedStatus           Boolean   @default(false)
   trustedStatusAt         DateTime?
   createdAt               DateTime  @default(now())
