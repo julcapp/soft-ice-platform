@@ -39,8 +39,42 @@ class CRMRepository {
   }
 
   async hasExpiryScheduler() {
-    // Fail closed until the dedicated expiry worker is deployed and health-checked.
+    // Fail closed until migration, timer and worker are installed and smoke-tested.
     return false;
+  }
+
+  async releaseExpiredBlocks(now, batchSize = 100) {
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new TypeError('INVALID_EXPIRY_TIME');
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 500) throw new RangeError('INVALID_EXPIRY_BATCH_SIZE');
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw`
+        WITH candidates AS (
+          SELECT "id" FROM "Customer"
+          WHERE "status" = 'blocked' AND "blockedUntil" IS NOT NULL
+            AND "blockedUntil" <= ${now}
+          ORDER BY "blockedUntil", "id"
+          LIMIT ${batchSize}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "Customer" AS c
+        SET "status"='active', "blockReason"=NULL, "blockedAt"=NULL,
+            "blockedUntil"=NULL, "updatedAt"=NOW()
+        FROM candidates
+        WHERE c."id" = candidates."id" AND c."status"='blocked'
+        RETURNING c."id"
+      `;
+      for (const row of rows) {
+        await tx.auditEvent.create({ data: {
+          eventType: 'CRM.CustomerBlockExpired',
+          subjectType: 'system', subjectId: 'crm-block-expiry',
+          targetType: 'Customer', targetId: row.id,
+          action: 'unblock', decision: 'success', sourceChannel: 'crm',
+          occurredAt: now,
+          metadata: { reason: 'temporary_block_expired', automatic: true },
+        } });
+      }
+      return rows;
+    });
   }
 
   async listCustomers({ query = '', limit = 50 } = {}) {
