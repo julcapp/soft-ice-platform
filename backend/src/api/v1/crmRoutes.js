@@ -24,8 +24,14 @@ function createCRMRouter({ crmRuntime, adminAuth = {} }) {
   router.get('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.getCustomerCard(req.params.customerId))));
   router.patch('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.updateCustomerCard(req.params.customerId, req.body, context(req)))));
   router.post('/customers/:customerId/top-ups', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.topUp(req.params.customerId, req.body, context(req)), 201)));
-  router.post('/customers/:customerId/bonus-adjustments', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.adjustBonus(req.params.customerId, req.body, context(req)), 201)));
-  router.post('/customers/:customerId/erase-and-release', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.eraseAndReleaseCustomer(req.params.customerId, req.body, context(req)))));
+  const requireOwner = (req, res, next) => {
+    if (req.securityContext.auth_method === 'development_header' || !req.securityContext.roles?.includes('PLATFORM_OWNER')) {
+      return next(new ApiError({ statusCode: 403, code: 'CUSTOMER_SENSITIVE_ACTION_DENIED', message: 'Действие доступно только владельцу платформы.' }));
+    }
+    next();
+  };
+  router.post('/customers/:customerId/bonus-adjustments', requireOwner, asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.adjustBonus(req.params.customerId, req.body, context(req)), 201)));
+  router.post('/customers/:customerId/erase-and-release', requireOwner, asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.eraseAndReleaseCustomer(req.params.customerId, req.body, context(req)))));
   router.post('/customers/:customerId/segments/:segmentId', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.assignSegment(req.params.customerId, req.params.segmentId, req.body, context(req)), 201)));
   router.post('/customers/:customerId/notifications', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.queueNotification(req.params.customerId, req.body, context(req)), 201)));
   router.post('/campaigns', asyncHandler(async (req, res) => sendData(res, req, await crmRuntime.createCampaign(req.body, context(req)), 201)));
