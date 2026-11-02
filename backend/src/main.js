@@ -57,13 +57,12 @@ function createApp(options = {}) {
       }),
     });
     app.post('/webhooks/telegram', handlers.handleTelegram);
-    app.post('/webhooks/max', handlers.handleMax);
     app.post('/api/webhooks/max', handlers.handleMax);
     app.locals.botRuntime = botRuntime;
     app.locals.botClients = botClients;
     logger.info('bot.webhooks.enabled', {
       telegram: '/webhooks/telegram',
-      max: '/webhooks/max',
+      max: '/api/webhooks/max',
       previewMode: !hasConfiguredBotClients(botClients),
     });
   }
