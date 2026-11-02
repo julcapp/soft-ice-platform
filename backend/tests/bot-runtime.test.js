@@ -89,3 +89,66 @@ test('Webhook handler returns 500 when runtime fails', async () => {
   assert.equal(response.statusCode, 500);
   assert.equal(response.body.ok, false);
 });
+
+
+test('MAX ordinary start opens Club menu and does not invoke onboarding', async () => {
+  const routed = [];
+  let onboardingCalls = 0;
+  const runtime = new BotRuntime({
+    adapters: { max: new MaxAdapter() },
+    renderers: { max: new MaxRenderer() },
+    customerResolver: { resolve: async () => ({ customerId: 'customer-1' }) },
+    onboardingService: { start: async () => { onboardingCalls += 1; throw new Error('ordinary MAX start must not use onboarding'); } },
+    actionRouter: {
+      route: async (input) => {
+        routed.push(input);
+        return { title: 'Клуб Тимоши', text: 'Главное меню', actions: [] };
+      },
+    },
+    sender: new BotTransportSender(),
+  });
+
+  const result = await runtime.handle('max', {
+    update_type: 'bot_started',
+    user: { user_id: 101 },
+    chat_id: 202,
+  });
+
+  assert.equal(onboardingCalls, 0);
+  assert.equal(routed.length, 1);
+  assert.equal(routed[0].action, 'menu');
+  assert.equal(result.view.title, 'Клуб Тимоши');
+});
+
+test('MAX verification deep link starts terminal challenge and renders request_contact', async () => {
+  const started = [];
+  const routed = [];
+  const runtime = new BotRuntime({
+    adapters: { max: new MaxAdapter() },
+    renderers: { max: new MaxRenderer() },
+    customerResolver: { resolve: async () => ({ customerId: null, customer: null }) },
+    terminalChannelChallengeService: {
+      start: async (input) => { started.push(input); return { id: 'challenge-1' }; },
+    },
+    actionRouter: {
+      route: async (input) => {
+        routed.push(input);
+        return { title: 'Меню', text: 'Не должно вызываться', actions: [] };
+      },
+    },
+    sender: new BotTransportSender(),
+  });
+
+  const token = 'abcdefghijklmnopqrstuvwx';
+  const result = await runtime.handle('max', {
+    update_type: 'bot_started',
+    user: { user_id: 303 },
+    chat_id: 404,
+    payload: 'verify_' + token,
+  });
+
+  assert.deepEqual(started, [{ channel: 'max', token, externalUserId: '303' }]);
+  assert.equal(routed.length, 0);
+  assert.equal(result.view.actions[0].type, 'request_contact');
+  assert.equal(result.rendered.attachments[0].payload.buttons[0][0].type, 'request_contact');
+});

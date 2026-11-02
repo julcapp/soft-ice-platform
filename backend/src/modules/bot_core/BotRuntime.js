@@ -56,6 +56,13 @@ class BotRuntime {
           { type: 'request_contact', label: 'Поделиться номером и подтвердить' },
         ],
       };
+    } else if (channel === 'max' && isStartUpdate(channel, rawUpdate)) {
+      view = await this.actionRouter.route({
+        action: 'menu',
+        customerId: identity.customerId,
+        channel,
+        context: { inbound, rawUpdate },
+      });
     } else if (callback?.kind === 'action') {
       view = await this.actionRouter.route({
         action: callback.value,
