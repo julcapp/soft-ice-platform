@@ -24,7 +24,8 @@
     "start": "node src/main.js",
     "start:miniapp-gateway": "node src/miniappGateway.js",
     "bot:test:configure": "node scripts/configure-telegram-test-bot.js",
-    "test-machine:catalog-seed": "node scripts/test-machine-catalog/seed.js"
+    "test-machine:catalog-seed": "node scripts/test-machine-catalog/seed.js",
+    "mail:worker": "node scripts/mail-delivery-worker.js"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
