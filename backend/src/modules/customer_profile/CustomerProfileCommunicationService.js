@@ -38,7 +38,9 @@ class CustomerProfileCommunicationService {
   async updateProfile(customerId, input = {}) {
     const data = {};
     if (Object.hasOwn(input, 'birthday')) { if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.birthday || ''))) throw validation('CUSTOMER_BIRTHDAY_INVALID', 'birthday must use YYYY-MM-DD.'); const birthday = new Date(`${input.birthday}T00:00:00.000Z`); if (Number.isNaN(birthday.getTime()) || birthday > this.clock()) throw validation('CUSTOMER_BIRTHDAY_INVALID', 'birthday is invalid.'); data.birthday = birthday; }
-    if (Object.hasOwn(input, 'email')) { const email = normalizeEmail(input.email); if (!email) throw validation('CUSTOMER_EMAIL_INVALID', 'email is invalid.'); data.email = email; }
+    if (Object.hasOwn(input, 'email')) {
+      throw validation('CUSTOMER_EMAIL_REQUIRES_VERIFICATION', 'Email can be changed only through the verification flow.');
+    }
     if (!Object.keys(data).length) throw validation('CUSTOMER_PROFILE_PATCH_EMPTY', 'No supported profile fields were provided.');
     return this.prisma.customer.update({ where: { id: customerId }, data, select: { id: true, birthday: true, email: true } });
   }
@@ -48,8 +50,7 @@ class CustomerProfileCommunicationService {
     const token = crypto.randomBytes(32).toString('base64url'); const tokenHash = sha256(token); const now = this.clock(); const expiresAt = new Date(now.getTime() + this.tokenTtlMs); const id = crypto.randomUUID();
     await this.prisma.$executeRaw`UPDATE "CustomerEmailVerification" SET "status" = 'SUPERSEDED', "consumedAt" = ${now} WHERE "customerId" = ${customerId} AND "status" = 'PENDING'`;
     await this.prisma.$executeRaw`INSERT INTO "CustomerEmailVerification" ("id","customerId","email","tokenHash","status","expiresAt","createdAt") VALUES (${id},${customerId},${email},${tokenHash},'PENDING',${expiresAt},${now})`;
-    await this.prisma.customer.update({ where: { id: customerId }, data: { email } });
-    await this.#ensureNotification(customerId, { type: 'EMAIL_VERIFICATION_PENDING', title: 'Подтвердите электронную почту', body: 'Мы отправили ссылку подтверждения. Ссылка действует 24 часа.', actionType: 'VERIFY_EMAIL', significant: false }, true);
+    await this.#ensureNotification(customerId, { type: 'EMAIL_VERIFICATION_PENDING', title: 'Подтвердите электронную почту', body: 'Письмо подтверждения подготовлено. Ссылка действует 24 часа.', actionType: 'VERIFY_EMAIL', significant: false }, true);
     return { email, token, expiresAt };
   }
 
@@ -82,7 +83,7 @@ class CustomerProfileCommunicationService {
 
   async #queueVerifiedEmail(customerId, notificationId, notification) {
     if (!this.crmRuntime?.queueNotification) return; const verifiedRows = await this.prisma.$queryRaw`SELECT "email" FROM "CustomerEmailVerification" WHERE "customerId"=${customerId} AND "status"='VERIFIED' ORDER BY "verifiedAt" DESC LIMIT 1`; if (!verifiedRows?.[0]?.email) return;
-    await this.crmRuntime.queueNotification(customerId, { channel: 'EMAIL', subject: notification.title, body: notification.body }, { actorId: 'system', authMethod: 'system', correlationId: `customer-notification:${notificationId}`, idempotencyKey: `customer-notification-email:${notificationId}` });
+    await this.crmRuntime.queueNotification(customerId, { channel: 'EMAIL', recipientAddress: verifiedRows[0].email, subject: notification.title, body: notification.body }, { actorId: 'system', authMethod: 'system', correlationId: `customer-notification:${notificationId}`, idempotencyKey: `customer-notification-email:${notificationId}` });
   }
 }
 
