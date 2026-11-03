@@ -38,8 +38,8 @@ class BotRuntime {
       identity = { customerId: verification.customer.id, customer: verification.customer };
       view = {
         title: 'Номер подтверждён',
-        text: 'Номер телефона успешно подтверждён. Теперь необходимо подтвердить согласия.',
-        actions: [],
+        text: 'Номер телефона успешно подтверждён и привязан к вашему профилю Клуба «У Тимоши».',
+        actions: [{ type: 'action', label: 'Открыть меню Клуба', action: 'menu' }],
       };
     } else if (isStartUpdate(channel, rawUpdate)
       && startContext.verificationChallengeToken
@@ -50,8 +50,23 @@ class BotRuntime {
         externalUserId: inbound.externalUserId,
       });
       view = {
+        title: 'Согласие на обработку персональных данных',
+        text: 'Перед передачей номера телефона ознакомьтесь с Политикой обработки персональных данных и подтвердите согласие. Без этого номер телефона не будет запрошен у MAX.',
+        actions: [
+          { type: 'open_url', label: 'Открыть Политику', url: 'https://utimoshi.ru/privacy' },
+          { type: 'action', label: 'Согласен на обработку ПДн', action: `verify_pdn:${startContext.verificationChallengeToken}` },
+        ],
+      };
+    } else if (callback?.kind === 'action' && callback.value.startsWith('verify_pdn:') && this.terminalChannelChallengeService) {
+      const token = callback.value.slice('verify_pdn:'.length);
+      await this.terminalChannelChallengeService.grantPersonalDataConsent({
+        channel,
+        token,
+        externalUserId: inbound.externalUserId,
+      });
+      view = {
         title: 'Подтвердите номер телефона',
-        text: 'Чтобы продолжить регистрацию в Клубе Тимоши, поделитесь номером телефона через MAX.',
+        text: 'Согласие сохранено. Теперь передайте номер телефона через защищённую кнопку MAX.',
         actions: [
           { type: 'request_contact', label: 'Поделиться номером и подтвердить' },
         ],

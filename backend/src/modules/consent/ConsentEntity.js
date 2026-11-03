@@ -8,6 +8,7 @@ const CONSENT_TYPES = Object.freeze([
 
 const CONSENT_SOURCE_CHANNELS = Object.freeze([
   'TELEGRAM',
+  'MAX',
   'MINI_APP',
   'MACHINE',
   'WEBSITE',

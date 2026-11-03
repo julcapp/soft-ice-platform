@@ -34,6 +34,7 @@ function requireCatalogMutation(req, res, next) {
 function createCatalogRouter(dependencies = {}) {
   const router = express.Router();
   const service = resolveCatalogService(dependencies);
+  router.get('/items', asyncHandler(async (req, res) => sendData(res, req, (await service.listAll()).filter((item) => item.active !== false))));
   router.get('/machines/:machineId', asyncHandler(async (req, res) => sendData(res, req, await service.getMachineCatalog(req.params.machineId))));
   return router;
 }

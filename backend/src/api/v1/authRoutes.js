@@ -32,6 +32,33 @@ function createAuthRouter({ authCoreService, displayCustomerRecognitionService, 
     }),
   );
 
+  router.post(
+    '/max-mini-app/sessions',
+    asyncHandler(async (req, res) => {
+      const result = await authCoreService.createMaxMiniAppSession(req.body, {
+        correlationId: req.correlationId,
+        idempotencyKey: req.get('Idempotency-Key') || null,
+      });
+
+      sendData(
+        res,
+        req,
+        {
+          type: 'auth_session',
+          id: result.session.id,
+          attributes: {
+            identity_type: 'customer',
+            customer_id: result.customer.id,
+            access_token: result.accessToken,
+            token_type: 'Bearer',
+            expires_at: result.expiresAt.toISOString(),
+          },
+        },
+        201,
+      );
+    }),
+  );
+
   if (displayCustomerRecognitionService) {
     router.use('/display-phone', (req, res, next) => {
       res.set('Cache-Control', 'no-store');

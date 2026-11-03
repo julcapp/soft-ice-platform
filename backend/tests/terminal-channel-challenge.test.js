@@ -88,6 +88,7 @@ test('verifies matching MAX contact and links identity', async () => {
   const created = await ctx.service.create({ machineId: 'TEST-MACHINE-001', phone: '+79039557050', channel: 'MAX' });
   const token = new URL(created.deepLink).searchParams.get('start').replace(/^verify_/, '');
   await ctx.service.start({ channel: 'MAX', token, externalUserId: '388292358' });
+  await ctx.service.grantPersonalDataConsent({ channel: 'MAX', token, externalUserId: '388292358' });
   const verified = await ctx.service.verifyContact({
     channel: 'MAX',
     externalUserId: '388292358',
@@ -104,6 +105,7 @@ test('rejects contact when messenger phone differs from terminal input', async (
   const created = await ctx.service.create({ machineId: 'TEST-MACHINE-001', phone: '+79039557050', channel: 'MAX' });
   const token = new URL(created.deepLink).searchParams.get('start').replace(/^verify_/, '');
   await ctx.service.start({ channel: 'MAX', token, externalUserId: '388292358' });
+  await ctx.service.grantPersonalDataConsent({ channel: 'MAX', token, externalUserId: '388292358' });
   await assert.rejects(
     () => ctx.service.verifyContact({
       channel: 'MAX',
@@ -135,5 +137,23 @@ test('does not allow a started challenge to be rebound to another MAX user', asy
   await assert.rejects(
     () => ctx.service.start({ channel: 'MAX', token, externalUserId: '222222222' }),
     (error) => error.code === 'CHALLENGE_SUBJECT_MISMATCH',
+  );
+});
+
+
+test('rejects MAX contact before personal-data consent is granted', async () => {
+  const ctx = wire(makeService());
+  const created = await ctx.service.create({ machineId: 'TEST-MACHINE-001', phone: '+79039557050', channel: 'MAX' });
+  const token = new URL(created.deepLink).searchParams.get('start').replace(/^verify_/, '');
+  await ctx.service.start({ channel: 'MAX', token, externalUserId: '388292358' });
+
+  await assert.rejects(
+    () => ctx.service.verifyContact({
+      channel: 'MAX',
+      externalUserId: '388292358',
+      phone: '+79039557050',
+      contactVerified: true,
+    }),
+    (error) => error.code === 'PERSONAL_DATA_CONSENT_REQUIRED',
   );
 });

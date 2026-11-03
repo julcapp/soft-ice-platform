@@ -2,6 +2,7 @@ const { assertCustomerAccess } = require('../../modules/customer/CustomerAccessP
 const { ApiError } = require('../errors/ApiError');
 const { createOpaqueToken, sha256 } = require('./hash');
 const { verifyTelegramInitData } = require('./telegramMiniAppVerifier');
+const { verifyMaxInitData } = require('./maxMiniAppVerifier');
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 
@@ -13,6 +14,7 @@ class AuthCoreService {
     auditRepository,
     idempotencyService,
     telegramVerifier = verifyTelegramInitData,
+    maxVerifier = verifyMaxInitData,
     tokenFactory = createOpaqueToken,
     clock = () => new Date(),
     accessTokenTtlSeconds = Number(
@@ -26,6 +28,7 @@ class AuthCoreService {
     this.auditRepository = auditRepository;
     this.idempotencyService = idempotencyService;
     this.telegramVerifier = telegramVerifier;
+    this.maxVerifier = maxVerifier;
     this.tokenFactory = tokenFactory;
     this.clock = clock;
     this.accessTokenTtlSeconds = accessTokenTtlSeconds;
@@ -106,6 +109,68 @@ class AuthCoreService {
     };
   }
 
+  async createMaxMiniAppSession(request, context) {
+    validateMaxSessionRequest(request);
+
+    const maxIdentity = this.maxVerifier(request.max_init_data);
+    const idempotencyRecord = await this.reserveMaxIdempotency(request, maxIdentity, context);
+
+    const customerResult = await this.customerRuntime.resolveExistingMaxCustomer(maxIdentity, {
+      correlationId: context.correlationId,
+      sourceChannel: request.source_channel,
+    });
+
+    assertCustomerAccess(customerResult.customer, this.clock());
+
+    const clubAccountResult = await this.clubAccountRuntime.ensureAccountForCustomer(
+      customerResult.customer,
+      {
+        correlationId: context.correlationId,
+        sourceChannel: request.source_channel,
+        authMethod: 'max_init_data',
+      },
+    );
+
+    const accessToken = this.tokenFactory();
+    const now = this.clock();
+    const expiresAt = new Date(now.getTime() + this.accessTokenTtlSeconds * 1000);
+
+    const session = await this.authSessionRepository.createCustomerSession({
+      customerId: customerResult.customer.id,
+      accessTokenHash: sha256(accessToken),
+      authMethod: 'max_init_data',
+      consumerType: 'max_mini_app',
+      expiresAt,
+      correlationId: context.correlationId,
+    });
+
+    await this.auditRepository.record({
+      eventType: 'Auth.SessionCreated',
+      subjectType: 'user',
+      subjectId: customerResult.customer.id,
+      targetType: 'AuthSession',
+      targetId: session.id,
+      action: 'authenticate',
+      decision: 'success',
+      reasonCode: 'max_mini_app_session_created',
+      authMethod: 'max_init_data',
+      sourceChannel: request.source_channel,
+      correlationId: context.correlationId,
+      metadata: { consumer_type: 'max_mini_app' },
+    });
+
+    if (this.idempotencyService) await this.idempotencyService.complete(idempotencyRecord, session.id);
+    if (this.metrics) this.metrics.increment('soft_ice_max_sessions_total', 1, { status: 'created' });
+
+    return {
+      session,
+      accessToken,
+      expiresAt,
+      customer: customerResult.customer,
+      clubAccount: clubAccountResult.clubAccount,
+    };
+  }
+
   async authenticateAccessToken(accessToken, context) {
     if (!accessToken) {
       throw new ApiError({
@@ -166,6 +231,25 @@ class AuthCoreService {
       correlationId: context.correlationId,
     });
   }
+  async reserveMaxIdempotency(request, maxIdentity, context) {
+    if (!this.idempotencyService) return null;
+    return this.idempotencyService.reserveOrValidate({
+      scope: 'max_mini_app_session',
+      key: context.idempotencyKey,
+      semanticPayload: {
+        source_channel: request.source_channel,
+        client_request_id: request.client_request_id || null,
+        max_subject_hash: maxIdentity.subjectHash,
+        max_auth_date: maxIdentity.authDate,
+      },
+      actorContext: {
+        subject_type: 'user_alias',
+        external_subject_hash: maxIdentity.subjectHash,
+      },
+      correlationId: context.correlationId,
+    });
+  }
+
 }
 
 function validateTelegramSessionRequest(request) {
@@ -189,6 +273,28 @@ function validateTelegramSessionRequest(request) {
     }
   }
 
+  if (details.length > 0) {
+    throw new ApiError({
+      statusCode: 400,
+      code: 'VALIDATION_FAILED',
+      message: 'Request validation failed.',
+      details,
+    });
+  }
+}
+
+function validateMaxSessionRequest(request) {
+  const details = [];
+  if (!request || typeof request !== 'object') {
+    details.push({ field: 'body', issue: 'must be a JSON object' });
+  } else {
+    if (!request.max_init_data || typeof request.max_init_data !== 'string') {
+      details.push({ field: 'max_init_data', issue: 'must be a non-empty string' });
+    }
+    if (request.source_channel !== 'max_mini_app') {
+      details.push({ field: 'source_channel', issue: 'must be max_mini_app' });
+    }
+  }
   if (details.length > 0) {
     throw new ApiError({
       statusCode: 400,

@@ -52,6 +52,7 @@ class TerminalChannelChallengeService {
     phoneSecret,
     maxBotUrl,
     telegramBotUrl = null,
+    consentRuntime = null,
     clock = () => new Date(),
     ttlMs = 10 * 60 * 1000,
   }) {
@@ -60,6 +61,7 @@ class TerminalChannelChallengeService {
     this.phoneSecret = phoneSecret;
     this.maxBotUrl = maxBotUrl;
     this.telegramBotUrl = telegramBotUrl;
+    this.consentRuntime = consentRuntime;
     this.clock = clock;
     this.ttlMs = ttlMs;
     if (!phoneSecret) throw new Error('TERMINAL_CHANNEL_CHALLENGE_SECRET is required.');
@@ -127,6 +129,35 @@ class TerminalChannelChallengeService {
     });
   }
 
+  async grantPersonalDataConsent({ channel, token, externalUserId, documentVersion = '2026-11-02.v1' }) {
+    const challenge = await this.getActive(channel, token);
+    const now = this.clock();
+    const subjectHash = externalUserId ? sha256(String(externalUserId)) : null;
+    if (challenge.externalUserIdHash && subjectHash && challenge.externalUserIdHash !== subjectHash) {
+      throw validationError('CHALLENGE_SUBJECT_MISMATCH', 'Проверка номера уже открыта другим пользователем.');
+    }
+    const decisionId = `challenge:${challenge.id}:personal-data`;
+    const metadata = {
+      ...(challenge.metadata || {}),
+      personalDataConsent: {
+        granted: true,
+        consentType: 'PERSONAL_DATA',
+        documentType: 'privacy_policy',
+        documentVersion,
+        documentTitle: 'Политика обработки персональных данных',
+        sourceChannel: String(channel || '').toUpperCase(),
+        decisionId,
+        consentedAt: now.toISOString(),
+      },
+    };
+    return this.repository.update(challenge.id, {
+      status: STATUS.STARTED,
+      startedAt: challenge.startedAt || now,
+      externalUserIdHash: subjectHash || challenge.externalUserIdHash,
+      metadata,
+    });
+  }
+
   async verifyContact({ channel, token = null, externalUserId, phone, contactVerified }) {
     if (!contactVerified) throw validationError('CONTACT_NOT_VERIFIED', 'Не удалось подтвердить номер через мессенджер.');
     const normalizedChannel = String(channel || '').toUpperCase();
@@ -138,6 +169,10 @@ class TerminalChannelChallengeService {
     if (challenge.expiresAt <= this.clock()) throw validationError('CHALLENGE_EXPIRED', 'Срок подтверждения номера истёк.');
     if (challenge.externalUserIdHash && externalUserId && challenge.externalUserIdHash !== sha256(String(externalUserId))) {
       throw validationError('CHALLENGE_SUBJECT_MISMATCH', 'Проверка номера недействительна.');
+    }
+    const personalDataConsent = challenge.metadata?.personalDataConsent;
+    if (!personalDataConsent?.granted) {
+      throw validationError('PERSONAL_DATA_CONSENT_REQUIRED', 'Перед передачей номера подтвердите согласие на обработку персональных данных.');
     }
 
     const normalizedPhone = normalizePhone(phone);
@@ -166,6 +201,22 @@ class TerminalChannelChallengeService {
           now: this.clock(),
         });
       }
+    }
+
+    if (this.consentRuntime) {
+      await this.consentRuntime.recordOwnConsent(customer.id, {
+        consent_type: 'PERSONAL_DATA',
+        is_granted: true,
+        source_channel: normalizedChannel,
+        document_type: personalDataConsent.documentType || 'privacy_policy',
+        document_version: personalDataConsent.documentVersion || '2026-11-02.v1',
+        document_title: personalDataConsent.documentTitle || 'Политика обработки персональных данных',
+        decision_id: personalDataConsent.decisionId || `challenge:${challenge.id}:personal-data`,
+      }, {
+        authMethod: `${normalizedChannel.toLowerCase()}_request_contact`,
+        sourceChannel: normalizedChannel,
+        correlationId: challenge.id,
+      });
     }
 
     const now = this.clock();

@@ -5,6 +5,7 @@ const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
+const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
 const { SegmentationRuntime } = require('./modules/segmentation/SegmentationRuntime');
 const { MachineRepository } = require('./modules/machine/MachineRepository');
@@ -144,6 +145,20 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
+  const terminalChannelChallengeService = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
+    ? new TerminalChannelChallengeService({
+        repository: new PrismaTerminalChannelChallengeRepository(prisma),
+        customerRepository,
+        consentRuntime,
+        phoneSecret: process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET,
+        maxBotUrl: process.env.MAX_BOT_USERNAME
+          ? `https://max.ru/${String(process.env.MAX_BOT_USERNAME).replace(/^@/, '')}`
+          : 'https://max.ru/id7017438363_bot',
+        telegramBotUrl: process.env.TELEGRAM_BOT_USERNAME
+          ? `https://t.me/${String(process.env.TELEGRAM_BOT_USERNAME).replace(/^@/, '')}`
+          : null,
+      })
+    : null;
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
   const clubAccountRuntime = new ClubAccountRuntime({
@@ -320,6 +335,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     authCoreService,
     customerRuntime,
     consentRuntime,
+    terminalChannelChallengeService,
     clubAccountRuntime,
     machineRuntime,
     orderRuntime,

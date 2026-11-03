@@ -42,6 +42,29 @@ class CustomerService {
     return { customer: created.customer, created: true };
   }
 
+  async resolveExistingMaxCustomer(maxIdentity, context) {
+    const displayName = buildDisplayName(maxIdentity.user);
+    const existing = await this.customerRepository.findByIdentity(
+      IDENTITY_PROVIDER.MAX,
+      maxIdentity.subjectHash,
+    );
+    if (!existing) {
+      throw new ApiError({
+        statusCode: 403,
+        code: 'MAX_IDENTITY_NOT_LINKED',
+        message: 'MAX account is not linked to a verified customer profile.',
+        source: 'runtime',
+      });
+    }
+    assertCustomerAccess(existing.customer, this.clock());
+    const updated = await this.customerRepository.updateExternalIdentitySeen(existing.identity.id, {
+      displayName,
+      username: maxIdentity.user.username,
+      seenAt: this.clock(),
+    });
+    return { customer: updated.customer, created: false };
+  }
+
   async lookupTerminalCustomerByVerifiedPhone(request) {
     const phone = normalizePhone(request && request.phone);
     if (!phone) {
