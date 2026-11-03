@@ -44,7 +44,7 @@ const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transa
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
-function createRuntimeDependencies({ logger, metrics, config } = {}) {
+function createRuntimeDependencies({ logger, metrics, config, sideEffectsEnabled = true } = {}) {
   const prisma = getPrismaClient();
   const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
@@ -204,7 +204,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
-  const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
+  const saleFlowRecoveryReady = sideEffectsEnabled
+    ? saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; })
+    : Promise.resolve([]);
 
   const authCoreService = new AuthCoreService({
     authSessionRepository,

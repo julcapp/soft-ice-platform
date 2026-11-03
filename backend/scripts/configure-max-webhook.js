@@ -46,7 +46,7 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({
       url: TARGET_URL,
-      update_types: ['message_created', 'bot_started'],
+      update_types: ['message_created', 'message_callback', 'bot_started'],
       secret: SECRET,
     }),
   });

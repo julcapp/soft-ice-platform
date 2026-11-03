@@ -22,6 +22,7 @@
     "crm:direct-delivery": "node scripts/run-crm-direct-message-delivery.js",
     "dev": "node src/main.js",
     "start": "node src/main.js",
+    "start:miniapp-gateway": "node src/miniappGateway.js",
     "bot:test:configure": "node scripts/configure-telegram-test-bot.js",
     "test-machine:catalog-seed": "node scripts/test-machine-catalog/seed.js"
   },
