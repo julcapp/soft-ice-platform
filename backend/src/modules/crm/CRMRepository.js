@@ -231,7 +231,7 @@ class CRMRepository {
       this.prisma.customer.count(),
       this.prisma.customer.count({ where: { status: 'active' } }),
       this.prisma.crmCampaign.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.crmNotificationDelivery.count({ where: { status: 'QUEUED' } }),
+      this.prisma.crmNotificationDelivery.count({ where: { status: { in: ['QUEUED', 'PENDING', 'SENDING'] } } }),
       this.prisma.order.aggregate({ _count: true, _sum: { amountPaidRub: true } }),
       this.prisma.bonusAccount.aggregate({ _sum: { balanceBonus: true } }),
     ]);
