@@ -1,1 +1,1 @@
-﻿ALTER TYPE "ConsentSourceChannel" ADD VALUE IF NOT EXISTS 'MAX';
+ALTER TYPE "ConsentSourceChannel" ADD VALUE IF NOT EXISTS 'MAX';
