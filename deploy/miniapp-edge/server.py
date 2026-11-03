@@ -87,6 +87,8 @@ def target_base(path):
         return GATEWAY_BASE
     if path.startswith("/api/v1/catalog/"):
         return GATEWAY_BASE
+    if path.startswith("/api/v1/pricing/"):
+        return GATEWAY_BASE
     if path.startswith("/api/"):
         return CORE_BASE
     return None
