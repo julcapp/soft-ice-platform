@@ -1,4 +1,11 @@
-const authHeaders = () => ({ Authorization: `Bearer ${sessionStorage.getItem('access_token') || ''}` });
+function accessToken() {
+  return sessionStorage.getItem('access_token')
+    || sessionStorage.getItem('soft_ice_access_token')
+    || localStorage.getItem('soft_ice_access_token')
+    || '';
+}
+
+const authHeaders = () => ({ Authorization: `Bearer ${accessToken()}` });
 
 async function parse(response, fallback) {
   const body = await response.json();

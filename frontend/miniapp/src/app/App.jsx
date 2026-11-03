@@ -15,6 +15,7 @@ import { ReferralCenter } from '../profile/ReferralCenter.jsx';
 import { VerifyEmailScreen } from '../profile/VerifyEmailScreen.jsx';
 import { PrivateChannelScreen } from '../private-channel/PrivateChannelScreen.jsx';
 import { PaymentResultScreen } from '../payment/PaymentResultScreen.jsx';
+import { bootstrapMiniAppSession } from '../auth/miniAppSession.js';
 
 export function App() {
   const appMode = useMemo(() => {
@@ -26,8 +27,43 @@ export function App() {
   const source = useMemo(() => getInitialSource(), []);
   const [settings, setSettings] = useState(() => readUserSettings());
   const [screen, setScreen] = useState('home');
+  const [sessionState, setSessionState] = useState({ status: 'loading', provider: null, error: null });
 
-  useEffect(() => { trackEvent('MiniAppOpened', { source, settings_version: settings?.version || null }); }, [source, settings]);
+  useEffect(() => {
+    if (appMode === 'terminal' || appMode === 'operator') {
+      setSessionState({ status: 'ready', provider: 'service', error: null });
+      return undefined;
+    }
+    let active = true;
+    bootstrapMiniAppSession()
+      .then((session) => {
+        if (!active) return;
+        setSessionState({
+          status: session.provider === 'browser' ? 'guest' : 'ready',
+          provider: session.provider,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSessionState({
+          status: error?.code === 'MAX_IDENTITY_NOT_LINKED' ? 'guest' : 'error',
+          provider: window.WebApp?.initData ? 'max' : (window.Telegram?.WebApp?.initData ? 'telegram' : 'browser'),
+          error: error?.code || 'AUTH_FAILED',
+        });
+      });
+    return () => { active = false; };
+  }, [appMode]);
+
+  useEffect(() => {
+    if (sessionState.status === 'loading') return;
+    trackEvent('MiniAppOpened', {
+      source,
+      settings_version: settings?.version || null,
+      provider: sessionState.provider,
+      auth_state: sessionState.status,
+    });
+  }, [source, settings, sessionState.status, sessionState.provider]);
 
   if (appMode === 'operator') return <OperatorWorkspacePage />;
   if (appMode === 'terminal') return <SalesTerminalPage />;
@@ -46,6 +82,18 @@ export function App() {
     return <PaymentResultScreen orderId={orderId} source={paymentSource} machineId={machineId} onDone={goHome} onRetry={retry} />;
   }
 
+  if (sessionState.status === 'loading') {
+    return (
+      <main className="app-shell" style={{ padding: 24 }}>
+        <section className="hero-card" aria-live="polite">
+          <p className="eyebrow">Клуб «У Тимоши»</p>
+          <h2>Открываем приложение…</h2>
+          <p>Проверяем безопасную сессию MAX или Telegram.</p>
+        </section>
+      </main>
+    );
+  }
+
   if (screen === 'product') return <ProductScreen onBack={() => setScreen('home')} />;
   if (screen === 'photos') return <PhotoPublicationHistory onBack={() => setScreen('home')} onCamera={() => setScreen('camera')} />;
   if (screen === 'camera') return <PhotoCameraScreen onBack={() => setScreen('home')} onSubmitted={() => setScreen('photos')} />;
@@ -53,5 +101,5 @@ export function App() {
   if (screen === 'referral') return <ReferralCenter onBack={() => setScreen('home')} />;
   if (screen === 'private-channel') return <PrivateChannelScreen onBack={() => setScreen('home')} />;
 
-  return <MiniAppHomePage onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} onProfile={() => setScreen('profile')} onReferral={() => setScreen('referral')} onPrivateChannel={() => setScreen('private-channel')} />;
+  return <MiniAppHomePage sessionState={sessionState} onConsentAccepted={setSettings} onBuy={() => setScreen('product')} onPhotos={() => setScreen('photos')} onCamera={() => setScreen('camera')} onProfile={() => setScreen('profile')} onReferral={() => setScreen('referral')} onPrivateChannel={() => setScreen('private-channel')} />;
 }
