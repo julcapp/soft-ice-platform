@@ -747,6 +747,7 @@ model Machine {
   pricingQuotes PricingQuote[]
   rewardCounters CustomerMachineRewardCounter[]
   giftRewardReservations GiftRewardReservation[]
+  catalogItems MachineCatalogItem[]
 }
 
 model Organization {
@@ -1234,6 +1235,7 @@ model InventoryRuntimeItem {
   movements        InventoryRuntimeMovement[]
   reservationItems InventoryRuntimeReservationItem[]
   stocks           InventoryRuntimeStock[]
+  catalogRecipes   CatalogInventoryRecipeItem[]
 }
 
 model InventoryRuntimeLocation {
@@ -2974,4 +2976,65 @@ model TerminalChannelChallenge {
   @@index([status, expiresAt])
   @@index([phoneFingerprint, channel, status])
   @@index([machineId, createdAt])
+}
+
+enum CatalogCategory {
+  ICE_CREAM
+  SPRINKLE
+  TOPPING
+}
+
+model CatalogItem {
+  id              String                       @id @default(uuid())
+  sku             String                       @unique
+  category        CatalogCategory
+  nameRu          String
+  descriptionRu   String?
+  basePrice       Decimal?                     @db.Decimal(12, 2)
+  currency        String                       @default("RUB")
+  active          Boolean                      @default(true)
+  systemItem      Boolean                      @default(false)
+  freeItem        Boolean                      @default(false)
+  sortOrder       Int                          @default(0)
+  mediaPath       String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  machines        MachineCatalogItem[]
+  inventoryRecipe CatalogInventoryRecipeItem[]
+
+  @@index([category, active, sortOrder])
+}
+
+model MachineCatalogItem {
+  id              String      @id @default(uuid())
+  machineId       String
+  catalogItemId   String
+  available       Boolean     @default(true)
+  isCurrentFlavor Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  machine         Machine     @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  catalogItem     CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
+
+  @@unique([machineId, catalogItemId])
+  @@index([machineId, available])
+  @@index([catalogItemId])
+}
+
+model CatalogInventoryRecipeItem {
+  id              String               @id @default(uuid())
+  catalogItemId   String
+  inventoryItemId String
+  ingredientType  String
+  unit            String
+  quantity        Float
+  active          Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  catalogItem     CatalogItem          @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryRuntimeItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([catalogItemId, inventoryItemId])
+  @@index([catalogItemId, active])
+  @@index([inventoryItemId])
 }
