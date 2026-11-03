@@ -14,7 +14,7 @@ export function ProfileCenter({ onBack }) {
     setState(profile);
     setNotifications(items || []);
     setBirthday(profile.customer?.birthday ? String(profile.customer.birthday).slice(0, 10) : '');
-    setEmail(profile.customer?.email || '');
+    setEmail(profile.customer?.email || profile.emailVerification?.email || '');
     setMarketing(Boolean(profile.marketingConsent?.isGranted && !profile.marketingConsent?.revokedAt));
   }
 
@@ -28,9 +28,12 @@ export function ProfileCenter({ onBack }) {
   }
 
   async function saveEmail() {
-    await patchProfile({ email });
-    await requestEmailVerification(email);
-    setMessage('Письмо подтверждения поставлено в очередь. Ссылка действует 24 часа.');
+    const result = await requestEmailVerification(email);
+    setMessage(
+      result?.deliveryStatus === 'PENDING'
+        ? 'Письмо подтверждения подготовлено к отправке. Ссылка действует 24 часа.'
+        : 'Запрос подтверждения принят. Ссылка действует 24 часа.',
+    );
     await refresh();
   }
 
