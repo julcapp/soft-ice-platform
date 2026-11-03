@@ -7,6 +7,14 @@ function cleanHeader(value, field) {
   return text;
 }
 
+function cleanMailbox(value, field) {
+  const mailbox = cleanHeader(value, field);
+  if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(mailbox)) {
+    throw new Error(`Invalid SMTP ${field} mailbox.`);
+  }
+  return mailbox;
+}
+
 function wrapBase64(value) {
   return Buffer.from(String(value), 'utf8')
     .toString('base64')
@@ -30,12 +38,12 @@ function sendSmtpTlsMail({
   host = cleanHeader(host, 'host');
   user = cleanHeader(user, 'user');
   password = String(password || '');
-  from = cleanHeader(from, 'from');
-  to = cleanHeader(to, 'to');
+  from = cleanMailbox(from, 'from');
+  to = cleanMailbox(to, 'to');
   subject = cleanHeader(subject || 'У Тимоши', 'subject');
   if (!password) throw new Error('SMTP password is required.');
   if (Number(port) !== 465) throw new Error('SMTP transport currently requires implicit TLS on port 465.');
-  if (replyTo) replyTo = cleanHeader(replyTo, 'reply-to');
+  if (replyTo) replyTo = cleanMailbox(replyTo, 'reply-to');
 
   return new Promise((resolve, reject) => {
     const socket = tls.connect({
@@ -154,4 +162,4 @@ function sendSmtpTlsMail({
   });
 }
 
-module.exports = { sendSmtpTlsMail };
+module.exports = { cleanMailbox, sendSmtpTlsMail };
