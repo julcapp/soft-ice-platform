@@ -298,26 +298,32 @@ model CrmCampaign {
 }
 
 model CrmNotificationDelivery {
-  id             String    @id @default(uuid())
-  customerId     String
-  campaignId     String?
-  channel        String
-  subject        String?
-  body           String
-  status         String    @default("QUEUED")
-  providerId     String?
-  failureReason  String?
-  idempotencyKey String?   @unique
-  correlationId  String?
-  createdBy      String
-  createdAt      DateTime  @default(now())
-  sentAt         DateTime?
+  id                String    @id @default(uuid())
+  customerId        String
+  campaignId        String?
+  channel           String
+  subject           String?
+  body              String
+  status            String    @default("QUEUED")
+  providerId        String?
+  providerResponse  String?
+  recipientAddress  String?
+  failureReason     String?
+  attemptCount      Int       @default(0)
+  lastAttemptAt     DateTime?
+  nextAttemptAt     DateTime?
+  idempotencyKey    String?   @unique
+  correlationId     String?
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  sentAt            DateTime?
 
   customer Customer     @relation(fields: [customerId], references: [id])
   campaign CrmCampaign? @relation(fields: [campaignId], references: [id])
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+  @@index([channel, status, nextAttemptAt, createdAt])
 }
 
 enum OperatorRole {
