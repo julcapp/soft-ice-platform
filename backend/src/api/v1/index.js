@@ -31,6 +31,7 @@ const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRo
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createSchedulerRouter } = require('./schedulerRoutes');
 const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRoutes');
+const { createPricingRouter } = require('./pricingRoutes');
 const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
 const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
 const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
@@ -59,6 +60,7 @@ function createApiV1Router(dependencies, { logger } = {}) {
   router.use('/auth', createAuthRouter(dependencies));
   router.use('/terminal', createTerminalCustomerRouter(dependencies));
   router.use('/catalog', createCatalogRouter(dependencies));
+  router.use('/pricing', createPricingRouter(dependencies));
   router.use('/admin/catalog', createAdminCatalogRouter(dependencies));
   router.use('/customers', createCustomerRouter(dependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
