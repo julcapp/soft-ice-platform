@@ -33,6 +33,7 @@ const { InventoryRuntime, InventoryService, InventoryEventSubscriber, InMemoryIn
 const { MaintenanceRuntime, MaintenanceService, InMemoryMaintenanceRepository, MaintenanceProjection } = require('./modules/maintenance');
 const { InMemoryOperatorWorkspaceRepository, OperatorWorkspaceService, OperatorWorkspaceRuntime } = require('./modules/operator_workspace');
 const { CRMRepository, CRMService, CRMRuntime } = require('./modules/crm');
+const { CustomerProfileCommunicationService } = require('./modules/customer_profile/CustomerProfileCommunicationService');
 const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalChannelRepository, ExternalChannelService } = require('./modules/customer_360');
 const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
@@ -233,6 +234,10 @@ function createRuntimeDependencies({ logger, metrics, config, sideEffectsEnabled
     auditRepository,
     eventPublisher: platformEventBus,
   }) });
+  const customerProfileCommunicationService = new CustomerProfileCommunicationService({
+    prisma,
+    crmRuntime,
+  });
   const customer360Runtime = new Customer360Runtime({ service: new Customer360Service({
     repository: new Customer360Repository(prisma),
     eventPublisher: platformEventBus,
@@ -325,6 +330,7 @@ function createRuntimeDependencies({ logger, metrics, config, sideEffectsEnabled
     maintenanceRuntime,
     operatorWorkspaceRuntime,
     crmRuntime,
+    customerProfileCommunicationService,
     customer360Runtime,
     externalChannelService,
     machineConnectivityService,
