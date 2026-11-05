@@ -35,12 +35,13 @@ function createCustomerRouter({ authCoreService, customerRuntime, consentRuntime
   router.post('/me/email-verifications', authenticateCustomer, asyncHandler(async (req, res) => {
     const customerId = req.securityContext.subject_id;
     const result = await customerProfileCommunicationService.requestEmailVerification(customerId, req.body?.email);
-    const baseUrl = String(process.env.PUBLIC_APP_BASE_URL || 'https://app.utimoshi.ru').replace(/\/$/, '');
+    const baseUrl = String(process.env.PUBLIC_APP_BASE_URL || 'https://miniapp.utimoshi.ru').replace(/\/$/, '');
     const verificationUrl = `${baseUrl}/?mode=verify-email&token=${encodeURIComponent(result.token)}`;
     let deliveryStatus = 'NOT_WIRED';
     if (crmRuntime?.queueNotification) {
       await crmRuntime.queueNotification(customerId, {
         channel: 'EMAIL',
+        recipientAddress: result.email,
         subject: 'Подтвердите электронную почту — Клуб Тимоши',
         body: `Для подтверждения электронной почты откройте ссылку: ${verificationUrl}\nСсылка действует 24 часа.`,
       }, {
@@ -49,7 +50,7 @@ function createCustomerRouter({ authCoreService, customerRuntime, consentRuntime
         correlationId: req.correlationId,
         idempotencyKey: `email-verification:${customerId}:${result.expiresAt.toISOString()}`,
       });
-      deliveryStatus = 'QUEUED';
+      deliveryStatus = 'PENDING';
     }
     sendData(res, req, { email: result.email, expiresAt: result.expiresAt, deliveryStatus }, 202);
   }));

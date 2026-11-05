@@ -69,3 +69,21 @@ test('CRM не раскрывает отсутствующего клиента'
   const { service } = fixture();
   await assert.rejects(() => service.getCustomerCard('missing'), (error) => error.code === 'RESOURCE_NOT_FOUND');
 });
+
+
+test('CRM ставит email в PENDING с явным адресом получателя', async () => {
+  const { service, notifications } = fixture();
+  await service.queueNotification('customer-1', {
+    channel: 'EMAIL',
+    recipientAddress: 'user@example.com',
+    subject: 'Подтвердите почту',
+    body: 'Проверка',
+  }, {
+    actorId: 'customer-1', authMethod: 'max_init_data', correlationId: 'corr-email', idempotencyKey: 'email-1',
+  });
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].channel, 'EMAIL');
+  assert.equal(notifications[0].status, 'PENDING');
+  assert.equal(notifications[0].recipientAddress, 'user@example.com');
+  assert.ok(notifications[0].nextAttemptAt instanceof Date);
+});

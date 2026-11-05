@@ -132,14 +132,17 @@ class CRMService {
     if (card.profile?.communicationStatus === 'BLOCKED') {
       throw new ApiError({ statusCode: 422, code: 'CRM_COMMUNICATION_BLOCKED', message: 'Уведомления для клиента запрещены.', source: 'runtime' });
     }
+    const channel = String(request.channel || card.profile?.preferredChannel || 'TELEGRAM').toUpperCase();
     const delivery = await this.repository.createNotification({
       id: request.id || randomUUID(),
       customerId,
       campaignId: request.campaignId || null,
-      channel: request.channel || card.profile?.preferredChannel || 'TELEGRAM',
+      channel,
       subject: request.subject || null,
       body: request.body,
-      status: 'QUEUED',
+      status: channel === 'EMAIL' ? 'PENDING' : 'QUEUED',
+      recipientAddress: request.recipientAddress || request.destination || null,
+      nextAttemptAt: channel === 'EMAIL' ? new Date() : null,
       idempotencyKey: context.idempotencyKey || null,
       correlationId: context.correlationId || null,
       createdBy: context.actorId,
