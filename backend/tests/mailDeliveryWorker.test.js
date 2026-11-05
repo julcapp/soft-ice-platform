@@ -103,3 +103,41 @@ test('mail helpers validate addresses and build Reply-To header', () => {
   assert.match(message, /Reply-To: <support@utimoshi\.ru>/);
   assert.match(message, /line one\r\n\.\.line two/);
 });
+
+
+test('expired email verification delivery is terminally failed and not sent', async () => {
+  let claims = 0;
+  const updates = [];
+  const now = new Date('2026-11-05T10:00:00.000Z');
+  const prisma = {
+    $queryRawUnsafe: async (sql) => {
+      if (sql.includes('WITH candidate')) {
+        claims += 1;
+        return claims === 1 ? [{
+          id: 'delivery-expired',
+          customerId: 'customer-1',
+          subject: 'Подтвердите электронную почту — Клуб Тимоши',
+          body: 'Старая ссылка',
+          recipientAddress: 'user@example.com',
+          attemptCount: 1,
+          createdAt: new Date('2026-11-03T09:00:00.000Z'),
+        }] : [];
+      }
+      return [];
+    },
+    $executeRawUnsafe: async (...args) => { updates.push(args); return 1; },
+  };
+  let sendCalls = 0;
+  const worker = new EmailDeliveryWorker({
+    prisma,
+    transport: { send: async () => { sendCalls += 1; return {}; } },
+    clock: () => now,
+  });
+
+  const result = await worker.runOnce();
+  assert.equal(sendCalls, 0);
+  assert.equal(result.failed, 1);
+  assert.equal(result.results[0].errorCode, 'EMAIL_VERIFICATION_EXPIRED_BEFORE_DELIVERY');
+  assert.equal(result.results[0].nextAttemptAt, null);
+  assert.equal(updates[0][4], null);
+});

@@ -57,7 +57,7 @@ class EmailDeliveryWorker {
        FROM candidate
        WHERE d."id"=candidate."id"
        RETURNING d."id",d."customerId",d."subject",d."body",d."recipientAddress",
-                 d."attemptCount",d."correlationId",d."idempotencyKey"`,
+                 d."attemptCount",d."correlationId",d."idempotencyKey",d."createdAt"`,
       this.maxAttempts,
     );
     return rows?.[0] || null;
@@ -65,6 +65,13 @@ class EmailDeliveryWorker {
 
   async #deliver(delivery) {
     try {
+      if (isExpiredVerificationDelivery(delivery, this.clock())) {
+        throw workerError(
+          'EMAIL_VERIFICATION_EXPIRED_BEFORE_DELIVERY',
+          'Email verification link expired before delivery.',
+          { terminal: true },
+        );
+      }
       const recipient = await this.#resolveRecipient(delivery);
       if (!recipient) throw workerError('EMAIL_RECIPIENT_MISSING', 'Email recipient is not available.');
 
@@ -99,7 +106,8 @@ class EmailDeliveryWorker {
       };
     } catch (error) {
       const attemptCount = Number(delivery.attemptCount || 1);
-      const nextAttemptAt = attemptCount >= this.maxAttempts
+      const terminal = Boolean(error?.terminal);
+      const nextAttemptAt = terminal || attemptCount >= this.maxAttempts
         ? null
         : new Date(this.clock().getTime() + this.#backoffFor(attemptCount) * 1000);
       const code = String(error?.code || 'EMAIL_DELIVERY_FAILED').slice(0, 120);
@@ -176,10 +184,20 @@ function truncate(value, limit) {
   return String(value).slice(0, limit);
 }
 
-function workerError(code, message) {
+function isExpiredVerificationDelivery(delivery, now) {
+  const subject = String(delivery?.subject || '').toLowerCase();
+  if (!subject.includes('подтвердите электронную почту')) return false;
+  if (!delivery?.createdAt) return false;
+  const createdAt = new Date(delivery.createdAt);
+  if (Number.isNaN(createdAt.getTime())) return false;
+  return now.getTime() - createdAt.getTime() >= 24 * 60 * 60 * 1000;
+}
+
+function workerError(code, message, options = {}) {
   const error = new Error(message);
   error.code = code;
+  error.terminal = Boolean(options.terminal);
   return error;
 }
 
-module.exports = { EmailDeliveryWorker, parseBackoff, normalizeEmail };
+module.exports = { EmailDeliveryWorker, parseBackoff, normalizeEmail, isExpiredVerificationDelivery };
