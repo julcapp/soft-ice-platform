@@ -29,3 +29,14 @@ SET "recipientAddress"=(
     "updatedAt"=CURRENT_TIMESTAMP
 WHERE UPPER(d."channel")='EMAIL'
   AND d."recipientAddress" IS NULL;
+
+UPDATE "CrmNotificationDelivery"
+SET "body"=REPLACE(
+      "body",
+      'https://app.utimoshi.ru/?mode=verify-email',
+      'https://miniapp.utimoshi.ru/?mode=verify-email'
+    ),
+    "updatedAt"=CURRENT_TIMESTAMP
+WHERE UPPER("channel")='EMAIL'
+  AND "status" IN ('PENDING','QUEUED','FAILED')
+  AND "body" LIKE '%https://app.utimoshi.ru/?mode=verify-email%';

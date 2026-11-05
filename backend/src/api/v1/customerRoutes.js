@@ -35,7 +35,7 @@ function createCustomerRouter({ authCoreService, customerRuntime, consentRuntime
   router.post('/me/email-verifications', authenticateCustomer, asyncHandler(async (req, res) => {
     const customerId = req.securityContext.subject_id;
     const result = await customerProfileCommunicationService.requestEmailVerification(customerId, req.body?.email);
-    const baseUrl = String(process.env.PUBLIC_APP_BASE_URL || 'https://miniapp.utimoshi.ru').replace(/\/$/, '');
+    const baseUrl = String(process.env.PUBLIC_MINIAPP_BASE_URL || 'https://miniapp.utimoshi.ru').replace(/\/$/, '');
     const verificationUrl = `${baseUrl}/?mode=verify-email&token=${encodeURIComponent(result.token)}`;
     let deliveryStatus = 'NOT_WIRED';
     if (crmRuntime?.queueNotification) {

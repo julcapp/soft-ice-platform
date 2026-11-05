@@ -89,6 +89,10 @@ def target_base(path):
         return GATEWAY_BASE
     if path.startswith("/api/v1/pricing/"):
         return GATEWAY_BASE
+    if path.startswith("/api/v1/customers/me/email-verifications"):
+        return GATEWAY_BASE
+    if path.startswith("/api/v1/customers/email-verifications/confirm"):
+        return GATEWAY_BASE
     if path.startswith("/api/"):
         return CORE_BASE
     return None
