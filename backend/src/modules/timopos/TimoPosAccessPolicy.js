@@ -27,6 +27,8 @@ function isBusinessOpen({now,schedule}) {
   if (!schedule || !schedule.timeZone || !schedule.days || typeof schedule.days!=='object') return false;
   try {
     const {day,minute}=dateParts(now,schedule.timeZone);
+    if (schedule.mode === '24_7') return true;
+    if (schedule.mode && schedule.mode !== 'SCHEDULED') return false;
     const slots=schedule.days[String(day)];
     if (!Array.isArray(slots)) return false;
     return slots.some(slot=>{
