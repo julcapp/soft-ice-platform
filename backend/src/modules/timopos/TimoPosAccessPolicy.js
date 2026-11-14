@@ -1,7 +1,7 @@
 'use strict';
 
 /** Pure, fail-closed POS policy. Time must come from backend, not browser.
- * schedule: {timeZone:'Asia/Tomsk', days:{'1':[{from:'08:00',to:'18:00'}],...}}
+ * schedule: {timeZone:'Asia/Tomsk', mode:'SCHEDULED', days:{'1':[{from:'08:00',to:'18:00'}],...}}\n * or {timeZone:'Asia/Tomsk', mode:'24_7', days:{}} for all-day operation.\n * 00:00-00:01 is a real one-minute interval, never a 24-hour shortcut.
  * Weekday: 0 Sun .. 6 Sat. Intervals are [from, to), end exclusive.
  * Overnight intervals must be configured as two weekday segments.
  */
@@ -50,22 +50,22 @@ function classifyDevices(devices) {
   }
   return {ready:!problems.some(p=>p.severity==='BLOCK'),problems};
 }
-function evaluateSalesAccess({now=new Date(),schedule,seller,terminal,shift,devices}) {
+function evaluateSalesAccess({now=new Date(),schedule,seller,terminal,shift,session,devices}) {
   const reasons=[];
-  if(!seller?.authenticated||seller.status!=='ACTIVE'||!seller.allowedForPoint)reasons.push('SELLER_NOT_AUTHORIZED');
+  if(!seller?.authenticated||seller.status!=='ACTIVE'||!seller.allowedForPoint)reasons.push('SELLER_NOT_AUTHORIZED');\n  if(!session?.active || session.revokedAt || !session.sellerId || session.sellerId!==seller?.id || session.terminalId!==terminal?.id)reasons.push('SESSION_NOT_ACTIVE');
   if(!terminal?.active||!terminal.boundToPoint)reasons.push('TERMINAL_NOT_ASSIGNED');
   if(!isBusinessOpen({now,schedule}))reasons.push('OUTSIDE_BUSINESS_HOURS');
-  if(!shift||shift.status!=='OPEN'||shift.sellerId!==seller?.id||shift.terminalId!==terminal?.id)reasons.push('SHIFT_NOT_OPEN');
+  if(!shift||shift.status!=='OPEN'||shift.sellerId!==seller?.id||shift.terminalId!==terminal?.id||!shift.startedBySeller)reasons.push('SHIFT_NOT_OPEN');
   const deviceHealth=classifyDevices(devices);
   if(!deviceHealth.ready)reasons.push('CRITICAL_DEVICE_UNAVAILABLE');
   return {canView:!!seller?.authenticated,canSell:reasons.length===0,
     canAcceptPayment:reasons.length===0,reasons,deviceHealth};
 }
-function canStartShift({now=new Date(),schedule,seller,terminal,shift}) {
-  return !!seller?.authenticated&&seller.status==='ACTIVE'&&seller.allowedForPoint&&
+function canStartShift({now=new Date(),schedule,seller,terminal,shift,session}) {
+  return !!seller?.authenticated&&seller.status==='ACTIVE'&&seller.allowedForPoint&&\n    !!session?.active&&!session.revokedAt&&session.sellerId===seller?.id&&session.terminalId===terminal?.id&&
     !!terminal?.active&&terminal.boundToPoint&&isBusinessOpen({now,schedule})&&shift?.status!=='OPEN';
 }
-function shouldLockAfterShift({now=new Date(),shift,delayMs=30000}) {
+// UI grace period only: server-side seller session must be revoked immediately.\nfunction shouldLockAfterShift({now=new Date(),shift,delayMs=30000}) {
   return !!shift&&shift.status==='CLOSED'&&!!shift.closedAt&&
     now.getTime()>=new Date(shift.closedAt).getTime()+delayMs;
 }
