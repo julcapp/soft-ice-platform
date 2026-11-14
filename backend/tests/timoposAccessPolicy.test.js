@@ -100,3 +100,33 @@ test('invalid all-day timezone and unsupported mode fail closed',()=>{
  assert.equal(isBusinessOpen({now:local(12),schedule:{timeZone:'Fake/Zone',mode:'24_7',days:{}}}),false);
  assert.equal(isBusinessOpen({now:local(12),schedule:{timeZone:'Asia/Tomsk',mode:'UNKNOWN',days:{}}}),false);
 });
+
+test('working days 08-18, Saturday 10-16, Sunday closed',()=>{
+ const weekly={timeZone:'Asia/Tomsk',mode:'SCHEDULED',workingDays:[1,2,3,4,5],
+   weeklyGroups:{workingDays:[{from:'08:00',to:'18:00'}],saturday:[{from:'10:00',to:'16:00'}],sunday:[]}};
+ const localAt=(dayOffset,h,m=0)=>new Date(Date.UTC(2026,10,16+dayOffset,h-7,m));
+ assert.equal(isBusinessOpen({now:localAt(0,8),schedule:weekly}),true);
+ assert.equal(isBusinessOpen({now:localAt(5,9,59),schedule:weekly}),false);
+ assert.equal(isBusinessOpen({now:localAt(5,10),schedule:weekly}),true);
+ assert.equal(isBusinessOpen({now:localAt(5,16),schedule:weekly}),false);
+ assert.equal(isBusinessOpen({now:localAt(6,12),schedule:weekly}),false);
+});
+test('Sunday has independently configured working window',()=>{
+ const weekly={timeZone:'Asia/Tomsk',mode:'SCHEDULED',
+ weeklyGroups:{workingDays:[],saturday:[],sunday:[{from:'11:00',to:'15:00'}]}};
+ const sunday=new Date(Date.UTC(2026,10,22,12-7));
+ assert.equal(isBusinessOpen({now:sunday,schedule:weekly}),true);
+});
+test('24/7 mode covers Monday through Sunday irrespective of groups',()=>{
+ const weekly={timeZone:'Asia/Tomsk',mode:'24_7',days:{},
+   weeklyGroups:{workingDays:[],saturday:[],sunday:[]}};
+ for(let i=0;i<7;i++){
+ const at=new Date(Date.UTC(2026,10,16+i,5,0));
+ assert.equal(isBusinessOpen({now:at,schedule:weekly}),true);
+ }
+});
+test('invalid grouped weekday schedule fails closed',()=>{
+ const wrong={timeZone:'Asia/Tomsk',mode:'SCHEDULED',workingDays:[9],
+   weeklyGroups:{workingDays:[{from:'08:00',to:'18:00'}],saturday:[],sunday:[]}};
+ assert.equal(isBusinessOpen({now:local(12),schedule:wrong}),false);
+});
