@@ -3117,3 +3117,43 @@ model TimoPosSellerSession {
   @@index([sellerId, revokedAt])
   @@index([terminalId, expiresAt])
 }
+
+
+model TimoPosShift {
+  id                 String    @id @default(uuid())
+  sellerId           String
+  pointId            String
+  terminalId         String
+  status             String    @default("OPEN")
+  startedBySeller    Boolean   @default(false)
+  startedAt          DateTime
+  closedAt           DateTime?
+  closedBySeller     Boolean   @default(false)
+  summary            Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  breaks             TimoPosTechnicalBreak[]
+
+  @@index([sellerId, startedAt])
+  @@index([pointId, startedAt])
+  @@index([terminalId, status])
+}
+
+model TimoPosTechnicalBreak {
+  id           String    @id @default(uuid())
+  shiftId      String
+  sellerId     String
+  pointId      String
+  terminalId   String
+  reason       String    @default("TECHNICAL")
+  status       String    @default("ACTIVE")
+  startedAt    DateTime
+  endedAt      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  shift        TimoPosShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@index([shiftId, startedAt])
+  @@index([pointId, status])
+  @@index([sellerId, startedAt])
+}
