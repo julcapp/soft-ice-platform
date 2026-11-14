@@ -47,11 +47,12 @@ class SellerMaxAuthService {
       throw authError('INVALID_REQUEST');
     }
     // Rate limit at edge BEFORE employee lookup (IP + phone fingerprint + terminal).
-    const seller = await this.repository.resolveSellerWithVerifiedMax({ phone: normalizedPhone, terminalId });
-    if (!seller) return { ...GENERIC_RESULT, challengeId: null };
-    const code = String(this.randomInt(0, 1000000)).padStart(6, '0');
     const id = crypto.randomUUID();
     const expiresAt = new Date(this.clock().getTime() + this.ttlMs);
+    const generic = { ...GENERIC_RESULT, challengeId: id, expiresAt: expiresAt.toISOString() };
+    const seller = await this.repository.resolveSellerWithVerifiedMax({ phone: normalizedPhone, terminalId });
+    if (!seller) return generic;
+    const code = String(this.randomInt(0, 1000000)).padStart(6, '0');
     await this.repository.createChallenge({
       id, sellerId: seller.sellerId, pointId: seller.pointId,
       terminalId, codeHash: tokenHash(this.secret, 'seller-otp:' + id, code),
@@ -65,9 +66,9 @@ class SellerMaxAuthService {
       await this.repository.markSent(id);
     } catch (_error) {
       await this.repository.invalidate(id);
-      return { ...GENERIC_RESULT, challengeId: null };
+      return generic;
     }
-    return { ...GENERIC_RESULT, challengeId: id, expiresAt: expiresAt.toISOString() };
+    return generic;
   }
 
   async verify({ challengeId, code, terminalId }) {
