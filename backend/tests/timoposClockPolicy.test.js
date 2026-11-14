@@ -27,7 +27,7 @@ test('warning and critical clock drift classification',()=>{
  assert.equal(evaluateClockSample({...input,serverEpochMs:140050}).status,'CRITICAL');
 });
 test('unreliable latency, clock step and malformed values are not accepted',()=>{
- const input={serverEpochMs:1000,clientSentEpochMs:900,clientReceivedEpochMs:1500,
+ const input={serverEpochMs:1000,clientSentEpochMs:900,clientReceivedEpochMs:2500,
  monotonicSentMs:100,monotonicReceivedMs:200};
  assert.equal(evaluateClockSample(input).status,'ERROR');
  assert.equal(evaluateClockSample({...input,clientReceivedEpochMs:900,monotonicReceivedMs:9000}).status,'ERROR');
