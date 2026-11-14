@@ -86,6 +86,7 @@ function evaluateSalesAccess({now=new Date(),schedule,seller,terminal,shift,sess
   if(!terminal?.active||!terminal.boundToPoint)reasons.push('TERMINAL_NOT_ASSIGNED');
   if(!isBusinessOpen({now,schedule}))reasons.push('OUTSIDE_BUSINESS_HOURS');
   if(!shift||shift.status!=='OPEN'||shift.sellerId!==seller?.id||shift.terminalId!==terminal?.id||!shift.startedBySeller)reasons.push('SHIFT_NOT_OPEN');
+  if (shift?.breakStatus === 'ACTIVE' || shift?.breakStatus === 'UNCONFIRMED') reasons.push('TECHNICAL_BREAK_ACTIVE');
   const deviceHealth=classifyDevices(devices);
   if(!deviceHealth.ready)reasons.push('CRITICAL_DEVICE_UNAVAILABLE');
   return {canView:!!seller?.authenticated,canSell:reasons.length===0,
