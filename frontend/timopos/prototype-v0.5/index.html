@@ -38,7 +38,30 @@ const link=make('button','Посмотреть журнал');link.className='ou
 }
 
 const captions={sale:'Продажа',pickup:'Получить',orders:'Заказы',club:'Клуб Тимоши',tech:'Технологическое меню',shift:'Смена',stock:'Остатки',journal:'Журнал'};function detail(id){const root=$('detail-body');addEvent('Раздел открыт',captions[id]);root.replaceChildren();const h=document.createElement('h2');h.textContent=captions[id];root.append(h);if(id==='stock'){refreshStock(root)}else if(id==='journal'){refreshJournal(root)}else if(id==='tech'){const info=document.createElement('p');info.textContent='Пример самодиагностики при включении. Настоящий локальный агент оборудования ещё не подключён.';root.append(info);const list=document.createElement('div');list.className='status-list';sampleHealth.forEach(d=>{const row=document.createElement('div');row.className='status-line';const a=document.createElement('b');a.textContent=d.title;const b=document.createElement('span');b.className='badge'+(d.state==='OK'?'':' warning');b.textContent=d.state;row.append(a,b);list.append(row)});root.append(list);const p=document.createElement('p');p.textContent='Скорость соединения: не измерялась. Версия оборудования, COM/USB и серийные номера: данные отсутствуют.';root.append(p)}
-else if(id==='club'){const p=document.createElement('p');p.textContent='Продавцу недоступны списки и ФИО покупателей. Поиск только по номеру, названному самим клиентом.';root.append(p);const input=document.createElement('input');input.type='tel';input.placeholder='+7 999 123 45 67';input.setAttribute('aria-label','Телефон покупателя');root.append(input);const button=document.createElement('button');button.className='primary';button.style.marginTop='12px';button.textContent='Проверить членство';root.append(button);const out=document.createElement('div');out.className='info';out.textContent='В демонстрации поиск в базе не выполняется.';root.append(out);button.onclick=()=>{input.value='';out.replaceChildren();const text=document.createElement('p');text.textContent='Макет: клиент не найден. Пригласить в клуб?';out.append(text);['Вступить','Отказаться'].forEach(label=>{const b=document.createElement('button');b.className='plain';b.style.marginRight='7px';b.textContent=label;b.onclick=()=>{out.replaceChildren();const p=document.createElement('p');p.textContent=label==='Отказаться'?'Покупка может продолжиться без регистрации.':'Выберите канал для подтверждения своего номера и согласия на ПДн:';out.append(p);if(label==='Вступить')for(const name of ['MAX','Telegram']){const c=document.createElement('button');c.className='outline';c.style.marginRight='7px';c.textContent=name;c.onclick=()=>{p.textContent='Демо: запрос в '+name+' не отправлялся; регистрация не создана.'};out.append(c)}};out.append(b)}}}
+else if(id==='club'){
+const p=make('p','Продавцу не доступны списки клиентов и их ФИО. Покупатель сообщает номер самостоятельно.');
+root.append(p);
+const input=document.createElement('input');input.type='tel';input.placeholder='+7 999 123 45 67';root.append(input);
+const check=make('button','Проверить членство (демо)');check.className='primary';check.style.marginTop='12px';root.append(check);
+const result=make('div','Поиск в реальной базе не выполняется.');result.className='info';root.append(result);
+check.onclick=()=>{
+ input.value='';result.replaceChildren();
+ result.append(make('p','Демо: клиент не найден. Предложить вступить в клуб?'));
+ for(const answer of ['Вступить','Отказаться']){
+   const btn=make('button',answer);btn.className='plain';btn.style.margin='5px';
+   btn.onclick=()=>{
+     result.replaceChildren();
+     if(answer==='Отказаться'){result.append(make('p','Покупка доступна без клуба.'));return;}
+     result.append(make('p','Клиент выбирает мессенджер для подтверждения телефона и согласия на ПДн.'));
+     for(const channel of ['MAX','Telegram']){
+       const link=make('button',channel);link.className='outline';link.style.margin='5px';
+       link.onclick=()=>{result.replaceChildren();result.append(make('p','Демо: сообщение в '+channel+' не отправлялось.'));};
+       result.append(link);
+     }
+   };result.append(btn);
+ }
+};
+}
 else {const p=document.createElement('p');p.textContent=id==='shift'?'Открытие и закрытие смены доступны в верхней панели.':'Этот раздел будет подключён к backend на следующем этапе. Ни платежей, ни выдачи макет не производит.';root.append(p)}
 $('detail').classList.remove('hidden')}document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>detail(b.dataset.page));$('back').onclick=()=>$('detail').classList.add('hidden');setInterval(()=>{if(!$('workspace').classList.contains('hidden')&&!closing)draw()},30000);
 })();
