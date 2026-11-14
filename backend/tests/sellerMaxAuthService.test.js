@@ -48,7 +48,7 @@ test('MAX OTP 5 minutes, successful session, single use',async()=>{
 test('unknown seller gives generic response and no message',async()=>{
   const f=fixture();f.setKnown(false);
   const result=await f.service.request({phone:'+79991234567',terminalId:'POS-001'});
-  assert.equal(result.accepted,true);assert.equal(result.challengeId,null);assert.equal(f.messages.length,0);
+  assert.equal(result.accepted,true);assert.match(result.challengeId,/^[\da-f-]{36}$/i);assert.equal(f.messages.length,0);
 });
 test('expired OTP is rejected',async()=>{
   const f=fixture();const c=await f.service.request({phone:'+79991234567',terminalId:'POS-001'});
@@ -64,7 +64,7 @@ test('wrong terminal, wrong OTP and revoked assignment fail',async()=>{
 test('MAX delivery failure invalidates challenge, no OTP in response',async()=>{
   const f=fixture();f.sender.sendPrivateMessage=async()=>{throw Error('network secret 246810')};
   const c=await f.service.request({phone:'+79991234567',terminalId:'POS-001'});
-  assert.equal(c.challengeId,null);assert.equal(f.getRow().status,'INVALIDATED');
+  assert.match(c.challengeId,/^[\da-f-]{36}$/i);assert.equal(f.getRow().status,'INVALIDATED');
   assert.doesNotMatch(JSON.stringify(c),/246810|network secret/);
 });
 test('fails closed without strong secret',()=>{assert.throws(()=>new SellerMaxAuthService({repository:{},maxSender:{sendPrivateMessage(){}},secret:'weak'}),/secret/);});
