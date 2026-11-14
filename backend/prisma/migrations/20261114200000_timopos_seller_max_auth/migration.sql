@@ -1,3 +1,4 @@
+ALTER TYPE "OrganizationRoleType" ADD VALUE IF NOT EXISTS 'SELLER';
 -- TimoPOS employee authentication; separate from Mini App customer identities.
 -- Apply to staging after reviewing OrganizationMember/OrganizationLocation data.
 CREATE TABLE "TimoPosTerminal" (
