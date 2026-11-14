@@ -23,7 +23,32 @@ function parseTime(s) {
   const [h,m]=s.split(':').map(Number);
   return h*60+m;
 }
+/**
+ * Converts the admin schedule "working days / Saturday / Sunday" into
+ * 7 explicit weekday entries. 1=Mon .. 6=Sat, 0=Sun.
+ * Admin's workingDays can be any explicitly configured subset (Mon-Fri by default).
+ * Time windows support multiple intervals per day, with no implicit weekend hours.
+ */
+function expandWeeklySchedule(schedule) {
+  if (!schedule || schedule.mode === '24_7' || !schedule.weeklyGroups) return schedule;
+  const groups=schedule.weeklyGroups;
+  const weekdays=schedule.workingDays ?? [1,2,3,4,5];
+  if (!Array.isArray(weekdays) || !weekdays.every(d=>Number.isInteger(d)&&d>=1&&d<=5)) return null;
+  const copySlots=v=>Array.isArray(v)?v.map(slot=>({from:slot.from,to:slot.to})):null;
+  const days={};
+  for(let day=0;day<=6;day++){
+    let slots=[];
+    if(day===6)slots=copySlots(groups.saturday);
+    else if(day===0)slots=copySlots(groups.sunday);
+    else slots=weekdays.includes(day)?copySlots(groups.workingDays):[];
+    if(!slots)return null;
+    days[String(day)]=slots;
+  }
+  return {...schedule,days};
+}
+
 function isBusinessOpen({now,schedule}) {
+  schedule=expandWeeklySchedule(schedule);
   if (!schedule || !schedule.timeZone || !schedule.days || typeof schedule.days!=='object') return false;
   try {
     const {day,minute}=dateParts(now,schedule.timeZone);
@@ -76,4 +101,4 @@ function shouldLockAfterShift({now=new Date(),shift,delayMs=30000}) {
   return !!shift&&shift.status==='CLOSED'&&!!shift.closedAt&&
     now.getTime()>=new Date(shift.closedAt).getTime()+delayMs;
 }
-module.exports={isBusinessOpen,classifyDevices,evaluateSalesAccess,canStartShift,shouldLockAfterShift};
+module.exports={isBusinessOpen,expandWeeklySchedule,classifyDevices,evaluateSalesAccess,canStartShift,shouldLockAfterShift};
