@@ -3045,3 +3045,74 @@ model CatalogInventoryRecipeItem {
   @@index([catalogItemId, active])
   @@index([inventoryItemId])
 }
+
+
+/// TimoPOS employee authentication is separate from customer/display identity.
+/// The application must validate sellerId against OrganizationMember and
+/// pointId against OrganizationLocation within the same organization.
+model TimoPosTerminal {
+  id          String   @id @default(uuid())
+  terminalId  String   @unique
+  pointId     String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([pointId, active])
+}
+
+model TimoPosSellerPoint {
+  id        String   @id @default(uuid())
+  sellerId  String
+  pointId   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sellerId, pointId])
+  @@index([pointId, active])
+}
+
+model TimoPosMaxIdentity {
+  id                   String   @id @default(uuid())
+  sellerId             String   @unique
+  maxSubjectHash       String   @unique
+  recipientCiphertext  String
+  verifiedPhoneHash    String
+  verifiedAt           DateTime
+  revokedAt            DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model TimoPosLoginChallenge {
+  id           String   @id @default(uuid())
+  sellerId     String
+  pointId      String
+  terminalId   String
+  codeHash     String
+  status       String   @default("PENDING")
+  attempts     Int      @default(0)
+  maxAttempts  Int      @default(5)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  sentAt       DateTime?
+  consumedAt   DateTime?
+
+  @@index([sellerId, status, expiresAt])
+  @@index([terminalId, createdAt])
+}
+
+model TimoPosSellerSession {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique
+  sellerId   String
+  pointId    String
+  terminalId String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([sellerId, revokedAt])
+  @@index([terminalId, expiresAt])
+}
