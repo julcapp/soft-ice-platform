@@ -3195,3 +3195,26 @@ model CustomerAdvanceLedgerEntry {
   @@index([customerId, occurredAt])
   @@index([orderId, movementType])
 }
+
+
+model TimoPosPrepaidFulfillment {
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  customerId        String
+  pointId           String
+  pointCode         String
+  pointName         String
+  terminalId        String
+  sellerId          String
+  shiftId           String
+  pickupProofHash   String   @unique
+  paymentId         String
+  amountKopecks     BigInt
+  issuedAt          DateTime
+  idempotencyKey    String   @unique
+  createdAt         DateTime @default(now())
+
+  @@index([customerId, issuedAt])
+  @@index([pointId, issuedAt])
+  @@index([shiftId, issuedAt])
+}
