@@ -3157,3 +3157,41 @@ model TimoPosTechnicalBreak {
   @@index([pointId, status])
   @@index([sellerId, startedAt])
 }
+
+
+//// Prepaid monetary obligations, separate from loyalty bonus points.
+//// Financial ledger append/transition transactions are not yet wired.
+model CustomerPrepaymentObligation {
+  id                   String   @id @default(uuid())
+  orderId              String   @unique
+  customerId           String
+  sourcePaymentId      String   @unique
+  amountKopecks        BigInt
+  status               String   @default("PICKUP_AVAILABLE")
+  paidAt               DateTime
+  pickupUntil          DateTime
+  fulfilledAt          DateTime?
+  creditedToBalanceAt  DateTime?
+  refundedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([customerId, status, pickupUntil])
+  @@index([status, pickupUntil])
+}
+
+model CustomerAdvanceLedgerEntry {
+  id               String   @id @default(uuid())
+  customerId       String
+  orderId          String?
+  sourcePaymentId  String?
+  movementType     String
+  amountKopecks    BigInt
+  idempotencyKey   String   @unique
+  occurredAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
+  metadata         Json?
+
+  @@index([customerId, occurredAt])
+  @@index([orderId, movementType])
+}
