@@ -6,7 +6,7 @@
 </style></head><body><main class="app">
 <header class="top"><div><div class="brand">🍦 У Тимоши <span>· TimoPOS 0.9</span></div><div class="meta">Точка №001 · Иванов И. И. · Смена №Т-042 · Кассовый узел</div></div><div class="tags"><span class="tag good">Смена открыта · DEMO</span><span class="tag">ККТ не подключена</span><span class="tag demo">Прототип / без реальных платежей</span></div></header>
 <div class="layout">
-<section class="pane"><div class="tabhead"><button class="active" data-view="sale">Продажа</button><button data-view="prepaid">Получить предоплату</button></div>
+<section class="pane"><div class="tabhead"><button class="active" data-view="sale">Продажа</button><button data-view="prepaid">Выдать предоплаченный заказ</button></div>
 <div id="sale-view">
 <div class="title"><h2>Каталог</h2><span class="hint">Цены и налоговые параметры условные</span></div>
 <div class="filters" id="groups"></div>
@@ -80,6 +80,7 @@ $("confirm-fiscal").onclick=()=>{if(!pay||fiscal)return;fiscal=true;$("confirm-f
 $("issued").onclick=()=>{if(!pay||!fiscal||issued)return;issued=true;$("issued").disabled=true;const result=calc(cart);operations.push({kind:"SALE",method,total:result.total});$("receipt").textContent+="\n\nDEMO: товар выдан и учтён (без сохранения в БД).";$("fiscal").textContent="ДЕМО: выдача подтверждена. Сделка закрыта."};
 $("reset").onclick=()=>{cart=[];$("received").value="";resetPay();render()};
 for(const b of document.querySelectorAll("[data-view]"))b.onclick=()=>{for(const x of document.querySelectorAll("[data-view]"))x.classList.toggle("active",x===b);$("sale-view").style.display=b.dataset.view==="sale"?"block":"none";$("prepaid-view").style.display=b.dataset.view==="prepaid"?"block":"none"};
+$("pickup").addEventListener("input",()=>{pickup=false;pickupFiscal=false;pickupIssued=false;$("pickup-receipt").disabled=true;$("pickup-issued").disabled=true;$("pickup-result").textContent="Код изменён — проверьте заказ заново."});
 $("check-pickup").onclick=()=>{pickup=$("pickup").value==="123456";pickupFiscal=false;pickupIssued=false;$("pickup-receipt").disabled=!pickup;$("pickup-issued").disabled=true;$("pickup-result").textContent=pickup?"DEMO: заказ #P-001, ранее оплачен 95 ₽ в Mini App. Точка №001. Нужна фискализация зачёта.":"DEMO: код не найден. Настоящая проверка backend отсутствует."};
 $("pickup-receipt").onclick=()=>{if(!pickup||pickupFiscal)return;pickupFiscal=true;$("pickup-receipt").disabled=true;$("pickup-issued").disabled=false;$("pickup-result").textContent="DEMO: чек зачёта полной предоплаты имитирован. Денежного списания с покупателя нет."};
 $("pickup-issued").onclick=()=>{if(!pickup||!pickupFiscal||pickupIssued)return;pickupIssued=true;$("pickup-issued").disabled=true;operations.push({kind:"PREPAID_ISSUE",total:9500});$("pickup-result").textContent="DEMO: товар получен на точке №001. Расход ингредиентов — только в модели; данные Mini App и склада не менялись."};
