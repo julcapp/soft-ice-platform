@@ -1,30 +1,23 @@
-# Display — экран автомата «У Тимоши»
+# Display — покупательский экран автомата «У Тимоши»
 
-**Модуль:** покупательский экран автомата и выдачи. **Домен:** [display.utimoshi.ru](https://display.utimoshi.ru/).  
-**Назначение этой папки:** навигация по исходникам, самостоятельная история этапов Display, результаты испытаний и правила релизов. Это **не** копия развёрнутого веб-сайта.
+**Домен:** `display.utimoshi.ru`.
 
-## Где сейчас находится код Display
+## Перенесённые исходники
 
-| Область | Канонический путь |
-|---|---|
-| Покупательский экран терминала | [frontend/miniapp/src/terminal/SalesTerminalPage.jsx](../frontend/miniapp/src/terminal/SalesTerminalPage.jsx) |
-| Оплата на терминале | [frontend/miniapp/src/terminal/TerminalPaymentScreen.jsx](../frontend/miniapp/src/terminal/TerminalPaymentScreen.jsx) |
-| Клиент API оплаты | [frontend/miniapp/src/terminal/TerminalPaymentApi.js](../frontend/miniapp/src/terminal/TerminalPaymentApi.js) |
-| Предоплаченная выдача | [frontend/miniapp/src/terminal/PrepaidPickupScreen.jsx](../frontend/miniapp/src/terminal/PrepaidPickupScreen.jsx) |
-| Узнавание клиента | [frontend/miniapp/src/terminal/DisplayRecognitionApi.js](../frontend/miniapp/src/terminal/DisplayRecognitionApi.js) |
-| API узнавания на backend | [backend/src/modules/customer/DisplayCustomerRecognitionService.js](../backend/src/modules/customer/DisplayCustomerRecognitionService.js) |
-| Архитектура общего каталога и цены | [ADR-052](../docs/architecture/ADR/ADR-052-unified-display-catalog-pricing.md) |
-| Граница узнавания клиента | [ADR-053](../docs/architecture/ADR/ADR-053-display-phone-recognition-boundary.md) |
-| Проверки каталога/цен Display | [docs/testing/CATALOG_PRICE_DISPLAY_MIGRATION_REHEARSAL.md](../docs/testing/CATALOG_PRICE_DISPLAY_MIGRATION_REHEARSAL.md) |
+- [Display/app/terminal](app/terminal/) — покупательский экран, оплата, получение заказов, QR, проверка пользователя и тесты
+- [SalesTerminalPage.jsx](app/terminal/SalesTerminalPage.jsx) — основной экран
+- [TerminalPaymentApi.js](app/terminal/TerminalPaymentApi.js) — клиент платежного backend
+- [PrepaidPickupScreen.jsx](app/terminal/PrepaidPickupScreen.jsx) — получение предоплаченного заказа
+- [DisplayRecognitionApi.js](app/terminal/DisplayRecognitionApi.js) — узнавание покупателя
+- Общая сборка и зависимые компоненты остаются в [frontend/miniapp](../frontend/miniapp/)
+- [Серверный сервис узнавания](../backend/src/modules/customer/DisplayCustomerRecognitionService.js)
+- [ADR каталога и цен](../docs/architecture/ADR/ADR-052-unified-display-catalog-pricing.md)
+- [ADR узнавания клиента](../docs/architecture/ADR/ADR-053-display-phone-recognition-boundary.md)
 
-## Развитие по этапам
+## Проверки
 
-- [Журнал и точка отсчёта](stages/2026-11-17.md)
-- Для следующих задач создавать `stages/YYYY-MM-DD.md` с версией, коммитом, тестами, поведением экрана, схемой публикации и откатом
-- Сохранять единые backend, каталог, тарифы, согласия и механизмы платежей — без дублирования их бизнес-логики между Display и TimoPOS
+Изолированная production-сборка Mini App успешно прошла после обновления путей импортов и `resolve.dedupe` React.
 
-## Правила
+В выборке из 10 Display unit-тестов: 8 успешны, 2 упали из-за несоответствия возвращаемых полей `bonusBalance:null` и `purchaseToken:null` старым ожиданиям `DisplayRecognitionApi.test.js`. **Те же две ошибки подтверждены на исходной версии до переноса**, функциональное поведение в рамках миграции не изменялось.
 
-- Весь UI/статус заказа согласуется с фактическим подтверждением платежа сервером; `SUCCEEDED` обязателен перед выдачей.
-- Изменения конфигурации реального автомата и production — только после тестов и согласования.
-- Перенос существующих файлов в эту папку сейчас **не выполняется**, поскольку он потребует проверки импортов, сборки и развёртывания.
+[Отчёт этапа](stages/2026-11-17-module-layout.md). Производственная публикация не выполнялась.

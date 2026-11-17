@@ -1,25 +1,17 @@
-# AdminDesktop — единая административная панель Soft_ICE
+# AdminDesktop — единая панель администратора Soft_ICE
 
-**Домен:** `admin.utimoshi.ru`.  
-**Статус каталога:** документация и навигация внутри монорепозитория, без переноса рабочего кода и без публикации.
+**Домен:** `admin.utimoshi.ru`; **исходники:** [AdminDesktop/app](app/); сборка React/Vite.
 
-## Источники
+## Разделы
 
-- [Единая Admin Console (frontend)](../frontend/admin-console/) — React/Vite-приложение
-- [Точка входа интерфейса](../frontend/admin-console/src/App.jsx)
-- [API администратора](../backend/src/api/v1/) — `adminAuthRoutes.js`, `administratorSecurityRoutes.js`, `adminDashboardRoutes.js` и специализированные маршруты
-- [Механизмы авторизации](../backend/src/platform/security/)
-- [Общее архитектурное решение ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md)
-- [Общий справочник контрактов](../API/README.md)
+- [Главное приложение](app/src/App.jsx) и [навигация](app/src/components/index.jsx)
+- [Точки и продавцы TimoPOS](app/src/TimoPosWorkstations.jsx): выбор организации/точки/сотрудника, регистрация терминала, назначение и отзыв допуска продавца
+- [Организации и роли](app/src/Organizations.jsx)
+- [API назначений TimoPOS](../backend/src/api/v1/timoPosAdminRoutes.js)
+- [История переноса и проверок](stages/2026-11-17-module-layout.md)
 
-## Назначение
+## Архитектура
 
-Администратор управляет пользователями, организациями, торговыми точками, продавцами, сменами, товарами, ценами, бонусами, платежами, оборудованием и журналами — **в пределах подтверждённых сервером полномочий**.
+`admin.utimoshi.ru`, `master.utimoshi.ru` и `tehnik.utimoshi.ru` используют единую Admin Console согласно [ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md). Поддомены не повышают полномочия.
 
-`admin.utimoshi.ru`, `tehnik.utimoshi.ru`, `master.utimoshi.ru` по принятому ADR-050 используют **одну сборку Admin Console** с разными ролевыми точками входа. Не создавать отдельные копии бизнес-логики.
-
-## Учёт работ
-
-- [Этапы и исходная фиксация](stages/2026-11-17.md)
-- Новые изменения: запись в `stages/YYYY-MM-DD.md` с исходниками, версиями, тестами, коммитами и условиями отката
-- Не размещать в репозитории пароли, cookie, API-ключи и пользовательские данные
+**Состояние:** перенос исходников и локальная сборка проверены, рабочий сервер не обновлялся. API назначений требует серверной авторизации, настроенной PostgreSQL и обязательного аудита; production-маршрут пока не активирован.

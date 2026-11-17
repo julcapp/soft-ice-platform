@@ -12,6 +12,19 @@
 | Заказы и платежи | [orderRoutes.js](../backend/src/api/v1/orderRoutes.js), [paymentRoutes.js](../backend/src/api/v1/paymentRoutes.js) | Подтверждение платежа и правила выдачи только на backend |
 | Оборудование | [machineGatewayRoutes.js](../backend/src/api/v1/machineGatewayRoutes.js), [machineRuntimeRoutes.js](../backend/src/api/v1/machineRuntimeRoutes.js) | Команды через проверенную серверную границу |
 
+## Новая связка TimoPOS ⇄ AdminDesktop (изолированная ветка)
+
+**Маршруты подготовлены, но ещё не включены на production.**
+
+- `POST /api/v1/timopos/seller/challenges` — запрос кода сотрудника через MAX (проверка зарегистрированного MAX и назначения)
+- `POST /api/v1/timopos/seller/sessions` — подтверждение OTP и серверная HttpOnly cookie
+- `GET /api/v1/timopos/seller/session`, `DELETE /api/v1/timopos/seller/session` — проверка и отзыв сессии
+- `GET /api/v1/admin/timopos/organizations/:organizationId/points` — точки, терминалы и назначения
+- `PUT /api/v1/admin/timopos/organizations/:organizationId/points/:pointId/sellers/:sellerId` — назначение/отзыв продавца с аудитом
+- `POST /api/v1/admin/timopos/organizations/:organizationId/points/:pointId/terminals` — регистрация терминала с аудитом
+
+Последние три маршрута: [timoPosAdminRoutes.js](../backend/src/api/v1/timoPosAdminRoutes.js), клиент: [TimoPosWorkstations.jsx](../AdminDesktop/app/src/TimoPosWorkstations.jsx). Оба набора включаются только при явном подключении runtime-зависимостей и проверке действующих сессий.
+
 ## Конфликт ролей для согласования
 
 [ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md) называет `SERVICE_SPECIALIST` и `MACHINE_RESPONSIBLE` каноническими ролями. В экспериментальной [политике TimoPOS](../backend/src/modules/timopos/TimoPosServiceAccessPolicy.js) используются `TECHNICIAN`, `MASTER`, `PLATFORM_ADMIN`. **Не считать их автоматически эквивалентными**. До активации защищённых API необходимы отдельное архитектурное решение, серверное сопоставление прав и тесты отказов.

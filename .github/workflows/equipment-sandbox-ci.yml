@@ -6,7 +6,7 @@ on:
       - 'backend/src/api/equipmentV1Routes.js'
       - 'backend/src/modules/equipment_integration/**'
       - 'backend/tests/equipmentIntegration.test.js'
-      - 'frontend/admin-console/**'
+      - 'AdminDesktop/app/**'
       - 'infrastructure/systemd/**'
       - 'infrastructure/nginx/equipment-sandbox.location.conf'
       - 'docs/api/EQUIPMENT_INTEGRATION_API_V1.md'
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend/admin-console
+        working-directory: AdminDesktop/app
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -47,7 +47,7 @@ jobs:
         with:
           node-version: '20'
           cache: pnpm
-          cache-dependency-path: frontend/admin-console/pnpm-lock.yaml
+          cache-dependency-path: AdminDesktop/app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build

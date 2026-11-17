@@ -1,4 +1,4 @@
-import jsQR from '../vendor/jsQR-1.4.0.cjs';
+import jsQR from '../../../frontend/miniapp/src/vendor/jsQR-1.4.0.cjs';
 
 // Local frame decoding is bundled: no CDN/global script or native-only dependency.
 export class PickupQrDetector {

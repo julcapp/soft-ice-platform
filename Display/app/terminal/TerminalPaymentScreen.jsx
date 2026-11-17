@@ -1,4 +1,4 @@
-import { SBP_LOGO } from '../domain/media/paymentMedia.js';
+import { SBP_LOGO } from '../../../frontend/miniapp/src/domain/media/paymentMedia.js';
 import {CompletionCountdown} from './CompletionCountdown.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createTerminalPayment, getTerminalPaymentMethods, getTerminalPaymentStatus, pingTerminalBackend, terminalPaymentErrorMessage } from './TerminalPaymentApi.js';

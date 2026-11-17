@@ -26,7 +26,7 @@ const quote = (await quoteResponse.json()).data;
 if (quote.finalAmount !== 175 || quote.paymentRequired !== true) throw new Error('quote fixture did not preserve server pricing boundary');
 
 const [page, styles] = await Promise.all([
-  fs.readFile(new URL('../src/terminal/SalesTerminalPage.jsx', import.meta.url), 'utf8'),
+  fs.readFile(new URL('../../../Display/app/terminal/SalesTerminalPage.jsx', import.meta.url), 'utf8'),
   fs.readFile(new URL('../src/styles/terminal.css', import.meta.url), 'utf8'),
 ]);
 for (const hook of ['data-testid="display-idle"', 'data-testid={`display-screen-${step}`}']) {

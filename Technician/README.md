@@ -7,11 +7,11 @@
 
 Принятое [ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md) закрепляет `SERVICE_SPECIALIST` как каноническую серверную роль технического специалиста. Доступ ограничивается назначенной организацией, точкой и оборудованием.
 
-Адрес `tehnik.utimoshi.ru` использует ту же [Admin Console](../frontend/admin-console/), что AdminDesktop и Master; отдельный домен сам по себе **не даёт доступа**.
+Адрес `tehnik.utimoshi.ru` использует ту же [Admin Console](../AdminDesktop/app/), что AdminDesktop и Master; отдельный домен сам по себе **не даёт доступа**.
 
 ## Существующие исходники
 
-- [Интерфейс обслуживания](../frontend/admin-console/src/Maintenance.jsx)
+- [Интерфейс обслуживания](../AdminDesktop/app/src/Maintenance.jsx)
 - [Обслуживание и диагностика](../backend/src/modules/maintenance/)
 - [Сервисные операции](../backend/src/modules/operator_workspace/ServiceVisitService.js)
 - [Мобильный сервисный API](../backend/src/api/v1/mobileServiceRoutes.js)

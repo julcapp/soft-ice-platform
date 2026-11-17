@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { refreshOrderPaymentStatus } from './PaymentCheckoutApi.js';
-import { getTerminalOrderPaymentStatus } from '../terminal/TerminalPaymentApi.js';
+import { getTerminalOrderPaymentStatus } from '../../../../Display/app/terminal/TerminalPaymentApi.js';
 
 const MAX_AUTO_CHECKS = 24;
 const POLL_MS = 2500;

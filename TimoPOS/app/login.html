@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TimoPOS — вход продавца</title>
+<style>
+:root{font-family:system-ui,"Segoe UI",sans-serif;color:#292331;background:#f7f5f2}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(100%,460px);background:#fff;border:1px solid #e2dbe5;box-shadow:0 20px 60px #241a2712;border-radius:24px;padding:30px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;gap:12px}h1{font-size:28px;margin:0 0 10px}h2{font-size:18px}.brand{font-weight:850;font-size:23px}.brand span{color:#6935a0}.terminal{background:#f2eafa;color:#59248b;border:1px solid #ddcdec;border-radius:12px;padding:12px;font-size:13px}
+p{color:#6e6374;line-height:1.55}label{font-size:13px;font-weight:700;display:block;margin-top:17px}input{margin-top:7px;display:block;padding:15px;width:100%;font:inherit;border:1px solid #cfc3d3;border-radius:11px}input:focus{outline:2px solid #6935a0}
+button[type=submit]{width:100%;margin-top:20px;background:#6935a0;color:white;padding:15px;border:0;border-radius:11px;font:inherit;font-weight:750;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
+.note{background:#f5f1fa;padding:13px;border-radius:10px;font-size:13px;color:#584366;line-height:1.5;margin-top:18px}.error{background:#fff1eb;color:#a33519}.ok{background:#e5f5eb;color:#166142}.hidden{display:none}.outline{margin-top:12px;padding:12px;border:1px solid #d7c9e4;background:#fff;border-radius:10px;color:#6935a0;cursor:pointer;width:100%}footer{margin-top:20px;color:#887d8b;font-size:12px;text-align:center}dialog{max-width:450px;width:calc(100% - 30px);border:0;border-radius:22px;padding:26px;box-shadow:0 20px 65px #12091f4d}dialog::backdrop{background:#160d25aa}.service-close{float:right;background:#eee7f6;color:#59248b;border:0;border-radius:8px;padding:9px 12px;cursor:pointer}dialog input{background:#f7f5f2}
+</style></head><body><main><header><div class="brand">🍦 Timo<span>POS</span></div><button type="button" class="terminal" id="terminal-trigger">Терминал POS-001</button></header>
+<h1>Вход сотрудника</h1><p>Для открытия смены подтвердите номер телефона кодом, отправленным в MAX. Точка продаж определяется сервером.</p>
+<form id="request-form"><label for="phone">Номер телефона сотрудника</label><input id="phone" autocomplete="tel" type="tel" inputmode="tel" placeholder="+7 (999) 123-45-67" required><button type="submit">Получить код в MAX</button></form>
+<form id="verify-form" class="hidden"><label for="otp">Код подтверждения из MAX</label><input id="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 цифр" required><button type="submit">Подтвердить вход</button><button class="outline" id="reset" type="button">Ввести другой номер</button></form>
+<div class="note" id="status" role="status" aria-live="polite">Серверная авторизация активируется только после настройки тестовой среды. Обычный браузер не хранит пароль сотрудника.</div>
+<section class="hidden" id="authenticated"><h2>Сотрудник авторизован</h2><p id="seller-summary"></p><p class="note">Продажи и выдача товара пока недоступны до проверки смены, ККТ и платежей.</p><button class="outline" id="logout" type="button">Выйти из учётной записи</button></section>
+<footer>У Тимоши · защита соединения HTTPS · без оплаты на экране входа</footer></main>
+<dialog id="service-dialog" aria-labelledby="service-title"><button class="service-close" id="service-close" type="button">Закрыть</button><h2 id="service-title">Вход техника / мастера</h2><p>Доступ к диагностике появится после проверки сервисной роли на сервере.</p><label>Логин специалиста<input autocomplete="username" disabled></label><label>Пароль<input type="password" autocomplete="current-password" disabled></label><div class="note">На данном этапе сервисная авторизация закрыта. Команды оборудованию недоступны.</div></dialog>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);const api='/api/v1/timopos/seller';
+const terminalId='POS-001';let challengeId='';
+const status=(text,kind='')=>{const e=$('status');e.className='note '+kind;e.textContent=text;};
+const secure=()=>location.protocol==='https:'&&location.origin==='https://timopos.utimoshi.ru';
+async function call(path,method='GET',body){
+ const response=await fetch(api+path,{method,credentials:'same-origin',headers:{...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
+ const payload=response.status===204?{}:await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(response.status===429?'Слишком много попыток. Повторите позже.':response.status===401?'Код неверный или срок действия истёк.':'Сервис авторизации недоступен или запрос отклонён.');
+ return payload;
+}
+function authenticated(seller){$('request-form').classList.add('hidden');$('verify-form').classList.add('hidden');$('authenticated').classList.remove('hidden');$('seller-summary').textContent=(seller.fullName||'Сотрудник')+' · '+(seller.point?.name||seller.pointName||'Назначенная точка');status('Сервер подтвердил сессию. Дождитесь доступности открытия смены.','ok');}
+$('request-form').addEventListener('submit',async e=>{e.preventDefault();if(!secure()){status('Только HTTPS на timopos.utimoshi.ru. Локальный файл доступен для предпросмотра, но не отправляет данные.','error');return;}const b=e.target.querySelector('button');b.disabled=true;try{const d=await call('/challenges','POST',{phone:$('phone').value.trim(),terminalId});challengeId=d.challengeId;$('request-form').classList.add('hidden');$('verify-form').classList.remove('hidden');status('Если сотрудник зарегистрирован и привязан к терминалу, код отправлен в MAX.');$('otp').focus();}catch(err){status(err.message,'error')}finally{b.disabled=false}});
+$('verify-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button[type=submit]');b.disabled=true;try{const d=await call('/sessions','POST',{challengeId,code:$('otp').value.trim(),terminalId});authenticated(d.seller);}catch(err){status(err.message,'error')}finally{b.disabled=false}});
+$('reset').onclick=()=>{challengeId='';$('otp').value='';$('verify-form').classList.add('hidden');$('request-form').classList.remove('hidden');status('Введите номер телефона сотрудника.')};
+$('logout').onclick=async()=>{try{await call('/session','DELETE');location.reload()}catch(err){status(err.message,'error')}};
+if(secure())call('/session').then(d=>{if(d.authenticated)authenticated(d.seller)}).catch(()=>status('Введите номер сотрудника для получения кода в MAX.'));
+else status('Демонстрационный локальный экран. Код MAX отправляется только с защищённого домена timopos.utimoshi.ru.');
+let hits=0,last=0;$('terminal-trigger').onclick=()=>{const now=Date.now();hits=now-last<=1250?hits+1:1;last=now;if(hits===3){hits=0;$('service-dialog').showModal()}};$('service-close').onclick=()=>$('service-dialog').close();})();
+</script></body></html>

@@ -5,7 +5,8 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/miniapp/**'
-      - 'frontend/admin-console/**'
+      - 'Display/app/**'
+      - 'AdminDesktop/app/**'
       - '.github/workflows/photo-verification-ci.yml'
   workflow_dispatch:
 
@@ -52,7 +53,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend/admin-console
+        working-directory: AdminDesktop/app
 
     steps:
       - name: Checkout

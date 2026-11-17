@@ -1,22 +1,26 @@
-# Разделы разработки Soft_ICE
+# Soft_ICE — единый навигатор по модулям
 
-Единая точка входа в документацию модулей. Все папки находятся в **одном монорепозитории**, а общие исходники продолжают жить в `frontend/`, `backend/`, `docs/`.
+Рабочая структура в ветке `feature/module-layout-login-admin-20261117`. Git-монорепозиторий сохраняет общий backend, но интерфейсы теперь живут в собственных каталогах.
 
-| Каталог | Продукт / профиль | Назначение |
+| Модуль | Исходники интерфейса | Назначение |
 |---|---|---|
-| [TimoPOS/](TimoPOS/) | `timopos.utimoshi.ru` | Терминал продавца, касса, смены, тесты и сервисное меню |
-| [Display/](Display/) | `display.utimoshi.ru` | Клиентский экран автомата, оплата, выдача, каталог |
-| [AdminDesktop/](AdminDesktop/) | `admin.utimoshi.ru` | Единая административная консоль |
-| [Master/](Master/) | `master.utimoshi.ru` | Сервисный профиль мастера в общей Admin Console |
-| [Technician/](Technician/) | `tehnik.utimoshi.ru` | Сервисный профиль техника в общей Admin Console |
-| [API/](API/) | Общие API Soft_ICE | Контракты, реестр маршрутов и потребителей, безопасность API |
+| [TimoPOS](TimoPOS/) | [TimoPOS/app](TimoPOS/app/) | Терминал продавца: первый экран [login.html](TimoPOS/app/login.html), кассовый автономный прототип v0.9, смены |
+| [Display](Display/) | [Display/app/terminal](Display/app/terminal/) | Покупательский экран; использует общие зависимости [Mini App](frontend/miniapp/) |
+| [AdminDesktop](AdminDesktop/) | [AdminDesktop/app](AdminDesktop/app/) | Единая React Admin Console, включая управление точками и продавцами TimoPOS |
+| [Master](Master/) | [AdminDesktop/app](AdminDesktop/app/) | Ролевой профиль мастера в единой Admin Console |
+| [Technician](Technician/) | [AdminDesktop/app](AdminDesktop/app/) | Ролевой профиль техника в единой Admin Console |
+| [API](API/) | [backend/src/api/v1](backend/src/api/v1/) | HTTP-маршруты, общие контракты и [реестр API](API/MODULE_REGISTRY.md) |
 
-## Единое правило учёта
+## Правило владения кодом
 
-Каждый каталог содержит `README.md` и `stages/`. Для API дополнительно ведётся [реестр модулей и их маршрутов](API/MODULE_REGISTRY.md).
+- UI TimoPOS → `TimoPOS/app/`; UI Display → `Display/app/terminal/`; UI администратора и сервисных ролей → `AdminDesktop/app/`.
+- Бизнес-логика и общий backend остаются в `backend/src/modules/` и `backend/src/api/`: **не копировать** их в папки интерфейсов.
+- Display продолжает использовать общие файлы `frontend/miniapp/`. Не смешивать перенос терминальных компонентов с отдельным рефакторингом всего Mini App.
+- Для Master и Technician **одна** сборка Admin Console. Авторизация и область доступа определяются сервером согласно [ADR-050](docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md).
+- Новые сервисные роли в экспериментальной политике TimoPOS требуют сверки с канонической RBAC, прежде чем их подключать к API.
 
-Файлы приложений **не переносились**. Перед любой будущей миграцией исходников требуется отдельная задача с тестами сборки, импортов, CI, публикации и отката. Документы в новых папках не подтверждают, что маршрут/API реально опубликован в production.
+## Учёт изменений
 
-## Сервисные роли
+В каждом разделе ведётся `stages/` с коммитом, точными проверками, блокерами и условиями отката. Межмодульная интеграция: [TimoPOS/stages/2026-11-17-module-layout.md](TimoPOS/stages/2026-11-17-module-layout.md).
 
-Для `AdminDesktop`, `Master`, `Technician` сохраняется архитектурное решение [ADR-050](docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md) — **одна** Admin Console и различающиеся серверные полномочия. Новая сервисная политика TimoPOS должна пройти согласование ролей перед включением.
+**Безопасность:** production, реальные платежи, фискализация и оборудование не меняются в этой ветке. Маршруты авторизации продавца и управления терминалами требуют явного серверного подключения после интеграционных испытаний.

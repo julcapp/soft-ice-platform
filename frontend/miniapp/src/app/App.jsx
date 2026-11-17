@@ -5,7 +5,7 @@ import { readUserSettings } from '../consent/userSettingsStorage.js';
 import { getInitialSource } from '../analytics/source.js';
 import { trackEvent } from '../analytics/trackEvent.js';
 import { OperatorWorkspacePage } from '../operator/OperatorWorkspacePage.jsx';
-import { SalesTerminalPage } from '../terminal/SalesTerminalPage.jsx';
+import { SalesTerminalPage } from '../../../../Display/app/terminal/SalesTerminalPage.jsx';
 import { MyGifts } from '../gift-transfer/GiftTransferScreens.jsx';
 import { GiftTransferApi } from '../gift-transfer/GiftTransferApi.js';
 import { PhotoPublicationHistory } from '../photo-verification/PhotoPublicationHistory.jsx';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getPickupPromotion } from '../domain/media/pickupPromotion.js';
+import { getPickupPromotion } from '../../../frontend/miniapp/src/domain/media/pickupPromotion.js';
 
 export function PickupPromotionCarousel() {
   const { slides, intervalMs, caption } = getPickupPromotion();

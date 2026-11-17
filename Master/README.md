@@ -5,14 +5,14 @@
 
 ## Каноническая архитектура
 
-Согласно [ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md), три адреса администратора, техника и мастера используют **один frontend** `frontend/admin-console/`. Поддомен выбирает UX-профиль, но **не выдаёт полномочий**.
+Согласно [ADR-050](../docs/architecture/ADR/ADR-050-unified-admin-console-entrypoints.md), три адреса администратора, техника и мастера используют **один frontend** `AdminDesktop/app/`. Поддомен выбирает UX-профиль, но **не выдаёт полномочий**.
 
 ADR-050 закрепляет серверную роль `MACHINE_RESPONSIBLE` для ответственного за аппарат с ограничением по назначенным устройствам. Эта роль не означает автоматического доступа ко всем операциям калибровки или изменению платежей.
 
 ## Где расположен существующий код
 
-- [Единый frontend](../frontend/admin-console/)
-- [Экран обслуживания](../frontend/admin-console/src/Maintenance.jsx)
+- [Единый frontend](../AdminDesktop/app/)
+- [Экран обслуживания](../AdminDesktop/app/src/Maintenance.jsx)
 - [Backend обслуживания](../backend/src/modules/maintenance/)
 - [API технического обслуживания](../backend/src/api/v1/maintenanceRoutes.js)
 - [Сервисное рабочее место](../backend/src/api/v1/serviceWorkspaceRoutes.js)

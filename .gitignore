@@ -5,7 +5,7 @@ node_modules/
 **/.pnpm-store/
 
 frontend/miniapp/dist/
-frontend/admin-console/dist/
+AdminDesktop/app/dist/
 **/.vite/
 **/.cache/
 coverage/
