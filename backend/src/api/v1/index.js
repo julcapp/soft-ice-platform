@@ -35,6 +35,7 @@ const { createPricingRouter } = require('./pricingRoutes');
 const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
 const { createTimoPosSellerAuthRouter } = require('./timoPosSellerAuthRoutes');
 const { createTimoPosAdminRouter } = require('./timoPosAdminRoutes');
+const { createVerificationAdminRouter } = require('./verificationAdminRoutes');
 const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
 const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
 
@@ -68,6 +69,9 @@ function createApiV1Router(dependencies, { logger } = {}) {
   // Administrative assignments stay disabled until DB/auth/audit integration tests pass.
   if (dependencies.timoPosAdminRuntime) {
     router.use('/admin/timopos', createTimoPosAdminRouter(dependencies.timoPosAdminRuntime));
+  }
+  if (dependencies.verificationAdminRuntime) {
+    router.use('/admin/verification', createVerificationAdminRouter(dependencies.verificationAdminRuntime));
   }
   router.use('/catalog', createCatalogRouter(dependencies));
   router.use('/pricing', createPricingRouter(dependencies));

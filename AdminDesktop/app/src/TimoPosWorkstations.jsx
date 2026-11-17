@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {TimoPosPointEditor} from './TimoPosPointEditor';
 import {getOrganizations,getOrganizationMembers} from './api/organizationClient';
 import {adminAuthHeaders} from './api/adminAuth';
 
@@ -48,6 +49,7 @@ export function TimoPosWorkstationsPage(){
  <p>Активных назначений: {state.assignments.filter(a=>a.active).length}. Терминалов: {state.terminals.length}.</p>
  <table><thead><tr><th>Точка</th><th>Терминал</th><th>Назначения продавцов</th></tr></thead><tbody>{state.points.map(p=><tr key={p.id}><td>{p.name}</td><td>{state.terminals.filter(t=>t.pointId===p.id).map(t=>t.terminalId).join(', ')||'Не зарегистрирован'}</td><td>{state.assignments.filter(a=>a.pointId===p.id&&a.active).map(a=>state.members.find(m=>m.id===a.sellerId)?.fullName||a.sellerId).join(', ')||'Не назначены'}</td></tr>)}</tbody></table>
  </>}
- </section><section className="card"><h3>Проверки перед допуском к кассе</h3><p>Активная организация → действующая роль OPERATOR → назначение на точку → зарегистрированный терминал → проверенный MAX → код входа → открытая смена.</p><p>Сама кнопка назначения не создаёт MAX-привязку и не разрешает платежи.</p></section>
+ </section>{organizationId&&<TimoPosPointEditor organizationId={organizationId} onUpdated={refresh} points={state.points} selectedPointId={selectedPoint}/>}
+ <section className="card"><h3>Проверки перед допуском к кассе</h3><p>Активная организация → действующая роль OPERATOR → назначение на точку → зарегистрированный терминал → проверенный MAX → код входа → открытая смена.</p><p>Сама кнопка назначения не создаёт MAX-привязку и не разрешает платежи.</p></section>
  </main>;
 }

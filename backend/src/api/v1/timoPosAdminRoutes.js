@@ -1,6 +1,7 @@
 'use strict';
 const express=require('express');
 const {createAdminAuthenticator}=require('../../platform/security/authenticateAdmin');
+const {createTimoPosPointRouter}=require('./timoPosPointRoutes');
 
 /** Opt-in administrative assignments for POS 001. Fail closed if not wired.
  * Uses the canonical OrganizationMember / OrganizationLocation records.
@@ -22,7 +23,7 @@ function createTimoPosAdminRouter({prisma,adminAuth}={}){
   try{
    const {organizationId}=req.params;if(!allowed(req,organizationId))return invalid(res);
    const [points,terminals,assignments]=await Promise.all([
-    prisma.organizationLocation.findMany({where:{organizationId},select:{id:true,name:true,status:true}}),
+    prisma.organizationLocation.findMany({where:{organizationId},select:{id:true,name:true,address:true,openingHours:true,latitude:true,longitude:true,status:true}}),
     prisma.timoPosTerminal.findMany({where:{pointId:{in:(await prisma.organizationLocation.findMany({where:{organizationId},select:{id:true}})).map(x=>x.id)}}}),
     prisma.timoPosSellerPoint.findMany({where:{pointId:{in:(await prisma.organizationLocation.findMany({where:{organizationId},select:{id:true}})).map(x=>x.id)}}}),
    ]);
@@ -87,6 +88,40 @@ function createTimoPosAdminRouter({prisma,adminAuth}={}){
       .json({terminalId:result.terminalId,pointId:result.pointId,active:result.active});
   }catch(e){next(e)}
  });
+ router.post('/organizations/:organizationId/points/:pointId/sellers',write,async(req,res,next)=>{
+  try{
+   const {organizationId,pointId}=req.params;
+   if(!allowed(req,organizationId,true))return invalid(res);
+   const fullName=String(req.body?.fullName||'').trim();
+   const phone=String(req.body?.phone||'').replace(/[^+0-9]/g,'');
+   if(fullName.length<5||fullName.length>120||!/^\+7[0-9]{10}$/.test(phone))
+    return res.status(400).json({error:'INVALID_SELLER_DETAILS'});
+   const result=await prisma.$transaction(async tx=>{
+    const point=await tx.organizationLocation.findFirst({where:{id:pointId,organizationId,status:'ACTIVE',archivedAt:null}});
+    if(!point)return {error:'POINT_NOT_FOUND'};
+    const existing=await tx.organizationMember.findFirst({where:{organizationId,phone,archivedAt:null}});
+    if(existing)return {error:'SELLER_PHONE_ALREADY_EXISTS'};
+    const member=await tx.organizationMember.create({data:{
+      organizationId,fullName,phone,position:'Продавец',status:'ACTIVE'
+    }});
+    await tx.organizationRoleAssignment.create({data:{
+      organizationId,memberId:member.id,role:'OPERATOR',grantedBy:req.securityContext.subject_id
+    }});
+    await tx.timoPosSellerPoint.create({data:{sellerId:member.id,pointId,active:true}});
+    await tx.auditEvent.create({data:{
+      eventType:'TIMOPOS_SELLER_CREATED',subjectType:'ADMINISTRATOR',subjectId:req.securityContext.subject_id,
+      targetType:'ORGANIZATION_MEMBER',targetId:member.id,action:'CREATE_AND_ASSIGN',decision:'ALLOW',
+      sourceChannel:'ADMIN_API',correlationId:req.correlationId,organizationId,
+      authMethod:req.securityContext.auth_method||null,metadata:{pointId,role:'OPERATOR'}
+    }});
+    return {memberId:member.id,fullName:member.fullName,pointId};
+   });
+   if(result.error)return res.status(result.error==='POINT_NOT_FOUND'?404:409).json({error:result.error});
+   return res.status(201).set('Cache-Control','no-store').json(result);
+  }catch(e){next(e)}
+ });
+ // Point management routes belong to the same authenticated administrator runtime.
+ router.use('/', createTimoPosPointRouter({prisma,adminAuth}));
  return router;
 }
 module.exports={createTimoPosAdminRouter};
