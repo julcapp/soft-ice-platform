@@ -33,6 +33,7 @@ const { createSchedulerRouter } = require('./schedulerRoutes');
 const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRoutes');
 const { createPricingRouter } = require('./pricingRoutes');
 const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
+const { createTimoPosSellerAuthRouter } = require('./timoPosSellerAuthRoutes');
 const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
 const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
 
@@ -59,6 +60,10 @@ function createApiV1Router(dependencies, { logger } = {}) {
 
   router.use('/auth', createAuthRouter(dependencies));
   router.use('/terminal', createTerminalCustomerRouter(dependencies));
+  // Opt-in only. Production wiring must supply all secure dependencies explicitly.
+  if (dependencies.timoPosSellerAuthRuntime) {
+    router.use('/timopos/seller', createTimoPosSellerAuthRouter(dependencies.timoPosSellerAuthRuntime));
+  }
   router.use('/catalog', createCatalogRouter(dependencies));
   router.use('/pricing', createPricingRouter(dependencies));
   router.use('/admin/catalog', createAdminCatalogRouter(dependencies));
