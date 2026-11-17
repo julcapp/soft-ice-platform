@@ -25,7 +25,8 @@ class PrismaSellerMaxAuthRepository {
       tx.organizationMember.findUnique({ where: { id: sellerId } }),
       tx.organizationLocation.findUnique({ where: { id: pointId } }),
       tx.timoPosSellerPoint.findUnique({ where: { sellerId_pointId: { sellerId, pointId } } }),
-      tx.organizationRoleAssignment.findFirst({ where: { memberId: sellerId, role: 'SELLER', revokedAt: null } }),
+      // OrganizationRoleType has OPERATOR (not SELLER); the POS-specific seller-point assignment is checked separately.
+      tx.organizationRoleAssignment.findFirst({ where: { memberId: sellerId, role: 'OPERATOR', revokedAt: null } }),
       tx.timoPosMaxIdentity.findUnique({ where: { sellerId } }),
     ]);
     if (!terminal?.active || terminal.pointId !== pointId ||
@@ -49,7 +50,7 @@ class PrismaSellerMaxAuthRepository {
       sellerId: matches[0].id, pointId: terminal.pointId, terminalId,
     });
     if (!match) return null;
-    const recipientId = await this.decryptRecipient(match.identity.recipientCiphertext);
+    const recipientId = await this.decryptRecipient(match.identity.recipientCiphertext, match.member.id);
     if (!recipientId) return null;
     return { sellerId: match.member.id, pointId: match.location.id, maxRecipientId: recipientId };
   }
