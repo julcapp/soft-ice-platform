@@ -24,7 +24,7 @@ function invitationUrl(baseUrl, token) {
     throw new TypeError('Gift landing URL must use clean HTTPS');
   }
   const url = new URL(base.toString());
-  url.pathname = url.pathname.replace(/\\/$/, '') + '/' + encodeURIComponent(token);
+  url.pathname = (url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname) + '/' + encodeURIComponent(token);
   return url.toString();
 }
 
