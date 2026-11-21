@@ -13,6 +13,7 @@
     "gift-notifications:outbox": "node scripts/run-gift-notification-outbox.js",
     "gift-notifications:provider-smoke": "node scripts/smoke-test-gift-notification-provider.js",
     "test": "npm run prisma:merge && node --test",
+    "test:db:club-rollback": "node scripts/acceptance/club-purchase-rollback.cjs",
     "max:resolve-chat-id": "node scripts/resolve-max-chat-id.js",
     "photo:publish-smoke": "node scripts/photo-publish-smoke.js",
     "private-channel:renewals": "node scripts/run-private-channel-renewals.js",

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const express = require('express');
 const { attachCorrelationId, sendError } = require('../src/platform/http/apiResponse');
-const { createPaymentRouter } = require('../src/api/v1/paymentRoutes');
+const { createCustomerPaymentRouter } = require('../src/api/v1/customerPaymentRoutes');
 
 async function serverFor({ order = null, flow = null, payment = null, checkout = null } = {}) {
   const app = express();
@@ -44,7 +44,7 @@ async function serverFor({ order = null, flow = null, payment = null, checkout =
     }),
   };
 
-  app.use('/api/v1/payments', createPaymentRouter({
+  app.use('/api/v1/payments', createCustomerPaymentRouter({
     authCoreService: { authenticateAccessToken: async () => ({ subject_id: 'customer-1' }) },
     paymentRepository: repository,
     paymentCheckoutService,

@@ -28,6 +28,7 @@ const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
+const { createCustomerPaymentRouter } = require('./customerPaymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createSchedulerRouter } = require('./schedulerRoutes');
 const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRoutes');
@@ -108,6 +109,10 @@ function createApiV1Router(dependencies, { logger } = {}) {
   if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
   if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
+  // Customer payment checkout is opt-in until cross-channel integration acceptance.
+  if (dependencies.customerPaymentCheckoutEnabled && dependencies.paymentRepository && dependencies.authCoreService) {
+    router.use('/payments', createCustomerPaymentRouter(dependencies));
+  }
   if (dependencies.paymentRepository) router.use('/admin/payments', createPaymentRouter(dependencies));
   if (dependencies.paymentService) router.use('/webhooks/payments', createPaymentWebhookRouter(dependencies));
   if (dependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(dependencies));

@@ -198,7 +198,7 @@ test('preparing requires paid order and same-flow physical machine acknowledgeme
   return attempt;
  } };
  const payment = { id: 'pay-1', orderId: 'order-1', amount: 95, currency: 'RUB', status: 'SUCCEEDED' };
- for (const [value, expected] of [[null,'WAITING'],[{status:'AUTHORIZED'},'TRANSMITTING'],[{status:'QUEUED'},'TRANSMITTING'],[{status:'SENT'},'TRANSMITTING'],[{status:'ACCEPTED'},'WAITING'],[{status:'ACCEPTED',acceptedAt:new Date()},'PREPARING'],[{status:'DISPENSING',startedAt:new Date()},'PREPARING'],[{status:'RECONCILIATION_REQUIRED',acceptedAt:new Date()},'WAITING']]) {
+ for (const [value, expected] of [[null,'WAITING'],[{status:'AUTHORIZED'},'TRANSMITTING'],[{status:'QUEUED'},'TRANSMITTING'],[{status:'SENT'},'TRANSMITTING'],[{status:'ACCEPTED'},'WAITING'],[{status:'ACCEPTED',acceptedAt:new Date()},'PREPARING'],[{status:'DISPENSING',startedAt:new Date()},'PREPARING'],[{status:'RECONCILIATION_REQUIRED',acceptedAt:new Date()},'ATTENTION_REQUIRED']]) {
   attempt=value; assert.equal((await f.service.present({payment},'TEST-MACHINE-001')).fulfillmentState,expected);
  }
  attempt={status:'DISPENSING',startedAt:new Date()};

@@ -3,8 +3,8 @@
 if (process.env.TEST_CLUB_ROLLBACK_CHECK !== '1') throw Error('Set TEST_CLUB_ROLLBACK_CHECK=1 explicitly');
 const assert = require('node:assert/strict');
 const {randomUUID} = require('node:crypto');
-const {PrismaClient} = require('../node_modules/@prisma/client');
-const {MiniAppTestClubPurchaseService,testBalanceCents} = require('../src/modules/club_account/MiniAppTestClubPurchaseService');
+const {PrismaClient} = require('../../node_modules/@prisma/client');
+const {MiniAppTestClubPurchaseService,testBalanceCents} = require('../../src/modules/club_account/MiniAppTestClubPurchaseService');
 const db = new PrismaClient();
 const rollback = new Error('TEST_FIXTURES_ROLLBACK');
 const customerId = randomUUID();

@@ -115,8 +115,22 @@ class CRMRepository {
           orderBy: { assignedAt: 'desc' },
         },
         crmProfile: true,
+        channelSubscriptions: true,
         notificationDeliveries: { orderBy: { createdAt: 'desc' }, take: 50 },
       },
+    });
+  }
+
+  findCustomersByIds(ids) {
+    return this.prisma.customer.findMany({
+      where: { id: { in: ids }, status: { not: 'deleted_released' } },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
+  findActiveSubscription(customerId, channel) {
+    return this.prisma.customerChannelSubscription.findFirst({
+      where: { customerId, channelType: channel, isSubscribed: true },
     });
   }
 

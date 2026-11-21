@@ -2362,7 +2362,7 @@ model TransactionalOutboxEvent {
   eventVersion   Int               @default(1)
   aggregateType  String
   aggregateId    String
-  organizationId String
+  organizationId String?
   machineId      String?
   saleFlowId     String?
   payload        Json

@@ -24,6 +24,10 @@ function fixture() {
     notificationDeliveryAttempt: delegate('notificationDeliveryAttempt'),
     transactionalOutboxEvent: delegate('transactionalOutboxEvent'),
   };
+  prisma.$queryRawUnsafe = async () => [{ id: 'order-1' }];
+  prisma.saleFlow = { findFirst: async () => ({ currentState: 'PAID' }) };
+  prisma.machineDispenseAttempt = { findFirst: async () => null };
+  prisma.order = { updateMany: async () => ({ count: 1 }) };
   prisma.$transaction = async (operation) => operation(prisma);
   return { repository: new PrismaGiftTransferRepository(prisma), calls };
 }

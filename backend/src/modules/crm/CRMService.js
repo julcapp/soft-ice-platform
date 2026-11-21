@@ -28,7 +28,13 @@ class CRMService {
   async getCustomerCard(customerId) {
     const customer = await this.repository.findCustomer(customerId);
     if (!customer) throw notFound('Клиент не найден.');
-    return toCustomerCard(customer);
+    const card = toCustomerCard(customer);
+    const ids = [...new Set((customer.referralsMade || []).map((item) => item.referredCustomerId).filter(Boolean))];
+    const referred = ids.length && this.repository.findCustomersByIds
+      ? await this.repository.findCustomersByIds(ids) : [];
+    const byId = new Map(referred.map((item) => [item.id, { id: item.id, name: item.name, phone: item.phone }]));
+    card.referrals.invited = card.referrals.invited.map((item) => ({ ...item, referredCustomer: byId.get(item.referredCustomerId) || null }));
+    return card;
   }
 
   async updateCustomerCard(customerId, request, context) {
@@ -133,6 +139,12 @@ class CRMService {
       throw new ApiError({ statusCode: 422, code: 'CRM_COMMUNICATION_BLOCKED', message: 'Уведомления для клиента запрещены.', source: 'runtime' });
     }
     const channel = String(request.channel || card.profile?.preferredChannel || 'TELEGRAM').toUpperCase();
+    if (channel !== 'EMAIL') {
+      const active = await this.repository.findActiveSubscription(customerId, channel);
+      if (!active) throw new ApiError({ statusCode: 422, code: 'CRM_CHANNEL_NOT_ACTIVE', message: 'Канал связи не подтверждён для клиента.', source: 'runtime' });
+    } else if (!request.recipientAddress && !request.destination) {
+      throw new ApiError({ statusCode: 422, code: 'CRM_EMAIL_ADDRESS_REQUIRED', message: 'Укажите адрес получателя.', source: 'runtime' });
+    }
     const delivery = await this.repository.createNotification({
       id: request.id || randomUUID(),
       customerId,
@@ -195,6 +207,7 @@ function toCustomerCard(customer) {
     accruals: customer.bonusTransactions || [],
     referrals: { invited: customer.referralsMade || [], source: customer.referredBy?.[0] || null },
     notifications: customer.notificationDeliveries || [],
+    activeChannels: [...new Set((customer.channelSubscriptions || []).filter((item) => item.isSubscribed).map((item) => item.channelType))],
   };
 }
 
