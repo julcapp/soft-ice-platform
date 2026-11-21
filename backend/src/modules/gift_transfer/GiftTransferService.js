@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { ApiError } = require('../../platform/errors/ApiError');
+const { normalizeAttribution } = require('./GiftPublicLinks');
 const { normalizePhone } = require('../customer/CustomerEntity');
 const { GIFT_TRANSFER_STATUS, INVITATION_STATUS, REFERRAL_STAGE } = require('./GiftTransferModels');
 const ACTIVE_ORDER_STATUSES = ['PAID'];
@@ -24,7 +25,10 @@ class GiftTransferService {
     if (this.repository.findByOrderId(orderId) || this.pendingOrders.has(orderId)) throw conflict('GIFT_TRANSFER_ALREADY_EXISTS', 'Для этого заказа передача уже создавалась.');
     this.assertPaidAndUnfulfilled(order);
     const phone = normalizePhone(request.recipientPhone); if (!phone) throw validation('recipientPhone', 'Введите телефон в формате +7 (XXX) XXX-XX-XX');
-    const sender = await this.customerRepository.findById(customerId); if (sender?.phone === phone) throw conflict('GIFT_TO_SELF_NOT_ALLOWED', 'Нельзя подарить заказ самому себе');
+    const sender = await this.customerRepository.findById(customerId);
+    if (!sender?.phone || !(sender.phoneVerified || sender.phoneVerifiedAt)) throw conflict('SENDER_PHONE_NOT_VERIFIED', 'Подтвердите свой номер телефона перед отправкой подарка.');
+    if (!sender.name?.trim()) throw conflict('SENDER_NAME_REQUIRED', 'Укажите своё имя перед отправкой подарка.');
+    if (sender?.phone === phone) throw conflict('GIFT_TO_SELF_NOT_ALLOWED', 'Нельзя подарить заказ самому себе');
     this.pendingOrders.add(orderId);
     try {
     this.checkRateLimit(customerId); const now = this.clock(); const correlationId = context.correlationId || crypto.randomUUID(); const recipient = await this.customerRepository.findByVerifiedPhone(phone);
@@ -34,7 +38,7 @@ class GiftTransferService {
     const transfer = this.repository.saveTransfer({ id, originalOrderId: orderId, senderCustomerId: customerId, recipientCustomerId: recipient?.id || null,
       recipientPhoneNormalized: phone, status: recipient ? GIFT_TRANSFER_STATUS.AVAILABLE : GIFT_TRANSFER_STATUS.WAITING_FOR_REGISTRATION,
       referralId: null, invitationTokenHash: tokenHash, createdAt: now, acceptedAt: null, redeemedAt: null,
-      expiredAt: null, cancelledAt: null, transferredBy: customerId, correlationId, expiresAt: order.expiresAt || request.expiresAt || new Date(now.getTime() + 86400000), metadata: { senderName: sender?.name || null } });
+      expiredAt: null, cancelledAt: null, transferredBy: customerId, correlationId, expiresAt: order.expiresAt || request.expiresAt || new Date(now.getTime() + 86400000), metadata: { senderName: sender.name.trim(), attribution: normalizeAttribution(request.attribution || {}) } });
     const invitation = this.repository.saveInvitation({ id: `invitation_${crypto.randomUUID()}`, giftTransferId: id, recipientPhoneNormalized: phone, tokenHash,
       expiresAt: transfer.expiresAt, status: INVITATION_STATUS.CREATED, createdAt: now, acceptedAt: null, metadata: {} });
     transfer.referralId = `gift_referral_${crypto.randomUUID()}`; this.repository.saveReferral({ id: transfer.referralId, giftTransferId: id, referralSource: 'GIFT_TRANSFER', stage: REFERRAL_STAGE.INVITED, referrerCustomerId: customerId, referredCustomerId: recipient?.id || null, createdAt: now, firstOwnPurchaseAt: null, metadata: {} });
