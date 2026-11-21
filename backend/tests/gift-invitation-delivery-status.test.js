@@ -34,7 +34,7 @@ test('invitation remains CREATED when every real delivery channel is unavailable
       reserveForGift: async () => ({ ...order, status: 'GIFT_TRANSFERRED' }),
     },
     customerRepository: {
-      findById: async () => ({ id: 'sender', name: 'Александр', phone: '+79990000001' }),
+      findById: async () => ({ id: 'sender', name: 'Александр', phone: '+79990000001', phoneVerified: true }),
       findByVerifiedPhone: async () => ({ id: 'recipient', phone: '+79990000002', phoneVerified: true }),
     },
     clubAccountRuntime: {},
@@ -65,7 +65,7 @@ test('production outbox mode atomically queues a registered recipient without ca
       reserveForGift: async () => ({ ...order, status: 'GIFT_TRANSFERRED' }),
     },
     customerRepository: {
-      findById: async () => ({ id: 'sender', name: 'Александр', phone: '+79990000001' }),
+      findById: async () => ({ id: 'sender', name: 'Александр', phone: '+79990000001', phoneVerified: true }),
       findByVerifiedPhone: async () => ({ id: 'recipient', phone: '+79990000002', phoneVerified: true }),
     },
     clubAccountRuntime: {},

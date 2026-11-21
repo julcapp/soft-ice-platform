@@ -13,3 +13,18 @@ test('просроченный подарок нельзя принять, пр�
 test('отмена до принятия разрешена, после принятия запрещена',async()=>{const f=fixture();const a=await f.service.createGift('sender','order-1',{recipientPhone:'+79990000002'});assert.equal((await f.service.cancel('sender',a.giftTransfer.id)).status,'CANCELLED');const g=fixture();const b=await g.service.createGift('sender','order-1',{recipientPhone:'+79990000002'});await g.service.accept('recipient',b.giftTransfer.id);await assert.rejects(()=>g.service.cancel('sender',b.giftTransfer.id),/После принятия/)});
 test('истечение идемпотентно возвращает деньги исходному покупателю',async()=>{const f=fixture();const {giftTransfer}=await f.service.createGift('sender','order-1',{recipientPhone:'+79990000002'});await f.service.expire(giftTransfer.id);await f.service.expire(giftTransfer.id);assert.equal(f.credits.length,1);assert.equal(f.repository.findById(giftTransfer.id).status,'RETURNED_TO_SENDER');assert.equal(f.orders.get('order-1').status,'CANCELLED_BY_CUSTOMER')});
 test('сбой одного канала не влияет на успешный второй канал',async()=>{const repository=new GiftTransferRepository();const orchestrator=new NotificationOrchestrator({repository,adapters:[new Adapter('TELEGRAM','FAILED'),new Adapter('MAX','SENT')]});const rows=await orchestrator.send({id:'n1',channels:['TELEGRAM','MAX'],correlationId:'c'});assert.deepEqual(rows.map(x=>x.status),['FAILED','SENT']);assert.equal(repository.listDeliveries('n1').length,2)});
+
+test('даритель без подтверждённого телефона не может передавать заказ',async()=>{
+  const f=fixture();
+  f.customers.get('sender').phoneVerified=false;
+  await assert.rejects(()=>f.service.createGift('sender','order-1',{recipientPhone:'+79990000002'}),/Подтвердите свой номер/);
+  assert.equal(f.orders.get('order-1').status,'PAID');
+});
+test('пустое имя дарителя блокирует передачу, источник фиксируется безопасно',async()=>{
+  const f=fixture();
+  f.customers.get('sender').name='  ';
+  await assert.rejects(()=>f.service.createGift('sender','order-1',{recipientPhone:'+79990000002'}),/Укажите своё имя/);
+  f.customers.get('sender').name='Александр';
+  const result=await f.service.createGift('sender','order-1',{recipientPhone:'+79990000002',attribution:{src:'VK',utm_campaign:'happy_cup'}});
+  assert.deepEqual(result.giftTransfer.metadata.attribution,{source:'vk',campaign:'happy_cup'});
+});

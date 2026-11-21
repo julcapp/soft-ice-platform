@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { ApiError } = require('../../platform/errors/ApiError');
+const { normalizeAttribution } = require('./GiftPublicLinks');
 const { normalizePhone } = require('../customer/CustomerEntity');
 const { GIFT_TRANSFER_STATUS, INVITATION_STATUS, REFERRAL_STAGE } = require('./GiftTransferModels');
 
@@ -43,6 +44,8 @@ class GiftTransferService {
     const phone = normalizePhone(request.recipientPhone);
     if (!phone) throw validation('recipientPhone', 'Введите телефон в формате +7 (XXX) XXX-XX-XX');
     const sender = await this.customerRepository.findById(customerId);
+    if (!sender?.phone || !(sender.phoneVerified || sender.phoneVerifiedAt)) throw conflict('SENDER_PHONE_NOT_VERIFIED', 'Подтвердите свой номер телефона перед отправкой подарка.');
+    if (!sender.name?.trim()) throw conflict('SENDER_NAME_REQUIRED', 'Укажите своё имя перед отправкой подарка.');
     if (sender?.phone === phone) throw conflict('GIFT_TO_SELF_NOT_ALLOWED', 'Нельзя подарить заказ самому себе');
 
     this.pendingOrders.add(orderId);
@@ -62,7 +65,7 @@ class GiftTransferService {
         recipientPhoneNormalized: phone, status: recipient ? GIFT_TRANSFER_STATUS.AVAILABLE : GIFT_TRANSFER_STATUS.WAITING_FOR_REGISTRATION,
         referralId, invitationTokenHash: sha256(token), createdAt: now, acceptedAt: null, redeemedAt: null,
         expiredAt: null, cancelledAt: null, transferredBy: customerId, correlationId,
-        expiresAt: order.expiresAt || request.expiresAt || new Date(now.getTime() + 86400000), metadata: { senderName: sender?.name || null },
+        expiresAt: order.expiresAt || request.expiresAt || new Date(now.getTime() + 86400000), metadata: { senderName: sender.name.trim(), attribution: normalizeAttribution(request.attribution || {}) },
       };
       const invitation = {
         id: `invitation_${crypto.randomUUID()}`, giftTransferId: id, recipientPhoneNormalized: phone,
