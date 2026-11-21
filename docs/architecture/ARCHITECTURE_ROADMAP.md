@@ -159,3 +159,9 @@ Inventory Reservation & Locking v1 реализован как production-grade 
 - [x] Durable Machine Lifecycle / Dispense Runtime v1.
 - [ ] `BLOCKED_EXTERNAL`: подтверждённый Huaxin protocol, production adapter и callback authentication.
 - [ ] `FOUNDATION_ONLY`: component-level evidence и hardware certification.
+
+# Administrator Security
+
+- [x] `IMPLEMENTED`: durable Administrator identity поверх OrganizationMember, hashed server sessions, revocation/expiry, tenant-derived authorization, permission matrix и session audit/outbox atomicity.
+- [ ] `FOUNDATION_ONLY`: access-management command API/UI, approval execution, break-glass activation, step-up authentication и PostgreSQL RLS.
+- [ ] `BLOCKED_EXTERNAL`: approved OIDC/SAML/MFA provider credentials и production identity proofing.

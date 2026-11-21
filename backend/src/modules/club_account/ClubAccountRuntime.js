@@ -124,6 +124,9 @@ class ClubAccountRuntime {
   }
 
   async creditOrderReturn(customerId, order, context = {}) {
+    if (order?.paymentMethod === 'test_club_account' || /^TEST[-_]/i.test(order?.machineId || '') || order?.payment?.provider === 'TEST_CLUB_ACCOUNT' || order?.payment?.metadata?.test === true) {
+      throw new ApiError({ statusCode: 409, code: 'TEST_ORDER_REAL_CREDIT_FORBIDDEN', message: 'Тестовая покупка не может пополнить реальный денежный счёт.' });
+    }
     const clubAccount = await this.getOwnAccount(customerId);
     assertAccountCanChangeBalance(clubAccount);
     const amountRub = parsePositiveAmount(order.amount ?? order.amountPaidRub);

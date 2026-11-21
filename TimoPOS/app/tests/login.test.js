@@ -1,0 +1,38 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {JSDOM}=require('jsdom');
+const html=fs.readFileSync(path.join(__dirname,'../login.html'),'utf8');
+const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+test('login page has valid standalone JS and separate service dialog',()=>{
+ assert.ok(script);
+ assert.doesNotThrow(()=>new Function(script));
+ assert.match(html,/Вход сотрудника/);
+ assert.match(html,/id="service-dialog"/);
+ assert.match(html,/id="otp"/);
+ assert.match(html,/id="terminal-trigger"/);
+ assert.doesNotMatch(html,/localStorage|sessionStorage|http:\/\//i);
+});
+test('local file fails closed and triple tap only opens service dialog',async()=>{
+ const dom=new JSDOM(html,{url:'file:///C:/TimoPOS/login.html',runScripts:'outside-only'});
+ const {window}=dom;
+ let network=0;window.fetch=()=>{network++;throw Error('NO_NETWORK_IN_OFFLINE_PREVIEW')};
+ const dialog=window.document.getElementById('service-dialog');
+ dialog.showModal=()=>{dialog.open=true};dialog.close=()=>{dialog.open=false};
+ window.eval(script);
+ const status=window.document.getElementById('status');
+ assert.match(status.textContent,/Демонстрационный|Локальный|локальный/);
+ const form=window.document.getElementById('request-form');
+ form.dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));
+ assert.equal(network,0);
+ const trigger=window.document.getElementById('terminal-trigger');
+ trigger.click();trigger.click();assert.ok(!dialog.open);
+ trigger.click();assert.ok(dialog.open);
+ const protectedFields=dialog.querySelectorAll('input');
+ assert.ok([...protectedFields].every(field=>field.disabled));
+ window.document.getElementById('service-close').click();
+ assert.ok(!dialog.open);
+ dom.window.close();
+});

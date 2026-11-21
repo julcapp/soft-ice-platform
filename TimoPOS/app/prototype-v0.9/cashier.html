@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TimoPOS 0.9 · Кассовый узел · прототип</title>
+<style>
+:root{font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#292331;background:#f7f5f2;--violet:#6935a0;--teal:#167764;--line:#e2dbe5;--mute:#6e6374;--bg:#fff;--warning:#98611b}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.44;cursor:not-allowed}button:focus-visible,input:focus-visible{outline:3px solid #b89cdd;outline-offset:1px}.app{max-width:1530px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);padding:13px 18px;border-radius:14px;flex-wrap:wrap}.brand{font-weight:850;font-size:19px;letter-spacing:-.4px}.brand span{color:var(--violet)}.meta{font-size:12px;color:var(--mute)}.tags{display:flex;gap:8px;flex-wrap:wrap}.tag{font-size:12px;font-weight:650;background:#f0edee;padding:7px 10px;border-radius:20px}.tag.good{background:#e4f5ed;color:#126548}.tag.demo{background:#f5e6fd;color:#743b99}.layout{display:grid;grid-template-columns:minmax(450px,1.15fr) minmax(430px,1fr);gap:15px;margin-top:15px}.pane{background:white;border:1px solid var(--line);border-radius:15px;padding:17px}.title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}.title h2{font-size:19px;margin:0}h3{font-size:15px;margin:0 0 10px}.hint{font-size:12px;color:var(--mute)}.filters,.paymethods,.actions{display:flex;flex-wrap:wrap;gap:8px}.chip{background:white;border:1px solid var(--line);padding:9px 12px;border-radius:9px;color:#413545}.chip.active{background:#eee7f6;border-color:var(--violet);color:#582b8d;font-weight:750}.search{display:flex;gap:8px;margin:12px 0}.search input,.field input{width:100%;min-width:0;border:1px solid #cfc3d3;border-radius:9px;padding:12px;background:white}.search button,.action{padding:11px 15px;border-radius:9px;background:var(--violet);color:white;border:0;font-weight:750}.items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.item{background:#fff;border:1px solid var(--line);border-radius:10px;text-align:left;padding:14px;min-height:116px;display:flex;flex-direction:column;align-items:flex-start;gap:7px}.item:hover{border-color:var(--violet)}.itemname{font-weight:730}.itemfoot{margin-top:auto;width:100%;display:flex;justify-content:space-between;gap:8px;align-items:center}.price{color:var(--teal);font-weight:800}.status{font-size:12px;padding:11px 13px;background:#f4f0fa;border-radius:9px;color:#563a76}.cart{min-height:98px}.cart-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid #eee8ef}.cart-row strong{display:block}.cart-row small{display:block;color:var(--mute);font-size:11px}.qty{display:flex;align-items:center;gap:7px}.qty button{width:31px;height:31px;border:1px solid var(--line);background:#fff;border-radius:7px}.sum{font-size:25px;font-weight:850;text-align:right}.total{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}.subsection{border-top:1px solid var(--line);margin-top:17px;padding-top:15px}.toggle{display:flex;gap:8px;flex-wrap:wrap}.toggle button{padding:10px 12px;border:1px solid var(--line);background:white;border-radius:8px}.toggle button.active{border-color:var(--violet);background:#f0eaf7;color:#562585;font-weight:750}.field{display:grid;gap:5px;margin-top:11px}.field label{font-size:12px;color:var(--mute)}.numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.numbers .field input{padding:10px}.muted{color:var(--mute);font-size:12px}.wide{width:100%}.secondary{background:white;border:1px solid #cfc3d3;color:#47354f}.warn{background:#fff4df;color:#81551b}.green{background:#167764}.smallbox{font-size:13px;line-height:1.55;padding:12px;background:#f7f6f5;border:1px solid #ece5e9;border-radius:9px}.taxline{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:13px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px}.buttons button{padding:14px}.footer{font-size:12px;color:var(--mute);padding:15px 3px}.notice{background:#fff1e1;border:1px solid #f1dcc0;color:#734c24;border-radius:9px;padding:12px;font-size:12px}.hidden{display:none!important}#receipt,#xout{white-space:pre-line}.stack{display:grid;gap:8px}.tabhead{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 15px}.tabhead button{border:1px solid var(--line);background:#fff;padding:9px 11px;border-radius:9px}.tabhead button.active{background:#292331;color:white}#prepaid-view{display:none}@media(max-width:950px){.layout{grid-template-columns:1fr}.pane{padding:13px}}@media(max-width:530px){.app{padding:8px}.items{grid-template-columns:1fr 1fr}.item{padding:9px;font-size:13px}.numbers{grid-template-columns:1fr 1fr}.cart-row{grid-template-columns:minmax(0,1fr) auto}.cart-row>.sum{grid-column:2}.meta{line-height:1.6}.buttons{grid-template-columns:1fr}}
+</style><style>.service-terminal{border:1px solid #c9b2dc;background:#f2eafb;color:#58258b;border-radius:9px;padding:9px 12px;font-weight:800;touch-action:manipulation}.service-overlay[hidden]{display:none}.service-overlay{position:fixed;inset:0;z-index:9999;background:#1b1226b8;display:grid;place-items:center;padding:18px}.service-dialog{max-width:520px;width:100%;background:white;border-radius:18px;padding:24px;box-shadow:0 18px 60px #130b1b80}.service-heading{display:flex;align-items:start;justify-content:space-between;gap:12px}.service-heading h2{margin:0;font-size:23px}.service-close{border:0;border-radius:8px;background:#f1edf3;padding:8px 12px;font-size:18px}.service-dialog p{line-height:1.55;color:#675a6a}.service-dialog label{display:block;font-weight:650;font-size:13px;margin:12px 0}.service-dialog input{display:block;width:100%;padding:12px;border:1px solid #d6cbdc;border-radius:8px;margin-top:5px}.service-dialog .disabled-action{width:100%;padding:13px;background:#aaa;color:#fff;border:0;border-radius:8px}.service-alert{background:#fff3db;border:1px solid #ebd5a8;border-radius:8px;padding:12px;font-size:13px;color:#6d4b1c}.service-areas{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.service-areas span{background:#f1edf3;color:#6e6570;border-radius:18px;padding:6px 9px;font-size:12px}</style></head><body><main class="app">
+<header class="top"><div><div class="brand">🍦 У Тимоши <span>· TimoPOS 0.9</span></div><div class="meta">Точка №001 · Иванов И. И. · Смена №Т-042 · Кассовый узел</div></div><div class="tags"><span class="tag good">Смена открыта · DEMO</span><span class="tag">ККТ не подключена</span><span class="tag demo">Прототип / без реальных платежей</span><button type="button" class="service-terminal" id="service-terminal" aria-label="Терминал POS-001">Терминал POS-001</button></div></header>
+<div class="service-overlay" id="service-overlay" hidden><section class="service-dialog" role="dialog" aria-modal="true" aria-labelledby="service-title"><div class="service-heading"><h2 id="service-title">Сервисный вход · TimoPOS</h2><button class="service-close" type="button" id="service-close" aria-label="Закрыть">×</button></div><p>Вход техника, мастера или администратора возможен только после проверки серверной сессии и назначения терминала.</p><label>Логин специалиста<input autocomplete="username" placeholder="Логин" disabled></label><label>Пароль<input type="password" autocomplete="current-password" placeholder="Пароль" disabled></label><button type="button" class="disabled-action" disabled>Войти в сервисное меню</button><div class="service-alert">Предпросмотр интерфейса: серверная авторизация не подключена. Диагностика и команды оборудованию заблокированы.</div><div class="service-areas"><span>Диагностика</span><span>Периферия</span><span>Сеть</span><span>Журнал</span><span>Обновления</span></div></section></div><div class="layout">
+<section class="pane"><div class="tabhead"><button class="active" data-view="sale">Продажа</button><button data-view="prepaid">Выдать предоплаченный заказ</button></div>
+<div id="sale-view">
+<div class="title"><h2>Каталог</h2><span class="hint">Цены и налоговые параметры условные</span></div>
+<div class="filters" id="groups"></div>
+<div class="search"><input id="search" aria-label="Поиск товара или штрихкода" placeholder="Поиск / SKU / штрихкод"><button id="find" class="action">Найти</button></div>
+<div class="items" id="catalog"></div>
+<div class="subsection"><h3>Подсказки продавцу</h3><p class="muted">Частые позиции — крупными кнопками; поиск / сканер — вверху. Корзина и расчёт всегда видны справа. Перепроверка цен, НДС и наличия в рабочей версии выполняется сервером.</p></div>
+</div>
+<div id="prepaid-view">
+<h2>Выдача ранее оплаченного товара</h2>
+<p class="muted">Покупатель предъявляет QR или 6-значный код заказа из Mini App. Место определяется серверной привязкой точки.</p>
+<div class="field"><label for="pickup">Код получения (только DEMO: 123456)</label><input id="pickup" inputmode="numeric" maxlength="6" placeholder="6 цифр"></div>
+<div class="actions" style="margin-top:12px"><button id="check-pickup" class="action">Проверить код · демо</button></div>
+<div id="pickup-result" class="status" style="margin-top:13px">Заказ не проверен.</div>
+<div class="buttons"><button id="pickup-receipt" class="action secondary" disabled>Демо: зачёт предоплаты</button><button id="pickup-issued" class="action green" disabled>Товар выдан</button></div>
+<div class="subsection"><h3>Что зафиксирует сервер</h3><p class="muted">Заказ → подтверждение получения → точка №001 → время → погашение обязательства покупателю → расход ингредиентов → запись в ЛК. Дополнительного списания денег нет.</p></div>
+</div>
+</section>
+<aside class="pane"><div class="title"><h2>Чек и расчёт</h2><span class="hint">Налоги по каждой позиции</span></div>
+<div id="cart" class="cart"><p class="muted">Добавьте товар или услугу.</p></div>
+<div class="total"><span>К оплате</span><span id="total" class="sum">0 ₽</span></div>
+<div id="taxes" class="smallbox">Налоговый состав чека появится после добавления позиции.</div>
+<div class="subsection"><h3>Клуб Тимоши</h3><div class="toggle"><button id="club-guest" class="active">Без клуба</button><button id="club-member">Клуб (демо)</button></div><p class="muted" id="clubstate">Гостевая покупка разрешена.</p></div>
+<div class="subsection">
+<h3>Способ расчёта</h3><div class="toggle" id="methods"><button data-method="CASH" class="active">Наличные</button><button data-method="CARD">Карта</button><button data-method="SBP">СБП</button></div>
+<div id="cashfields" class="numbers"><div class="field"><label>К оплате, ₽</label><input id="due" readonly></div><div class="field"><label>Получено, ₽</label><input id="received" type="number" min="0" step="0.01" placeholder="0"></div><div class="field"><label>Сдача, ₽</label><input id="change" readonly></div></div>
+<div id="bankfields" class="hidden smallbox" style="margin-top:12px">Ожидается подтверждение операции от банка. <b>Для демонстрации</b> нажмите кнопку ниже.</div>
+<div class="buttons"><button id="confirm-payment" class="action">ДЕМО: подтвердить расчёт</button><button id="confirm-fiscal" class="action secondary" disabled>ДЕМО: чек сформирован</button></div>
+</div>
+<div class="subsection">
+<h3>Фискальный контроль</h3>
+<div id="fiscal" class="status">Расчёт не подтверждён. Нет реальной ККТ или соединения с ЮKassa.</div>
+<div class="buttons"><button id="issued" class="action green" disabled>Товар выдан</button><button id="reset" class="action secondary">Новый чек</button></div>
+<div id="receipt" class="smallbox" style="margin-top:9px">Никакие фискальные документы не создаются.</div>
+</div>
+<div class="subsection"><div class="title"><h3>Смена / отчёт X</h3><button id="report" class="chip">Показать X · демо</button></div><div id="xout" class="smallbox hidden"></div></div>
+</aside>
+</div><div class="footer">Тестовые цены и налоговые настройки не соответствуют реальному каталогу. DEMO-статусы не связаны с банком, ЮKassa, АТОЛ, ККТ, ОФД, PostgreSQL, складом или Mini App. Фискальные сценарии требуют налоговой проверки.</div>
+</main>
+<script>'use strict';
+(function(root){
+  function createTapGate({threshold=3,windowMs=1250,clock=()=>Date.now()}={}) {
+    let count=0,last=0;
+    return Object.freeze({
+      tap(){const now=clock();if(now-last>windowMs||now<last)count=0;last=now;count++;if(count>=threshold){count=0;last=0;return true;}return false;},
+      reset(){count=0;last=0;},
+    });
+  }
+  if(typeof module!=='undefined'&&module.exports)module.exports={createTapGate};
+  if(!root.document)return;
+  const doc=root.document;
+  const trigger=doc.getElementById('service-terminal');
+  const panel=doc.getElementById('service-overlay');
+  const close=doc.getElementById('service-close');
+  if(!trigger||!panel||!close)return;
+  const gate=createTapGate();
+  let timer;
+  function hide(){panel.hidden=true;gate.reset();root.clearTimeout(timer);trigger.focus();}
+  function open(){panel.hidden=false;close.focus();root.clearTimeout(timer);timer=root.setTimeout(hide,120000);}
+  trigger.addEventListener('click',()=>{if(gate.tap())open();});
+  close.addEventListener('click',hide);
+  panel.addEventListener('click',event=>{if(event.target===panel)hide();});
+  doc.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden)hide();});
+  doc.addEventListener('visibilitychange',()=>{if(doc.hidden)gate.reset();});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script id="app">
+(()=>{"use strict";
+const CATALOG=[
+ {sku:"ICE-01",name:"Мороженое ваниль",kind:"commodity",vat:"22",price:9500,category:"Мороженое",barcode:"4600000000001"},
+ {sku:"ICE-02",name:"Мороженое микс",kind:"commodity",vat:"10",price:9500,category:"Мороженое",barcode:"4600000000002"},
+ {sku:"TOP-01",name:"Топпинг шоколад",kind:"commodity",vat:"NO_VAT",price:4500,category:"Добавки",barcode:"4600000000003"},
+ {sku:"TOP-02",name:"Топпинг клубника",kind:"commodity",vat:"5",price:3500,category:"Добавки",barcode:"4600000000004"},
+ {sku:"SERV-01",name:"Услуга упаковки",kind:"service",vat:"7",price:3000,category:"Услуги",barcode:"4600000000005"},
+ {sku:"SERV-02",name:"Дополнительная услуга",kind:"service",vat:"0",price:5000,category:"Услуги",barcode:"4600000000006"}
+];
+const TAX={ "22":{n:22,d:122,name:"НДС 22%"},"10":{n:10,d:110,name:"НДС 10%"},"5":{n:5,d:105,name:"НДС 5%"},"7":{n:7,d:107,name:"НДС 7%"},"0":{n:0,d:100,name:"НДС 0%"},"NO_VAT":{n:0,d:100,name:"Без НДС"}};
+const kopecks=s=>{const str=String(s).trim().replace(",",".");if(!/^\d+(?:\.\d{1,2})?$/.test(str))return null;const p=str.split(".");const val=Number(p[0])*100+Number((p[1]||"").padEnd(2,"0"));return Number.isSafeInteger(val)?val:null};
+const fmt=k=>(k/100).toLocaleString("ru-RU",{minimumFractionDigits:0,maximumFractionDigits:2})+" ₽";
+const calc=cart=>{let total=0;const breakdown={};for(const line of cart){if(!Number.isSafeInteger(line.qty)||line.qty<1)throw Error("BAD_QTY");const s=line.price*line.qty;if(!Number.isSafeInteger(s)||s<0)throw Error("BAD_TOTAL");total+=s;const tax=TAX[line.vat];if(!tax)throw Error("BAD_VAT");const amount=Math.round(s*tax.n/tax.d);const k=line.vat;if(!breakdown[k])breakdown[k]={gross:0,vat:0,label:tax.name};breakdown[k].gross+=s;breakdown[k].vat+=amount;}return {total,breakdown}};
+if(typeof module!=="undefined"&&module.exports)module.exports={CATALOG,TAX,kopecks,fmt,calc};
+if(typeof document==="undefined")return;
+const $=id=>document.getElementById(id);let cart=[],category="Все",query="",method="CASH",pay=false,fiscal=false,issued=false,pickup=false,pickupFiscal=false,pickupIssued=false;const operations=[];
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const resetPay=()=>{pay=false;fiscal=false;issued=false;$("confirm-payment").disabled=false;$("confirm-fiscal").disabled=true;$("issued").disabled=true;$("fiscal").textContent="Расчёт не подтверждён. ККТ не подключена.";$("receipt").textContent="Никакие фискальные документы не создаются."};
+function renderCatalog(){const groups=["Все",...new Set(CATALOG.map(x=>x.category))];$("groups").innerHTML=groups.map(g=>'<button class="chip '+(g===category?'active':'')+'" data-category="'+esc(g)+'">'+esc(g)+'</button>').join("");const visible=CATALOG.filter(p=>(category==="Все"||p.category===category)&&[p.name,p.sku,p.barcode].join(" ").toLowerCase().includes(query.toLowerCase()));$("catalog").innerHTML=visible.map(p=>'<button class="item" data-sku="'+p.sku+'"><span class="itemname">'+esc(p.name)+'</span><span class="hint">'+(p.kind==="service"?"Услуга":"Товар")+' · '+TAX[p.vat].name+'</span><span class="itemfoot"><span class="hint">'+p.sku+'</span><span class="price">'+fmt(p.price)+'</span></span></button>').join("")||'<p class="muted">Ничего не найдено</p>';}
+function render(){const result=calc(cart);$("cart").innerHTML=cart.length?cart.map(p=>'<div class="cart-row"><div><strong>'+esc(p.name)+'</strong><small>'+(p.kind==="service"?"Услуга":"Товар")+' · '+TAX[p.vat].name+' · '+fmt(p.price)+'</small></div><div class="qty"><button data-minus="'+p.sku+'" aria-label="Уменьшить">−</button><b>'+p.qty+'</b><button data-plus="'+p.sku+'" aria-label="Увеличить">+</button></div><b>'+fmt(p.qty*p.price)+'</b></div>').join(""):'<p class="muted">Добавьте товар или услугу.</p>';$("total").textContent=fmt(result.total);$("due").value=(result.total/100).toFixed(2);$("taxes").innerHTML=Object.values(result.breakdown).map(t=>'<div class="taxline"><span>'+t.label+' · оборот '+fmt(t.gross)+'</span><b>'+(t.label==="Без НДС"?"—":fmt(t.vat))+'</b></div>').join("")||"Налоговый состав чека появится после добавления позиции.";const recv=kopecks($("received").value);$("change").value=(recv!==null&&recv>=result.total?((recv-result.total)/100).toFixed(2):"0.00");$("confirm-payment").disabled=pay||issued||!cart.length||method==="CASH"&&(recv===null||recv<result.total);}
+function add(sku){if(pay||fiscal||issued)resetPay();const item=CATALOG.find(x=>x.sku===sku);if(!item)return;const old=cart.find(x=>x.sku===sku);if(old)old.qty++;else cart.push({...item,qty:1});render();}
+$("groups").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(b){category=b.dataset.category;renderCatalog()}});
+$("catalog").addEventListener("click",e=>{const b=e.target.closest("[data-sku]");if(b)add(b.dataset.sku)});
+$("search").addEventListener("input",e=>{query=e.target.value;renderCatalog()});$("find").onclick=()=>{const match=CATALOG.find(x=>x.barcode===query||x.sku.toLowerCase()===query.toLowerCase());if(match)add(match.sku)};
+$("cart").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const sku=b.dataset.plus||b.dataset.minus,delta=b.dataset.plus?1:-1;const line=cart.find(x=>x.sku===sku);if(!line)return;if(pay||fiscal||issued)resetPay();line.qty+=delta;if(line.qty<=0)cart=cart.filter(x=>x!==line);render()});
+$("methods").addEventListener("click",e=>{const b=e.target.closest("[data-method]");if(!b||b.dataset.method===method)return;method=b.dataset.method;resetPay();for(const x of $("methods").querySelectorAll("button"))x.classList.toggle("active",x===b);$("cashfields").classList.toggle("hidden",method!=="CASH");$("bankfields").classList.toggle("hidden",method==="CASH");render()});
+$("received").addEventListener("input",render);
+$("club-guest").onclick=()=>{$("clubstate").textContent="Гостевая покупка разрешена.";$("club-guest").classList.add("active");$("club-member").classList.remove("active")};
+$("club-member").onclick=()=>{$("clubstate").textContent="ДЕМО: в production клуб проверяет сервер, телефон не сохраняется в браузере.";$("club-member").classList.add("active");$("club-guest").classList.remove("active")};
+$("confirm-payment").onclick=()=>{const t=calc(cart).total,r=kopecks($("received").value);if(!cart.length||pay||method==="CASH"&&(r===null||r<t))return;pay=true;$("confirm-payment").disabled=true;$("confirm-fiscal").disabled=false;$("fiscal").textContent=method==="CASH"?"DEMO: получено "+fmt(r)+", сдача "+fmt(r-t)+". Ожидается подтверждение фискального чека.":"DEMO: имитация банковского SUCCEEDED. Реальный backend ничего не подтверждал. Ожидается чек.";render()};
+$("confirm-fiscal").onclick=()=>{if(!pay||fiscal)return;fiscal=true;$("confirm-fiscal").disabled=true;$("issued").disabled=false;$("fiscal").textContent="DEMO: фискализация имитирована. Только теперь разрешаем подтверждение выдачи.";$("receipt").textContent="ДЕМО-ЧЕК, не фискальный документ.\nСумма "+fmt(calc(cart).total)+"\n"+cart.map(x=>x.name+" ×"+x.qty+" · "+TAX[x.vat].name).join("\n")};
+$("issued").onclick=()=>{if(!pay||!fiscal||issued)return;issued=true;$("issued").disabled=true;const result=calc(cart);operations.push({kind:"SALE",method,total:result.total});$("receipt").textContent+="\n\nDEMO: товар выдан и учтён (без сохранения в БД).";$("fiscal").textContent="ДЕМО: выдача подтверждена. Сделка закрыта."};
+$("reset").onclick=()=>{cart=[];$("received").value="";resetPay();render()};
+for(const b of document.querySelectorAll("[data-view]"))b.onclick=()=>{for(const x of document.querySelectorAll("[data-view]"))x.classList.toggle("active",x===b);$("sale-view").style.display=b.dataset.view==="sale"?"block":"none";$("prepaid-view").style.display=b.dataset.view==="prepaid"?"block":"none"};
+$("pickup").addEventListener("input",()=>{pickup=false;pickupFiscal=false;pickupIssued=false;$("pickup-receipt").disabled=true;$("pickup-issued").disabled=true;$("pickup-result").textContent="Код изменён — проверьте заказ заново."});
+$("check-pickup").onclick=()=>{pickup=$("pickup").value==="123456";pickupFiscal=false;pickupIssued=false;$("pickup-receipt").disabled=!pickup;$("pickup-issued").disabled=true;$("pickup-result").textContent=pickup?"DEMO: заказ #P-001, ранее оплачен 95 ₽ в Mini App. Точка №001. Нужна фискализация зачёта.":"DEMO: код не найден. Настоящая проверка backend отсутствует."};
+$("pickup-receipt").onclick=()=>{if(!pickup||pickupFiscal)return;pickupFiscal=true;$("pickup-receipt").disabled=true;$("pickup-issued").disabled=false;$("pickup-result").textContent="DEMO: чек зачёта полной предоплаты имитирован. Денежного списания с покупателя нет."};
+$("pickup-issued").onclick=()=>{if(!pickup||!pickupFiscal||pickupIssued)return;pickupIssued=true;$("pickup-issued").disabled=true;operations.push({kind:"PREPAID_ISSUE",total:9500});$("pickup-result").textContent="DEMO: товар получен на точке №001. Расход ингредиентов — только в модели; данные Mini App и склада не менялись."};
+$("report").onclick=()=>{const sale=operations.filter(x=>x.kind==="SALE"),cash=sale.filter(x=>x.method==="CASH").reduce((n,x)=>n+x.total,0),card=sale.filter(x=>x.method==="CARD").reduce((n,x)=>n+x.total,0),sbp=sale.filter(x=>x.method==="SBP").reduce((n,x)=>n+x.total,0),prepaid=operations.filter(x=>x.kind==="PREPAID_ISSUE");$("xout").classList.remove("hidden");$("xout").textContent="ДЕМО X-отчёт · точка №001\nНаличные: "+fmt(cash)+"\nКарта: "+fmt(card)+"\nСБП: "+fmt(sbp)+"\nВыручка точки: "+fmt(cash+card+sbp)+"\nВыдано ранее оплаченных: "+prepaid.length+" шт., "+fmt(prepaid.reduce((n,x)=>n+x.total,0))+"\nПредоплаченные выдачи не увеличивают выручку точки.\n\nНЕ является X-отчётом ККТ."};
+renderCatalog();render();
+})();
+</script></body></html>

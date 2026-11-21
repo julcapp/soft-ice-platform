@@ -28,9 +28,17 @@ const { createOrganizationRouter } = require('./organizationRoutes');
 const { createSaleFlowRouter } = require('./saleFlowRoutes');
 const { createTransactionalOutboxRouter } = require('./transactionalOutboxRoutes');
 const { createPaymentRouter, createPaymentWebhookRouter } = require('./paymentRoutes');
+const { createCustomerPaymentRouter } = require('./customerPaymentRoutes');
 const { createMachineDispenseRouter, createMachineCallbackRouter } = require('./machineDispenseRoutes');
 const { createSchedulerRouter } = require('./schedulerRoutes');
+const { createCatalogRouter, createAdminCatalogRouter } = require('./catalogRoutes');
+const { createPricingRouter } = require('./pricingRoutes');
 const { createTerminalCustomerRouter } = require('./terminalCustomerRoutes');
+const { createTimoPosSellerAuthRouter } = require('./timoPosSellerAuthRoutes');
+const { createTimoPosAdminRouter } = require('./timoPosAdminRoutes');
+const { createVerificationAdminRouter } = require('./verificationAdminRoutes');
+const { createAdministratorSecurityRouter } = require('./administratorSecurityRoutes');
+const { createAdminRouteBoundary } = require('../../platform/security/authenticateAdmin');
 
 function createApiV1Router(dependencies, { logger } = {}) {
   const router = express.Router();
@@ -55,6 +63,20 @@ function createApiV1Router(dependencies, { logger } = {}) {
 
   router.use('/auth', createAuthRouter(dependencies));
   router.use('/terminal', createTerminalCustomerRouter(dependencies));
+  // Opt-in only. Production wiring must supply all secure dependencies explicitly.
+  if (dependencies.timoPosSellerAuthRuntime) {
+    router.use('/timopos/seller', createTimoPosSellerAuthRouter(dependencies.timoPosSellerAuthRuntime));
+  }
+  // Administrative assignments stay disabled until DB/auth/audit integration tests pass.
+  if (dependencies.timoPosAdminRuntime) {
+    router.use('/admin/timopos', createTimoPosAdminRouter(dependencies.timoPosAdminRuntime));
+  }
+  if (dependencies.verificationAdminRuntime) {
+    router.use('/admin/verification', createVerificationAdminRouter(dependencies.verificationAdminRuntime));
+  }
+  router.use('/catalog', createCatalogRouter(dependencies));
+  router.use('/pricing', createPricingRouter(dependencies));
+  router.use('/admin/catalog', createAdminCatalogRouter(dependencies));
   router.use('/customers', createCustomerRouter(dependencies));
   router.use('/customer/orders', createCustomerOrdersRouter(dependencies));
   router.use('/club-account', createClubAccountRouter(dependencies));
@@ -87,6 +109,10 @@ function createApiV1Router(dependencies, { logger } = {}) {
   if (dependencies.organizationRuntime) router.use('/organizations', createOrganizationRouter(dependencies));
   if (dependencies.saleFlowService) router.use('/admin/sale-flows', createSaleFlowRouter(dependencies));
   if (dependencies.outboxAdminService) router.use('/admin/outbox', createTransactionalOutboxRouter(dependencies));
+  // Customer payment checkout is opt-in until cross-channel integration acceptance.
+  if (dependencies.customerPaymentCheckoutEnabled && dependencies.paymentRepository && dependencies.authCoreService) {
+    router.use('/payments', createCustomerPaymentRouter(dependencies));
+  }
   if (dependencies.paymentRepository) router.use('/admin/payments', createPaymentRouter(dependencies));
   if (dependencies.paymentService) router.use('/webhooks/payments', createPaymentWebhookRouter(dependencies));
   if (dependencies.machineDispenseRepository) router.use('/admin/machine-dispenses', createMachineDispenseRouter(dependencies));

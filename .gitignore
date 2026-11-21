@@ -5,7 +5,7 @@ node_modules/
 **/.pnpm-store/
 
 frontend/miniapp/dist/
-frontend/admin-console/dist/
+AdminDesktop/app/dist/
 **/.vite/
 **/.cache/
 coverage/
@@ -35,3 +35,6 @@ backup_git_conflict/
 
 # Isolated local PostgreSQL cluster and credentials used by Sale Flow audits.
 /.tmp/durable-sale-flow-audit/
+
+# Generated catalog/display migration rehearsal evidence and staged migrations.
+/.tmp/catalog-rehearsal/

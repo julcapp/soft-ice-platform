@@ -1,0 +1,149 @@
+.catalog-admin,
+.catalog-admin .table-card {
+  min-width: 0;
+}
+
+.catalog-table-scroll {
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  width: 100%;
+  max-width: 100%;
+}
+
+.catalog-table {
+  min-width: 960px;
+  table-layout: fixed;
+}
+
+.catalog-table th:nth-child(1) { width: 31%; }
+.catalog-table th:nth-child(2) { width: 16%; }
+.catalog-table th:nth-child(3) { width: 13%; }
+.catalog-table th:nth-child(4) { width: 27%; }
+.catalog-table th:nth-child(5) { width: 13%; }
+
+.catalog-table th,
+.catalog-table td {
+  vertical-align: top;
+}
+
+.catalog-item {
+  display: grid;
+  gap: 6px;
+}
+
+.catalog-item > strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.catalog-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.catalog-item-meta span:not(:last-child)::after {
+  content: " ·";
+}
+
+.catalog-sku {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.catalog-machines {
+  display: grid;
+  gap: 8px;
+}
+
+.catalog-machine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.catalog-machine-code {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.catalog-machine-state,
+.catalog-current-flavor {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.catalog-machine-state.is-available {
+  background: #e8f8ef;
+  color: #17653c;
+}
+
+.catalog-machine-state.is-hidden {
+  background: #f1ebe4;
+  color: var(--muted);
+}
+
+.catalog-current-flavor {
+  background: #dff2ef;
+  color: var(--teal-dark);
+}
+
+.catalog-machine-empty {
+  color: var(--muted);
+}
+
+.catalog-actions summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.catalog-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalog-actions summary::after {
+  content: "⌄";
+  margin-left: 7px;
+  color: var(--muted);
+}
+
+.catalog-actions[open] summary::after {
+  content: "⌃";
+}
+
+.catalog-actions > div {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.catalog-actions button {
+  width: 100%;
+  min-height: 36px;
+}
+
+@media (max-width: 767px) {
+  .catalog-table {
+    min-width: 900px;
+  }
+}

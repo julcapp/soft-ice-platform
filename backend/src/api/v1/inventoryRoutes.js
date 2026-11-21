@@ -25,6 +25,6 @@ function createInventoryRouter({ inventoryRuntime, inventoryReservationService }
 }
 function route(handler, status = 200) { return (req, res, next) => Promise.resolve(handler(req)).then((data) => res.status(data?.idempotentReplay ? 200 : status).json({ data, meta: { api_version: 'v1', correlation_id: req.correlationId, idempotent_replay: Boolean(data?.idempotentReplay) } })).catch(next); }
 function context(req) { return { actorType: 'ADMINISTRATOR', actorId: req.securityContext.subject_id, sourceChannel: 'ADMIN_API', correlationId: req.correlationId || `corr_${crypto.randomUUID()}`, idempotencyKey: req.get('Idempotency-Key') }; }
-function tenant(req) { return { organizationId: req.securityContext.organization_id || req.get('X-Organization-Id') || null }; }
+function tenant(req) { return { organizationId: req.organizationScope?.organizationId || req.securityContext.organization_id || null }; }
 function camel(value) { if (Array.isArray(value)) return value.map(camel); if (!value || typeof value !== 'object') return value; return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()), camel(entry)])); }
 module.exports = { createInventoryRouter };

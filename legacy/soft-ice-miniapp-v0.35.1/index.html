@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff9f0">
+  <title>У Тимоши — терминал Soft_ICE v0.30</title>
+  <link rel="stylesheet" href="styles.css?v=0.29">
+</head>
+<body class="portrait-terminal">
+  <main class="terminal-shell">
+    <header class="terminal-header">
+      <button class="brand" data-action="reset" aria-label="На главный экран"><span>У</span><strong>Тимоши</strong></button>
+      <div class="machine-status"><i></i> Аппарат готов <small>v0.30</small></div>
+      <div class="header-actions"><button type="button">RU</button><button type="button" aria-label="Помощь">?</button></div>
+    </header>
+    <section class="screen" id="screen" aria-live="polite"></section>
+    <footer id="footer">
+      <button type="button" id="back-button" data-action="back">← Назад</button>
+      <span>Безопасная покупка · данные защищены</span>
+      <button type="button" class="finish-button" data-action="finish">Завершить</button>
+    </footer>
+  </main>
+  <script src="app.js?v=0.29"></script>
+</body>
+</html>

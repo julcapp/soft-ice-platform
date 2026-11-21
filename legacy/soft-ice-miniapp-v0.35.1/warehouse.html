@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soft_ICE v0.30 — склад сырья</title>
+  <link rel="stylesheet" href="styles.css?v=0.29">
+</head>
+<body class="warehouse-page">
+  <main class="warehouse-shell">
+    <header class="warehouse-header">
+      <div><div>Soft_ICE v0.30 · тестовая база</div><h1>Склад сырья и ассортимент</h1><p>Смеси для мороженого, активный вкус, топпинги и добавки</p></div>
+      <a class="warehouse-back" href="index.html">Открыть терминал</a>
+    </header>
+    <div class="warehouse-notice">Активная смесь определяет вкус мороженого в терминале и Mini App. Смена вкуса разрешена только при наличии смеси на складе и сохраняется в журнале.</div>
+    <div id="warehouse-message" class="warehouse-message" role="status"></div>
+    <section class="warehouse-stock"><h2>Смесь в аппарате</h2><div id="mix-active"></div></section>
+    <section class="warehouse-stock"><h2>Склад смесей для мороженого</h2><div id="mix-stock"></div></section>
+    <section class="warehouse-stock"><h2>Журнал смены вкуса</h2><div id="mix-log"></div></section>
+    <section class="warehouse-stock"><h2>Топпинги в аппарате</h2><div id="topping-grid" class="warehouse-grid"></div></section>
+    <section class="warehouse-stock"><h2>База топпингов</h2><div id="topping-stock"></div></section>
+    <section class="warehouse-stock"><h2>Добавки в аппарате</h2><div id="additive-grid" class="warehouse-grid"></div></section>
+    <section class="warehouse-stock"><h2>База добавок</h2><div id="additive-stock"></div></section>
+  </main>
+  <script src="warehouse.js?v=0.29"></script>
+</body>
+</html>

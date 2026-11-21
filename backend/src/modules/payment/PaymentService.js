@@ -157,7 +157,11 @@ class PaymentService {
       if (!payment) throw error('PAYMENT_NOT_FOUND', 'Платёж не найден.', 404);
       assertPaymentTransition(payment.status, 'REFUND_PENDING');
       const amount = money(request.amount ?? payment.amount);
-      if (Number(amount) > Number(payment.amount)) throw error('REFUND_AMOUNT_EXCEEDS_PAYMENT', 'Сумма возврата превышает платёж.', 409);
+      const alreadyRefunded = await tx.paymentRefund.aggregate({ where: { organizationId: payment.organizationId, paymentId: payment.id, status: 'SUCCEEDED' }, _sum: { amount: true } });
+      const refundCents = Math.round(Number(amount) * 100);
+      const settledCents = Math.round(Number(alreadyRefunded._sum.amount || 0) * 100);
+      const originalCents = Math.round(Number(payment.amount) * 100);
+      if (refundCents <= 0 || settledCents + refundCents > originalCents) throw error('REFUND_AMOUNT_EXCEEDS_PAYMENT', 'Сумма возвратов превышает платёж.', 409);
       const refund = await repo.createRefund({ organizationId: payment.organizationId, paymentId: payment.id, idempotencyKey: request.idempotencyKey, status: 'REQUESTED', amount, currency: payment.currency, reason: request.reason });
       await tx.payment.update({ where: { id: payment.id }, data: { status: 'REFUND_PENDING' } });
       await this.auditAndEvent(repo, payment, 'REFUND_REQUESTED', 'RefundRequested', context, refund.id, { refundId: refund.id, amount });
@@ -179,7 +183,9 @@ class PaymentService {
       const providerEvent = await tx.paymentProviderInbox.findFirst({ where: { organizationId: request.organizationId, providerEventId: request.providerEventId, paymentId: refund.paymentId } });
       if (!providerEvent) throw error('REFUND_PROVIDER_CONFIRMATION_REQUIRED', 'Provider event возврата не найден в durable Inbox.', 409);
       await tx.paymentRefund.update({ where: { id: refund.id }, data: { status, providerRefundId: request.providerRefundId || refund.providerRefundId, ...(status === 'SUCCEEDED' ? { succeededAt: now } : { failedAt: now, failureCode: request.failureCode || 'PROVIDER_FAILED' }) } });
-      await tx.payment.update({ where: { id: refund.paymentId }, data: { status: status === 'SUCCEEDED' ? 'REFUNDED' : 'SUCCEEDED', ...(status === 'SUCCEEDED' && { refundedAt: now }) } });
+      const settled = await tx.paymentRefund.aggregate({ where: { organizationId: request.organizationId, paymentId: refund.paymentId, status: 'SUCCEEDED' }, _sum: { amount: true } });
+      const allRefunded = status === 'SUCCEEDED' && Math.round(Number(settled._sum.amount || 0) * 100) >= Math.round(Number(refund.payment.amount) * 100);
+      await tx.payment.update({ where: { id: refund.paymentId }, data: { status: allRefunded ? 'REFUNDED' : 'SUCCEEDED', ...(allRefunded && { refundedAt: now }) } });
       await this.auditAndEvent(repo, refund.payment, `REFUND_${status}`, status === 'SUCCEEDED' ? 'RefundSucceeded' : 'RefundFailed', context, request.idempotencyKey, { refundId: refund.id });
       return { refund: await tx.paymentRefund.findUnique({ where: { id: refund.id } }), duplicate: false };
     });

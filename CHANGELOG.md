@@ -545,3 +545,9 @@
 - Production Sale Flow composition дополнена явными Payment/Machine production boundaries со статусом `BLOCKED_EXTERNAL`, без fake adapters и silent fallback.
 - Order creation и успешное завершение продажи включены в общую PostgreSQL transaction с Inventory, Sale Flow и Transactional Outbox; добавлены rollback-инъекции и multi-item success test.
 - Исправлен перенос terminal legacy reservations: `reserved`, `consumed` и `released` quantities сохраняют исторический факт; добавлены executable migration fixtures и invariant assertions.
+# 2026-08-25
+
+- Добавлен Administrator Security v1: durable identity/session schema, production Bearer validation, tenant-derived permission boundary, security audit/outbox atomicity и foundations approval/break-glass (ADR-046).
+# 2026-08-27
+
+- Закрыты HIGH/MEDIUM findings независимой Administrator Security ревизии: tenant-safe session revoke, method-level permissions, trusted Admin BFF context, transactional reauthorization, recursive metadata sanitization и PostgreSQL invariants audit/approval.

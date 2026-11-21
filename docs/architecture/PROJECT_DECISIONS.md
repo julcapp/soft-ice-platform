@@ -2404,3 +2404,6 @@ Event Center is a separate bounded context subscribed to Platform Event Bus. It 
 **Status:** Accepted
 
 `sale_flow` принимает организационный контекст только через authoritative machine/location relation. Создание заказа, provider transaction, callbacks, fulfillment token и финальные эффекты имеют независимые idempotency keys. Оплаченная неуспешная выдача передаёт в Order/Payment требование `REFUND_REQUIRED`, не уничтожая payment history; Sale Flow хранит только одноимённое recovery state. Текущая in-memory реализация остаётся `FOUNDATION_ONLY`; production требует durable repository, уникальных ограничений, возобновляемого workflow и transactional outbox.
+# 2026-08-25 — Administrator Security v1
+
+Принят ADR-046: OrganizationMember владеет tenant membership, Administrator владеет security identity, а production Admin BFF доверяет только durable opaque Bearer session. Permission checks deny-by-default; security audit и существующий Transactional Outbox атомарны. Approval, break-glass activation, RLS и внешний IdP не объявляются реализованными.

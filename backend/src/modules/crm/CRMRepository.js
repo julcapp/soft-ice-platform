@@ -3,6 +3,80 @@ class CRMRepository {
     this.prisma = prisma;
   }
 
+  // All account mutations and security audit entries commit in the same transaction.
+  // Block metadata columns must exist before enabling block/unblock actions.
+  async applyAccountAction({ customerId, plan, actorId, correlationId }) {
+    if (!actorId) throw new Error('ADMIN_IDENTITY_REQUIRED');
+    if (!['edit', 'block', 'unblock'].includes(plan.action)) throw new Error('UNSUPPORTED_ACCOUNT_ACTION');
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.customer.findUnique({ where: { id: customerId }, select: { id: true, status: true } });
+      if (!current || current.status === 'deleted_released') throw new Error('CUSTOMER_NOT_AVAILABLE');
+      let affected = 0;
+      if (plan.action === 'edit') {
+        affected = (await tx.customer.updateMany({ where: { id: customerId, status: { not: 'deleted_released' } }, data: { name: plan.name } })).count;
+      } else if (plan.action === 'block') {
+        affected = await tx.$executeRaw`
+          UPDATE "Customer" SET "status"='blocked', "blockReason"=${plan.reason},
+          "blockedAt"=NOW(), "blockedUntil"=${plan.until ? new Date(plan.until) : null},
+          "updatedAt"=NOW() WHERE "id"=${customerId} AND "status"='active'
+        `;
+      } else {
+        affected = await tx.$executeRaw`
+          UPDATE "Customer" SET "status"='active', "blockReason"=NULL,
+          "blockedAt"=NULL, "blockedUntil"=NULL, "updatedAt"=NOW()
+          WHERE "id"=${customerId} AND "status"='blocked'
+        `;
+      }
+      if (affected !== 1) throw new Error('CUSTOMER_ACTION_CONFLICT');
+      await tx.auditEvent.create({ data: {
+        eventType: 'CRM.CustomerAccountAction', subjectType: 'administrator', subjectId: actorId,
+        targetType: 'Customer', targetId: customerId, action: plan.action, decision: 'success',
+        sourceChannel: 'crm', correlationId: correlationId || null,
+        metadata: { reason: plan.reason || null, until: plan.until || null, nameChanged: plan.action === 'edit' },
+      } });
+    });
+    return this.findCustomer(customerId);
+  }
+
+  async hasExpiryScheduler() {
+    // Fail closed until migration, timer and worker are installed and smoke-tested.
+    return false;
+  }
+
+  async releaseExpiredBlocks(now, batchSize = 100) {
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new TypeError('INVALID_EXPIRY_TIME');
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 500) throw new RangeError('INVALID_EXPIRY_BATCH_SIZE');
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw`
+        WITH candidates AS (
+          SELECT "id" FROM "Customer"
+          WHERE "status" = 'blocked' AND "blockedUntil" IS NOT NULL
+            AND "blockedUntil" <= ${now}
+          ORDER BY "blockedUntil", "id"
+          LIMIT ${batchSize}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "Customer" AS c
+        SET "status"='active', "blockReason"=NULL, "blockedAt"=NULL,
+            "blockedUntil"=NULL, "updatedAt"=NOW()
+        FROM candidates
+        WHERE c."id" = candidates."id" AND c."status"='blocked'
+        RETURNING c."id"
+      `;
+      for (const row of rows) {
+        await tx.auditEvent.create({ data: {
+          eventType: 'CRM.CustomerBlockExpired',
+          subjectType: 'system', subjectId: 'crm-block-expiry',
+          targetType: 'Customer', targetId: row.id,
+          action: 'unblock', decision: 'success', sourceChannel: 'crm',
+          occurredAt: now,
+          metadata: { reason: 'temporary_block_expired', automatic: true },
+        } });
+      }
+      return rows;
+    });
+  }
+
   async listCustomers({ query = '', limit = 50 } = {}) {
     const where = query ? {
       status: { not: 'deleted_released' },
@@ -41,8 +115,22 @@ class CRMRepository {
           orderBy: { assignedAt: 'desc' },
         },
         crmProfile: true,
+        channelSubscriptions: true,
         notificationDeliveries: { orderBy: { createdAt: 'desc' }, take: 50 },
       },
+    });
+  }
+
+  findCustomersByIds(ids) {
+    return this.prisma.customer.findMany({
+      where: { id: { in: ids }, status: { not: 'deleted_released' } },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
+  findActiveSubscription(customerId, channel) {
+    return this.prisma.customerChannelSubscription.findFirst({
+      where: { customerId, channelType: channel, isSubscribed: true },
     });
   }
 

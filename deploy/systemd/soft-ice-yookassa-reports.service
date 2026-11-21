@@ -1,0 +1,14 @@
+[Unit]
+Description=Soft ICE YooKassa daily report reconciliation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/soft-ice-platform/backend
+EnvironmentFile=/opt/soft-ice-platform/backend/.env
+ExecStart=/usr/bin/npm run yookassa:reports:scheduled
+User=softice
+Group=softice
+NoNewPrivileges=true
+PrivateTmp=true

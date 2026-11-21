@@ -1,0 +1,14 @@
+[Unit]
+Description=Soft ICE operations escalation delivery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/soft-ice-platform/backend
+EnvironmentFile=/opt/soft-ice-platform/backend/.env
+ExecStart=/usr/bin/npm run operations:escalation-delivery
+User=softice
+Group=softice
+NoNewPrivileges=true
+PrivateTmp=true

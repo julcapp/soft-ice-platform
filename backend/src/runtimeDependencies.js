@@ -5,6 +5,7 @@ const { CustomerRuntime } = require('./modules/customer/CustomerRuntime');
 const { CustomerIdentityProviderRegistry } = require('./modules/customer/CustomerIdentityProvider');
 const { ConsentRepository } = require('./modules/consent/ConsentRepository');
 const { ConsentRuntime } = require('./modules/consent/ConsentRuntime');
+const { PrismaTerminalChannelChallengeRepository, TerminalChannelChallengeService } = require('./modules/bot_core/TerminalChannelChallengeService');
 const { SegmentationRepository } = require('./modules/segmentation/SegmentationRepository');
 const { SegmentationRuntime } = require('./modules/segmentation/SegmentationRuntime');
 const { MachineRepository } = require('./modules/machine/MachineRepository');
@@ -22,6 +23,7 @@ const { IdempotencyRepository } = require('./platform/idempotency/IdempotencyRep
 const { IdempotencyService } = require('./platform/idempotency/IdempotencyService');
 const { AuthCoreService } = require('./platform/security/AuthCoreService');
 const { AuthSessionRepository } = require('./platform/security/AuthSessionRepository');
+const { AdministratorSecurityService } = require('./platform/security/AdministratorSecurity');
 const { verifyTelegramInitData } = require('./platform/security/telegramMiniAppVerifier');
 const { AdminDashboardService, DemoAdminDashboardProvider } = require('./modules/admin_dashboard');
 const { MachineTwinProjectionService, MachineTwinRepository, createDemoMachineTwinSources } = require('./modules/machine_digital_twin');
@@ -31,6 +33,7 @@ const { InventoryRuntime, InventoryService, InventoryEventSubscriber, InMemoryIn
 const { MaintenanceRuntime, MaintenanceService, InMemoryMaintenanceRepository, MaintenanceProjection } = require('./modules/maintenance');
 const { InMemoryOperatorWorkspaceRepository, OperatorWorkspaceService, OperatorWorkspaceRuntime } = require('./modules/operator_workspace');
 const { CRMRepository, CRMService, CRMRuntime } = require('./modules/crm');
+const { CustomerProfileCommunicationService } = require('./modules/customer_profile/CustomerProfileCommunicationService');
 const { Customer360Repository, Customer360Service, Customer360Runtime, ExternalChannelRepository, ExternalChannelService } = require('./modules/customer_360');
 const { MachineConnectivityRepository, MachineConnectivityService } = require('./modules/machine_connectivity');
 const { VideoSurveillanceRepository, VideoSurveillanceService, VideoSurveillanceRuntime, MockRtspCameraAdapter, InMemoryVideoRecorderAdapter, LocalMetadataVideoStorageAdapter, VideoCamera, MotionSensor, VideoRecordingPolicy } = require('./modules/video_surveillance');
@@ -42,12 +45,13 @@ const { PrismaOutboxRepository, OutboxAdminService } = require('./modules/transa
 const { PaymentRepository, PaymentService, ReconciliationService, PaymentInboxWorker, BlockedExternalPaymentProviderAdapter } = require('./modules/payment');
 const { MachineDispenseRepository, MachineDispenseService, BlockedExternalMachineProviderAdapter, MachineCommandWorker, MachineRecoveryWorker } = require('./modules/machine_dispense');
 
-function createRuntimeDependencies({ logger, metrics, config } = {}) {
+function createRuntimeDependencies({ logger, metrics, config, sideEffectsEnabled = true } = {}) {
   const prisma = getPrismaClient();
   const saleFlowRepository = new PrismaSaleFlowRepository(prisma);
   const inventoryReservationService = new PostgresInventoryReservationService({ prisma });
   const auditRepository = new AuditRepository(prisma);
   const transactionalOutboxRepository = new PrismaOutboxRepository(prisma);
+  const administratorSecurityService = new AdministratorSecurityService({ prisma, sessionTtlSeconds: config?.auth?.adminSessionTtlSeconds || 3600 });
   const outboxAdminService = new OutboxAdminService({ repository: transactionalOutboxRepository, auditRepository });
   const paymentRepository = new PaymentRepository(prisma);
   const paymentProvider = new BlockedExternalPaymentProviderAdapter({ provider: 'YOOKASSA' });
@@ -142,6 +146,20 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     identityProviderRegistry: new CustomerIdentityProviderRegistry(),
   });
   const consentRuntime = new ConsentRuntime({ consentRepository, customerRepository, auditRepository });
+  const terminalChannelChallengeService = process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET
+    ? new TerminalChannelChallengeService({
+        repository: new PrismaTerminalChannelChallengeRepository(prisma),
+        customerRepository,
+        consentRuntime,
+        phoneSecret: process.env.TERMINAL_CHANNEL_CHALLENGE_SECRET,
+        maxBotUrl: process.env.MAX_BOT_USERNAME
+          ? `https://max.ru/${String(process.env.MAX_BOT_USERNAME).replace(/^@/, '')}`
+          : 'https://max.ru/id7017438363_bot',
+        telegramBotUrl: process.env.TELEGRAM_BOT_USERNAME
+          ? `https://t.me/${String(process.env.TELEGRAM_BOT_USERNAME).replace(/^@/, '')}`
+          : null,
+      })
+    : null;
   const segmentationRuntime = new SegmentationRuntime({ segmentationRepository, customerRepository, auditRepository });
 
   const clubAccountRuntime = new ClubAccountRuntime({
@@ -187,7 +205,9 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
   const machineRecoveryWorker = new MachineRecoveryWorker({ repository: machineDispenseRepository, machineDispenseService, workerId: `machine-recovery-${process.pid}` });
   const priceCalculator = new ProductEnginePriceCalculator();
   const saleFlowService = createProductionSaleFlowService({ SaleFlowService, repository: saleFlowRepository, organizationContext, orderDomain, priceCalculator, paymentAdapter, machineAdapter, inventory: inventoryReservationService, metrics });
-  const saleFlowRecoveryReady = saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; });
+  const saleFlowRecoveryReady = sideEffectsEnabled
+    ? saleFlowService.recover().catch((error) => { logger?.error?.('sale_flow.recovery.failed', { code: error.code || 'SALE_FLOW_RECOVERY_FAILED' }); return []; })
+    : Promise.resolve([]);
 
   const authCoreService = new AuthCoreService({
     authSessionRepository,
@@ -214,6 +234,10 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     auditRepository,
     eventPublisher: platformEventBus,
   }) });
+  const customerProfileCommunicationService = new CustomerProfileCommunicationService({
+    prisma,
+    crmRuntime,
+  });
   const customer360Runtime = new Customer360Runtime({ service: new Customer360Service({
     repository: new Customer360Repository(prisma),
     eventPublisher: platformEventBus,
@@ -297,6 +321,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     machineCommandWorker,
     machineRecoveryWorker,
     machineProvider,
+    adminAuth: { environment: config?.environment, sessionService: administratorSecurityService },
     adminDashboardService,
     machineTwinService,
     machineRuntimeService,
@@ -305,6 +330,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     maintenanceRuntime,
     operatorWorkspaceRuntime,
     crmRuntime,
+    customerProfileCommunicationService,
     customer360Runtime,
     externalChannelService,
     machineConnectivityService,
@@ -317,6 +343,7 @@ function createRuntimeDependencies({ logger, metrics, config } = {}) {
     authCoreService,
     customerRuntime,
     consentRuntime,
+    terminalChannelChallengeService,
     clubAccountRuntime,
     machineRuntime,
     orderRuntime,

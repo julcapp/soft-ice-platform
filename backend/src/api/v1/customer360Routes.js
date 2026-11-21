@@ -17,8 +17,8 @@ function createCustomer360Router({ customer360Runtime, authCoreService }) {
 function createAdminCustomer360Router({ customer360Runtime, adminAuth = {} }) {
   const router = express.Router();
   router.use(createAdminAuthenticator(adminAuth));
-  router.get('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getProfile(req.params.customerId))));
-  router.get('/customers/:customerId/timeline', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getTimeline(req.params.customerId, req.query))));
+  router.get('/customers/:customerId', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getProfile(req.params.customerId, { organizationId: req.organizationScope?.organizationId || null }))));
+  router.get('/customers/:customerId/timeline', asyncHandler(async (req, res) => sendData(res, req, await customer360Runtime.getTimeline(req.params.customerId, { ...req.query, organizationId: req.organizationScope?.organizationId || null }))));
   return router;
 }
 

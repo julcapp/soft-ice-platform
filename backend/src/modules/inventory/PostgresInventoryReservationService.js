@@ -1,3 +1,4 @@
+const { paidReservationProtection } = require('./PaidReservationPolicy');
 const crypto = require('crypto');
 const { validateEvent } = require('../transactional_outbox/OutboxRepository');
 
@@ -84,6 +85,7 @@ class PostgresInventoryReservationService {
   expire(reservationId, request, context) { return this.finish(reservationId, 'EXPIRED', request, context); }
 
   async finish(reservationId, target, request = {}, context = {}) {
+    context = { ...context, idempotencyKey: context.idempotencyKey || request.idempotencyKey };
     if (!context.organizationId) throw problem('INVENTORY_TENANT_SCOPE_REQUIRED', 403, 'Контекст организации обязателен.');
     const operation = async (tx) => {
       const rows = await tx.$queryRaw`SELECT * FROM "InventoryRuntimeReservation" WHERE "reservationId"=${reservationId} AND "organizationId"=${context.organizationId} FOR UPDATE`;
@@ -91,7 +93,11 @@ class PostgresInventoryReservationService {
       if (!current) throw problem('INVENTORY_RESERVATION_NOT_FOUND', 404, 'Резерв не найден.');
       if (current.status === target) return { reservation: await tx.inventoryRuntimeReservation.findUnique({ where: { reservationId }, include: { items: true } }), idempotentReplay: true };
       if (TERMINAL.includes(current.status)) throw problem('INVENTORY_RESERVATION_TERMINAL', 409, 'Резерв уже находится в терминальном статусе.');
-      if (target === 'CONSUMED' && new Date(current.expiresAt) <= this.clock()) throw problem('INVENTORY_RESERVATION_EXPIRED', 409, 'Истёкший резерв нельзя списать.');
+      const expired = new Date(current.expiresAt) <= this.clock();
+      const paidProtection = (target === 'EXPIRED' || (target === 'CONSUMED' && expired))
+        ? await paidReservationProtection(tx, current, target, context) : false;
+      if (target === 'EXPIRED' && paidProtection) return { reservation: current, heldForPaidOrder: true };
+      if (target === 'CONSUMED' && expired && !paidProtection) throw problem('INVENTORY_RESERVATION_EXPIRED', 409, 'Истёкший резерв нельзя списать без подтверждённой выдачи оплаченного заказа.');
       const items = await tx.inventoryRuntimeReservationItem.findMany({ where: { reservationId } });
       for (const item of [...items].sort((a, b) => a.inventoryItemId.localeCompare(b.inventoryItemId))) {
         const stock = await tx.inventoryRuntimeStock.findUnique({ where: { organizationId_machineId_locationId_inventoryItemId: { organizationId: current.organizationId, machineId: current.machineId, locationId: current.locationId, inventoryItemId: item.inventoryItemId } } });

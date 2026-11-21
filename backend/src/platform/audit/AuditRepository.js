@@ -19,6 +19,9 @@ class AuditRepository {
         correlationId: event.correlationId,
         metadata: event.metadata || undefined,
         occurredAt: event.occurredAt || new Date(),
+        organizationId: event.organizationId || event.metadata?.organizationId || null,
+        sessionId: event.sessionId || null,
+        idempotencyKey: event.idempotencyKey || null,
       },
     });
   }

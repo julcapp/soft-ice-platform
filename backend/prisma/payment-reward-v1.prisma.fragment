@@ -1,0 +1,64 @@
+// Merge-ready Prisma 5 fragment for payment + per-machine 50th purchase reward.
+// Merge into backend/prisma/schema.prisma together with opposite relations before prisma generate.
+
+model PaymentAttempt {
+  id                String   @id
+  orderId           String
+  provider          String   @default("YOOKASSA")
+  providerPaymentId String?  @unique
+  paymentMethod     String
+  status            String   @default("CREATED")
+  amount            Decimal  @db.Decimal(12, 2)
+  currency          String   @default("RUB")
+  confirmationUrl   String?
+  idempotencyKey    String   @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  succeededAt       DateTime?
+  cancelledAt       DateTime?
+  metadata          Json?
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+}
+
+model CustomerMachineRewardCounter {
+  id                   String   @id
+  customerId           String
+  machineId            String
+  completedPurchases   Int      @default(0)
+  lastCompletedOrderId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  customer             Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  machine              Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, machineId])
+}
+
+model GiftRewardReservation {
+  id              String   @id
+  quoteId         String   @unique
+  customerId      String
+  machineId       String
+  purchaseOrdinal Int
+  itemId          String
+  status          String   @default("RESERVED")
+  reservedAt      DateTime @default(now())
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  orderId         String?
+  metadata        Json?
+  quote           PricingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  machine         Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, machineId, status, expiresAt])
+}
+
+// Opposite relation fields to merge into existing models:
+// Order: paymentAttempts PaymentAttempt[]
+// Customer: rewardCounters CustomerMachineRewardCounter[]; giftRewardReservations GiftRewardReservation[]
+// Machine: rewardCounters CustomerMachineRewardCounter[]; giftRewardReservations GiftRewardReservation[]
+// PricingQuote: giftRewardReservation GiftRewardReservation?

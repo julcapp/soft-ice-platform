@@ -1,0 +1,74 @@
+name: Bot Core CI
+
+on:
+  push:
+    branches:
+      - feature/bot-core-foundation
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'backend/.env.example'
+      - 'backend/scripts/configure-telegram-test-bot.js'
+      - 'backend/src/modules/bot_core/**'
+      - 'backend/src/modules/referral/**'
+      - 'backend/src/modules/welcome_bonus/**'
+      - 'backend/src/api/botWebhook*.js'
+      - 'backend/prisma/**'
+      - 'backend/tests/bot-*.test.js'
+      - 'backend/tests/referral-*.test.js'
+      - 'backend/tests/welcome-bonus.test.js'
+      - '.github/workflows/bot-core-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bot-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://soft_ice_ci:soft_ice_ci@127.0.0.1:5432/soft_ice_ci?schema=public
+      NODE_ENV: test
+      BOT_WEBHOOKS_ENABLED: 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate current Prisma schema
+        run: npm run prisma:validate
+
+      - name: Audit Bot Core Prisma model sync
+        run: node scripts/check-bot-core-prisma-sync.js
+
+      - name: Run Bot Core tests
+        run: >-
+          node --test
+          tests/bot-core.test.js
+          tests/bot-e2e-preview.test.js
+          tests/bot-runtime-deeplink.test.js
+          tests/bot-runtime.test.js
+          tests/bot-transport-rendering.test.js
+          tests/bot-user-flow.test.js
+          tests/bot-webhook-security.test.js
+          tests/bot-telegram-client.test.js
+          tests/referral-core.test.js
+          tests/referral-event-orchestrator.test.js
+          tests/referral-reward-engine.test.js
+          tests/welcome-bonus.test.js

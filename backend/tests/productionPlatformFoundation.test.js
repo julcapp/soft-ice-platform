@@ -13,6 +13,40 @@ test('production configuration validates required secrets and typed flags', () =
   assert.equal(config.features.paymentsEnabled, true);
 });
 
+test('gift notification worker fails closed without an enabled delivery channel', () => {
+  assert.throws(() => createConfig({ NODE_ENV: 'test', GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true' }), /GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED/);
+  const config = createConfig({
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_MAX_ENABLED: 'true',
+    MAX_TEST_BOT_TOKEN: 'test-only-token',
+    BOT_RECIPIENT_ENCRYPTION_KEY: 'test-only-encryption-key',
+  });
+  assert.equal(config.botNotifications.outbox.workerEnabled, true);
+  assert.equal(config.botNotifications.outbox.maxAttempts, 8);
+  assert.equal(config.botNotifications.providerTimeoutMs, 15000);
+  assert.throws(() => createConfig({
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_MAX_ENABLED: 'true',
+    MAX_TEST_BOT_TOKEN: 'test-only-token',
+    BOT_RECIPIENT_ENCRYPTION_KEY: 'test-only-encryption-key',
+    BOT_PROVIDER_TIMEOUT_MS: '60000',
+    GIFT_NOTIFICATION_OUTBOX_LEASE_MS: '60000',
+  }), /Combined bot provider timeout budget must be less/);
+  assert.throws(() => createConfig({
+    NODE_ENV: 'test',
+    GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_TELEGRAM_ENABLED: 'true',
+    GIFT_NOTIFICATIONS_MAX_ENABLED: 'true',
+    TELEGRAM_TEST_BOT_TOKEN: 'telegram-test-only-token',
+    MAX_TEST_BOT_TOKEN: 'max-test-only-token',
+    BOT_RECIPIENT_ENCRYPTION_KEY: 'test-only-encryption-key',
+    BOT_PROVIDER_TIMEOUT_MS: '30000',
+    GIFT_NOTIFICATION_OUTBOX_LEASE_MS: '60000',
+  }), /Combined bot provider timeout budget must be less/);
+});
+
 test('health separates liveness from database and Prisma readiness', async (t) => {
   const app = express();
   app.use('/health', createHealthRouter({ databaseCheck: async () => ({ ok: false, status: 'unavailable', provider: 'postgresql' }) }));

@@ -2,9 +2,9 @@ const express = require('express');
 
 function context(req) {
   return {
-    role: req.headers['x-admin-role'] || 'ADMIN', actorId: req.headers['x-admin-subject'] || 'admin',
-    tenantId: req.headers['x-tenant-id'] || 'default', correlationId: req.correlationId,
-    permissions: String(req.headers['x-admin-permissions'] || '').split(',').filter(Boolean),
+    role: req.securityContext.roles?.includes('PLATFORM_OWNER') ? 'PLATFORM_OWNER' : 'ADMIN', actorId: req.securityContext.subject_id,
+    tenantId: req.organizationScope?.organizationId || null, organizationId: req.organizationScope?.organizationId || null, correlationId: req.correlationId,
+    permissions: req.securityContext.permissions || [],
     machineIds: String(req.headers['x-machine-ids'] || '').split(',').filter(Boolean),
   };
 }

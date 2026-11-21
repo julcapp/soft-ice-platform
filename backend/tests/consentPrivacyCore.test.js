@@ -1,4 +1,4 @@
-const assert = require('assert/strict');
+﻿const assert = require('assert/strict');
 const { test } = require('node:test');
 
 const { createApp } = require('../src/main');
@@ -8,7 +8,7 @@ const { createTestDependencies } = require('./helpers/createTestDependencies');
 
 test('Consent Privacy Core exposes the approved legal vocabularies', () => {
   assert.deepEqual(CONSENT_TYPES, ['PERSONAL_DATA', 'MARKETING', 'ADVERTISING', 'PARTNER_OFFERS', 'PHOTO_USAGE']);
-  assert.deepEqual(CONSENT_SOURCE_CHANNELS, ['TELEGRAM', 'MINI_APP', 'MACHINE', 'WEBSITE']);
+  assert.deepEqual(CONSENT_SOURCE_CHANNELS, ['TELEGRAM', 'MAX', 'MINI_APP', 'MACHINE', 'WEBSITE']);
 });
 
 test('customer can append and read timestamped consent history', async (t) => {

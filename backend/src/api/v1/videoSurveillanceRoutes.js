@@ -1,7 +1,7 @@
 const express = require('express');
 const { asyncHandler, sendData } = require('../../platform/http/apiResponse');
 const { createAdminAuthenticator } = require('../../platform/security/authenticateAdmin');
-function ctx(req) { return { roles: req.securityContext.roles, permissions: (req.get('X-Admin-Permissions') || '').split(',').filter(Boolean), actorId: req.securityContext.subject_id, correlationId: req.correlationId }; }
+function ctx(req) { return { roles: req.securityContext.roles, permissions: req.securityContext.permissions || [], organizationId: req.organizationScope?.organizationId || null, actorId: req.securityContext.subject_id, correlationId: req.correlationId }; }
 function createVideoSurveillanceRouter({ videoSurveillanceRuntime, adminAuth = {} }) {
   const router = express.Router(); router.use(createAdminAuthenticator(adminAuth));
   router.get('/machines/:machineId/cameras', (req, res) => sendData(res, req, videoSurveillanceRuntime.listCameras(req.params.machineId, ctx(req))));

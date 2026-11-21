@@ -1,3 +1,4 @@
+const { normalizePersonName } = require('../../platform/validation/personName');
 const crypto = require('crypto');
 
 const STATUSES = ['ACTIVE', 'SUSPENDED', 'ARCHIVED', 'BLOCKED'];
@@ -11,6 +12,23 @@ function failure(code, message, statusCode = 422) { return Object.assign(new Err
 function required(input, fields) { for (const field of fields) if (input[field] === undefined || input[field] === null || input[field] === '') throw failure('ORGANIZATION_VALIDATION_FAILED', `Обязательное поле не заполнено: ${field}.`); }
 function pick(value, keys) { return Object.fromEntries(keys.filter((key) => value[key] !== undefined).map((key) => [key, value[key]])); }
 
+
+function validateContacts(input) {
+  const data = { ...input };
+  const limits = { fullName: 1000, shortName: 250, organizationType: 250, directorName: 250, directorPosition: 250, phone: 100, email: 250, website: 1000, legalAddress: 1000, inn: 12, kpp: 9, ogrn: 15 };
+  for (const [field, limit] of Object.entries(limits)) {
+    if (data[field] == null) continue;
+    if (typeof data[field] !== 'string' || data[field].length > limit) throw failure('ORGANIZATION_VALIDATION_FAILED', 'Некорректные данные реквизитов организации.');
+    data[field] = data[field].trim() || null;
+  }
+  if (data.directorName) data.directorName = normalizePersonName(data.directorName);
+  if (data.inn && !/^(\d{10}|\d{12})$/.test(data.inn)) throw failure('ORGANIZATION_INN_INVALID', 'ИНН должен содержать 10 или 12 цифр.');
+  if (data.kpp && !/^\d{9}$/.test(data.kpp)) throw failure('ORGANIZATION_KPP_INVALID', 'КПП должен содержать 9 цифр.');
+  if (data.ogrn && !/^(\d{13}|\d{15})$/.test(data.ogrn)) throw failure('ORGANIZATION_OGRN_INVALID', 'ОГРН должен содержать 13 цифр, ОГРНИП — 15.');
+  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw failure('ORGANIZATION_EMAIL_INVALID', 'Проверьте адрес электронной почты.');
+  return data;
+}
+
 class OrganizationService {
   constructor({ repository, eventPublisher, auditRepository, clock = () => new Date() }) { Object.assign(this, { repository, eventPublisher, auditRepository, clock }); }
   async ensure(id) { const organization = await this.repository.findById(id); if (!organization) throw failure('ORGANIZATION_NOT_FOUND', 'Организация не найдена.', 404); return organization; }
@@ -18,16 +36,19 @@ class OrganizationService {
   list(scope = {}) { return this.repository.list(scope.organizationId ? { id: scope.organizationId } : {}); }
   async get(id) { const organization = await this.ensure(id); const overview = await this.repository.overview(id); return { ...organization, overview: this.formatOverview(overview) }; }
   async create(input, context) {
+    input = validateContacts(input);
     required(input, ['fullName', 'shortName', 'organizationType']);
+    if (input.inn && this.repository.findByInn && await this.repository.findByInn(input.inn, input.kpp)) throw failure('ORGANIZATION_ALREADY_EXISTS', 'Организация с этим ИНН и КПП уже есть в базе. Выберите её из списка.', 409);
     if (input.status && !STATUSES.includes(input.status)) throw failure('ORGANIZATION_STATUS_INVALID', 'Неизвестный статус организации.');
-    const organization = await this.repository.create({ ...pick(input, ['id','fullName','shortName','organizationType','inn','kpp','ogrn','legalAddress','actualAddress','phone','email','website','status','foundedAt','cooperationStartedAt','note']) });
+    const organization = await this.repository.create({ ...pick(input, ['id','fullName','shortName','organizationType','directorName','directorPosition','inn','kpp','ogrn','legalAddress','actualAddress','phone','email','website','status','foundedAt','cooperationStartedAt','note']) });
     await this.record('organization.created', organization.id, context, { shortName: organization.shortName }, 'CREATE');
     return organization;
   }
   async update(id, input, context) {
+    input = validateContacts(input);
     const current = await this.ensure(id);
     if (input.status && !STATUSES.includes(input.status)) throw failure('ORGANIZATION_STATUS_INVALID', 'Неизвестный статус организации.');
-    const data = pick(input, ['fullName','shortName','organizationType','inn','kpp','ogrn','legalAddress','actualAddress','phone','email','website','status','foundedAt','cooperationStartedAt','note']);
+    const data = pick(input, ['fullName','shortName','organizationType','directorName','directorPosition','inn','kpp','ogrn','legalAddress','actualAddress','phone','email','website','status','foundedAt','cooperationStartedAt','note']);
     if (data.status === 'ARCHIVED') data.archivedAt = this.clock();
     const organization = await this.repository.update(id, data);
     const type = input.status && input.status !== current.status ? 'organization.status_changed' : 'organization.updated';
@@ -57,6 +78,7 @@ class OrganizationService {
   }
   async listMembers(id) { await this.ensure(id); return this.repository.listMembers(id); }
   async createMember(id, input, context) {
+    input = { ...input, fullName: normalizePersonName(input.fullName) };
     await this.ensure(id); required(input, ['fullName','position']);
     if (input.status && !MEMBER_STATUSES.includes(input.status)) throw failure('ORGANIZATION_MEMBER_STATUS_INVALID', 'Неизвестный статус сотрудника.');
     if (input.unitId) await this.ensureOwned(id, await this.repository.findUnit(input.unitId), 'Подразделение');
@@ -64,6 +86,7 @@ class OrganizationService {
     await this.record('organization.member.created', id, context, { memberId: member.id }, 'CREATE', 'organization_member', member.id); return member;
   }
   async updateMember(id, memberId, input, context) {
+    input = { ...input, ...(input.fullName !== undefined ? { fullName: normalizePersonName(input.fullName) } : {}) };
     await this.ensureOwned(id, await this.repository.findMember(memberId), 'Сотрудник');
     if (input.status && !MEMBER_STATUSES.includes(input.status)) throw failure('ORGANIZATION_MEMBER_STATUS_INVALID', 'Неизвестный статус сотрудника.');
     if (input.unitId) await this.ensureOwned(id, await this.repository.findUnit(input.unitId), 'Подразделение');

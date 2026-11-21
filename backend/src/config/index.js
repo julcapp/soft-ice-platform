@@ -44,8 +44,19 @@ function createConfig(environment = process.env, secretProvider = new Environmen
       telegramBotToken: secretProvider.get('TELEGRAM_BOT_TOKEN'),
       telegramInitDataMaxAgeSeconds: parseInteger(environment.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS, 86400, 'TELEGRAM_INIT_DATA_MAX_AGE_SECONDS'),
       accessTokenTtlSeconds: parseInteger(environment.AUTH_ACCESS_TOKEN_TTL_SECONDS, 900, 'AUTH_ACCESS_TOKEN_TTL_SECONDS'),
+      adminSessionTtlSeconds: parseInteger(environment.ADMIN_SESSION_TTL_SECONDS, 3600, 'ADMIN_SESSION_TTL_SECONDS'),
     },
     logging: { level: environment.LOG_LEVEL || (profile === 'production' ? 'info' : 'debug') },
+    botNotifications: {
+      telegramEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_TELEGRAM_ENABLED, false),
+      maxEnabled: parseBoolean(environment.GIFT_NOTIFICATIONS_MAX_ENABLED, false),
+      providerTimeoutMs: parseInteger(environment.BOT_PROVIDER_TIMEOUT_MS, 15000, 'BOT_PROVIDER_TIMEOUT_MS'),
+      outbox: {
+        workerEnabled: parseBoolean(environment.GIFT_NOTIFICATION_OUTBOX_WORKER_ENABLED, false),
+        maxAttempts: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS, 8, 'GIFT_NOTIFICATION_OUTBOX_MAX_ATTEMPTS'),
+        leaseMs: parseInteger(environment.GIFT_NOTIFICATION_OUTBOX_LEASE_MS, 60000, 'GIFT_NOTIFICATION_OUTBOX_LEASE_MS'),
+      },
+    },
     machineGateway: {
       machineId: environment.HUAXIN_MACHINE_ID || 'huaxin_default',
       heartbeatIntervalMs: parseInteger(environment.HUAXIN_HEARTBEAT_INTERVAL_MS, 15000, 'HUAXIN_HEARTBEAT_INTERVAL_MS'),
@@ -72,6 +83,14 @@ function validateConfig(config) {
   if (config.isProduction && !config.database.url) missing.push('DATABASE_URL');
   if (config.isProduction && !config.auth.telegramBotToken) missing.push('TELEGRAM_BOT_TOKEN');
   if (missing.length) throw new Error(`Missing required production configuration: ${missing.join(', ')}`);
+  const notifications = config.botNotifications;
+  if (notifications.outbox.workerEnabled) {
+    const count = Number(notifications.telegramEnabled) + Number(notifications.maxEnabled);
+    if (!count) throw new Error('Enable GIFT_NOTIFICATIONS_TELEGRAM_ENABLED or GIFT_NOTIFICATIONS_MAX_ENABLED before starting outbox worker.');
+    if (count * notifications.providerTimeoutMs >= notifications.outbox.leaseMs) {
+      throw new Error('Combined bot provider timeout budget must be less than the outbox lease.');
+    }
+  }
   return config;
 }
 

@@ -3,32 +3,28 @@ class OrderRepository {
     this.prisma = prisma;
   }
 
-  async create({ customerId, status, amount, currency }) {
+  async create({ customerId, status, amount, currency, machineId = null, basePriceRub = null, promoDiscountRub = 0 }) {
     return this.prisma.order.create({
       data: {
         customerId,
         status,
         amount,
         currency,
+        machineId,
+        basePriceRub,
+        promoDiscountRub,
         amountPaidRub: amount,
-        paymentStatus: 'pending',
+        paymentStatus: status === 'PAID' ? 'paid' : 'pending',
       },
     });
   }
 
   async findById(orderId) {
-    return this.prisma.order.findUnique({
-      where: { id: orderId },
-    });
+    return this.prisma.order.findUnique({ where: { id: orderId } });
   }
 
   async findByIdForCustomer(orderId, customerId) {
-    return this.prisma.order.findFirst({
-      where: {
-        id: orderId,
-        customerId,
-      },
-    });
+    return this.prisma.order.findFirst({ where: { id: orderId, customerId } });
   }
 
   async findByCustomerId(customerId, { limit = 50 } = {}) {
@@ -53,8 +49,7 @@ class OrderRepository {
   async cancelPrepaidToBalance(orderId, cancelledAt = new Date()) {
     return this.prisma.order.update({
       where: { id: orderId },
-      data: { status: 'CANCELLED_BY_CUSTOMER', activePickupCodeHash: null,
-        cancelledToBalanceAt: cancelledAt, bonusEarned: 0 },
+      data: { status: 'CANCELLED_BY_CUSTOMER', activePickupCodeHash: null, cancelledToBalanceAt: cancelledAt, bonusEarned: 0 },
     });
   }
 
@@ -83,6 +78,4 @@ class OrderRepository {
   }
 }
 
-module.exports = {
-  OrderRepository,
-};
+module.exports = { OrderRepository };

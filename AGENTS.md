@@ -46,6 +46,9 @@ docs/domain/MEDIA_LIBRARY_STRUCTURE.md
 docs/testing/TEST_SCENARIOS.md
 CHANGELOG.md
 PROJECT_MEMORY.md
+PROJECT_STATE.md
+DEVELOPMENT_WORKFLOW.md
+docs/DEPLOYMENT_ENDPOINTS.md
 ```
 
 ## Core architecture rules
@@ -66,24 +69,15 @@ PROJECT_MEMORY.md
 ## Current engineering focus
 
 ```text
-Sprint 1.1 — Product Engine Core
+Integration hardening and acceptance for v0.36.0
 ```
 
-Expected folders:
+Current priorities:
 
-```text
-frontend/miniapp/src/data/
-frontend/miniapp/src/services/
-```
-
-Expected services:
-
-```text
-CatalogService.js
-MediaService.js
-PriceEngine.js
-ProductConfigurator.js
-```
+- preserve one source of truth in PostgreSQL-backed runtime boundaries;
+- complete Telegram/MAX bot delivery behind disabled-by-default flags;
+- keep production unchanged until explicit release approval;
+- remove duplicate interfaces and converge role-specific workspaces on shared code.
 
 ## Coding rules
 
@@ -162,17 +156,22 @@ Update `docs/architecture/PROJECT_DECISIONS.md` when making a significant archit
 
 ## Git rules
 
-Preferred branch names:
+Canonical branch names:
 
 ```text
-feature/data-layer
-feature/media-engine
-feature/price-engine
-feature/preview-screen
-feature/cart
-feature/payments
-feature/crm
+feature/<task>
+fix/<task>
+docs/<task>
+hotfix/<task>
 ```
+
+The branch identifies the task, not the device. Continue the same branch when moving
+between phone and PC. Legacy `work/phone/*` and `work/pc/*` branches may be
+completed, but new work must use the canonical names above.
+
+Direct pushes to `main` and `integration/*` are prohibited. Target
+`integration/unified-v0.36.0` from a task branch unless the Product Owner
+explicitly approves another base.
 
 Commit examples:
 

@@ -47,12 +47,17 @@ class PrismaOutboxRepository {
     return tenantClause;
   }
   markPublished(eventId, workerId, now = new Date()) { return this.transition(eventId, workerId, { status: 'PUBLISHED', publishedAt: now, lockedAt: null, lockedBy: null, lastError: null, attemptCount: { increment: 1 } }); }
-  scheduleRetry(eventId, workerId, { availableAt, error }) { return this.transition(eventId, workerId, { status: 'RETRY', availableAt, lastError: safeError(error), lockedAt: null, lockedBy: null, attemptCount: { increment: 1 } }); }
+  scheduleRetry(eventId, workerId, { availableAt, error, preserveAttempt = false }) { return this.transition(eventId, workerId, { status: 'RETRY', availableAt, lastError: safeError(error), lockedAt: null, lockedBy: null, ...(preserveAttempt ? {} : { attemptCount: { increment: 1 } }) }); }
   markDeadLetter(eventId, workerId, error) { return this.transition(eventId, workerId, { status: 'DEAD_LETTER', lastError: safeError(error), lockedAt: null, lockedBy: null, attemptCount: { increment: 1 } }); }
   async transition(eventId, workerId, data) {
     const result = await this.prisma.transactionalOutboxEvent.updateMany({ where: { eventId, status: 'PROCESSING', lockedBy: workerId }, data });
     if (result.count !== 1) throw conflict('OUTBOX_LEASE_LOST', 'Outbox lock потерян или событие уже обработано.');
     return this.getByEventId(eventId, { platform: true });
+  }
+  async renewLease(eventId, workerId, now = new Date()) {
+    const changed = await this.prisma.transactionalOutboxEvent.updateMany({ where: { eventId, status: 'PROCESSING', lockedBy: workerId }, data: { lockedAt: now } });
+    if (changed.count !== 1) throw conflict('OUTBOX_LEASE_LOST', 'Outbox lease is no longer owned by worker.');
+    return changed;
   }
   async releaseExpiredLocks({ before, now = new Date() }) {
     return this.prisma.transactionalOutboxEvent.updateMany({ where: { status: 'PROCESSING', lockedAt: { lt: before } }, data: { status: 'RETRY', availableAt: now, lockedAt: null, lockedBy: null, lastError: 'WORKER_LEASE_EXPIRED' } });
@@ -74,14 +79,23 @@ class InMemoryOutboxRepository {
   async claimPendingEvents({ workerId, batchSize = 50, now = new Date(), organizationId, eventTypes } = {}) { const claimed = [...this.store.values()].filter((x) => CLAIMABLE.includes(x.status) && x.availableAt <= now && (!organizationId || x.organizationId === organizationId) && (!eventTypes?.length || eventTypes.includes(x.eventType))).slice(0,batchSize); for (const x of claimed) Object.assign(x,{status:'PROCESSING',lockedAt:now,lockedBy:workerId,updatedAt:now}); return claimed; }
   async transition(id, workerId, data) { const row=this.store.get(id); if(!row || row.status!=='PROCESSING' || row.lockedBy!==workerId) throw conflict('OUTBOX_LEASE_LOST','Outbox lock потерян или событие уже обработано.'); const inc=data.attemptCount?.increment||0; Object.assign(row,data,{attemptCount:row.attemptCount+inc,updatedAt:new Date()}); return row; }
   markPublished(id,w,now=new Date()){return this.transition(id,w,{status:'PUBLISHED',publishedAt:now,lockedAt:null,lockedBy:null,lastError:null,attemptCount:{increment:1}});}
-  scheduleRetry(id,w,{availableAt,error}){return this.transition(id,w,{status:'RETRY',availableAt,lastError:safeError(error),lockedAt:null,lockedBy:null,attemptCount:{increment:1}});}
+  scheduleRetry(id,w,{availableAt,error,preserveAttempt=false}){return this.transition(id,w,{status:'RETRY',availableAt,lastError:safeError(error),lockedAt:null,lockedBy:null,...(preserveAttempt?{}:{attemptCount:{increment:1}})});}
   markDeadLetter(id,w,error){return this.transition(id,w,{status:'DEAD_LETTER',lastError:safeError(error),lockedAt:null,lockedBy:null,attemptCount:{increment:1}});}
+  async renewLease(id, workerId, now = new Date()) { const row=this.store.get(id); if(!row || row.status!=='PROCESSING' || row.lockedBy!==workerId) throw conflict('OUTBOX_LEASE_LOST','Outbox lease is no longer owned by worker.'); row.lockedAt=now; return row; }
   async releaseExpiredLocks({before,now=new Date()}){let count=0; for(const x of this.store.values())if(x.status==='PROCESSING'&&x.lockedAt<before){Object.assign(x,{status:'RETRY',availableAt:now,lockedAt:null,lockedBy:null,lastError:'WORKER_LEASE_EXPIRED'});count++;} return {count};}
   async retryDeadLetter(id,scope={}){const x=await this.getByEventId(id,scope);if(!x||x.status!=='DEAD_LETTER')throw conflict('OUTBOX_RETRY_NOT_ALLOWED','Повтор разрешён только для доступного DEAD_LETTER события.');Object.assign(x,{status:'RETRY',availableAt:new Date(),lastError:null});return x;}
 }
 
 function normalize(event) { return { eventId: event.eventId, eventType: event.eventType, eventVersion: event.eventVersion || 1, aggregateType: event.aggregateType, aggregateId: event.aggregateId, organizationId: event.organizationId, machineId: event.machineId || null, saleFlowId: event.saleFlowId || null, payload: event.payload || {}, status: event.status || 'PENDING', attemptCount: event.attemptCount || 0, maxAttempts: event.maxAttempts || 5, availableAt: event.availableAt || new Date(), occurredAt: event.occurredAt || new Date(), correlationId: event.correlationId || null, causationId: event.causationId || null, idempotencyKey: event.idempotencyKey }; }
-function validateEvent(event) { for (const key of ['eventId','eventType','aggregateType','aggregateId','organizationId','idempotencyKey']) if (!event[key]) throw invalid(`${key} обязателен.`); const path = findSecret(event.payload); if (path) throw invalid(`Outbox payload содержит запрещённое поле: ${path}.`); }
+const PLATFORM_EVENT_TYPES = new Set(['GIFT_INVITATION_DELIVERY_REQUESTED']);
+function validateEvent(event) {
+  for (const key of ['eventId','eventType','aggregateType','aggregateId','idempotencyKey']) {
+    if (!event[key]) throw invalid(`${key} обязателен.`);
+  }
+  if (!event.organizationId && !PLATFORM_EVENT_TYPES.has(event.eventType)) throw invalid('organizationId обязателен.');
+  const path = findSecret(event.payload);
+  if (path) throw invalid(`Outbox payload содержит запрещённое поле: ${path}.`);
+}
 function findSecret(value, path = '') { if (!value || typeof value !== 'object') return null; for (const [key, child] of Object.entries(value)) { const next=Array.isArray(value)?`${path}[${key}]`:(path?`${path}.${key}`:key); if (SECRET_FIELDS.has(normalizeFieldName(key))) return next; const found=findSecret(child,next); if(found)return found; } return null; }
 function normalizeFieldName(value) { return String(value).replace(/[^a-z0-9]/gi, '').toLowerCase(); }
 function tenantWhere(scope) { if (scope.platform) return {}; if (!scope.organizationId) throw Object.assign(new Error('Tenant scope обязателен.'), { code: 'OUTBOX_TENANT_SCOPE_REQUIRED', statusCode: 403 }); return { organizationId: scope.organizationId }; }

@@ -1,5 +1,12 @@
 # Architecture Status
 
+## Administrator Identity / Session / Authorization & Security Audit v1 — 2026-08-25
+
+- Durable administrator identity/session and production Bearer validation: `IMPLEMENTED`.
+- Tenant-derived permission authorization and session audit/outbox atomicity: `IMPLEMENTED`.
+- Access management, approval and break-glass data contracts: `FOUNDATION_ONLY`.
+- Production IdP, MFA and step-up verification: `BLOCKED_EXTERNAL`.
+
 ## Payment Lifecycle & Reconciliation v1 — 2026-08-23
 
 - Payment Domain: `IMPLEMENTED`.
